@@ -1,6 +1,5 @@
 import { useState, useMemo } from 'react';
 import { useStore } from '../context/DataContext';
-// SE ELIMINÓ LA IMPORTACIÓN DE 'date-fns' QUE CAUSABA EL ERROR (parseISO)
 import { Edit2, AlertOctagon, ArrowRightLeft, FileSpreadsheet, Wallet, Smartphone } from 'lucide-react';
 import { supabase } from '../supabase';
 import { formatPeruDate, getPeruDateString } from '../utils';
@@ -23,7 +22,6 @@ export default function Historial() {
       
       // LÓGICA DE FILTRADO EXACTA PARA PERÚ:
       // Convertimos la fecha de la transacción a formato "YYYY-MM-DD" en zona horaria Lima.
-      // Esto asegura que si la venta fue el 17 a las 23:00, siga siendo 17 y no 18 (UTC).
       const dateObj = new Date(tDateStr);
       const peruDateStr = new Intl.DateTimeFormat('en-CA', { // 'en-CA' fuerza formato YYYY-MM-DD
           timeZone: 'America/Lima'
