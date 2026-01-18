@@ -1,6 +1,6 @@
-import { type ReactNode } from 'react'; // 1. Importamos el tipo ReactNode
+import { type ReactNode } from 'react';
 import { Routes, Route, Navigate, useLocation } from 'react-router-dom';
-import { useAuth } from './context/AuthContext';
+import { AuthProvider, useAuth } from './context/AuthContext'; // 1. IMPORTAMOS AuthProvider
 import { StoreProvider } from './context/DataContext';
 
 // Importamos las páginas
@@ -9,11 +9,10 @@ import Caja from './pages/Caja';
 import Historial from './pages/Historial';
 import Ventas from './pages/Ventas'; 
 
-// 2. Usamos ReactNode en lugar de JSX.Element para evitar el error de namespace
 const ProtectedRoute = ({ children }: { children: ReactNode }) => {
   const { isAuthenticated } = useAuth();
   if (!isAuthenticated) return <Navigate to="/" replace />;
-  return <>{children}</>; // Envuelto en fragmento para cumplir con el tipo retorno estricto
+  return <>{children}</>; 
 };
 
 const Navbar = () => {
@@ -51,34 +50,37 @@ const Navbar = () => {
 
 export default function App() {
   return (
-    <StoreProvider>
-      <div className="min-h-screen bg-[#0f172a] text-white font-sans">
-        <Navbar />
-        
-        <Routes>
-          <Route path="/" element={<Login />} />
+    // 2. AGREGAMOS EL AuthProvider AQUÍ ENVOLVIENDO TODO
+    <AuthProvider>
+      <StoreProvider>
+        <div className="min-h-screen bg-[#0f172a] text-white font-sans">
+          <Navbar />
           
-          <Route path="/ventas" element={
-            <ProtectedRoute>
-              <Ventas />
-            </ProtectedRoute>
-          } />
-          
-          <Route path="/caja" element={
-            <ProtectedRoute>
-              <Caja />
-            </ProtectedRoute>
-          } />
-          
-          <Route path="/historial" element={
-            <ProtectedRoute>
-              <Historial />
-            </ProtectedRoute>
-          } />
-          
-          <Route path="*" element={<Navigate to="/" replace />} />
-        </Routes>
-      </div>
-    </StoreProvider>
+          <Routes>
+            <Route path="/" element={<Login />} />
+            
+            <Route path="/ventas" element={
+              <ProtectedRoute>
+                <Ventas />
+              </ProtectedRoute>
+            } />
+            
+            <Route path="/caja" element={
+              <ProtectedRoute>
+                <Caja />
+              </ProtectedRoute>
+            } />
+            
+            <Route path="/historial" element={
+              <ProtectedRoute>
+                <Historial />
+              </ProtectedRoute>
+            } />
+            
+            <Route path="*" element={<Navigate to="/" replace />} />
+          </Routes>
+        </div>
+      </StoreProvider>
+    </AuthProvider>
   );
 }
