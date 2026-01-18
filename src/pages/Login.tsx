@@ -7,7 +7,10 @@ export default function Login() {
   const [pin, setPin] = useState('');
   const [loading, setLoading] = useState(false);
   const [errorMsg, setErrorMsg] = useState('');
-  const { login } = useAuth();
+  
+  // CORRECCIÓN: Quitamos 'canAccess' de aquí porque no se usa en este archivo
+  const { login } = useAuth(); 
+  
   const navigate = useNavigate();
 
   const handleLogin = async (e: React.FormEvent) => {
@@ -18,22 +21,29 @@ export default function Login() {
     setErrorMsg('');
 
     try {
-      console.log("Enviando PIN:", pin); // Para ver en consola F12
       const success = await login(pin);
-      console.log("Resultado Login:", success);
 
       if (success) {
-        navigate('/caja');
+        // Leemos directamente del storage para asegurar que tenemos los permisos frescos
+        // (El estado de React podría tardar milisegundos en actualizarse)
+        const savedUser = JSON.parse(localStorage.getItem('pizza_user') || '{}');
+        const modules = savedUser.allowed_modules || [];
+
+        // Lógica de Redirección según permisos
+        if (savedUser.role === 'ADMIN' || modules.includes('VENTAS')) {
+            navigate('/ventas'); 
+        } else if (modules.includes('CAJA')) {
+            navigate('/caja');
+        } else {
+            navigate('/'); // Fallback
+        }
       } else {
-        // SI FALLA, EJECUTAR ESTO PARA QUITAR EL "CARGANDO"
-        alert("FALLÓ EL LOGIN: Revisa la consola (F12) para ver el error exacto.");
         setErrorMsg('PIN incorrecto o usuario inactivo');
         setLoading(false);
         setPin(''); 
       }
     } catch (error) {
       console.error(error);
-      alert("ERROR DE CONEXIÓN CRÍTICO");
       setErrorMsg('Error de conexión');
       setLoading(false);
     }
@@ -56,10 +66,7 @@ export default function Login() {
               type="password"
               inputMode="numeric"
               value={pin}
-              onChange={(e) => {
-                  setPin(e.target.value);
-                  setErrorMsg('');
-              }}
+              onChange={(e) => { setPin(e.target.value); setErrorMsg(''); }}
               className="w-full bg-slate-900 text-white text-center text-4xl font-bold tracking-[1em] py-4 rounded-2xl border border-slate-600 focus:border-red-500 focus:ring-2 focus:ring-red-500/20 outline-none transition-all placeholder:tracking-normal"
               placeholder="••••"
               maxLength={4}
@@ -67,26 +74,13 @@ export default function Login() {
               autoFocus
             />
           </div>
-
           {errorMsg && (
             <div className="bg-red-500/10 border border-red-500/50 rounded-xl p-3 flex items-center gap-2 text-red-200 text-sm justify-center animate-pulse">
-                <AlertCircle size={16} />
-                <span>{errorMsg}</span>
+                <AlertCircle size={16} /> <span>{errorMsg}</span>
             </div>
           )}
-
-          <button
-            type="submit"
-            disabled={loading || pin.length < 4}
-            className="w-full bg-red-600 hover:bg-red-500 text-white font-bold py-4 rounded-2xl transition-all active:scale-95 disabled:opacity-50 disabled:scale-100 flex items-center justify-center gap-2"
-          >
-            {loading ? (
-                <>
-                    <Loader2 className="animate-spin" /> Accediendo...
-                </>
-            ) : (
-                "INGRESAR"
-            )}
+          <button type="submit" disabled={loading || pin.length < 4} className="w-full bg-red-600 hover:bg-red-500 text-white font-bold py-4 rounded-2xl transition-all active:scale-95 disabled:opacity-50 disabled:scale-100 flex items-center justify-center gap-2">
+            {loading ? <><Loader2 className="animate-spin" /> Accediendo...</> : "INGRESAR"}
           </button>
         </form>
       </div>

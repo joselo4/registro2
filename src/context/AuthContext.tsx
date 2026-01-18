@@ -6,6 +6,8 @@ interface User {
   name: string;
   role: string;
   pin: string;
+  is_active?: boolean;
+  allowed_modules?: string[]; // Nueva propiedad
 }
 
 interface AuthContextType {
@@ -13,6 +15,7 @@ interface AuthContextType {
   login: (pin: string) => Promise<boolean>;
   logout: () => void;
   isAuthenticated: boolean;
+  canAccess: (module: string) => boolean; // Nueva función helper
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
@@ -20,7 +23,6 @@ const AuthContext = createContext<AuthContextType | undefined>(undefined);
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<User | null>(null);
 
-  // Intentar recuperar sesión al recargar página
   useEffect(() => {
     const savedUser = localStorage.getItem('pizza_user');
     if (savedUser) {
@@ -30,24 +32,26 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   const login = async (pin: string): Promise<boolean> => {
     try {
-      // Validamos el PIN contra la tabla de usuarios real de Supabase
       const { data, error } = await supabase
         .from('app_users')
         .select('*')
         .eq('pin', pin)
-        .eq('is_active', true) // Solo usuarios activos
-        .single();
+        .eq('is_active', true)
+        .maybeSingle();
 
-      if (error || !data) {
-        return false;
-      }
+      if (error || !data) return false;
 
-      // Login exitoso
-      setUser(data);
-      localStorage.setItem('pizza_user', JSON.stringify(data));
+      // Aseguramos que allowed_modules sea un array
+      const userData = {
+          ...data,
+          allowed_modules: data.allowed_modules || []
+      };
+
+      setUser(userData);
+      localStorage.setItem('pizza_user', JSON.stringify(userData));
       return true;
     } catch (err) {
-      console.error("Error login:", err);
+      console.error("Login error:", err);
       return false;
     }
   };
@@ -57,8 +61,15 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     localStorage.removeItem('pizza_user');
   };
 
+  // Función para verificar permisos fácilmente en cualquier parte
+  const canAccess = (module: string) => {
+      if (!user) return false;
+      if (user.role === 'ADMIN') return true; // Admin ve todo
+      return user.allowed_modules?.includes(module) || false;
+  };
+
   return (
-    <AuthContext.Provider value={{ user, login, logout, isAuthenticated: !!user }}>
+    <AuthContext.Provider value={{ user, login, logout, isAuthenticated: !!user, canAccess }}>
       {children}
     </AuthContext.Provider>
   );
@@ -66,8 +77,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
 export const useAuth = () => {
   const context = useContext(AuthContext);
-  if (context === undefined) {
-    throw new Error('useAuth must be used within an AuthProvider');
-  }
+  if (context === undefined) throw new Error('useAuth must be used within an AuthProvider');
   return context;
 };
