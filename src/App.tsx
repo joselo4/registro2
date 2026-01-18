@@ -1,49 +1,84 @@
-import React from 'react'; // <--- IMPORTANTE
-import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
-import { AuthProvider, useAuth } from './context/AuthContext';
+import { type ReactNode } from 'react'; // 1. Importamos el tipo ReactNode
+import { Routes, Route, Navigate, useLocation } from 'react-router-dom';
+import { useAuth } from './context/AuthContext';
 import { StoreProvider } from './context/DataContext';
-import AppLayout from './layouts/AppLayout';
 
-// Pages
+// Importamos las páginas
 import Login from './pages/Login';
-import Ventas from './pages/Ventas';
 import Caja from './pages/Caja';
 import Historial from './pages/Historial';
-import Reportes from './pages/Reportes';
-import Admin from './pages/Admin';
-import Stock from './pages/Stock';
+import Ventas from './pages/Ventas'; 
 
-const ProtectedRoute = ({ children }: { children: React.ReactNode }) => {
-  const { user } = useAuth();
-  if (!user) return <Navigate to="/login" replace />;
-  return children;
+// 2. Usamos ReactNode en lugar de JSX.Element para evitar el error de namespace
+const ProtectedRoute = ({ children }: { children: ReactNode }) => {
+  const { isAuthenticated } = useAuth();
+  if (!isAuthenticated) return <Navigate to="/" replace />;
+  return <>{children}</>; // Envuelto en fragmento para cumplir con el tipo retorno estricto
 };
 
-function App() {
-  return (
-    <BrowserRouter>
-      <AuthProvider>
-        <StoreProvider>
-          <Routes>
-            <Route path="/login" element={<Login />} />
+const Navbar = () => {
+    const { user, logout, canAccess } = useAuth();
+    const location = useLocation();
+    
+    if (location.pathname === '/') return null;
+
+    return (
+        <nav className="fixed bottom-0 left-0 right-0 bg-slate-900 border-t border-slate-800 p-2 flex justify-around items-center z-50 pb-safe">
+            {(user?.role === 'ADMIN' || canAccess('VENTAS')) && (
+                <a href="/ventas" className={`p-2 rounded-xl flex flex-col items-center gap-1 text-[10px] font-bold ${location.pathname === '/ventas' ? 'text-red-500 bg-red-500/10' : 'text-slate-400'}`}>
+                    <span>🍕</span> VENTAS
+                </a>
+            )}
             
-            <Route path="/" element={
-              <ProtectedRoute>
-                <AppLayout />
-              </ProtectedRoute>
-            }>
-              <Route index element={<Ventas />} />
-              <Route path="caja" element={<Caja />} />
-              <Route path="stock" element={<Stock />} />
-              <Route path="reportes" element={<Reportes />} />
-              <Route path="historial" element={<Historial />} />
-              <Route path="admin" element={<Admin />} />
-            </Route>
-          </Routes>
-        </StoreProvider>
-      </AuthProvider>
-    </BrowserRouter>
+            {(user?.role === 'ADMIN' || canAccess('CAJA')) && (
+                <a href="/caja" className={`p-2 rounded-xl flex flex-col items-center gap-1 text-[10px] font-bold ${location.pathname === '/caja' ? 'text-green-500 bg-green-500/10' : 'text-slate-400'}`}>
+                    <span>💰</span> CAJA
+                </a>
+            )}
+
+            {(user?.role === 'ADMIN' || canAccess('HISTORIAL')) && (
+                <a href="/historial" className={`p-2 rounded-xl flex flex-col items-center gap-1 text-[10px] font-bold ${location.pathname === '/historial' ? 'text-blue-500 bg-blue-500/10' : 'text-slate-400'}`}>
+                    <span>📅</span> HISTORIAL
+                </a>
+            )}
+
+            <button onClick={logout} className="p-2 rounded-xl flex flex-col items-center gap-1 text-[10px] font-bold text-slate-500 hover:text-white">
+                <span>🚪</span> SALIR
+            </button>
+        </nav>
+    );
+};
+
+export default function App() {
+  return (
+    <StoreProvider>
+      <div className="min-h-screen bg-[#0f172a] text-white font-sans">
+        <Navbar />
+        
+        <Routes>
+          <Route path="/" element={<Login />} />
+          
+          <Route path="/ventas" element={
+            <ProtectedRoute>
+              <Ventas />
+            </ProtectedRoute>
+          } />
+          
+          <Route path="/caja" element={
+            <ProtectedRoute>
+              <Caja />
+            </ProtectedRoute>
+          } />
+          
+          <Route path="/historial" element={
+            <ProtectedRoute>
+              <Historial />
+            </ProtectedRoute>
+          } />
+          
+          <Route path="*" element={<Navigate to="/" replace />} />
+        </Routes>
+      </div>
+    </StoreProvider>
   );
 }
-
-export default App;
