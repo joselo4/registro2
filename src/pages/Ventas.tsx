@@ -1,13 +1,13 @@
 import { useState } from 'react';
 import { useStore } from '../context/DataContext';
 import { Calendar, Wallet, Smartphone, DollarSign, CheckCircle2, Loader2 } from 'lucide-react';
-import { getPeruDate } from '../utils';
+import { getPeruDate, getPeruDateString } from '../utils';
 
 const Ventas = () => {
   const { products, addTransaction, loading, getBalance } = useStore();
-  const [date, setDate] = useState(getPeruDate().split('T')[0]);
+  const [date, setDate] = useState(getPeruDateString());
   const [totals, setTotals] = useState<Record<string, { efectivo: string; yape: string }>>({});
-  const [isSubmitting, setIsSubmitting] = useState(false); // Estado de carga local
+  const [isSubmitting, setIsSubmitting] = useState(false);
 
   const balances = getBalance();
 
@@ -25,10 +25,12 @@ const Ventas = () => {
   const hasData = Number(calculateInputTotal()) > 0;
 
   const handleSave = async () => {
-    if (isSubmitting) return; // Evitar doble click
+    if (isSubmitting) return;
     setIsSubmitting(true);
 
     try {
+        let finalDateIso = date === getPeruDateString() ? getPeruDate() : `${date}T12:00:00-05:00`;
+
         const promises = Object.entries(totals).map(async ([productId, values]) => {
           const efectivo = Number(values?.efectivo || 0);
           const yape = Number(values?.yape || 0);
@@ -42,9 +44,15 @@ const Ventas = () => {
           else if (yape > 0) method = 'YAPE';
 
           await addTransaction({
-            amount: total, type: 'INGRESO', category: product?.name || 'Venta',
-            method: method, method_details: { efectivo, yape },
-            user_name: 'ADMIN', transaction_date: new Date(date).toISOString(), status: 'ACTIVO'
+            amount: total, 
+            type: 'INGRESO', 
+            category: product?.name || 'Venta',
+            description: `Venta POS - ${product?.name}`, // Guardamos el detalle
+            method: method, 
+            method_details: { efectivo, yape },
+            user_name: 'ADMIN',
+            transaction_date: finalDateIso, 
+            status: 'ACTIVO'
           });
         });
 
@@ -63,25 +71,21 @@ const Ventas = () => {
     }
   };
 
-  if (loading) return <div className="flex h-64 items-center justify-center text-orange-500 font-bold animate-pulse">Cargando sistema...</div>;
+  if (loading) return <div className="flex h-64 items-center justify-center text-orange-500 font-bold animate-pulse">Cargando...</div>;
 
   return (
-    <div className="space-y-5">
-      {/* Tarjeta de Saldos */}
+    <div className="space-y-5 pb-24">
       <div className="bg-gradient-to-r from-slate-800 to-slate-900 p-5 rounded-3xl shadow-xl border border-white/5 relative overflow-hidden">
-         <div className="absolute top-0 right-0 w-32 h-32 bg-white/5 rounded-full blur-3xl -mr-16 -mt-16 pointer-events-none"></div>
-         
          <div className="flex justify-between items-end mb-4 relative z-10">
             <div>
                 <p className="text-slate-400 text-xs font-bold tracking-wider mb-1">SALDO ACTUAL</p>
                 <h2 className="text-3xl font-black text-white">S/ {(balances.efectivo + balances.yape).toFixed(2)}</h2>
             </div>
-            <div className="bg-white/10 p-2 rounded-xl backdrop-blur-sm relative">
+            <div className="bg-white/10 p-2 rounded-xl backdrop-blur-sm relative flex items-center gap-2">
                 <Calendar size={20} className="text-orange-400"/>
-                <input type="date" value={date} onChange={(e) => setDate(e.target.value)} className="absolute inset-0 opacity-0 w-full h-full cursor-pointer"/>
+                <input type="date" value={date} onChange={(e) => setDate(e.target.value)} className="bg-transparent text-white text-xs font-bold outline-none"/>
             </div>
          </div>
-
          <div className="grid grid-cols-2 gap-3 relative z-10">
             <div className="bg-[#0f172a]/50 p-3 rounded-2xl flex items-center justify-between border border-white/5">
                 <div className="flex items-center gap-2">
@@ -100,7 +104,6 @@ const Ventas = () => {
          </div>
       </div>
 
-      {/* Grid de Productos */}
       <div className="grid grid-cols-1 gap-3">
         {products.map(product => {
             const currentEfectivo = totals[product.id]?.efectivo;
@@ -132,24 +135,19 @@ const Ventas = () => {
         })}
       </div>
 
-      {/* Botón Flotante Total */}
       <div className={`fixed bottom-24 left-0 w-full px-4 transition-all duration-300 transform ${hasData ? 'translate-y-0 opacity-100' : 'translate-y-10 opacity-0 pointer-events-none'}`}>
-          <button 
-            onClick={handleSave}
-            disabled={isSubmitting}
-            className="w-full bg-orange-600 hover:bg-orange-500 text-white py-4 rounded-2xl shadow-2xl shadow-orange-900/50 flex items-center justify-between px-6 border border-orange-400/30 active:scale-95 transition-all disabled:opacity-50 disabled:scale-100"
-          >
-            {isSubmitting ? (
-                <div className="w-full flex justify-center"><Loader2 className="animate-spin" size={24}/></div>
-            ) : (
-                <>
-                    <div className="flex items-center gap-2 font-bold text-orange-100">
-                        <div className="bg-white/20 p-1 rounded-lg"><DollarSign size={20}/></div>
-                        CONFIRMAR
-                    </div>
-                    <div className="text-2xl font-black">S/ {calculateInputTotal()}</div>
-                </>
-            )}
+          <button onClick={handleSave} disabled={isSubmitting} className="w-full bg-orange-600 hover:bg-orange-500 text-white py-4 rounded-2xl shadow-2xl shadow-orange-900/50 flex items-center justify-between px-6 border border-orange-400/30 active:scale-95 transition-all disabled:opacity-50 disabled:scale-100">
+             {isSubmitting ? (
+                 <div className="w-full flex justify-center"><Loader2 className="animate-spin" size={24}/></div>
+             ) : (
+                 <>
+                     <div className="flex items-center gap-2 font-bold text-orange-100">
+                         <div className="bg-white/20 p-1 rounded-lg"><DollarSign size={20}/></div>
+                         CONFIRMAR
+                     </div>
+                     <div className="text-2xl font-black">S/ {calculateInputTotal()}</div>
+                 </>
+             )}
           </button>
       </div>
     </div>

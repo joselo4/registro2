@@ -1,13 +1,12 @@
 import { useState, useMemo } from 'react';
 import { useStore } from '../context/DataContext';
-import { Edit2, AlertOctagon, ArrowRightLeft, FileSpreadsheet, Wallet, Smartphone } from 'lucide-react';
+import { Edit2, ArrowRightLeft, FileSpreadsheet, Wallet, Smartphone, ShoppingBag } from 'lucide-react';
 import { supabase } from '../supabase';
 import { formatPeruDate, getPeruDateString } from '../utils';
 
 export default function Historial() {
   const { transactions, refreshData } = useStore();
   
-  // Usamos la fecha de Perú por defecto para los inputs
   const [dateStart, setDateStart] = useState(getPeruDateString());
   const [dateEnd, setDateEnd] = useState(getPeruDateString());
   const [typeFilter, setTypeFilter] = useState('TODO');
@@ -17,21 +16,12 @@ export default function Historial() {
 
   const filteredData = useMemo(() => {
     return transactions.filter(t => {
-      // Obtenemos la fecha original
       const tDateStr = t.transaction_date || t.created_at || '';
-      
-      // LÓGICA DE FILTRADO EXACTA PARA PERÚ:
-      // Convertimos la fecha de la transacción a formato "YYYY-MM-DD" en zona horaria Lima.
       const dateObj = new Date(tDateStr);
-      const peruDateStr = new Intl.DateTimeFormat('en-CA', { // 'en-CA' fuerza formato YYYY-MM-DD
-          timeZone: 'America/Lima'
-      }).format(dateObj); 
+      const peruDateStr = new Intl.DateTimeFormat('en-CA', { timeZone: 'America/Lima' }).format(dateObj); 
       
-      // Comparamos cadenas de texto (Ej: "2026-01-17" >= "2026-01-17")
       const isDateMatch = peruDateStr >= dateStart && peruDateStr <= dateEnd;
-      
-      const isTypeMatch = typeFilter === 'TODO' || 
-             (typeFilter === 'ANULADO' ? t.status === 'ANULADO' : t.type === typeFilter && t.status !== 'ANULADO');
+      const isTypeMatch = typeFilter === 'TODO' || (typeFilter === 'ANULADO' ? t.status === 'ANULADO' : t.type === typeFilter && t.status !== 'ANULADO');
 
       return isDateMatch && isTypeMatch;
     });
@@ -45,38 +35,19 @@ export default function Historial() {
 
   const exportExcel = () => {
       if(filteredData.length === 0) return alert("No hay datos para exportar");
-      
-      // 1. Encabezados con punto y coma (Excel Latam)
       const headers = "Fecha;Hora;Usuario;Tipo;Categoria;Metodo;Monto Total;Efectivo;Yape;Estado;Motivo\n";
-      
       const rows = filteredData.map(t => {
-          // Usamos el formateador de Perú para separar Fecha y Hora visualmente
           const dtFull = formatPeruDate(t.transaction_date || t.created_at!);
           const [fecha, hora] = dtFull.split(' ');
-          
           const efectivo = t.method_details?.efectivo || (t.method === 'EFECTIVO' ? t.amount : 0);
           const yape = t.method_details?.yape || (t.method === 'YAPE' ? t.amount : 0);
           
-          return [
-              fecha,
-              hora,
-              t.user_name,
-              t.type,
-              `"${t.category || t.description || ''}"`, // Comillas para proteger textos
-              t.method,
-              Number(t.amount).toFixed(2).replace('.', ','), // Coma decimal
-              Number(efectivo).toFixed(2).replace('.', ','),
-              Number(yape).toFixed(2).replace('.', ','),
-              t.status,
-              `"${t.justification || ''}"`
-          ].join(';');
+          return [fecha, hora, t.user_name, t.type, `"${t.category}"`, t.method, Number(t.amount).toFixed(2).replace('.', ','), Number(efectivo).toFixed(2).replace('.', ','), Number(yape).toFixed(2).replace('.', ','), t.status, `"${t.justification || ''}"`].join(';');
       }).join('\n');
-
-      // BOM (\uFEFF) para que Excel reconozca tildes y caracteres especiales
       const blob = new Blob(["\uFEFF" + headers + rows], { type: 'text/csv;charset=utf-8;' });
       const link = document.createElement('a');
       link.href = URL.createObjectURL(blob);
-      link.download = `Reporte_${dateStart}_al_${dateEnd}.csv`;
+      link.download = `Reporte.csv`;
       link.click();
   };
 
@@ -94,8 +65,6 @@ export default function Historial() {
                 <option value="INGRESO">INGRESOS</option>
                 <option value="GASTO">GASTOS</option>
                 <option value="TRANSFERENCIA">TRANSFERENCIAS</option>
-                <option value="APERTURA">APERTURAS</option>
-                <option value="CIERRE">CIERRES</option>
                 <option value="ANULADO">ANULADOS</option>
             </select>
             <button onClick={exportExcel} className="bg-green-600 text-white p-3 rounded-xl shadow-lg active:scale-95 transition-transform"><FileSpreadsheet size={20}/></button>
@@ -103,8 +72,6 @@ export default function Historial() {
       </div>
 
       <div className="space-y-3">
-        {filteredData.length === 0 && <div className="text-center text-gray-500 py-10 italic">No hay movimientos en estas fechas.</div>}
-        
         {filteredData.map(t => (
           <div key={t.id} className={`p-4 rounded-2xl border flex flex-col gap-2 relative overflow-hidden transition-all ${t.status === 'ANULADO' ? 'bg-red-900/10 border-red-900/50 opacity-70' : 'bg-[#1e293b] border-gray-800 shadow-sm'}`}>
             {t.status === 'ANULADO' && <div className="absolute inset-0 flex items-center justify-center pointer-events-none"><span className="text-red-500/10 font-black text-5xl uppercase -rotate-12">ANULADO</span></div>}
@@ -112,14 +79,15 @@ export default function Historial() {
             <div className="flex justify-between items-start">
                 <div>
                     <div className="text-xs font-bold text-white uppercase mb-1.5 flex items-center gap-2">
-                        {t.type === 'TRANSFERENCIA' && <ArrowRightLeft size={14} className="text-blue-400"/>}
-                        {t.status === 'ANULADO' && <AlertOctagon size={14} className="text-red-500"/>}
-                        {t.category || t.description}
+                        {t.type === 'TRANSFERENCIA' ? <ArrowRightLeft size={14} className="text-blue-400"/> : t.type === 'INGRESO' ? <ShoppingBag size={14} className="text-green-400"/> : null}
+                        {t.category}
+                    </div>
+                    <div className="text-[11px] text-slate-300 italic mb-2 leading-snug">
+                        {t.description || "Sin detalle"}
                     </div>
                     <div className="flex flex-wrap gap-2 text-[10px] text-gray-400 font-medium">
                         <span className="bg-slate-800 px-2 py-0.5 rounded text-slate-300">{formatPeruDate(t.transaction_date || t.created_at!)}</span>
                         <span>{t.user_name}</span>
-                        <span className={`${t.type === 'INGRESO' ? 'text-green-400' : t.type === 'GASTO' ? 'text-red-400' : 'text-blue-400'}`}>{t.type}</span>
                     </div>
                 </div>
                 <div className="text-right">
@@ -153,7 +121,7 @@ export default function Historial() {
           </div>
         ))}
       </div>
-
+      
       {editingItem && (
         <div className="fixed inset-0 bg-black/80 flex items-center justify-center z-[60] px-4 backdrop-blur-sm">
           <div className="bg-[#1e293b] p-6 rounded-3xl w-full max-w-sm border border-gray-700 shadow-2xl">

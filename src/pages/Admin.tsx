@@ -9,7 +9,6 @@ export default function Admin() {
   const [tab, setTab] = useState('PRODUCTOS');
   const fileInputRef = useRef<HTMLInputElement>(null);
   
-  // Estados y Config
   const [newProd, setNewProd] = useState({ name: '', color: 'bg-blue-600' });
   const [newStock, setNewStock] = useState({ name: '', priority: 'INSUMO' });
   const [newUser, setNewUser] = useState({ name: '', pin: '', role: 'EMPLEADO' });
@@ -18,7 +17,6 @@ export default function Admin() {
   const [editingId, setEditingId] = useState<string | null>(null);
   const [editForm, setEditForm] = useState<any>({});
   
-  // Estado Global de Carga
   const [isSubmitting, setIsSubmitting] = useState(false);
 
   useEffect(() => {
@@ -31,21 +29,18 @@ export default function Admin() {
     }
   }, [config]);
 
-  // Helper para envolver acciones async
   const runAction = async (action: () => Promise<void>) => {
       if (isSubmitting) return;
       setIsSubmitting(true);
       try { await action(); } catch (e) { console.error(e); alert("Error inesperado"); } finally { setIsSubmitting(false); }
   };
 
-  // --- CONFIG OPS ---
   const saveSystemConfig = () => runAction(async () => {
       const success = await updateConfig({ ...sysConfig, id: config?.id });
       if (success) alert("✅ Configuración guardada.");
       else alert("❌ Error al guardar.");
   });
 
-  // --- DB & TELEGRAM OPS ---
   const getBackupData = () => ({ date: getPeruDate(), config, products, stockItems, appUsers, transactions: [] });
 
   const downloadBackup = () => {
@@ -100,14 +95,11 @@ export default function Admin() {
       } else if (pin !== null) alert("PIN Incorrecto.");
   });
 
-  // --- CRUD & SYSTEM OPS ---
-  
-  // AQUÍ ESTABA EL ERROR: handleTransfer AHORA ESTÁ DEFINIDO Y USA getBalance
   const handleTransfer = (direction: 'E_A_Y' | 'Y_A_E') => runAction(async () => {
       const monto = Number(transferAmount);
       if (!monto || monto <= 0) return alert("Monto inválido");
       
-      const balances = getBalance(); // Aquí usamos getBalance (Error 3 resuelto)
+      const balances = getBalance();
       
       if (direction === 'E_A_Y' && monto > balances.efectivo) return alert(`Saldo insuficiente Efec (S/ ${balances.efectivo.toFixed(2)})`);
       if (direction === 'Y_A_E' && monto > balances.yape) return alert(`Saldo insuficiente Yape (S/ ${balances.yape.toFixed(2)})`);
