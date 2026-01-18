@@ -7,7 +7,7 @@ interface User {
   role: string;
   pin: string;
   is_active?: boolean;
-  allowed_modules?: string[]; // Nueva propiedad
+  allowed_modules?: string[];
 }
 
 interface AuthContextType {
@@ -15,17 +15,21 @@ interface AuthContextType {
   login: (pin: string) => Promise<boolean>;
   logout: () => void;
   isAuthenticated: boolean;
-  canAccess: (module: string) => boolean; // Nueva función helper
+  canAccess: (module: string) => boolean;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
 export function AuthProvider({ children }: { children: ReactNode }) {
-  const [user, setUser] = useState<User | null>(null);
+  // Inicialización rápida para evitar parpadeos
+  const [user, setUser] = useState<User | null>(() => {
+    const saved = localStorage.getItem('pizza_user');
+    return saved ? JSON.parse(saved) : null;
+  });
 
   useEffect(() => {
     const savedUser = localStorage.getItem('pizza_user');
-    if (savedUser) {
+    if (savedUser && !user) {
       setUser(JSON.parse(savedUser));
     }
   }, []);
@@ -41,7 +45,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
       if (error || !data) return false;
 
-      // Aseguramos que allowed_modules sea un array
+      // Aseguramos que allowed_modules sea un array válido siempre
       const userData = {
           ...data,
           allowed_modules: data.allowed_modules || []
@@ -61,10 +65,17 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     localStorage.removeItem('pizza_user');
   };
 
-  // Función para verificar permisos fácilmente en cualquier parte
+  // --- LÓGICA DE VISIBILIDAD BLINDADA ---
   const canAccess = (module: string) => {
       if (!user) return false;
-      if (user.role === 'ADMIN') return true; // Admin ve todo
+      
+      // 1. Limpieza de rol (quita espacios y pone mayúsculas)
+      const cleanRole = (user.role || '').trim().toUpperCase();
+      
+      // 2. SI ES ADMIN, SIEMPRE TRUE (Muestra todo)
+      if (cleanRole === 'ADMIN') return true; 
+      
+      // 3. Si no es admin, revisa la lista de permisos
       return user.allowed_modules?.includes(module) || false;
   };
 
