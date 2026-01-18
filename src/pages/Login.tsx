@@ -56,8 +56,8 @@ export default function Login() {
           <div className="w-20 h-20 bg-red-600 rounded-full flex items-center justify-center mb-4 shadow-lg shadow-red-500/30">
             <Lock className="text-white w-10 h-10" />
           </div>
-          <h1 className="text-3xl font-black text-white tracking-tight">PIZZA SYSTEM</h1>
-          <p className="text-slate-400 text-sm mt-1">Ingresa tu PIN de acceso</p>
+          <h1 className="text-3xl font-black text-white tracking-tight">SISTEMA</h1>
+          <p className="text-slate-400 text-sm mt-1">Ingresa tu CONTRASEÑA de acceso</p>
         </div>
 
         <form onSubmit={handleLogin} className="space-y-6">
@@ -68,7 +68,7 @@ export default function Login() {
               value={pin}
               onChange={(e) => { setPin(e.target.value); setErrorMsg(''); }}
               className="w-full bg-slate-900 text-white text-center text-4xl font-bold tracking-[1em] py-4 rounded-2xl border border-slate-600 focus:border-red-500 focus:ring-2 focus:ring-red-500/20 outline-none transition-all placeholder:tracking-normal"
-              placeholder="••••"
+              placeholder="••••••••"
               maxLength={4}
               disabled={loading}
               autoFocus
