@@ -316,6 +316,7 @@ const DEFAULT_STAFF_USERS = [
 export default function App() {
   const isRemoteUpdate = useRef({});
   const [isCloudSynced, setIsCloudSynced] = useState(false);
+  const [isSyncLoaded, setIsSyncLoaded] = useState(false);
 
   const [qrCustomUrl, setQrCustomUrl] = useState(() => {
     return localStorage.getItem('helados_qr_custom_url') || '';
@@ -478,6 +479,7 @@ export default function App() {
     const initSync = async () => {
       if (!supabase) {
         console.log("💾 Supabase no configurado. Utilizando base de datos local (LocalStorage) en modo fuera de línea.");
+        setIsSyncLoaded(true);
         return;
       }
 
@@ -676,6 +678,7 @@ export default function App() {
         }
       });
       authSubscription = subscription;
+      setIsSyncLoaded(true);
     };
 
     initSync();
@@ -694,111 +697,123 @@ export default function App() {
   useEffect(() => {
     localStorage.setItem('helados_store_name', storeName);
     document.title = `${storeName} - Heladería Online Interactiva`;
+    if (!isSyncLoaded) return;
     if (isRemoteUpdate.current['store_name']) {
       isRemoteUpdate.current['store_name'] = false;
     } else {
       updateSyncedData('store_name', storeName);
     }
-  }, [storeName]);
+  }, [storeName, isSyncLoaded]);
 
   useEffect(() => {
     localStorage.setItem('helados_store_logo', storeLogo);
+    if (!isSyncLoaded) return;
     if (isRemoteUpdate.current['store_logo']) {
       isRemoteUpdate.current['store_logo'] = false;
     } else {
       updateSyncedData('store_logo', storeLogo);
     }
-  }, [storeLogo]);
+  }, [storeLogo, isSyncLoaded]);
 
   useEffect(() => {
     localStorage.setItem('helados_flavors', JSON.stringify(flavors));
+    if (!isSyncLoaded) return;
     if (isRemoteUpdate.current['flavors']) {
       isRemoteUpdate.current['flavors'] = false;
     } else {
       updateSyncedData('flavors', flavors);
     }
-  }, [flavors]);
+  }, [flavors, isSyncLoaded]);
 
   useEffect(() => {
     localStorage.setItem('helados_toppings', JSON.stringify(toppings));
+    if (!isSyncLoaded) return;
     if (isRemoteUpdate.current['toppings']) {
       isRemoteUpdate.current['toppings'] = false;
     } else {
       updateSyncedData('toppings', toppings);
     }
-  }, [toppings]);
+  }, [toppings, isSyncLoaded]);
 
   useEffect(() => {
     localStorage.setItem('helados_bases', JSON.stringify(bases));
+    if (!isSyncLoaded) return;
     if (isRemoteUpdate.current['bases']) {
       isRemoteUpdate.current['bases'] = false;
     } else {
       updateSyncedData('bases', bases);
     }
-  }, [bases]);
+  }, [bases, isSyncLoaded]);
 
   useEffect(() => {
     localStorage.setItem('helados_packs', JSON.stringify(packs));
+    if (!isSyncLoaded) return;
     if (isRemoteUpdate.current['packs']) {
       isRemoteUpdate.current['packs'] = false;
     } else {
       updateSyncedData('packs', packs);
     }
-  }, [packs]);
+  }, [packs, isSyncLoaded]);
 
   useEffect(() => {
     localStorage.setItem('helados_orders', JSON.stringify(orders));
+    if (!isSyncLoaded) return;
     if (isRemoteUpdate.current['orders']) {
       isRemoteUpdate.current['orders'] = false;
     } else {
       updateSyncedData('orders', orders);
     }
-  }, [orders]);
+  }, [orders, isSyncLoaded]);
 
   useEffect(() => {
     localStorage.setItem('helados_delivery_fee', deliveryFee.toString());
+    if (!isSyncLoaded) return;
     if (isRemoteUpdate.current['delivery_fee']) {
       isRemoteUpdate.current['delivery_fee'] = false;
     } else {
       updateSyncedData('delivery_fee', deliveryFee);
     }
-  }, [deliveryFee]);
+  }, [deliveryFee, isSyncLoaded]);
 
   useEffect(() => {
     localStorage.setItem('helados_shop_open', JSON.stringify(shopOpen));
+    if (!isSyncLoaded) return;
     if (isRemoteUpdate.current['shop_open']) {
       isRemoteUpdate.current['shop_open'] = false;
     } else {
       updateSyncedData('shop_open', shopOpen);
     }
-  }, [shopOpen]);
+  }, [shopOpen, isSyncLoaded]);
 
   useEffect(() => {
     localStorage.setItem('helados_free_delivery_threshold', freeDeliveryThreshold.toString());
+    if (!isSyncLoaded) return;
     if (isRemoteUpdate.current['free_delivery_threshold']) {
       isRemoteUpdate.current['free_delivery_threshold'] = false;
     } else {
       updateSyncedData('free_delivery_threshold', freeDeliveryThreshold);
     }
-  }, [freeDeliveryThreshold]);
+  }, [freeDeliveryThreshold, isSyncLoaded]);
 
   useEffect(() => {
     localStorage.setItem('helados_delivery_campaign_text', deliveryCampaignText);
+    if (!isSyncLoaded) return;
     if (isRemoteUpdate.current['delivery_campaign_text']) {
       isRemoteUpdate.current['delivery_campaign_text'] = false;
     } else {
       updateSyncedData('delivery_campaign_text', deliveryCampaignText);
     }
-  }, [deliveryCampaignText]);
+  }, [deliveryCampaignText, isSyncLoaded]);
 
   useEffect(() => {
     localStorage.setItem('helados_store_phone', storePhone);
+    if (!isSyncLoaded) return;
     if (isRemoteUpdate.current['store_phone']) {
       isRemoteUpdate.current['store_phone'] = false;
     } else {
       updateSyncedData('store_phone', storePhone);
     }
-  }, [storePhone]);
+  }, [storePhone, isSyncLoaded]);
 
   useEffect(() => {
     localStorage.setItem('helados_staff_users', JSON.stringify(staffUsers));
@@ -807,102 +822,113 @@ export default function App() {
 
   useEffect(() => {
     localStorage.setItem('helados_sound_enabled', JSON.stringify(soundEnabled));
+    if (!isSyncLoaded) return;
     if (isRemoteUpdate.current['sound_enabled']) {
       isRemoteUpdate.current['sound_enabled'] = false;
     } else {
       updateSyncedData('sound_enabled', soundEnabled);
     }
-  }, [soundEnabled]);
+  }, [soundEnabled, isSyncLoaded]);
 
   useEffect(() => {
     localStorage.setItem('helados_telegram_token', telegramToken);
+    if (!isSyncLoaded) return;
     if (isRemoteUpdate.current['telegram_token']) {
       isRemoteUpdate.current['telegram_token'] = false;
     } else {
       updateSyncedData('telegram_token', telegramToken);
     }
-  }, [telegramToken]);
+  }, [telegramToken, isSyncLoaded]);
 
   useEffect(() => {
     localStorage.setItem('helados_telegram_chat_id', telegramChatId);
+    if (!isSyncLoaded) return;
     if (isRemoteUpdate.current['telegram_chat_id']) {
       isRemoteUpdate.current['telegram_chat_id'] = false;
     } else {
       updateSyncedData('telegram_chat_id', telegramChatId);
     }
-  }, [telegramChatId]);
+  }, [telegramChatId, isSyncLoaded]);
 
   useEffect(() => {
     localStorage.setItem('helados_coupons', JSON.stringify(coupons));
+    if (!isSyncLoaded) return;
     if (isRemoteUpdate.current['coupons']) {
       isRemoteUpdate.current['coupons'] = false;
     } else {
       updateSyncedData('coupons', coupons);
     }
-  }, [coupons]);
+  }, [coupons, isSyncLoaded]);
 
   useEffect(() => {
     localStorage.setItem('helados_sales_goal', salesGoal.toString());
+    if (!isSyncLoaded) return;
     if (isRemoteUpdate.current['sales_goal']) {
       isRemoteUpdate.current['sales_goal'] = false;
     } else {
       updateSyncedData('sales_goal', salesGoal);
     }
-  }, [salesGoal]);
+  }, [salesGoal, isSyncLoaded]);
 
   useEffect(() => {
     localStorage.setItem('helados_whatsapp_greeting', whatsappGreeting);
+    if (!isSyncLoaded) return;
     if (isRemoteUpdate.current['whatsapp_greeting']) {
       isRemoteUpdate.current['whatsapp_greeting'] = false;
     } else {
       updateSyncedData('whatsapp_greeting', whatsappGreeting);
     }
-  }, [whatsappGreeting]);
+  }, [whatsappGreeting, isSyncLoaded]);
 
   useEffect(() => {
     localStorage.setItem('helados_whatsapp_footer', whatsappFooter);
+    if (!isSyncLoaded) return;
     if (isRemoteUpdate.current['whatsapp_footer']) {
       isRemoteUpdate.current['whatsapp_footer'] = false;
     } else {
       updateSyncedData('whatsapp_footer', whatsappFooter);
     }
-  }, [whatsappFooter]);
+  }, [whatsappFooter, isSyncLoaded]);
 
   useEffect(() => {
     localStorage.setItem('helados_qr_custom_url', qrCustomUrl);
+    if (!isSyncLoaded) return;
     if (isRemoteUpdate.current['qr_custom_url']) {
       isRemoteUpdate.current['qr_custom_url'] = false;
     } else {
       updateSyncedData('qr_custom_url', qrCustomUrl);
     }
-  }, [qrCustomUrl]);
+  }, [qrCustomUrl, isSyncLoaded]);
 
   useEffect(() => {
     localStorage.setItem('helados_recommendations', JSON.stringify(recommendations));
+    if (!isSyncLoaded) return;
     if (isRemoteUpdate.current['recommendations']) {
       isRemoteUpdate.current['recommendations'] = false;
     } else {
       updateSyncedData('recommendations', recommendations);
     }
-  }, [recommendations]);
+  }, [recommendations, isSyncLoaded]);
 
   useEffect(() => {
     localStorage.setItem('helados_cart_recommended_pack', JSON.stringify(cartRecommendedPack));
+    if (!isSyncLoaded) return;
     if (isRemoteUpdate.current['cart_recommended_pack']) {
       isRemoteUpdate.current['cart_recommended_pack'] = false;
     } else {
       updateSyncedData('cart_recommended_pack', cartRecommendedPack);
     }
-  }, [cartRecommendedPack]);
+  }, [cartRecommendedPack, isSyncLoaded]);
 
   useEffect(() => {
     localStorage.setItem('helados_expenses', JSON.stringify(expenses));
+    if (!isSyncLoaded) return;
     if (isRemoteUpdate.current['expenses']) {
       isRemoteUpdate.current['expenses'] = false;
     } else {
       updateSyncedData('expenses', expenses);
     }
-  }, [expenses]);
+  }, [expenses, isSyncLoaded]);
 
   // Persistir Estados de Sesión de Admin
   useEffect(() => {
