@@ -133,50 +133,59 @@ export default function Cart({
       return;
     }
 
-    setIsSubmitting(true);
-    const orderId = `PED-${Math.floor(1000 + Math.random() * 9000)}`;
-    const newOrder = {
-      id: orderId,
-      customer: { name, phone, address, paymentMethod },
-      items: [...cart],
-      total: cartSubtotal,
-      deliveryFee: activeDeliveryFee,
-      discount: discount,
-      couponCode: appliedCoupon ? appliedCoupon.code : null,
-      grandTotal: total,
-      status: 'Pendiente',
-      date: new Date().toISOString()
-    };
+    try {
+      setIsSubmitting(true);
+      const orderId = `PED-${Math.floor(1000 + Math.random() * 9000)}`;
+      const newOrder = {
+        id: orderId,
+        customer: { name, phone, address, paymentMethod },
+        items: [...cart],
+        total: cartSubtotal,
+        deliveryFee: activeDeliveryFee,
+        discount: discount,
+        couponCode: appliedCoupon ? appliedCoupon.code : null,
+        grandTotal: total,
+        status: 'Pendiente',
+        date: new Date().toISOString()
+      };
 
-    // Formatear Mensaje de WhatsApp
-    const itemsText = cart.map(item => {
-      let detailsText = '';
-      if (item.type === 'custom') {
-        const scoops = item.scoops.map(s => s.name).join(', ');
-        const toppings = item.toppings.map(t => t.name).join(', ');
-        const syrup = item.syrup ? item.syrup.name : '';
-        detailsText = ` (${scoops}${toppings ? ` + ${toppings}` : ''}${syrup ? ` + Salsa ${syrup}` : ''})`;
+      // Formatear Mensaje de WhatsApp
+      const itemsText = cart.map(item => {
+        let detailsText = '';
+        if (item.type === 'custom') {
+          const scoops = item.scoops.map(s => s.name).join(', ');
+          const toppings = item.toppings.map(t => t.name).join(', ');
+          const syrup = item.syrup ? item.syrup.name : '';
+          detailsText = ` (${scoops}${toppings ? ` + ${toppings}` : ''}${syrup ? ` + Salsa ${syrup}` : ''})`;
+        }
+        return `${item.quantity}x ${item.name}${detailsText}`;
+      }).join('\n');
+
+      const couponLine = appliedCoupon ? `\n*Cupón:* ${appliedCoupon.code} (-S/. ${discount.toFixed(2)})` : '';
+      const whatsappMessage = `${whatsappGreeting}\n\n*Código:* ${orderId}\n*Cliente:* ${name}\n*Dirección:* ${address}\n*WhatsApp:* ${phone}\n*Pago:* ${paymentMethod}\n\n*Pedido:*\n${itemsText}\n\n*Subtotal:* S/. ${cartSubtotal.toFixed(2)}${couponLine}\n*Delivery:* S/. ${activeDeliveryFee.toFixed(2)}\n*Total:* S/. ${total.toFixed(2)}\n\n${whatsappFooter}`;
+      
+      const encodedText = encodeURIComponent(whatsappMessage);
+      const cleanPhone = String(storePhone || '').replace(/\D/g, ''); // Limpiar caracteres no numéricos
+      const whatsappUrl = `https://wa.me/${cleanPhone}?text=${encodedText}`;
+
+      // Enviar notificación en segundo plano a Telegram si está configurado
+      if (telegramToken && telegramChatId) {
+        await sendTelegramNotification(newOrder);
       }
-      return `${item.quantity}x ${item.name}${detailsText}`;
-    }).join('\n');
 
-    const couponLine = appliedCoupon ? `\n*Cupón:* ${appliedCoupon.code} (-S/. ${discount.toFixed(2)})` : '';
-    const whatsappMessage = `${whatsappGreeting}\n\n*Código:* ${orderId}\n*Cliente:* ${name}\n*Dirección:* ${address}\n*WhatsApp:* ${phone}\n*Pago:* ${paymentMethod}\n\n*Pedido:*\n${itemsText}\n\n*Subtotal:* S/. ${cartSubtotal.toFixed(2)}${couponLine}\n*Delivery:* S/. ${activeDeliveryFee.toFixed(2)}\n*Total:* S/. ${total.toFixed(2)}\n\n${whatsappFooter}`;
-    
-    const encodedText = encodeURIComponent(whatsappMessage);
-    const cleanPhone = storePhone.replace(/\D/g, ''); // Limpiar caracteres no numéricos
-    const whatsappUrl = `https://wa.me/${cleanPhone}?text=${encodedText}`;
+      // Registrar pedido en la base de datos
+      onPlaceOrder(newOrder);
 
-    // Enviar notificación en segundo plano a Telegram si está configurado
-    if (telegramToken && telegramChatId) {
-      await sendTelegramNotification(newOrder);
+      // Redirigir a WhatsApp del dueño
+      window.open(whatsappUrl, '_blank');
+      
+      // Permitimos volver a enviar después de abrir WhatsApp por si acaso
+      setTimeout(() => setIsSubmitting(false), 2000);
+    } catch (err) {
+      console.error("Fallo al enviar pedido:", err);
+      alert("⚠️ Lo sentimos, ocurrió un error al estructurar el pedido. Vuelve a intentarlo.");
+      setIsSubmitting(false);
     }
-
-    // Registrar pedido en la base de datos
-    onPlaceOrder(newOrder);
-
-    // Redirigir a WhatsApp del dueño
-    window.open(whatsappUrl, '_blank');
   };
 
   const handleAddRandomScoop = () => {

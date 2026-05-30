@@ -76,7 +76,7 @@ export default function OrderTracker({ orderId, orders, setView, storePhone }) {
     setHasSearched(true);
   };
 
-  const cleanPhone = storePhone.replace(/\D/g, '');
+  const cleanPhone = String(storePhone || '').replace(/\D/g, '');
 
   // Render del buscador si no se ha seleccionado o encontrado un pedido válido
   if (!currentOrder) {

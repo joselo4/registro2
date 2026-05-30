@@ -163,6 +163,23 @@ export default function AdminPanel({
   const [localWhatsappFooter, setLocalWhatsappFooter] = useState(whatsappFooter);
   const [localQrCustomUrl, setLocalQrCustomUrl] = useState(qrCustomUrl);
 
+  // --- Estados Locales para Combo Recomendado del Carrito (Evita bugs de pérdida de foco) ---
+  const [localRecPackActive, setLocalRecPackActive] = useState(cartRecommendedPack?.active !== false);
+  const [localRecPackName, setLocalRecPackName] = useState(cartRecommendedPack?.name || 'Pack Dúo Romántico');
+  const [localRecPackPrice, setLocalRecPackPrice] = useState(cartRecommendedPack?.price || 10.0);
+  const [localRecPackDesc, setLocalRecPackDesc] = useState(cartRecommendedPack?.description || '2 Copas Waffle de 3 bolas + Fudge de chocolate gratis');
+
+  useEffect(() => {
+    if (cartRecommendedPack) {
+      setLocalRecPackActive(cartRecommendedPack.active !== false);
+      setLocalRecPackName(cartRecommendedPack.name || 'Pack Dúo Romántico');
+      setLocalRecPackPrice(cartRecommendedPack.price || 10.0);
+      setLocalRecPackDesc(cartRecommendedPack.description || '2 Copas Waffle de 3 bolas + Fudge de chocolate gratis');
+    }
+  }, [cartRecommendedPack]);
+
+  const [logSearchQuery, setLogSearchQuery] = useState('');
+
   useEffect(() => { setLocalStoreName(storeName); }, [storeName]);
   useEffect(() => { setLocalStoreLogo(storeLogo); }, [storeLogo]);
   useEffect(() => { setLocalStorePhone(storePhone); }, [storePhone]);
@@ -190,6 +207,31 @@ export default function AdminPanel({
     
     addLog(`Ajustes de heladería guardados en Supabase por ${currentUser?.name || 'Administrador'}.`);
     alert("¡Ajustes de heladería guardados y sincronizados correctamente en la nube!");
+  };
+
+  const handleSaveRecommendedPack = () => {
+    const updated = {
+      active: !!localRecPackActive,
+      name: localRecPackName.trim(),
+      price: parseFloat(localRecPackPrice) || 0.0,
+      description: localRecPackDesc.trim(),
+      id: 'pack_pareja'
+    };
+    onUpdateCartRecommendedPack(updated);
+    addLog(`Combo recomendado del carrito actualizado por ${currentUser?.name}.`);
+    alert("¡Combo recomendado del carrito guardado y sincronizado correctamente en Supabase!");
+  };
+
+  const handleExportAuditoryLog = () => {
+    const header = `=== REPORTE DE BITÁCORA DE AUDITORÍA - ${storeName.toUpperCase()} ===\nGenerado: ${new Date().toLocaleString('es-PE')}\n\n`;
+    const logsText = logs.map(l => `[${l.time}] ${l.text}`).join('\n');
+    const blob = new Blob([header + logsText], { type: 'text/plain;charset=utf-8' });
+    const link = document.createElement('a');
+    link.href = URL.createObjectURL(blob);
+    link.setAttribute('download', `auditoria_${storeName.toLowerCase().replace(/\s+/g, '_')}_${new Date().toISOString().split('T')[0]}.txt`);
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
   };
 
   const [statsRange, setStatsRange] = useState('7days'); // today, 7days, 30days, all, custom
@@ -1161,7 +1203,7 @@ export default function AdminPanel({
                           </button>
                         )}
                         <a 
-                          href={`https://wa.me/${order.customer.phone.replace(/\D/g, '')}`} 
+                          href={`https://wa.me/${String(order.customer.phone || '').replace(/\D/g, '')}`} 
                           target="_blank" 
                           rel="noopener noreferrer" 
                           className="admin-action-btn" 
@@ -1835,6 +1877,72 @@ export default function AdminPanel({
             </tbody>
           </table>
         </div>
+
+        {/* CONFIGURADOR DE COMBO RECOMENDADO DEL CARRITO (CROSS-SELLING) */}
+        <div className="glass" style={{ padding: '20px', marginTop: '20px', borderRadius: '8px' }}>
+          <h4 style={{ margin: '0 0 15px 0', color: 'var(--primary-color)', display: 'flex', alignItems: 'center', gap: '8px' }}>
+            🎁 Combo Sugerido en el Carrito (Venta Cruzada)
+          </h4>
+          <p style={{ fontSize: '0.78rem', color: 'var(--text-light)', marginTop: '-8px', marginBottom: '15px', lineHeight: '1.4' }}>
+            Personaliza la oferta especial o pack promocional sugerido que se le ofrece al cliente de manera directa dentro de su Carrito de compras antes del checkout.
+          </p>
+
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+            <label style={{ display: 'flex', alignItems: 'center', gap: '8px', fontSize: '0.85rem', fontWeight: 'bold', cursor: 'pointer' }}>
+              <input 
+                type="checkbox" 
+                checked={localRecPackActive} 
+                onChange={(e) => setLocalRecPackActive(e.target.checked)} 
+              />
+              <span>Mostrar esta recomendación sugerida en el Carrito de compras</span>
+            </label>
+
+            <div style={{ display: 'grid', gridTemplateColumns: '1.5fr 0.5fr', gap: '15px' }} className="admin-stats-columns">
+              <div className="form-group">
+                <label>Nombre de la Promoción Sugerida</label>
+                <input 
+                  type="text" 
+                  className="form-control" 
+                  placeholder="Ej: Pack Dúo Romántico" 
+                  value={localRecPackName} 
+                  onChange={(e) => setLocalRecPackName(e.target.value)} 
+                />
+              </div>
+              <div className="form-group">
+                <label>Precio Especial S/.</label>
+                <input 
+                  type="number" 
+                  step="0.50" 
+                  className="form-control" 
+                  placeholder="10.00" 
+                  value={localRecPackPrice} 
+                  onChange={(e) => setLocalRecPackPrice(e.target.value)} 
+                />
+              </div>
+            </div>
+
+            <div className="form-group">
+              <label>Descripción Corta de Artículos Incluidos</label>
+              <textarea 
+                className="form-control" 
+                rows="2"
+                style={{ resize: 'none' }}
+                placeholder="Ej: 2 Copas Waffle de 3 bolas + Fudge de chocolate gratis" 
+                value={localRecPackDesc} 
+                onChange={(e) => setLocalRecPackDesc(e.target.value)} 
+              />
+            </div>
+
+            <button 
+              type="button" 
+              className="btn btn-primary" 
+              style={{ width: '100%', padding: '10px', marginTop: '5px', cursor: 'pointer' }}
+              onClick={handleSaveRecommendedPack}
+            >
+              💾 Guardar Ajustes del Combo Recomendado
+            </button>
+          </div>
+        </div>
       </div>
     );
   };
@@ -2456,9 +2564,17 @@ create policy "Modificación privada de personal y credenciales" on public.helad
 
           {/* Bitácora de Operaciones (Logs) */}
           <div>
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '8px' }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '8px', flexWrap: 'wrap', gap: '8px' }}>
               <strong style={{ fontSize: '0.9rem' }}>📜 Bitácora de Operaciones Recientes (Auditoría)</strong>
-              <div style={{ display: 'flex', alignItems: 'center', gap: '5px' }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
+                <input 
+                  type="text" 
+                  className="form-control" 
+                  placeholder="🔍 Buscar en logs..." 
+                  style={{ width: '130px', fontSize: '0.7rem', padding: '3px 8px', height: '24px' }} 
+                  value={logSearchQuery} 
+                  onChange={(e) => setLogSearchQuery(e.target.value)} 
+                />
                 <span style={{ fontSize: '0.7rem', color: 'var(--text-light)' }}>Ver:</span>
                 <select 
                   className="form-control" 
@@ -2471,6 +2587,15 @@ create policy "Modificación privada de personal y credenciales" on public.helad
                   <option value={100}>100 últ.</option>
                   <option value="all">Todo</option>
                 </select>
+                <button 
+                  type="button" 
+                  className="btn btn-secondary" 
+                  style={{ padding: '2px 8px', fontSize: '0.7rem', height: '24px', display: 'flex', alignItems: 'center', gap: '4px' }} 
+                  onClick={handleExportAuditoryLog}
+                  title="Exportar logs a archivo de texto plano .txt"
+                >
+                  📥 Exportar
+                </button>
               </div>
             </div>
             <div style={{
@@ -2486,12 +2611,22 @@ create policy "Modificación privada de personal y credenciales" on public.helad
               flexDirection: 'column',
               gap: '4px'
             }}>
-              {(logsLimit === 'all' ? logs : logs.slice(0, logsLimit)).map((log, idx) => (
-                <div key={idx} style={{ borderBottom: '1px dashed rgba(0,0,0,0.05)', paddingBottom: '2px' }}>
-                  <span style={{ color: 'var(--primary-color)', marginRight: '5px' }}>[{log.time}]</span>
-                  <span>{log.text}</span>
-                </div>
-              ))}
+              {(() => {
+                const filtered = logs.filter(l => 
+                  l.text.toLowerCase().includes(logSearchQuery.toLowerCase()) || 
+                  l.time.includes(logSearchQuery)
+                );
+                const sliced = logsLimit === 'all' ? filtered : filtered.slice(0, logsLimit);
+                if (sliced.length === 0) {
+                  return <span style={{ color: 'var(--text-light)', fontSize: '0.75rem', fontStyle: 'italic' }}>Sin operaciones coincidentes.</span>;
+                }
+                return sliced.map((log, idx) => (
+                  <div key={idx} style={{ borderBottom: '1px dashed rgba(0,0,0,0.05)', paddingBottom: '2px' }}>
+                    <span style={{ color: 'var(--primary-color)', marginRight: '5px' }}>[{log.time}]</span>
+                    <span>{log.text}</span>
+                  </div>
+                ));
+              })()}
             </div>
           </div>
 
@@ -2511,6 +2646,26 @@ create policy "Modificación privada de personal y credenciales" on public.helad
     const totalSales = orders.filter(o => o.status !== 'Cancelado').reduce((sum, o) => sum + o.grandTotal, 0);
     const totalExpenses = expenses.reduce((sum, e) => sum + e.amount, 0);
     const balance = totalSales - totalExpenses;
+
+    // Clasificar ventas por canal
+    const onlineSales = orders
+      .filter(o => o.status !== 'Cancelado' && !o.id.startsWith('FIS-'))
+      .reduce((sum, o) => sum + o.grandTotal, 0);
+    const physicalSales = orders
+      .filter(o => o.status !== 'Cancelado' && o.id.startsWith('FIS-'))
+      .reduce((sum, o) => sum + o.grandTotal, 0);
+
+    // Tasa de rentabilidad estimada
+    const profitMargin = totalSales > 0 ? Math.round((balance / totalSales) * 100) : 0;
+
+    // Agrupación de gastos por categoría
+    const expensesByCategory = { Insumos: 0, Servicios: 0, Alquiler: 0, Personal: 0 };
+    expenses.forEach(e => {
+      const cat = e.category || 'Insumos';
+      if (expensesByCategory[cat] !== undefined) {
+        expensesByCategory[cat] += e.amount;
+      }
+    });
 
     const handleAddPhysicalSale = async (e) => {
       e.preventDefault();
@@ -2604,7 +2759,7 @@ create policy "Modificación privada de personal y credenciales" on public.helad
         <h3>Caja y Control de Finanzas</h3>
 
         {/* Resumen Financiero en Fichas Premium */}
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '15px' }}>
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))', gap: '15px' }}>
           <div className="glass-card" style={{ padding: '15px', borderLeft: '5px solid var(--success)', background: 'linear-gradient(135deg, rgba(46, 204, 113, 0.05) 0%, rgba(255, 255, 255, 0.2) 100%)' }}>
             <span style={{ fontSize: '0.75rem', color: 'var(--text-light)', fontWeight: 600 }}>💰 INGRESOS TOTALES</span>
             <div style={{ fontSize: '1.6rem', fontWeight: 'bold', color: 'var(--success)', marginTop: '5px' }}>S/. {totalSales.toFixed(2)}</div>
@@ -2619,6 +2774,64 @@ create policy "Modificación privada de personal y credenciales" on public.helad
             <span style={{ fontSize: '0.75rem', color: 'var(--text-light)', fontWeight: 600 }}>📈 BALANCE NETO</span>
             <div style={{ fontSize: '1.6rem', fontWeight: 'bold', color: balance >= 0 ? 'var(--primary-color)' : 'var(--danger)', marginTop: '5px' }}>S/. {balance.toFixed(2)}</div>
             <span style={{ fontSize: '0.65rem', color: 'var(--text-light)', display: 'block', marginTop: '2px' }}>Ganancia real del local</span>
+          </div>
+          <div className="glass-card" style={{ padding: '15px', borderLeft: '5px solid var(--info)', background: 'linear-gradient(135deg, rgba(52, 152, 219, 0.05) 0%, rgba(255, 255, 255, 0.2) 100%)' }}>
+            <span style={{ fontSize: '0.75rem', color: 'var(--text-light)', fontWeight: 600 }}>📊 RENTABILIDAD ESTIMADA</span>
+            <div style={{ fontSize: '1.6rem', fontWeight: 'bold', color: profitMargin >= 25 ? 'var(--success)' : profitMargin > 0 ? 'var(--info)' : 'var(--danger)', marginTop: '5px' }}>{profitMargin}%</div>
+            <span style={{ fontSize: '0.65rem', color: 'var(--text-light)', display: 'block', marginTop: '2px' }}>Margen de ganancia neta</span>
+          </div>
+        </div>
+
+        {/* DESGLOSE DETALLADO DE FINANZAS */}
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(300px, 1fr))', gap: '15px', marginTop: '5px' }}>
+          {/* Columna de Desglose de Ingresos */}
+          <div className="glass" style={{ padding: '15px' }}>
+            <strong style={{ fontSize: '0.82rem', display: 'block', borderBottom: '1px solid var(--border-color)', paddingBottom: '6px', marginBottom: '10px' }}>
+              📊 Origen y Canales de Ingresos
+            </strong>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', fontSize: '0.78rem' }}>
+              <div>
+                <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '2px' }}>
+                  <span>🛵 Pedidos Online:</span>
+                  <strong>S/. {onlineSales.toFixed(2)} ({totalSales > 0 ? Math.round((onlineSales / totalSales) * 100) : 0}%)</strong>
+                </div>
+                <div style={{ width: '100%', height: '5px', background: 'var(--border-color)', borderRadius: '2px', overflow: 'hidden' }}>
+                  <div style={{ width: `${totalSales > 0 ? (onlineSales / totalSales) * 100 : 0}%`, height: '100%', background: 'var(--primary-color)' }}></div>
+                </div>
+              </div>
+              <div>
+                <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '2px' }}>
+                  <span>🏪 Ventas Físicas (Mostrador):</span>
+                  <strong>S/. {physicalSales.toFixed(2)} ({totalSales > 0 ? Math.round((physicalSales / totalSales) * 100) : 0}%)</strong>
+                </div>
+                <div style={{ width: '100%', height: '5px', background: 'var(--border-color)', borderRadius: '2px', overflow: 'hidden' }}>
+                  <div style={{ width: `${totalSales > 0 ? (physicalSales / totalSales) * 100 : 0}%`, height: '100%', background: 'var(--success)' }}></div>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          {/* Columna de Desglose de Egresos */}
+          <div className="glass" style={{ padding: '15px' }}>
+            <strong style={{ fontSize: '0.82rem', display: 'block', borderBottom: '1px solid var(--border-color)', paddingBottom: '6px', marginBottom: '10px' }}>
+              💸 Distribución de Gastos por Categoría
+            </strong>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', fontSize: '0.78rem' }}>
+              {Object.entries(expensesByCategory).map(([cat, amount]) => {
+                const pct = totalExpenses > 0 ? Math.round((amount / totalExpenses) * 100) : 0;
+                return (
+                  <div key={cat}>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '2px' }}>
+                      <span>{cat === 'Insumos' ? '🍓' : cat === 'Servicios' ? '💡' : cat === 'Alquiler' ? '🏢' : '👤'} {cat}:</span>
+                      <strong>S/. {amount.toFixed(2)} ({pct}%)</strong>
+                    </div>
+                    <div style={{ width: '100%', height: '5px', background: 'var(--border-color)', borderRadius: '2px', overflow: 'hidden' }}>
+                      <div style={{ width: `${pct}%`, height: '100%', background: 'var(--danger)' }}></div>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
           </div>
         </div>
 

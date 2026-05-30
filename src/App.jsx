@@ -68,7 +68,7 @@ function LiveChatTelegramBridge({ telegramToken, telegramChatId, storePhone, sto
 
     if (!telegramToken || !telegramChatId) {
       const waMessage = `Hola, mi nombre es ${name || 'Cliente'}. Tengo una consulta:\n\n${message}`;
-      const cleanPhone = storePhone.replace(/\D/g, '');
+      const cleanPhone = String(storePhone || '').replace(/\D/g, '');
       const waUrl = `https://wa.me/${cleanPhone}?text=${encodeURIComponent(waMessage)}`;
       window.open(waUrl, '_blank');
       setIsOpen(false);
