@@ -909,6 +909,24 @@ export default function App() {
     localStorage.setItem('helados_admin_logged_in', isLoggedIn.toString());
   }, [isLoggedIn]);
 
+  // Control de Expiración de Sesión de Admin (10 Días)
+  useEffect(() => {
+    if (isLoggedIn) {
+      const loginTime = localStorage.getItem('helados_admin_login_timestamp');
+      if (loginTime) {
+        const elapsed = Date.now() - parseInt(loginTime, 10);
+        const tenDaysMs = 10 * 24 * 60 * 60 * 1000; // 10 días en milisegundos
+        if (elapsed > tenDaysMs) {
+          console.log("🔒 Sesión caducada tras 10 días. Cerrando sesión automáticamente...");
+          alert("🔒 Por razones de seguridad, tu sesión administrativa ha expirado tras 10 días de uso continuo. Por favor, inicia sesión de nuevo.");
+          handleLogout();
+        }
+      } else {
+        localStorage.setItem('helados_admin_login_timestamp', Date.now().toString());
+      }
+    }
+  }, [isLoggedIn]);
+
   useEffect(() => {
     if (currentUser) {
       localStorage.setItem('helados_admin_current_user', JSON.stringify(currentUser));

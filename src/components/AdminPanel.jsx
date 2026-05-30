@@ -75,6 +75,22 @@ export default function AdminPanel({
   const [passwordInput, setPasswordInput] = useState('');
   const [authError, setAuthError] = useState('');
 
+  // --- Estados de Seguridad (Límite de Intentos y Bloqueo Temporal) ---
+  const [loginAttempts, setLoginAttempts] = useState(() => {
+    return parseInt(localStorage.getItem('helados_login_attempts') || '0', 10);
+  });
+  const [lockoutUntil, setLockoutUntil] = useState(() => {
+    return parseInt(localStorage.getItem('helados_lockout_until') || '0', 10);
+  });
+
+  useEffect(() => {
+    localStorage.setItem('helados_login_attempts', loginAttempts.toString());
+  }, [loginAttempts]);
+
+  useEffect(() => {
+    localStorage.setItem('helados_lockout_until', lockoutUntil.toString());
+  }, [lockoutUntil]);
+
   // --- Estados de UI ---
   const [activeTab, setActiveTab] = useState('orders'); // orders, inventory, packs, users, settings, stats
   const [orderFilter, setOrderFilter] = useState('all');
@@ -342,6 +358,13 @@ export default function AdminPanel({
     e.preventDefault();
     setAuthError('');
 
+    const now = Date.now();
+    if (lockoutUntil && now < lockoutUntil) {
+      const minutesLeft = Math.ceil((lockoutUntil - now) / (60 * 1000));
+      setAuthError(`🚨 Panel bloqueado por seguridad. Inténtalo de nuevo en ${minutesLeft} minuto(s).`);
+      return;
+    }
+
     const userInput = sanitizeHTML(emailInput).toLowerCase().trim();
     const passwordSanitized = passwordInput.trim();
 
@@ -351,6 +374,28 @@ export default function AdminPanel({
     }
 
     const searchEmail = userInput.includes('@') ? userInput : `${userInput}@donhelado.com`;
+
+    const handleLoginSuccess = (userObj, isSupabase) => {
+      setLoginAttempts(0);
+      setLockoutUntil(0);
+      localStorage.setItem('helados_admin_login_timestamp', Date.now().toString());
+      setIsLoggedIn(true);
+      setCurrentUser(userObj);
+      addLog(`Inicio de sesión ${isSupabase ? 'multidispositivo' : 'exitoso'} por ${userObj.name} (${userObj.role}).`);
+    };
+
+    const handleLoginFailure = (customMsg) => {
+      const nextAttempts = loginAttempts + 1;
+      setLoginAttempts(nextAttempts);
+      if (nextAttempts >= 5) {
+        const blockTime = Date.now() + 15 * 60 * 1000; // 15 minutos
+        setLockoutUntil(blockTime);
+        setAuthError('🚨 Has superado los 5 intentos de inicio de sesión fallidos. El panel de administración ha sido bloqueado temporalmente por 15 minutos.');
+        addLog(`BLOQUEO DE SEGURIDAD: 5 intentos fallidos en login para usuario: ${userInput}`);
+      } else {
+        setAuthError(customMsg || `Credenciales incorrectas. Intentos restantes: ${5 - nextAttempts}`);
+      }
+    };
 
     // 1. Intentar iniciar sesión por medio del RPC de Supabase
     if (supabase) {
@@ -379,9 +424,7 @@ export default function AdminPanel({
             isSupabaseUser: true
           };
           
-          setIsLoggedIn(true);
-          setCurrentUser(userObj);
-          addLog(`Inicio de sesión multidispositivo exitoso por ${userObj.name} (${userObj.role}).`);
+          handleLoginSuccess(userObj, true);
 
           // Cargar lista actualizada de personal
           try {
@@ -421,17 +464,15 @@ export default function AdminPanel({
 
       if (foundUser.password === passwordSanitized) {
         const userObj = { ...foundUser, password: passwordSanitized, isSupabaseUser: false };
-        setIsLoggedIn(true);
-        setCurrentUser(userObj);
-        addLog(`Inicio de sesión exitoso: ${foundUser.name} (${foundUser.role}).`);
+        handleLoginSuccess(userObj, false);
         return;
       } else {
-        setAuthError('Contraseña incorrecta.');
+        handleLoginFailure('Contraseña incorrecta.');
         return;
       }
     }
 
-    setAuthError('Credenciales incorrectas o usuario no registrado.');
+    handleLoginFailure('Credenciales incorrectas o usuario no registrado.');
   };
 
   const handleLogoutAction = () => {
