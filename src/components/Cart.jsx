@@ -15,13 +15,15 @@ export default function Cart({
   storePhone,
   coupons,
   whatsappGreeting,
-  whatsappFooter
+  whatsappFooter,
+  cartRecommendedPack
 }) {
   // Cargar datos autocompletados desde LocalStorage si existen
   const [name, setName] = useState(() => localStorage.getItem('last_customer_name') || '');
   const [phone, setPhone] = useState(() => localStorage.getItem('last_customer_phone') || '');
   const [address, setAddress] = useState(() => localStorage.getItem('last_customer_address') || '');
   const [paymentMethod, setPaymentMethod] = useState('Yape'); // Yape, Plin, Efectivo
+  const [isSubmitting, setIsSubmitting] = useState(false);
 
   // Estados para Cupones de Descuento
   const [couponInput, setCouponInput] = useState('');
@@ -120,6 +122,8 @@ export default function Cart({
 
   const handleSubmit = async (e) => {
     e.preventDefault();
+    if (isSubmitting) return;
+    
     if (cart.length === 0) {
       alert("El carrito está vacío.");
       return;
@@ -129,6 +133,7 @@ export default function Cart({
       return;
     }
 
+    setIsSubmitting(true);
     const orderId = `PED-${Math.floor(1000 + Math.random() * 9000)}`;
     const newOrder = {
       id: orderId,
@@ -192,12 +197,19 @@ export default function Cart({
   };
 
   const handleAddSuggestedPack = () => {
-    const packItem = {
-      type: 'pack',
-      id: 'pack_pareja',
+    const pack = cartRecommendedPack || {
+      active: true,
       name: 'Pack Dúo Romántico',
       price: 10.0,
-      items: '2 Copas Waffle de 3 bolas + Fudge de chocolate gratis',
+      description: '2 Copas Waffle de 3 bolas + Fudge de chocolate gratis',
+      id: 'pack_pareja'
+    };
+    const packItem = {
+      type: 'pack',
+      id: pack.id || 'pack_pareja',
+      name: pack.name || 'Pack Dúo Romántico',
+      price: parseFloat(pack.price) || 10.0,
+      items: pack.description || '2 Copas Waffle de 3 bolas + Fudge de chocolate gratis',
       quantity: 1
     };
     onAddToCart(packItem);
@@ -292,13 +304,13 @@ export default function Cart({
             </div>
           ))}
 
-          {/* Sugerencia de Venta Cruzada */}
-          {!cart.some(item => item.id === 'pack_pareja') && (
+          {/* Sugerencia de Venta Cruzada Dinámica */}
+          {cartRecommendedPack && cartRecommendedPack.active !== false && !cart.some(item => item.id === (cartRecommendedPack.id || 'pack_pareja')) && (
             <div className="glass-card" style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '10px 12px', background: 'linear-gradient(135deg, rgba(229, 142, 38, 0.04) 0%, rgba(255, 107, 129, 0.04) 100%)', border: '1px dashed var(--secondary-color)', borderRadius: 'var(--radius-md)' }}>
               <div style={{ maxWidth: '75%' }}>
                 <strong style={{ fontSize: '0.8rem', display: 'block' }}>🎁 Combo Recomendado</strong>
                 <span style={{ fontSize: '0.7rem', color: 'var(--text-light)', display: 'block', marginTop: '2px' }}>
-                  Lleva el Pack Dúo Romántico por S/. 10.00 (ahorras S/. 2.00).
+                  {cartRecommendedPack.name} por S/. {(parseFloat(cartRecommendedPack.price) || 0).toFixed(2)} ({cartRecommendedPack.description}).
                 </span>
               </div>
               <button 
@@ -454,9 +466,10 @@ export default function Cart({
             <button 
               type="submit" 
               className="btn btn-primary" 
-              style={{ width: '100%', marginTop: '10px', padding: '10px', fontSize: '0.9rem' }}
+              style={{ width: '100%', marginTop: '10px', padding: '10px', fontSize: '0.9rem', opacity: isSubmitting ? 0.6 : 1, cursor: isSubmitting ? 'not-allowed' : 'pointer' }}
+              disabled={isSubmitting}
             >
-              🚀 Confirmar y Enviar Pedido
+              {isSubmitting ? '⏳ Procesando Pedido...' : '🚀 Confirmar y Enviar Pedido'}
             </button>
           </form>
         </div>

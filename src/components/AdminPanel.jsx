@@ -63,7 +63,12 @@ export default function AdminPanel({
   qrCustomUrl,
   onChangeQrCustomUrl,
   recommendations,
-  onUpdateRecommendations
+  onUpdateRecommendations,
+  expenses,
+  onUpdateExpenses,
+  onUpdateOrders,
+  cartRecommendedPack,
+  onUpdateCartRecommendedPack
 }) {
   // --- Estados de Autenticación ---
   const [emailInput, setEmailInput] = useState('');
@@ -98,6 +103,36 @@ export default function AdminPanel({
   const [showAddBase, setShowAddBase] = useState(false);
   const [editingBase, setEditingBase] = useState(null);
   const [newBase, setNewBase] = useState({ name: '', price: 0.0, icon: '🍨', description: '' });
+
+  // --- Estados Locales para Módulo de Caja y Finanzas ---
+  const [quickSaleProduct, setQuickSaleProduct] = useState('libre');
+  const [quickSaleAmount, setQuickSaleAmount] = useState('');
+  const [quickSaleName, setQuickSaleName] = useState('');
+  const [quickSalePaymentMethod, setQuickSalePaymentMethod] = useState('Efectivo');
+  const [quickSaleSubmitting, setQuickSaleSubmitting] = useState(false);
+
+  const [expenseConcept, setExpenseConcept] = useState('');
+  const [expenseAmount, setExpenseAmount] = useState('');
+  const [expenseCategory, setExpenseCategory] = useState('Insumos');
+  const [expenseDate, setExpenseDate] = useState(() => new Date().toISOString().split('T')[0]);
+  const [expenseSubmitting, setExpenseSubmitting] = useState(false);
+
+  const [logsLimit, setLogsLimit] = useState(20);
+
+  // --- Estado de personalización avanzada de Dashboard Analítico ---
+  const [dashboardConfig, setDashboardConfig] = useState(() => {
+    const saved = localStorage.getItem('helados_dashboard_config');
+    return saved ? JSON.parse(saved) : {
+      showTopProducts: true,
+      showPayments: true,
+      showDeliveryType: true,
+      showFinances: true
+    };
+  });
+
+  useEffect(() => {
+    localStorage.setItem('helados_dashboard_config', JSON.stringify(dashboardConfig));
+  }, [dashboardConfig]);
 
   // --- Estados Locales para Ajustes (Evita bugs de pérdida de foco al escribir) ---
   const [localStoreName, setLocalStoreName] = useState(storeName);
@@ -239,7 +274,7 @@ export default function AdminPanel({
       time: new Date().toLocaleTimeString('es-PE', { hour: '2-digit', minute: '2-digit', second: '2-digit' }),
       text
     };
-    setLogs(prev => [newLog, ...prev.slice(0, 49)]); // Mantener últimas 50 operaciones
+    setLogs(prev => [newLog, ...prev.slice(0, 499)]); // Mantener últimas 500 operaciones
   };
 
   // --- Detector de Nuevos Pedidos (Alerta Sonora) ---
@@ -1070,7 +1105,17 @@ export default function AdminPanel({
                           </button>
                         )}
                         {order.status !== 'Entregado' && order.status !== 'Cancelado' && (
-                          <button className="admin-action-btn" style={{ color: 'var(--danger)' }} onClick={() => { onUpdateOrderStatus(order.id, 'Cancelado'); addLog(`Pedido ${order.id} CANCELADO por ${currentUser?.name}`); }}>
+                          <button 
+                            className="admin-action-btn" 
+                            style={{ color: 'var(--danger)' }} 
+                            onClick={() => { 
+                              if (window.confirm(`⚠️ ¿Estás seguro de que deseas CANCELAR el pedido ${order.id} de ${order.customer.name}?`)) {
+                                onUpdateOrderStatus(order.id, 'Cancelado'); 
+                                addLog(`Pedido ${order.id} CANCELADO por ${currentUser?.name}`); 
+                              }
+                            }}
+                            title="Cancelar Pedido"
+                          >
                             ✕
                           </button>
                         )}
@@ -2370,7 +2415,23 @@ create policy "Modificación privada de personal y credenciales" on public.helad
 
           {/* Bitácora de Operaciones (Logs) */}
           <div>
-            <strong style={{ display: 'block', fontSize: '0.9rem', marginBottom: '8px' }}>📜 Bitácora de Operaciones Recientes (Auditoría)</strong>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '8px' }}>
+              <strong style={{ fontSize: '0.9rem' }}>📜 Bitácora de Operaciones Recientes (Auditoría)</strong>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '5px' }}>
+                <span style={{ fontSize: '0.7rem', color: 'var(--text-light)' }}>Ver:</span>
+                <select 
+                  className="form-control" 
+                  style={{ width: '70px', fontSize: '0.7rem', padding: '2px 5px', height: '24px', cursor: 'pointer' }}
+                  value={logsLimit}
+                  onChange={(e) => setLogsLimit(e.target.value === 'all' ? 'all' : parseInt(e.target.value))}
+                >
+                  <option value={20}>20 últ.</option>
+                  <option value={50}>50 últ.</option>
+                  <option value={100}>100 últ.</option>
+                  <option value="all">Todo</option>
+                </select>
+              </div>
+            </div>
             <div style={{
               background: 'rgba(0,0,0,0.03)',
               border: '1px solid var(--border-color)',
@@ -2384,7 +2445,7 @@ create policy "Modificación privada de personal y credenciales" on public.helad
               flexDirection: 'column',
               gap: '4px'
             }}>
-              {logs.map((log, idx) => (
+              {(logsLimit === 'all' ? logs : logs.slice(0, logsLimit)).map((log, idx) => (
                 <div key={idx} style={{ borderBottom: '1px dashed rgba(0,0,0,0.05)', paddingBottom: '2px' }}>
                   <span style={{ color: 'var(--primary-color)', marginRight: '5px' }}>[{log.time}]</span>
                   <span>{log.text}</span>
@@ -2402,6 +2463,306 @@ create policy "Modificación privada de personal y credenciales" on public.helad
             </button>
           </div>
         </div>
+      </div>
+    );
+  };  // --- RENDER TAB - CAJA Y FINANZAS (VENTAS FÍSICAS Y GASTOS) ---
+  const renderFinanceTab = () => {
+    const totalSales = orders.filter(o => o.status !== 'Cancelado').reduce((sum, o) => sum + o.grandTotal, 0);
+    const totalExpenses = expenses.reduce((sum, e) => sum + e.amount, 0);
+    const balance = totalSales - totalExpenses;
+
+    const handleAddPhysicalSale = async (e) => {
+      e.preventDefault();
+      if (quickSaleSubmitting) return; // Evitar doble submit
+
+      const amountVal = parseFloat(quickSaleAmount) || 0;
+      if (amountVal <= 0) {
+        alert("El monto de la venta debe ser mayor a 0.");
+        return;
+      }
+
+      setQuickSaleSubmitting(true);
+      const saleId = `FIS-${Math.floor(1000 + Math.random() * 9000)}`;
+      const newOrder = {
+        id: saleId,
+        customer: {
+          name: quickSaleName.trim() || 'Cliente de Tienda',
+          phone: 'N/A',
+          address: 'Consumo en Tienda / Venta Presencial',
+          paymentMethod: quickSalePaymentMethod
+        },
+        items: [
+          {
+            name: quickSaleProduct === 'libre' ? 'Venta Rápida de Mostrador' : quickSaleProduct,
+            price: amountVal,
+            quantity: 1,
+            type: 'custom',
+            base: { id: 'tienda', name: 'Servicio en Tienda' },
+            scoops: [],
+            toppings: []
+          }
+        ],
+        total: amountVal,
+        deliveryFee: 0.0,
+        discount: 0.0,
+        couponCode: null,
+        grandTotal: amountVal,
+        status: 'Entregado',
+        date: new Date().toISOString()
+      };
+
+      onUpdateOrders([newOrder, ...orders]);
+      addLog(`Venta física registrada: ${newOrder.items[0].name} (S/. ${amountVal.toFixed(2)}) por ${currentUser?.name}.`);
+      setQuickSaleAmount('');
+      setQuickSaleName('');
+      setQuickSaleSubmitting(false);
+      alert("¡Venta física registrada con éxito!");
+    };
+
+    const handleAddExpense = async (e) => {
+      e.preventDefault();
+      if (expenseSubmitting) return; // Evitar doble submit
+
+      const amountVal = parseFloat(expenseAmount) || 0;
+      if (!expenseConcept.trim()) {
+        alert("El concepto del gasto es obligatorio.");
+        return;
+      }
+      if (amountVal <= 0) {
+        alert("El monto del gasto debe ser mayor a 0.");
+        return;
+      }
+
+      setExpenseSubmitting(true);
+      const newExpense = {
+        id: `EXP-${Date.now()}`,
+        concept: expenseConcept.trim(),
+        amount: amountVal,
+        category: expenseCategory,
+        date: expenseDate || new Date().toISOString().split('T')[0]
+      };
+
+      onUpdateExpenses([newExpense, ...expenses]);
+      addLog(`Gasto registrado: ${newExpense.concept} (S/. ${amountVal.toFixed(2)}) por ${currentUser?.name}.`);
+      setExpenseConcept('');
+      setExpenseAmount('');
+      setExpenseSubmitting(false);
+      alert("¡Gasto registrado con éxito!");
+    };
+
+    const handleDeleteExpense = (id) => {
+      if (window.confirm("¿Seguro que deseas eliminar este gasto?")) {
+        const exp = expenses.find(e => e.id === id);
+        onUpdateExpenses(expenses.filter(e => e.id !== id));
+        addLog(`Gasto eliminado: ${exp?.concept || id} por ${currentUser?.name}.`);
+      }
+    };
+
+    return (
+      <div style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
+        <h3>Caja y Control de Finanzas</h3>
+
+        {/* Resumen Financiero en Fichas Premium */}
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '15px' }}>
+          <div className="glass-card" style={{ padding: '15px', borderLeft: '5px solid var(--success)', background: 'linear-gradient(135deg, rgba(46, 204, 113, 0.05) 0%, rgba(255, 255, 255, 0.2) 100%)' }}>
+            <span style={{ fontSize: '0.75rem', color: 'var(--text-light)', fontWeight: 600 }}>💰 INGRESOS TOTALES</span>
+            <div style={{ fontSize: '1.6rem', fontWeight: 'bold', color: 'var(--success)', marginTop: '5px' }}>S/. {totalSales.toFixed(2)}</div>
+            <span style={{ fontSize: '0.65rem', color: 'var(--text-light)', display: 'block', marginTop: '2px' }}>Pedidos online + ventas físicas</span>
+          </div>
+          <div className="glass-card" style={{ padding: '15px', borderLeft: '5px solid var(--danger)', background: 'linear-gradient(135deg, rgba(231, 76, 60, 0.05) 0%, rgba(255, 255, 255, 0.2) 100%)' }}>
+            <span style={{ fontSize: '0.75rem', color: 'var(--text-light)', fontWeight: 600 }}>💸 EGRESOS / GASTOS</span>
+            <div style={{ fontSize: '1.6rem', fontWeight: 'bold', color: 'var(--danger)', marginTop: '5px' }}>S/. {totalExpenses.toFixed(2)}</div>
+            <span style={{ fontSize: '0.65rem', color: 'var(--text-light)', display: 'block', marginTop: '2px' }}>Compras e insumos registrados</span>
+          </div>
+          <div className="glass-card" style={{ padding: '15px', borderLeft: '5px solid var(--primary-color)', background: 'linear-gradient(135deg, rgba(255, 107, 129, 0.05) 0%, rgba(255, 255, 255, 0.2) 100%)' }}>
+            <span style={{ fontSize: '0.75rem', color: 'var(--text-light)', fontWeight: 600 }}>📈 BALANCE NETO</span>
+            <div style={{ fontSize: '1.6rem', fontWeight: 'bold', color: balance >= 0 ? 'var(--primary-color)' : 'var(--danger)', marginTop: '5px' }}>S/. {balance.toFixed(2)}</div>
+            <span style={{ fontSize: '0.65rem', color: 'var(--text-light)', display: 'block', marginTop: '2px' }}>Ganancia real del local</span>
+          </div>
+        </div>
+
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(300px, 1fr))', gap: '20px' }}>
+          
+          {/* REGISTRAR VENTA FÍSICA */}
+          <div className="glass" style={{ padding: '20px' }}>
+            <h4 style={{ marginBottom: '15px', display: 'flex', alignItems: 'center', gap: '8px' }}>🛒 Registrar Venta Física (Mostrador)</h4>
+            <form onSubmit={handleAddPhysicalSale} style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+              <div className="form-group">
+                <label>Producto o Detalle</label>
+                <select 
+                  className="form-control" 
+                  value={quickSaleProduct} 
+                  onChange={(e) => {
+                    setQuickSaleProduct(e.target.value);
+                    if (e.target.value !== 'libre') {
+                      const found = packs.find(p => p.name === e.target.value);
+                      if (found) setQuickSaleAmount(found.price);
+                    }
+                  }}
+                >
+                  <option value="libre">✨ Venta de Importe Libre / Personalizado</option>
+                  {packs.map(p => (
+                    <option key={p.id} value={p.name}>🎁 Pack: {p.name} (S/. {p.price.toFixed(2)})</option>
+                  ))}
+                </select>
+              </div>
+
+              <div style={{ display: 'grid', gridTemplateColumns: '1.2fr 0.8fr', gap: '10px' }}>
+                <div className="form-group">
+                  <label>Nombre del Cliente (Opcional)</label>
+                  <input 
+                    type="text" 
+                    className="form-control" 
+                    placeholder="Ej: Anónimo" 
+                    value={quickSaleName}
+                    onChange={(e) => setQuickSaleName(e.target.value)}
+                  />
+                </div>
+                <div className="form-group">
+                  <label>Monto Cobrado S/.</label>
+                  <input 
+                    type="number" 
+                    step="0.10" 
+                    className="form-control" 
+                    required 
+                    value={quickSaleAmount}
+                    onChange={(e) => setQuickSaleAmount(e.target.value)}
+                  />
+                </div>
+              </div>
+
+              <div className="form-group">
+                <label>Método de Pago</label>
+                <div className="payment-options" style={{ gap: '6px' }}>
+                  {['Efectivo', 'Yape', 'Plin', 'Tarjeta'].map(method => (
+                    <button
+                      key={method}
+                      type="button"
+                      className={`payment-btn ${quickSalePaymentMethod === method ? 'selected' : ''}`}
+                      onClick={() => setQuickSalePaymentMethod(method)}
+                      style={{ flex: 1, fontSize: '0.75rem', padding: '6px' }}
+                    >
+                      {method === 'Efectivo' ? '💵' : method === 'Tarjeta' ? '💳' : '📱'} {method}
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              <button 
+                type="submit" 
+                className="btn btn-primary" 
+                style={{ width: '100%', padding: '10px', marginTop: '10px', cursor: 'pointer' }}
+                disabled={quickSaleSubmitting}
+              >
+                {quickSaleSubmitting ? 'Registrando...' : '🛒 Guardar Venta en Caja'}
+              </button>
+            </form>
+          </div>
+
+          {/* REGISTRAR GASTO */}
+          <div className="glass" style={{ padding: '20px' }}>
+            <h4 style={{ marginBottom: '15px', display: 'flex', alignItems: 'center', gap: '8px' }}>💸 Registrar Gasto / Egreso</h4>
+            <form onSubmit={handleAddExpense} style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+              <div className="form-group">
+                <label>Concepto del Gasto</label>
+                <input 
+                  type="text" 
+                  className="form-control" 
+                  placeholder="Ej: Compra de 5kg de fresas" 
+                  required 
+                  value={expenseConcept}
+                  onChange={(e) => setExpenseConcept(e.target.value)}
+                />
+              </div>
+
+              <div style={{ display: 'grid', gridTemplateColumns: '1.2fr 0.8fr', gap: '10px' }}>
+                <div className="form-group">
+                  <label>Categoría</label>
+                  <select 
+                    className="form-control" 
+                    value={expenseCategory}
+                    onChange={(e) => setExpenseCategory(e.target.value)}
+                  >
+                    <option value="Insumos">🍓 Insumos / Ingredientes</option>
+                    <option value="Servicios">💡 Servicios (Luz, Agua)</option>
+                    <option value="Alquiler">🏢 Alquiler de Local</option>
+                    <option value="Personal">👥 Personal / Sueldos</option>
+                    <option value="Otros">📦 Otros Gastos</option>
+                  </select>
+                </div>
+                <div className="form-group">
+                  <label>Monto Gasto S/.</label>
+                  <input 
+                    type="number" 
+                    step="0.10" 
+                    className="form-control" 
+                    required 
+                    value={expenseAmount}
+                    onChange={(e) => setExpenseAmount(e.target.value)}
+                  />
+                </div>
+              </div>
+
+              <div className="form-group">
+                <label>Fecha</label>
+                <input 
+                  type="date" 
+                  className="form-control" 
+                  value={expenseDate}
+                  onChange={(e) => setExpenseDate(e.target.value)}
+                />
+              </div>
+
+              <button 
+                type="submit" 
+                className="btn btn-secondary" 
+                style={{ width: '100%', padding: '10px', marginTop: '10px', borderColor: 'var(--danger)', color: 'var(--danger)', cursor: 'pointer' }}
+                disabled={expenseSubmitting}
+              >
+                {expenseSubmitting ? 'Registrando...' : '💸 Guardar Egreso / Gasto'}
+              </button>
+            </form>
+          </div>
+
+        </div>
+
+        {/* TABLA DE GASTOS RECIENTES */}
+        <div className="glass" style={{ padding: '15px' }}>
+          <h4 style={{ marginBottom: '10px' }}>📜 Bitácora de Gastos y Egresos</h4>
+          <div className="admin-table-container">
+            <table className="admin-table">
+              <thead>
+                <tr>
+                  <th>Concepto</th>
+                  <th>Categoría</th>
+                  <th>Fecha</th>
+                  <th>Monto</th>
+                  <th>Acción</th>
+                </tr>
+              </thead>
+              <tbody>
+                {expenses.length === 0 ? (
+                  <tr>
+                    <td colSpan="5" style={{ textAlign: 'center', color: 'var(--text-light)' }}>No hay gastos registrados en el sistema.</td>
+                  </tr>
+                ) : (
+                  expenses.map(e => (
+                    <tr key={e.id}>
+                      <td><strong>{e.concept}</strong></td>
+                      <td><span className="badge" style={{ backgroundColor: 'var(--bg-secondary)', border: '1px solid var(--border-color)', color: 'var(--text-dark)' }}>{e.category}</span></td>
+                      <td>{e.date}</td>
+                      <td style={{ color: 'var(--danger)', fontWeight: 'bold' }}>- S/. {e.amount.toFixed(2)}</td>
+                      <td>
+                        <button className="admin-action-btn" style={{ color: 'var(--danger)' }} onClick={() => handleDeleteExpense(e.id)}>🗑️</button>
+                      </td>
+                    </tr>
+                  ))
+                )}
+              </tbody>
+            </table>
+          </div>
+        </div>
+
       </div>
     );
   };
@@ -2652,6 +3013,37 @@ create policy "Modificación privada de personal y credenciales" on public.helad
             </div>
           </div>
         )}
+
+        {/* Panel de Personalización Avanzada del Dashboard */}
+        <div className="glass" style={{ padding: '12px 15px', borderRadius: '8px', marginBottom: '5px' }}>
+          <strong style={{ fontSize: '0.8rem', display: 'block', marginBottom: '6px' }}>🎨 Personalización del Dashboard (Métricas en Tiempo Real)</strong>
+          <div style={{ display: 'flex', gap: '15px', flexWrap: 'wrap', fontSize: '0.72rem' }}>
+            <label style={{ display: 'flex', alignItems: 'center', gap: '6px', cursor: 'pointer', fontWeight: 600 }}>
+              <input 
+                type="checkbox" 
+                checked={dashboardConfig.showTopProducts !== false} 
+                onChange={() => setDashboardConfig({ ...dashboardConfig, showTopProducts: !dashboardConfig.showTopProducts })} 
+              />
+              <span>Ránking de Productos</span>
+            </label>
+            <label style={{ display: 'flex', alignItems: 'center', gap: '6px', cursor: 'pointer', fontWeight: 600 }}>
+              <input 
+                type="checkbox" 
+                checked={dashboardConfig.showPayments !== false} 
+                onChange={() => setDashboardConfig({ ...dashboardConfig, showPayments: !dashboardConfig.showPayments })} 
+              />
+              <span>Métodos de Pago y Envío</span>
+            </label>
+            <label style={{ display: 'flex', alignItems: 'center', gap: '6px', cursor: 'pointer', fontWeight: 600 }}>
+              <input 
+                type="checkbox" 
+                checked={dashboardConfig.showFinances !== false} 
+                onChange={() => setDashboardConfig({ ...dashboardConfig, showFinances: !dashboardConfig.showFinances })} 
+              />
+              <span>Gráficos de Ventas</span>
+            </label>
+          </div>
+        </div>
         
         {/* Meta Diaria y Estado Financiero */}
         <div style={{ display: 'grid', gridTemplateColumns: '1.2fr 0.8fr', gap: '20px' }} className="admin-stats-columns">
@@ -2727,52 +3119,60 @@ create policy "Modificación privada de personal y credenciales" on public.helad
 
           {/* Columna Derecha: Canales de Pago */}
           <div className="glass" style={{ padding: '15px', display: 'flex', flexDirection: 'column', gap: '12px' }}>
-            <strong style={{ fontSize: '0.85rem', borderBottom: '1px solid var(--border-color)', paddingBottom: '6px' }}>💰 Métodos de Pago y Envío</strong>
-            
-            {/* Medios de Pago */}
-            <div>
-              <span style={{ fontSize: '0.75rem', fontWeight: 600, color: 'var(--text-light)' }}>Ventas por Canal:</span>
-              <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', marginTop: '6px' }}>
-                {Object.keys(salesByPayment).length === 0 ? (
-                  <span style={{ fontSize: '0.75rem', color: 'var(--text-light)' }}>Sin datos de pago.</span>
-                ) : (
-                  Object.entries(salesByPayment).map(([method, amount]) => {
-                    const pct = totalSalesPeriod > 0 ? Math.round((amount / totalSalesPeriod) * 100) : 0;
-                    return (
-                      <div key={method}>
-                        <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.75rem', marginBottom: '2px' }}>
-                          <span><strong>{method === 'Yape' ? '📱 Yape' : method === 'Plin' ? '💸 Plin' : method === 'Efectivo' ? '💵 Efectivo' : '❓ Otros'}</strong></span>
-                          <span>S/. {amount.toFixed(2)} ({pct}%)</span>
-                        </div>
-                        <div style={{ width: '100%', height: '4px', background: 'var(--border-color)', borderRadius: '2px', overflow: 'hidden' }}>
-                          <div style={{ width: `${pct}%`, height: '100%', background: 'var(--primary-color)' }}></div>
-                        </div>
-                      </div>
-                    );
-                  })
-                )}
-              </div>
-            </div>
+            {dashboardConfig.showPayments !== false ? (
+              <>
+                <strong style={{ fontSize: '0.85rem', borderBottom: '1px solid var(--border-color)', paddingBottom: '6px' }}>💰 Métodos de Pago y Envío</strong>
+                
+                {/* Medios de Pago */}
+                <div>
+                  <span style={{ fontSize: '0.75rem', fontWeight: 600, color: 'var(--text-light)' }}>Ventas por Canal:</span>
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', marginTop: '6px' }}>
+                    {Object.keys(salesByPayment).length === 0 ? (
+                      <span style={{ fontSize: '0.75rem', color: 'var(--text-light)' }}>Sin datos de pago.</span>
+                    ) : (
+                      Object.entries(salesByPayment).map(([method, amount]) => {
+                        const pct = totalSalesPeriod > 0 ? Math.round((amount / totalSalesPeriod) * 100) : 0;
+                        return (
+                          <div key={method}>
+                            <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.75rem', marginBottom: '2px' }}>
+                              <span><strong>{method === 'Yape' ? '📱 Yape' : method === 'Plin' ? '💸 Plin' : method === 'Efectivo' ? '💵 Efectivo' : '❓ Otros'}</strong></span>
+                              <span>S/. {amount.toFixed(2)} ({pct}%)</span>
+                            </div>
+                            <div style={{ width: '100%', height: '4px', background: 'var(--border-color)', borderRadius: '2px', overflow: 'hidden' }}>
+                              <div style={{ width: `${pct}%`, height: '100%', background: 'var(--primary-color)' }}></div>
+                            </div>
+                          </div>
+                        );
+                      })
+                    )}
+                  </div>
+                </div>
 
-            {/* Servicio Delivery vs Recojo */}
-            <div style={{ borderTop: '1px dashed var(--border-color)', paddingTop: '8px', marginTop: '4px' }}>
-              <span style={{ fontSize: '0.75rem', fontWeight: 600, color: 'var(--text-light)' }}>Canal de Entrega:</span>
-              <div style={{ display: 'flex', flexDirection: 'column', gap: '6px', marginTop: '6px', fontSize: '0.75rem' }}>
-                <div style={{ display: 'flex', justifyContent: 'space-between' }}>
-                  <span>🛵 Reparto a domicilio:</span>
-                  <strong>S/. {salesByDeliveryType.delivery.toFixed(2)} ({totalSalesPeriod > 0 ? Math.round((salesByDeliveryType.delivery / totalSalesPeriod) * 100) : 0}%)</strong>
+                {/* Servicio Delivery vs Recojo */}
+                <div style={{ borderTop: '1px dashed var(--border-color)', paddingTop: '8px', marginTop: '4px' }}>
+                  <span style={{ fontSize: '0.75rem', fontWeight: 600, color: 'var(--text-light)' }}>Canal de Entrega:</span>
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: '6px', marginTop: '6px', fontSize: '0.75rem' }}>
+                    <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+                      <span>🛵 Reparto a domicilio:</span>
+                      <strong>S/. {salesByDeliveryType.delivery.toFixed(2)} ({totalSalesPeriod > 0 ? Math.round((salesByDeliveryType.delivery / totalSalesPeriod) * 100) : 0}%)</strong>
+                    </div>
+                    <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+                      <span>🏪 Recojo en tienda:</span>
+                      <strong>S/. {salesByDeliveryType.pickup.toFixed(2)} ({totalSalesPeriod > 0 ? Math.round((salesByDeliveryType.pickup / totalSalesPeriod) * 100) : 0}%)</strong>
+                    </div>
+                  </div>
                 </div>
-                <div style={{ display: 'flex', justifyContent: 'space-between' }}>
-                  <span>🏪 Recojo en tienda:</span>
-                  <strong>S/. {salesByDeliveryType.pickup.toFixed(2)} ({totalSalesPeriod > 0 ? Math.round((salesByDeliveryType.pickup / totalSalesPeriod) * 100) : 0}%)</strong>
-                </div>
+              </>
+            ) : (
+              <div style={{ textAlign: 'center', color: 'var(--text-light)', fontSize: '0.75rem', padding: '30px 15px' }}>
+                📴 Métricas de Canales de Pago ocultas por personalización.
               </div>
-            </div>
+            )}
           </div>
         </div>
 
         {/* Gráfico de Tendencia (CSS Bar Chart) */}
-        {chartData.length > 1 && (
+        {dashboardConfig.showFinances !== false && chartData.length > 1 && (
           <div className="glass" style={{ padding: '15px 20px', borderRadius: '8px' }}>
             <h4 style={{ margin: '0 0 10px 0', fontSize: '0.85rem', fontWeight: 'bold', color: 'var(--text-dark)' }}>
               📈 Gráfico de Tendencia de Ventas (S/.)
@@ -2966,119 +3366,121 @@ create policy "Modificación privada de personal y credenciales" on public.helad
         </div>
 
         {/* Ránking de los Más Vendidos */}
-        <div className="glass" style={{ padding: '20px', borderRadius: '8px' }}>
-          <h4 style={{ margin: '0 0 15px 0', fontSize: '0.85rem', fontWeight: 'bold', borderBottom: '1px solid var(--border-color)', paddingBottom: '8px' }}>
-            🏆 Ránking de los Más Vendidos ({statsRange === 'today' ? 'Hoy' : statsRange === 'yesterday' ? 'Ayer' : statsRange === '7days' ? '7 Días' : statsRange === '30days' ? '30 Días' : statsRange === 'thismonth' ? 'Este Mes' : 'Período'})
-          </h4>
-          
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '25px' }}>
+        {dashboardConfig.showTopProducts !== false && (
+          <div className="glass" style={{ padding: '20px', borderRadius: '8px' }}>
+            <h4 style={{ margin: '0 0 15px 0', fontSize: '0.85rem', fontWeight: 'bold', borderBottom: '1px solid var(--border-color)', paddingBottom: '8px' }}>
+              🏆 Ránking de los Más Vendidos ({statsRange === 'today' ? 'Hoy' : statsRange === 'yesterday' ? 'Ayer' : statsRange === '7days' ? '7 Días' : statsRange === '30days' ? '30 Días' : statsRange === 'thismonth' ? 'Este Mes' : 'Período'})
+            </h4>
             
-            {/* Top Sabores */}
-            <div>
-              <h5 style={{ fontSize: '0.8rem', fontWeight: 'bold', color: 'var(--primary-color)', margin: '0 0 10px 0' }}>🍧 Sabores Más Vendidos</h5>
-              {sortedFlavors.length === 0 ? (
-                <span style={{ fontSize: '0.75rem', color: 'var(--text-light)' }}>Sin ventas en este período.</span>
-              ) : (
-                <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
-                  {sortedFlavors.map(([name, count], idx) => {
-                    const maxVal = sortedFlavors[0][1] || 1;
-                    const pct = Math.round((count / maxVal) * 100);
-                    return (
-                      <div key={name}>
-                        <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.75rem', marginBottom: '3px' }}>
-                          <span><strong>#{idx + 1}</strong> {name}</span>
-                          <span style={{ color: 'var(--text-light)' }}>{count} bola{count > 1 ? 's' : ''}</span>
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '25px' }}>
+              
+              {/* Top Sabores */}
+              <div>
+                <h5 style={{ fontSize: '0.8rem', fontWeight: 'bold', color: 'var(--primary-color)', margin: '0 0 10px 0' }}>🍧 Sabores Más Vendidos</h5>
+                {sortedFlavors.length === 0 ? (
+                  <span style={{ fontSize: '0.75rem', color: 'var(--text-light)' }}>Sin ventas en este período.</span>
+                ) : (
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
+                    {sortedFlavors.map(([name, count], idx) => {
+                      const maxVal = sortedFlavors[0][1] || 1;
+                      const pct = Math.round((count / maxVal) * 100);
+                      return (
+                        <div key={name}>
+                          <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.75rem', marginBottom: '3px' }}>
+                            <span><strong>#{idx + 1}</strong> {name}</span>
+                            <span style={{ color: 'var(--text-light)' }}>{count} bola{count > 1 ? 's' : ''}</span>
+                          </div>
+                          <div style={{ width: '100%', height: '6px', background: 'var(--border-color)', borderRadius: '3px', overflow: 'hidden' }}>
+                            <div style={{ width: `${pct}%`, height: '100%', background: 'var(--primary-color)', borderRadius: '3px' }}></div>
+                          </div>
                         </div>
-                        <div style={{ width: '100%', height: '6px', background: 'var(--border-color)', borderRadius: '3px', overflow: 'hidden' }}>
-                          <div style={{ width: `${pct}%`, height: '100%', background: 'var(--primary-color)', borderRadius: '3px' }}></div>
-                        </div>
-                      </div>
-                    );
-                  })}
-                </div>
-              )}
-            </div>
+                      );
+                    })}
+                  </div>
+                )}
+              </div>
 
-            {/* Top Envases */}
-            <div>
-              <h5 style={{ fontSize: '0.8rem', fontWeight: 'bold', color: 'var(--secondary-color)', margin: '0 0 10px 0' }}>👑 Envases Favoritos</h5>
-              {sortedBases.length === 0 ? (
-                <span style={{ fontSize: '0.75rem', color: 'var(--text-light)' }}>Sin ventas en este período.</span>
-              ) : (
-                <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
-                  {sortedBases.map(([name, count], idx) => {
-                    const maxVal = sortedBases[0][1] || 1;
-                    const pct = Math.round((count / maxVal) * 100);
-                    return (
-                      <div key={name}>
-                        <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.75rem', marginBottom: '3px' }}>
-                          <span><strong>#{idx + 1}</strong> {name.split(' ')[0]}</span>
-                          <span style={{ color: 'var(--text-light)' }}>{count} pedido{count > 1 ? 's' : ''}</span>
+              {/* Top Envases */}
+              <div>
+                <h5 style={{ fontSize: '0.8rem', fontWeight: 'bold', color: 'var(--secondary-color)', margin: '0 0 10px 0' }}>👑 Envases Favoritos</h5>
+                {sortedBases.length === 0 ? (
+                  <span style={{ fontSize: '0.75rem', color: 'var(--text-light)' }}>Sin ventas en este período.</span>
+                ) : (
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
+                    {sortedBases.map(([name, count], idx) => {
+                      const maxVal = sortedBases[0][1] || 1;
+                      const pct = Math.round((count / maxVal) * 100);
+                      return (
+                        <div key={name}>
+                          <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.75rem', marginBottom: '3px' }}>
+                            <span><strong>#{idx + 1}</strong> {name.split(' ')[0]}</span>
+                            <span style={{ color: 'var(--text-light)' }}>{count} pedido{count > 1 ? 's' : ''}</span>
+                          </div>
+                          <div style={{ width: '100%', height: '6px', background: 'var(--border-color)', borderRadius: '3px', overflow: 'hidden' }}>
+                            <div style={{ width: `${pct}%`, height: '100%', background: 'var(--secondary-color)', borderRadius: '3px' }}></div>
+                          </div>
                         </div>
-                        <div style={{ width: '100%', height: '6px', background: 'var(--border-color)', borderRadius: '3px', overflow: 'hidden' }}>
-                          <div style={{ width: `${pct}%`, height: '100%', background: 'var(--secondary-color)', borderRadius: '3px' }}></div>
-                        </div>
-                      </div>
-                    );
-                  })}
-                </div>
-              )}
-            </div>
+                      );
+                    })}
+                  </div>
+                )}
+              </div>
 
-            {/* Top Toppings */}
-            <div>
-              <h5 style={{ fontSize: '0.8rem', fontWeight: 'bold', color: 'var(--info)', margin: '0 0 10px 0' }}>🍬 Toppings & Salsas</h5>
-              {sortedToppings.length === 0 ? (
-                <span style={{ fontSize: '0.75rem', color: 'var(--text-light)' }}>Sin ventas en este período.</span>
-              ) : (
-                <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
-                  {sortedToppings.map(([name, count], idx) => {
-                    const maxVal = sortedToppings[0][1] || 1;
-                    const pct = Math.round((count / maxVal) * 100);
-                    return (
-                      <div key={name}>
-                        <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.75rem', marginBottom: '3px' }}>
-                          <span><strong>#{idx + 1}</strong> {name.split(' ')[0]}</span>
-                          <span style={{ color: 'var(--text-light)' }}>{count} porci{count > 1 ? 'ones' : 'ón'}</span>
+              {/* Top Toppings */}
+              <div>
+                <h5 style={{ fontSize: '0.8rem', fontWeight: 'bold', color: 'var(--info)', margin: '0 0 10px 0' }}>🍬 Toppings & Salsas</h5>
+                {sortedToppings.length === 0 ? (
+                  <span style={{ fontSize: '0.75rem', color: 'var(--text-light)' }}>Sin ventas en este período.</span>
+                ) : (
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
+                    {sortedToppings.map(([name, count], idx) => {
+                      const maxVal = sortedToppings[0][1] || 1;
+                      const pct = Math.round((count / maxVal) * 100);
+                      return (
+                        <div key={name}>
+                          <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.75rem', marginBottom: '3px' }}>
+                            <span><strong>#{idx + 1}</strong> {name.split(' ')[0]}</span>
+                            <span style={{ color: 'var(--text-light)' }}>{count} porci{count > 1 ? 'ones' : 'ón'}</span>
+                          </div>
+                          <div style={{ width: '100%', height: '6px', background: 'var(--border-color)', borderRadius: '3px', overflow: 'hidden' }}>
+                            <div style={{ width: `${pct}%`, height: '100%', background: 'var(--info)', borderRadius: '3px' }}></div>
+                          </div>
                         </div>
-                        <div style={{ width: '100%', height: '6px', background: 'var(--border-color)', borderRadius: '3px', overflow: 'hidden' }}>
-                          <div style={{ width: `${pct}%`, height: '100%', background: 'var(--info)', borderRadius: '3px' }}></div>
-                        </div>
-                      </div>
-                    );
-                  })}
-                </div>
-              )}
-            </div>
+                      );
+                    })}
+                  </div>
+                )}
+              </div>
 
-            {/* Top Packs */}
-            <div>
-              <h5 style={{ fontSize: '0.8rem', fontWeight: 'bold', color: 'var(--success)', margin: '0 0 10px 0' }}>🎁 Combos Más Pedidos</h5>
-              {sortedPacks.length === 0 ? (
-                <span style={{ fontSize: '0.75rem', color: 'var(--text-light)' }}>Sin ventas en este período.</span>
-              ) : (
-                <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
-                  {sortedPacks.map(([name, count], idx) => {
-                    const maxVal = sortedPacks[0][1] || 1;
-                    const pct = Math.round((count / maxVal) * 100);
-                    return (
-                      <div key={name}>
-                        <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.75rem', marginBottom: '3px' }}>
-                          <span><strong>#{idx + 1}</strong> {name}</span>
-                          <span style={{ color: 'var(--text-light)' }}>{count} combo{count > 1 ? 's' : ''}</span>
+              {/* Top Packs */}
+              <div>
+                <h5 style={{ fontSize: '0.8rem', fontWeight: 'bold', color: 'var(--success)', margin: '0 0 10px 0' }}>🎁 Combos Más Pedidos</h5>
+                {sortedPacks.length === 0 ? (
+                  <span style={{ fontSize: '0.75rem', color: 'var(--text-light)' }}>Sin ventas en este período.</span>
+                ) : (
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
+                    {sortedPacks.map(([name, count], idx) => {
+                      const maxVal = sortedPacks[0][1] || 1;
+                      const pct = Math.round((count / maxVal) * 100);
+                      return (
+                        <div key={name}>
+                          <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.75rem', marginBottom: '3px' }}>
+                            <span><strong>#{idx + 1}</strong> {name}</span>
+                            <span style={{ color: 'var(--text-light)' }}>{count} combo{count > 1 ? 's' : ''}</span>
+                          </div>
+                          <div style={{ width: '100%', height: '6px', background: 'var(--border-color)', borderRadius: '3px', overflow: 'hidden' }}>
+                            <div style={{ width: `${pct}%`, height: '100%', background: 'var(--success)', borderRadius: '3px' }}></div>
+                          </div>
                         </div>
-                        <div style={{ width: '100%', height: '6px', background: 'var(--border-color)', borderRadius: '3px', overflow: 'hidden' }}>
-                          <div style={{ width: `${pct}%`, height: '100%', background: 'var(--success)', borderRadius: '3px' }}></div>
-                        </div>
-                      </div>
-                    );
-                  })}
-                </div>
-              )}
-            </div>
+                      );
+                    })}
+                  </div>
+                )}
+              </div>
 
+            </div>
           </div>
-        </div>
+        )}
       </div>
     );
   };
@@ -3152,6 +3554,9 @@ create policy "Modificación privada de personal y credenciales" on public.helad
               👥 Personal / Staff
             </button>
           )}
+          <button className={`sidebar-btn ${activeTab === 'finance' ? 'active' : ''}`} onClick={() => setActiveTab('finance')}>
+            💵 Caja y Finanzas
+          </button>
           <button className={`sidebar-btn ${activeTab === 'settings' ? 'active' : ''}`} onClick={() => setActiveTab('settings')}>
             ⚙️ Ajustes Tienda
           </button>
@@ -3167,6 +3572,7 @@ create policy "Modificación privada de personal y credenciales" on public.helad
         {activeTab === 'inventory' && renderInventoryTab()}
         {activeTab === 'packs' && renderPacksTab()}
         {activeTab === 'users' && renderUsersTab()}
+        {activeTab === 'finance' && renderFinanceTab()}
         {activeTab === 'settings' && renderSettingsTab()}
         {activeTab === 'stats' && renderStatsTab()}
       </div>

@@ -439,6 +439,24 @@ export default function App() {
     ];
   });
 
+  // --- NUEVO: Estado del Combo Recomendado del Carrito (Sincronizado) ---
+  const [cartRecommendedPack, setCartRecommendedPack] = useState(() => {
+    const saved = localStorage.getItem('helados_cart_recommended_pack');
+    return saved ? JSON.parse(saved) : {
+      active: true,
+      name: 'Pack Dúo Romántico',
+      price: 10.0,
+      description: '2 Copas Waffle de 3 bolas + Fudge de chocolate gratis',
+      id: 'pack_pareja'
+    };
+  });
+
+  // --- NUEVO: Estado de Gastos y Egresos (Sincronizado) ---
+  const [expenses, setExpenses] = useState(() => {
+    const saved = localStorage.getItem('helados_expenses');
+    return saved ? JSON.parse(saved) : [];
+  });
+
   // --- Estados de Flujo de Cliente ---
   const [view, setView] = useState('shop'); 
   const [cart, setCart] = useState([]);
@@ -524,6 +542,8 @@ export default function App() {
         if (serverData.whatsapp_footer !== undefined) setWhatsappFooter(serverData.whatsapp_footer);
         if (serverData.qr_custom_url !== undefined) setQrCustomUrl(serverData.qr_custom_url);
         if (serverData.recommendations !== undefined) setRecommendations(serverData.recommendations);
+        if (serverData.cart_recommended_pack !== undefined) setCartRecommendedPack(serverData.cart_recommended_pack);
+        if (serverData.expenses !== undefined) setExpenses(serverData.expenses);
       }
 
       // 2. Recuperar la lista de personal desde Supabase de forma segura (multidispositivo)
@@ -610,6 +630,12 @@ export default function App() {
             break;
           case 'recommendations':
             setRecommendations(prev => JSON.stringify(prev) !== valueStr ? value : prev);
+            break;
+          case 'cart_recommended_pack':
+            setCartRecommendedPack(prev => JSON.stringify(prev) !== valueStr ? value : prev);
+            break;
+          case 'expenses':
+            setExpenses(prev => JSON.stringify(prev) !== valueStr ? value : prev);
             break;
           default:
             break;
@@ -859,6 +885,24 @@ export default function App() {
       updateSyncedData('recommendations', recommendations);
     }
   }, [recommendations]);
+
+  useEffect(() => {
+    localStorage.setItem('helados_cart_recommended_pack', JSON.stringify(cartRecommendedPack));
+    if (isRemoteUpdate.current['cart_recommended_pack']) {
+      isRemoteUpdate.current['cart_recommended_pack'] = false;
+    } else {
+      updateSyncedData('cart_recommended_pack', cartRecommendedPack);
+    }
+  }, [cartRecommendedPack]);
+
+  useEffect(() => {
+    localStorage.setItem('helados_expenses', JSON.stringify(expenses));
+    if (isRemoteUpdate.current['expenses']) {
+      isRemoteUpdate.current['expenses'] = false;
+    } else {
+      updateSyncedData('expenses', expenses);
+    }
+  }, [expenses]);
 
   // Persistir Estados de Sesión de Admin
   useEffect(() => {
@@ -1138,6 +1182,7 @@ export default function App() {
             salesGoal={salesGoal}
             whatsappGreeting={whatsappGreeting}
             whatsappFooter={whatsappFooter}
+            cartRecommendedPack={cartRecommendedPack}
           />
         )}
 
@@ -1202,6 +1247,11 @@ export default function App() {
             onChangeQrCustomUrl={setQrCustomUrl}
             recommendations={recommendations}
             onUpdateRecommendations={setRecommendations}
+            expenses={expenses}
+            onUpdateExpenses={setExpenses}
+            onUpdateOrders={setOrders}
+            cartRecommendedPack={cartRecommendedPack}
+            onUpdateCartRecommendedPack={setCartRecommendedPack}
           />
         )}
       </main>
