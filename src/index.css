@@ -358,14 +358,40 @@ h1, h2, h3, h4, h5, h6 {
 
 .product-badge {
   position: absolute;
-  top: 15px;
-  right: 15px;
-  background: var(--secondary-color);
+  top: 12px;
+  right: 12px;
   color: white;
-  padding: 4px 10px;
+  padding: 5px 12px;
   border-radius: var(--radius-full);
-  font-size: 0.75rem;
-  font-weight: 700;
+  font-size: 0.7rem;
+  font-weight: 800;
+  z-index: 12;
+  box-shadow: 0 4px 10px rgba(0, 0, 0, 0.12);
+  letter-spacing: 0.5px;
+  text-transform: uppercase;
+  border: 1px solid rgba(255, 255, 255, 0.25);
+  backdrop-filter: blur(4px);
+  pointer-events: none;
+}
+
+.product-badge.badge-premium {
+  background: linear-gradient(135deg, #ffa502 0%, #ff7f50 100%);
+  color: white;
+}
+
+.product-badge.badge-popular {
+  background: linear-gradient(135deg, #ff4757 0%, #ff6b81 100%);
+  color: white;
+}
+
+.product-badge.badge-favorito {
+  background: linear-gradient(135deg, #a55eea 0%, #8854d0 100%);
+  color: white;
+}
+
+.product-badge.badge-super-ahorro {
+  background: linear-gradient(135deg, #2ecc71 0%, #27ae60 100%);
+  color: white;
 }
 
 .product-illustration {
@@ -376,7 +402,17 @@ h1, h2, h3, h4, h5, h6 {
   margin-bottom: 16px;
   font-size: 5.5rem;
   position: relative;
+  z-index: 2;
 }
+
+.product-illustration svg {
+  transition: transform 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+}
+
+.product-card:hover .product-illustration svg {
+  transform: translateY(-6px) scale(1.05);
+}
+
 
 .scoop-illustration {
   width: 80px;
@@ -1521,6 +1557,23 @@ input:checked + .slider:before {
     padding: 1px 5px;
     min-width: 14px;
     border: 1.5px solid var(--bg-secondary);
+  }
+
+  /* Ajustes en móviles para evitar que las etiquetas tapen los helados */
+  .product-card {
+    padding: 16px !important;
+  }
+  .product-badge {
+    top: 8px !important;
+    right: 8px !important;
+    padding: 3px 8px !important;
+    font-size: 0.62rem !important;
+    font-weight: 800 !important;
+  }
+  .product-illustration {
+    margin-top: 12px !important;
+    margin-bottom: 8px !important;
+    height: 110px !important;
   }
 }
 

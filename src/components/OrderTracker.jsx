@@ -1,22 +1,74 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 
 export default function OrderTracker({ orderId, orders, setView, storePhone }) {
   const [inputVal, setInputVal] = useState('');
   const [activeSearchId, setActiveSearchId] = useState(orderId || '');
   const [hasSearched, setHasSearched] = useState(false);
+  const [recentOrders, setRecentOrders] = useState([]);
+  const [prevStatus, setPrevStatus] = useState(null);
+  const [animateStatus, setAnimateStatus] = useState(false);
 
-  // Sincronizar si cambia el orderId del padre (ej. al terminar una compra)
+  // Cargar pedidos recientes
   useEffect(() => {
-    if (orderId) {
-      setActiveSearchId(orderId);
-      setInputVal(orderId);
+    const saved = localStorage.getItem('helados_recent_order_ids');
+    if (saved) {
+      setRecentOrders(JSON.parse(saved));
     }
-  }, [orderId]);
+  }, []);
+
+  // Helper para guardar en el historial
+  const saveToRecentOrders = (id) => {
+    if (!id) return;
+    const cleanId = id.trim();
+    const saved = localStorage.getItem('helados_recent_order_ids');
+    let list = saved ? JSON.parse(saved) : [];
+    
+    list = list.filter(item => item.toLowerCase() !== cleanId.toLowerCase());
+    list.unshift(cleanId);
+    
+    const trimmedList = list.slice(0, 5);
+    localStorage.setItem('helados_recent_order_ids', JSON.stringify(trimmedList));
+    setRecentOrders(trimmedList);
+  };
 
   // Buscar el pedido actual (insensible a mayúsculas)
   const currentOrder = orders.find(
     o => o.id.toLowerCase() === activeSearchId.trim().toLowerCase()
   );
+
+  // Efecto para animar y reproducir sonido cuando cambia el estado del pedido tracked
+  useEffect(() => {
+    if (currentOrder) {
+      if (prevStatus && prevStatus !== currentOrder.status) {
+        setAnimateStatus(true);
+        const timer = setTimeout(() => setAnimateStatus(false), 2200);
+        
+        try {
+          const AudioContext = window.AudioContext || window.webkitAudioContext;
+          if (AudioContext) {
+            const ctx = new AudioContext();
+            const osc = ctx.createOscillator();
+            const gain = ctx.createGain();
+            osc.type = 'sine';
+            osc.frequency.setValueAtTime(587.33, ctx.currentTime); // D5
+            osc.frequency.exponentialRampToValueAtTime(880.00, ctx.currentTime + 0.15); // A5
+            gain.gain.setValueAtTime(0.1, ctx.currentTime);
+            gain.gain.exponentialRampToValueAtTime(0.01, ctx.currentTime + 0.5);
+            osc.connect(gain);
+            gain.connect(ctx.destination);
+            osc.start();
+            osc.stop(ctx.currentTime + 0.5);
+          }
+        } catch (e) {
+          console.warn("Autoplay block prevents tracker sound.");
+        }
+
+        return () => clearTimeout(timer);
+      }
+      setPrevStatus(currentOrder.status);
+    }
+  }, [currentOrder?.status, prevStatus]);
+
 
   const getStatusNumber = (status) => {
     switch (status) {
@@ -72,8 +124,14 @@ export default function OrderTracker({ orderId, orders, setView, storePhone }) {
 
   const handleSearchSubmit = (e) => {
     e.preventDefault();
-    setActiveSearchId(inputVal);
+    const cleanId = inputVal.trim();
+    setActiveSearchId(cleanId);
     setHasSearched(true);
+    
+    const found = orders.some(o => o.id.toLowerCase() === cleanId.toLowerCase());
+    if (found) {
+      saveToRecentOrders(cleanId);
+    }
   };
 
   const cleanPhone = String(storePhone || '').replace(/\D/g, '');
@@ -124,7 +182,44 @@ export default function OrderTracker({ orderId, orders, setView, storePhone }) {
           </button>
         </form>
 
-        <div style={{ marginTop: '25px', borderTop: '1px solid var(--border-color)', paddingTop: '15px', textAlign: 'center' }}>
+        {recentOrders && recentOrders.length > 0 && (
+          <div style={{ marginTop: '25px', borderTop: '1px solid var(--border-color)', paddingTop: '15px' }}>
+            <h4 style={{ fontSize: '0.85rem', marginBottom: '10px', color: 'var(--text-dark)', fontWeight: 'bold' }}>🕰️ Mis Pedidos Recientes:</h4>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+              {recentOrders.map((id) => {
+                const matched = orders.find(o => o.id.toLowerCase() === id.toLowerCase());
+                const statusTag = matched ? ` (${formatStatusText(matched.status)})` : '';
+                return (
+                  <button
+                    key={id}
+                    onClick={() => {
+                      setActiveSearchId(id);
+                      setInputVal(id);
+                      setHasSearched(false);
+                    }}
+                    className="btn btn-secondary"
+                    style={{
+                      padding: '8px 15px',
+                      fontSize: '0.8rem',
+                      display: 'flex',
+                      justifyContent: 'space-between',
+                      alignItems: 'center',
+                      width: '100%',
+                      textAlign: 'left',
+                      borderRadius: '12px',
+                      borderColor: 'var(--border-color)'
+                    }}
+                  >
+                    <span><strong>{id}</strong> <span style={{ color: 'var(--text-light)', marginLeft: '5px' }}>{statusTag}</span></span>
+                    <span style={{ fontSize: '0.9rem' }}>👉</span>
+                  </button>
+                );
+              })}
+            </div>
+          </div>
+        )}
+
+        <div style={{ marginTop: '20px', borderTop: '1px solid var(--border-color)', paddingTop: '15px', textAlign: 'center' }}>
           <button className="btn btn-secondary" style={{ width: '100%' }} onClick={() => setView('shop')}>
             🍨 Volver a la Tienda
           </button>
@@ -134,10 +229,55 @@ export default function OrderTracker({ orderId, orders, setView, storePhone }) {
   }
 
   // Render del estado de seguimiento de un pedido ENCONTRADO
+  const orderDate = new Date(currentOrder.date);
+  const now = new Date();
+  const diffHours = (now - orderDate) / (1000 * 60 * 60);
+  const isExpired = diffHours > 72;
+
+  if (isExpired) {
+    return (
+      <div className="glass tracking-container" style={{ padding: '30px 20px', maxWidth: '500px', margin: '40px auto', borderRadius: 'var(--radius-lg)', textAlign: 'center' }}>
+        <span style={{ fontSize: '3rem' }}>🛑</span>
+        <h2 style={{ marginTop: '10px', fontSize: '1.5rem', color: 'var(--danger)' }}>Seguimiento Expirado</h2>
+        <p style={{ color: 'var(--text-light)', fontSize: '0.9rem', marginTop: '10px', lineHeight: '1.5' }}>
+          El código de seguimiento para el pedido <strong>{currentOrder.id}</strong> ha expirado (límite de 72 horas).
+        </p>
+        <p style={{ color: 'var(--text-light)', fontSize: '0.85rem', marginTop: '5px' }}>
+          Si tienes alguna consulta sobre tu pedido, por favor ponte en contacto con nuestro soporte de WhatsApp.
+        </p>
+        <div style={{ display: 'flex', gap: '12px', justifyContent: 'center', marginTop: '20px', flexWrap: 'wrap' }}>
+          <button className="btn btn-secondary" style={{ flex: '1 1 140px' }} onClick={() => setView('shop')}>
+            🍨 Volver a la Tienda
+          </button>
+          <a 
+            href={`https://wa.me/${String(storePhone || '').replace(/\D/g, '')}?text=Hola,%20tengo%20una%20duda%20sobre%20mi%20pedido%20${currentOrder.id}`} 
+            target="_blank" 
+            rel="noopener noreferrer" 
+            className="btn btn-primary"
+            style={{ background: '#25D366', borderColor: '#25D366', color: 'white', textDecoration: 'none', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '6px', flex: '1 1 140px' }}
+          >
+            💬 WhatsApp Soporte
+          </a>
+        </div>
+      </div>
+    );
+  }
+
   const statusNum = getStatusNumber(currentOrder.status);
 
   return (
     <div className="glass tracking-container" style={{ padding: '25px 20px', maxWidth: '650px', margin: '30px auto', borderRadius: 'var(--radius-lg)' }}>
+      <style dangerouslySetInnerHTML={{ __html: `
+        @keyframes pulse-highlight {
+          0% { transform: scale(1); }
+          50% { transform: scale(1.04); box-shadow: 0 0 15px rgba(46, 204, 113, 0.4); }
+          100% { transform: scale(1); }
+        }
+        .animate-status-pop {
+          animation: pulse-highlight 1.1s ease-in-out 2;
+          border: 2px solid var(--success) !important;
+        }
+      ` }} />
       
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', flexWrap: 'wrap', gap: '10px', marginBottom: '15px' }}>
         <div>
@@ -160,13 +300,14 @@ export default function OrderTracker({ orderId, orders, setView, storePhone }) {
       </div>
 
       {/* Tarjeta de Estado Actual */}
-      <div className={`tracking-status-badge status-${currentOrder.status.toLowerCase().replace(' ', '_')}`} style={{
+      <div className={`tracking-status-badge status-${currentOrder.status.toLowerCase().replace(' ', '_')} ${animateStatus ? 'animate-status-pop' : ''}`} style={{
         textAlign: 'center',
         padding: '10px 15px',
         fontWeight: 'bold',
         borderRadius: '8px',
         fontSize: '1.1rem',
-        marginBottom: '25px'
+        marginBottom: '25px',
+        transition: 'all 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275)'
       }}>
         {formatStatusText(currentOrder.status)}
       </div>

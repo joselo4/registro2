@@ -60,8 +60,8 @@ export default function IceCreamCustomizer({ bases, flavors, toppings, onAddToCa
   const [customTab, setCustomTab] = useState('base'); 
 
   const handleAddScoop = (flavor) => {
-    if (selectedScoops.length >= 3) {
-      alert("¡El límite es de 3 bolas de helado!");
+    if (selectedScoops.length >= 30) {
+      alert("¡El límite es de 30 bolas de helado!");
       return;
     }
     setSelectedScoops([...selectedScoops, flavor]);
@@ -97,24 +97,22 @@ export default function IceCreamCustomizer({ bases, flavors, toppings, onAddToCa
   const syrupPrice = selectedSyrup ? selectedSyrup.price : 0;
   const totalPrice = basePrice + scoopsPrice + toppingsPrice + syrupPrice;
 
-  // Determinar coordenadas de apilamiento según cantidad de bolas
+  // Determinar coordenadas de apilamiento según cantidad de bolas (soporta hasta 30 de forma dinámica)
   const getScoopCoords = () => {
     const count = selectedScoops.length;
-    if (count === 1) {
-      return [{ y: 145, r: 38 }];
-    } else if (count === 2) {
-      return [
-        { y: 150, r: 38 }, // Bola inferior
-        { y: 110, r: 35 }  // Bola superior
-      ];
-    } else if (count === 3) {
-      return [
-        { y: 155, r: 38 }, // Bola inferior
-        { y: 120, r: 35 }, // Bola central
-        { y: 85, r: 32 }   // Bola superior
-      ];
+    if (count === 0) return [];
+    
+    const coords = [];
+    // Spacing y radio dinámicos para que las bolas queden apiladas en el contenedor SVG sin desbordar
+    const spacing = count > 3 ? Math.max(6, 32 - (count * 0.6)) : 35;
+    const baseRadius = count > 5 ? Math.max(16, 38 - (count * 0.5)) : 38;
+    
+    for (let i = 0; i < count; i++) {
+      const y = 150 - (i * spacing);
+      const r = Math.max(12, baseRadius - (i * 0.35));
+      coords.push({ y, r });
     }
-    return [];
+    return coords;
   };
 
   const scoopCoords = getScoopCoords();
@@ -233,12 +231,29 @@ export default function IceCreamCustomizer({ bases, flavors, toppings, onAddToCa
         
         {/* VISTA PREVIA (Fija y Responsiva) */}
         <div className="customizer-preview" style={{ padding: '10px', background: 'radial-gradient(circle, var(--bg-secondary) 0%, var(--bg-primary) 100%)', minHeight: '260px' }}>
+          <style dangerouslySetInnerHTML={{ __html: `
+            @keyframes drop-scoop-generic {
+              0% { transform: translateY(-160px) scaleY(1.3); opacity: 0; }
+              60% { transform: translateY(8px) scaleY(0.85); }
+              80% { transform: translateY(-4px) scaleY(1.05); }
+              100% { transform: translateY(0px) scaleY(1); opacity: 1; }
+            }
+          ` }} />
           
           <svg viewBox="0 0 200 280" style={{ width: '100%', maxHeight: '240px', display: 'block' }}>
             <defs>
               <filter id="shadow" x="-20%" y="-20%" width="140%" height="140%">
                 <feDropShadow dx="0" dy="3" stdDeviation="3" floodOpacity="0.15" />
               </filter>
+              <radialGradient id="customizer-specular" cx="30%" cy="30%" r="60%" fx="30%" fy="30%">
+                <stop offset="0%" stopColor="#ffffff" stopOpacity="0.8"/>
+                <stop offset="50%" stopColor="#ffffff" stopOpacity="0.2"/>
+                <stop offset="100%" stopColor="#ffffff" stopOpacity="0"/>
+              </radialGradient>
+              <radialGradient id="customizer-shadow" cx="75%" cy="75%" r="75%">
+                <stop offset="0%" stopColor="#000000" stopOpacity="0.35"/>
+                <stop offset="100%" stopColor="#000000" stopOpacity="0"/>
+              </radialGradient>
             </defs>
 
             {/* Bases */}
@@ -271,10 +286,13 @@ export default function IceCreamCustomizer({ bases, flavors, toppings, onAddToCa
             {selectedScoops.map((scoop, idx) => {
               const { y, r } = scoopCoords[idx];
               return (
-                <g key={idx} filter="url(#shadow)" style={{ animation: `drop-scoop-${idx + 1} 0.4s ease-out` }}>
+                <g key={idx} filter="url(#shadow)" style={{ animation: 'drop-scoop-generic 0.5s cubic-bezier(0.175, 0.885, 0.32, 1.275) forwards', transformOrigin: '100px ' + y + 'px' }}>
                   <circle cx="100" cy={y} r={r} fill={scoop.color} />
-                  <ellipse cx={100 - r/3} cy={y - r/3} rx={r/2.5} ry={r/5} fill="white" opacity="0.25" transform={`rotate(-15, ${100 - r/3}, ${y - r/3})`} />
+                  <circle cx="100" cy={y} r={r} fill="url(#customizer-shadow)" />
+                  <circle cx="100" cy={y} r={r} fill="url(#customizer-specular)" />
+                  <ellipse cx={100 - r/3} cy={y - r/3} rx={r/2.5} ry={r/5} fill="white" opacity="0.15" transform={`rotate(-15, ${100 - r/3}, ${y - r/3})`} />
                   <path d={`M ${100 - r} ${y + 5} Q ${100 - r/2} ${y + r - 3} 100 ${y + 5} Q ${100 + r/2} ${y + r - 3} ${100 + r} ${y + 5} Q ${100} ${y + r + 2} ${100 - r} ${y + 5}`} fill={scoop.color} opacity="0.9" />
+                  <path d={`M ${100 - r} ${y + 5} Q ${100 - r/2} ${y + r - 3} 100 ${y + 5} Q ${100 + r/2} ${y + r - 3} ${100 + r} ${y + 5} Q ${100} ${y + r + 2} ${100 - r} ${y + 5}`} fill="url(#customizer-shadow)" opacity="0.3" />
                 </g>
               );
             })}
@@ -440,10 +458,10 @@ export default function IceCreamCustomizer({ bases, flavors, toppings, onAddToCa
             <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                 <span style={{ fontSize: '0.75rem', color: 'var(--text-light)' }}>
-                  (Bolas tradicionales S/. 1.00):
+                  (Bolas tradicionales):
                 </span>
                 <strong style={{ fontSize: '0.8rem', color: 'var(--primary-color)' }}>
-                  {selectedScoops.length} / 3 bolas
+                  {selectedScoops.length} / 30 bolas
                 </strong>
               </div>
               
@@ -455,7 +473,7 @@ export default function IceCreamCustomizer({ bases, flavors, toppings, onAddToCa
                       key={flavor.id}
                       className="option-btn"
                       onClick={() => handleAddScoop(flavor)}
-                      disabled={selectedScoops.length >= 3}
+                      disabled={selectedScoops.length >= 30}
                       style={{ position: 'relative', padding: '10px 4px' }}
                     >
                       {count > 0 && (
@@ -493,7 +511,7 @@ export default function IceCreamCustomizer({ bases, flavors, toppings, onAddToCa
           {customTab === 'toppings' && (
             <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
               <div>
-                <p style={{ fontSize: '0.75rem', color: 'var(--text-light)', marginBottom: '5px' }}>Toppings (S/. 0.50 c/u):</p>
+                <p style={{ fontSize: '0.75rem', color: 'var(--text-light)', marginBottom: '5px' }}>Toppings:</p>
                 <div className="option-grid" style={{ gridTemplateColumns: 'repeat(auto-fill, minmax(100px, 1fr))', gap: '6px' }}>
                   {activeToppings.map(topping => {
                     const isSelected = selectedToppings.some(t => t.id === topping.id);
