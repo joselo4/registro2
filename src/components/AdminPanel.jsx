@@ -68,12 +68,23 @@ export default function AdminPanel({
   onUpdateExpenses,
   onUpdateOrders,
   cartRecommendedPack,
-  onUpdateCartRecommendedPack
+  onUpdateCartRecommendedPack,
+  staffPermissions = {},
+  onUpdateStaffPermissions
 }) {
   // --- Estados de Autenticación ---
   const [emailInput, setEmailInput] = useState('');
   const [passwordInput, setPasswordInput] = useState('');
   const [authError, setAuthError] = useState('');
+
+  // --- Estados de Edición de Pedidos ---
+  const [editingOrder, setEditingOrder] = useState(null);
+  const [editNewFlavorId, setEditNewFlavorId] = useState('');
+  const [editNewBaseId, setEditNewBaseId] = useState('cono');
+  const [editNewPackId, setEditNewPackId] = useState('');
+
+  // --- Estados de Edición de Colaboradores ---
+  const [editingUser, setEditingUser] = useState(null);
 
   // --- Estados de Seguridad (Límite de Intentos y Bloqueo Temporal) ---
   const [loginAttempts, setLoginAttempts] = useState(() => {
@@ -99,6 +110,34 @@ export default function AdminPanel({
   const [dateFilterType, setDateFilterType] = useState('all'); // all, today, yesterday, 7days, custom
   const [dateStart, setDateStart] = useState('');
   const [dateEnd, setDateEnd] = useState('');
+
+  // --- NUEVO: Control de Acceso por Ventanas/Módulos ---
+  const isTabAllowed = (tabId) => {
+    if (!currentUser) return false;
+    // El Administrador principal y el acceso al módulo de personal siempre están autorizados
+    if (currentUser.email === 'admin@donhelado.com' || (currentUser.role === 'Administrador' && tabId === 'users')) return true;
+    
+    const userPerms = staffPermissions[currentUser.email];
+    if (userPerms) {
+      return userPerms.includes(tabId);
+    }
+    
+    // Configuración por defecto si no se han asignado permisos aún
+    if (currentUser.role === 'Administrador') return true;
+    if (currentUser.role === 'Vendedor') return ['orders', 'inventory'].includes(tabId);
+    if (currentUser.role === 'Cocina') return ['orders'].includes(tabId);
+    return false;
+  };
+
+  useEffect(() => {
+    if (currentUser && !isTabAllowed(activeTab)) {
+      const tabs = ['orders', 'inventory', 'packs', 'users', 'finance', 'settings', 'stats'];
+      const allowed = tabs.find(t => isTabAllowed(t));
+      if (allowed) {
+        setActiveTab(allowed);
+      }
+    }
+  }, [activeTab, currentUser, staffPermissions]);
 
   // --- Estados para CRUD: Edición y Creación ---
   const [showAddFlavor, setShowAddFlavor] = useState(false);
@@ -877,6 +916,60 @@ export default function AdminPanel({
     alert("¡Contraseña actualizada con éxito!");
   };
 
+  const handleEditUserSubmit = async (e) => {
+    e.preventDefault();
+    if (!editingUser) return;
+    
+    const sanitizedName = sanitizeHTML(editingUser.name);
+    if (!sanitizedName) {
+      alert("El nombre no puede estar vacío.");
+      return;
+    }
+
+    const updatedStaff = staffUsers.map(u => u.email === editingUser.email ? { ...u, name: sanitizedName, role: editingUser.role } : u);
+    onUpdateStaffUsers(updatedStaff);
+
+    const nextPermissions = { ...staffPermissions, [editingUser.email]: editingUser.allowedTabs };
+    onUpdateStaffPermissions(nextPermissions);
+
+    if (editingUser.email === currentUser.email) {
+      setCurrentUser({
+        ...currentUser,
+        name: sanitizedName,
+        role: editingUser.role,
+        allowedTabs: editingUser.allowedTabs
+      });
+    }
+
+    if (supabase) {
+      try {
+        const targetUser = staffUsers.find(u => u.email === editingUser.email);
+        await supabase.rpc('manage_admin_user', {
+          p_admin_email: currentUser.email,
+          p_admin_password: currentUser.password,
+          p_target_email: editingUser.email,
+          p_username: targetUser?.username || editingUser.email.split('@')[0],
+          p_name: sanitizedName,
+          p_role: editingUser.role,
+          p_status: targetUser?.status || 'Activo',
+          p_action: 'upsert'
+        });
+      } catch (err) {
+        console.warn("No se pudo sincronizar rol de personal en Supabase:", err.message);
+      }
+    }
+
+    addLog(`Colaborador ${editingUser.email} modificado (Rol: ${editingUser.role}, Permisos actualizados) por ${currentUser?.name}.`);
+    setEditingUser(null);
+    alert("¡Datos y permisos de acceso actualizados con éxito!");
+  };
+
+  const handleStartEditingOrder = (order) => {
+    setEditingOrder(JSON.parse(JSON.stringify(order)));
+    if (flavors.length > 0) setEditNewFlavorId(flavors[0].id);
+    if (packs.length > 0) setEditNewPackId(packs[0].id);
+  };
+
   // --- CRUD: Bases / Envases ---
   const handleAddBaseSubmit = (e) => {
     e.preventDefault();
@@ -1191,6 +1284,296 @@ export default function AdminPanel({
       }
     };
 
+    if (editingOrder) {
+      const subtotal = editingOrder.items.reduce((sum, item) => sum + (item.price * (item.quantity || 1)), 0);
+      const grandTotal = subtotal + parseFloat(editingOrder.deliveryFee || 0);
+
+      const handleUpdateItemQty = (idx, amount) => {
+        const nextItems = [...editingOrder.items];
+        const nextQty = Math.max(1, (nextItems[idx].quantity || 1) + amount);
+        nextItems[idx].quantity = nextQty;
+        setEditingOrder({ ...editingOrder, items: nextItems });
+      };
+
+      const handleUpdateItemPrice = (idx, priceVal) => {
+        const nextItems = [...editingOrder.items];
+        nextItems[idx].price = parseFloat(priceVal) || 0;
+        setEditingOrder({ ...editingOrder, items: nextItems });
+      };
+
+      const handleRemoveItem = (idx) => {
+        const nextItems = editingOrder.items.filter((_, i) => i !== idx);
+        setEditingOrder({ ...editingOrder, items: nextItems });
+      };
+
+      const handleAddFlavorToOrder = () => {
+        const f = flavors.find(flavor => flavor.id === editNewFlavorId);
+        const b = bases.find(base => base.id === editNewBaseId);
+        if (!f || !b) return;
+        
+        const newItem = {
+          type: 'custom',
+          base: { id: b.id, name: b.name, price: b.price },
+          scoops: [{ id: f.id, name: f.name, price: f.price, color: f.color }],
+          toppings: [],
+          price: f.price + b.price,
+          quantity: 1,
+          name: `Helado de ${f.name} en ${b.name.split(' ')[0]}`
+        };
+        setEditingOrder({ ...editingOrder, items: [...editingOrder.items, newItem] });
+      };
+
+      const handleAddPackToOrder = () => {
+        const p = packs.find(pack => pack.id === editNewPackId);
+        if (!p) return;
+        
+        const newItem = {
+          type: 'pack',
+          id: p.id,
+          name: p.name,
+          price: p.price,
+          items: p.items,
+          quantity: 1
+        };
+        setEditingOrder({ ...editingOrder, items: [...editingOrder.items, newItem] });
+      };
+
+      const handleSaveOrderEdits = () => {
+        if (editingOrder.items.length === 0) {
+          alert("El pedido debe tener al menos un producto.");
+          return;
+        }
+        
+        const finalSubtotal = editingOrder.items.reduce((sum, item) => sum + (item.price * (item.quantity || 1)), 0);
+        const finalGrandTotal = finalSubtotal + parseFloat(editingOrder.deliveryFee || 0);
+
+        const updatedOrder = {
+          ...editingOrder,
+          total: finalSubtotal,
+          grandTotal: finalGrandTotal
+        };
+
+        const nextOrders = orders.map(o => o.id === editingOrder.id ? updatedOrder : o);
+        onUpdateOrders(nextOrders);
+        addLog(`Pedido ${editingOrder.id} modificado por el operador (${currentUser?.name}).`);
+        setEditingOrder(null);
+        alert("¡Pedido actualizado con éxito!");
+      };
+
+      return (
+        <div className="glass" style={{ padding: '20px', borderRadius: 'var(--radius-lg)' }}>
+          <h3 style={{ borderBottom: '1px solid var(--border-color)', paddingBottom: '10px', marginBottom: '15px' }}>
+            ✏️ Editar Pedido: <span style={{ color: 'var(--primary-color)' }}>{editingOrder.id}</span>
+          </h3>
+
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '15px', marginBottom: '20px' }} className="admin-stats-columns">
+            {/* Datos del Cliente */}
+            <div className="glass" style={{ padding: '15px', display: 'flex', flexDirection: 'column', gap: '8px' }}>
+              <strong style={{ fontSize: '0.85rem' }}>👤 Datos del Cliente</strong>
+              <div className="form-group">
+                <label style={{ fontSize: '0.75rem' }}>Nombre</label>
+                <input 
+                  type="text" 
+                  className="form-control" 
+                  style={{ fontSize: '0.8rem', padding: '6px' }} 
+                  value={editingOrder.customer.name} 
+                  onChange={(e) => setEditingOrder({
+                    ...editingOrder,
+                    customer: { ...editingOrder.customer, name: e.target.value }
+                  })}
+                />
+              </div>
+              <div className="form-group">
+                <label style={{ fontSize: '0.75rem' }}>Teléfono</label>
+                <input 
+                  type="text" 
+                  className="form-control" 
+                  style={{ fontSize: '0.8rem', padding: '6px' }} 
+                  value={editingOrder.customer.phone} 
+                  onChange={(e) => setEditingOrder({
+                    ...editingOrder,
+                    customer: { ...editingOrder.customer, phone: e.target.value }
+                  })}
+                />
+              </div>
+              <div className="form-group">
+                <label style={{ fontSize: '0.75rem' }}>Dirección de Entrega</label>
+                <input 
+                  type="text" 
+                  className="form-control" 
+                  style={{ fontSize: '0.8rem', padding: '6px' }} 
+                  value={editingOrder.customer.address} 
+                  onChange={(e) => setEditingOrder({
+                    ...editingOrder,
+                    customer: { ...editingOrder.customer, address: e.target.value }
+                  })}
+                />
+              </div>
+              <div className="form-group">
+                <label style={{ fontSize: '0.75rem' }}>Método de Pago</label>
+                <select 
+                  className="form-control" 
+                  style={{ fontSize: '0.8rem', padding: '6px' }} 
+                  value={editingOrder.customer.paymentMethod}
+                  onChange={(e) => setEditingOrder({
+                    ...editingOrder,
+                    customer: { ...editingOrder.customer, paymentMethod: e.target.value }
+                  })}
+                >
+                  <option value="Yape">Yape</option>
+                  <option value="Plin">Plin</option>
+                  <option value="Efectivo">Efectivo</option>
+                </select>
+              </div>
+            </div>
+
+            {/* Agregar Producto */}
+            <div className="glass" style={{ padding: '15px', display: 'flex', flexDirection: 'column', gap: '10px' }}>
+              <strong style={{ fontSize: '0.85rem' }}>➕ Agregar Producto al Pedido</strong>
+              
+              <div style={{ background: 'rgba(0,0,0,0.02)', padding: '10px', borderRadius: '6px', border: '1px solid var(--border-color)' }}>
+                <span style={{ fontSize: '0.75rem', fontWeight: 'bold', display: 'block', marginBottom: '6px' }}>🍦 Helado Simple</span>
+                <div style={{ display: 'flex', gap: '6px', flexWrap: 'wrap', marginBottom: '6px' }}>
+                  <select 
+                    className="form-control" 
+                    style={{ fontSize: '0.75rem', padding: '4px', flex: 1, minWidth: '100px' }}
+                    value={editNewFlavorId}
+                    onChange={(e) => setEditNewFlavorId(e.target.value)}
+                  >
+                    {flavors.map(f => <option key={f.id} value={f.id}>{f.name} (S/. {f.price.toFixed(2)})</option>)}
+                  </select>
+                  <select 
+                    className="form-control" 
+                    style={{ fontSize: '0.75rem', padding: '4px', flex: 1, minWidth: '100px' }}
+                    value={editNewBaseId}
+                    onChange={(e) => setEditNewBaseId(e.target.value)}
+                  >
+                    {bases.map(b => <option key={b.id} value={b.id}>{b.name.split(' ')[0]}</option>)}
+                  </select>
+                </div>
+                <button type="button" className="btn btn-secondary" style={{ width: '100%', padding: '5px', fontSize: '0.75rem' }} onClick={handleAddFlavorToOrder}>
+                  Añadir Helado Simple
+                </button>
+              </div>
+
+              <div style={{ background: 'rgba(0,0,0,0.02)', padding: '10px', borderRadius: '6px', border: '1px solid var(--border-color)' }}>
+                <span style={{ fontSize: '0.75rem', fontWeight: 'bold', display: 'block', marginBottom: '6px' }}>🎁 Combo Promocional</span>
+                <div style={{ display: 'flex', gap: '6px', marginBottom: '6px' }}>
+                  <select 
+                    className="form-control" 
+                    style={{ fontSize: '0.75rem', padding: '4px', flex: 1 }}
+                    value={editNewPackId}
+                    onChange={(e) => setEditNewPackId(e.target.value)}
+                  >
+                    {packs.map(p => <option key={p.id} value={p.id}>{p.name} (S/. {p.price.toFixed(2)})</option>)}
+                  </select>
+                </div>
+                <button type="button" className="btn btn-secondary" style={{ width: '100%', padding: '5px', fontSize: '0.75rem' }} onClick={handleAddPackToOrder}>
+                  Añadir Pack Combo
+                </button>
+              </div>
+            </div>
+          </div>
+
+          {/* Listado de Productos */}
+          <div className="glass" style={{ padding: '15px', marginBottom: '20px' }}>
+            <strong style={{ fontSize: '0.85rem', display: 'block', marginBottom: '10px' }}>🛒 Productos en el Pedido</strong>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+              {editingOrder.items.map((item, idx) => {
+                const itemLabel = item.type === 'custom' 
+                  ? `Helado Personalizado: ${item.scoops ? item.scoops.map(s => s.name).join(', ') : ''} en ${item.base ? item.base.name.split(' ')[0] : ''}` 
+                  : `Pack: ${item.name}`;
+                return (
+                  <div key={idx} style={{ 
+                    display: 'flex', 
+                    justifyContent: 'space-between', 
+                    alignItems: 'center', 
+                    background: 'var(--bg-primary)', 
+                    padding: '8px 12px', 
+                    borderRadius: '6px',
+                    border: '1px solid var(--border-color)',
+                    flexWrap: 'wrap',
+                    gap: '10px'
+                  }}>
+                    <div style={{ flex: 1, minWidth: '150px' }}>
+                      <span style={{ fontSize: '0.78rem', fontWeight: 'bold', color: 'var(--text-dark)' }}>{itemLabel}</span>
+                    </div>
+                    
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '15px', flexWrap: 'wrap' }}>
+                      {/* Cantidad */}
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '5px' }}>
+                        <span style={{ fontSize: '0.7rem', color: 'var(--text-light)' }}>Cant:</span>
+                        <button type="button" className="btn btn-secondary" style={{ padding: '2px 6px', fontSize: '0.75rem' }} onClick={() => handleUpdateItemQty(idx, -1)}>-</button>
+                        <span style={{ fontSize: '0.8rem', fontWeight: 'bold', minWidth: '15px', textAlign: 'center' }}>{item.quantity || 1}</span>
+                        <button type="button" className="btn btn-secondary" style={{ padding: '2px 6px', fontSize: '0.75rem' }} onClick={() => handleUpdateItemQty(idx, 1)}>+</button>
+                      </div>
+
+                      {/* Precio */}
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '5px' }}>
+                        <span style={{ fontSize: '0.7rem', color: 'var(--text-light)' }}>Precio Unit:</span>
+                        <input 
+                          type="number" 
+                          step="0.10" 
+                          className="form-control" 
+                          style={{ fontSize: '0.75rem', padding: '4px', width: '70px', height: '24px' }} 
+                          value={item.price} 
+                          onChange={(e) => handleUpdateItemPrice(idx, e.target.value)}
+                        />
+                      </div>
+
+                      {/* Eliminar */}
+                      <button 
+                        type="button" 
+                        className="btn btn-secondary" 
+                        style={{ padding: '4px 8px', color: 'var(--danger)', borderColor: 'rgba(231, 76, 60, 0.2)' }}
+                        onClick={() => handleRemoveItem(idx)}
+                      >
+                        🗑️
+                      </button>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+
+          {/* Costo de Envío y Totales */}
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '15px', alignItems: 'flex-start', marginBottom: '20px' }} className="admin-stats-columns">
+            <div className="glass" style={{ padding: '15px' }}>
+              <div className="form-group" style={{ margin: 0 }}>
+                <label style={{ fontSize: '0.78rem', fontWeight: 'bold' }}>🚚 Costo de Delivery / Envío</label>
+                <input 
+                  type="number" 
+                  step="0.50" 
+                  className="form-control" 
+                  style={{ fontSize: '0.8rem', padding: '6px', marginTop: '5px' }} 
+                  value={editingOrder.deliveryFee} 
+                  onChange={(e) => setEditingOrder({ ...editingOrder, deliveryFee: parseFloat(e.target.value) || 0 })}
+                />
+              </div>
+            </div>
+
+            <div className="glass" style={{ padding: '15px', display: 'flex', flexDirection: 'column', gap: '4px', textAlign: 'right' }}>
+              <div style={{ fontSize: '0.75rem', color: 'var(--text-light)' }}>Subtotal: S/. {subtotal.toFixed(2)}</div>
+              <div style={{ fontSize: '0.75rem', color: 'var(--text-light)' }}>Envío: S/. {parseFloat(editingOrder.deliveryFee || 0).toFixed(2)}</div>
+              <div style={{ fontSize: '1.15rem', fontWeight: 'bold', color: 'var(--primary-color)', marginTop: '4px' }}>
+                Total General: S/. {grandTotal.toFixed(2)}
+              </div>
+            </div>
+          </div>
+
+          {/* Botones de Acción */}
+          <div style={{ display: 'flex', gap: '10px' }}>
+            <button type="button" className="btn btn-primary" style={{ flex: 1, padding: '10px' }} onClick={handleSaveOrderEdits}>
+              💾 Guardar Cambios en Pedido
+            </button>
+            <button type="button" className="btn btn-secondary" style={{ flex: 1, padding: '10px' }} onClick={() => setEditingOrder(null)}>
+              Cancelar
+            </button>
+          </div>
+        </div>
+      );
+    }
     return (
       <div>
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '15px', flexWrap: 'wrap', gap: '10px' }}>
@@ -1345,6 +1728,17 @@ export default function AdminPanel({
                             title="Cancelar Pedido"
                           >
                             ✕
+                          </button>
+                        )}
+                        {order.status !== 'Cancelado' && (
+                          <button
+                            type="button"
+                            className="admin-action-btn"
+                            style={{ color: '#0984e3' }}
+                            title="Editar Pedido"
+                            onClick={() => handleStartEditingOrder(order)}
+                          >
+                            ✏️ Editar
                           </button>
                         )}
                         <a 
@@ -2145,6 +2539,74 @@ export default function AdminPanel({
           </form>
         )}
 
+        {/* Formulario Editar Permisos y Datos del Colaborador */}
+        {editingUser && (
+          <form onSubmit={handleEditUserSubmit} className="glass" style={{ padding: '15px', marginBottom: '20px', display: 'flex', flexDirection: 'column', gap: '10px', border: '1px solid var(--secondary-color)' }}>
+            <strong>✏️ Editar Permisos y Datos de: {editingUser.email}</strong>
+            <div className="form-group">
+              <label>Nombre Completo</label>
+              <input 
+                type="text" 
+                className="form-control" 
+                value={editingUser.name} 
+                onChange={(e) => setEditingUser({ ...editingUser, name: e.target.value })} 
+                required 
+              />
+            </div>
+            <div className="form-group">
+              <label>Rol de Trabajo</label>
+              <select 
+                className="form-control" 
+                value={editingUser.role} 
+                onChange={(e) => setEditingUser({ ...editingUser, role: e.target.value })}
+              >
+                <option value="Administrador">Administrador</option>
+                <option value="Vendedor">Vendedor</option>
+                <option value="Cocina">Cocina / Preparador</option>
+              </select>
+            </div>
+            
+            <div className="form-group">
+              <label style={{ fontWeight: 'bold', fontSize: '0.8rem', display: 'block', marginBottom: '5px' }}>
+                🖥️ Ventanas y Módulos Autorizados:
+              </label>
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(130px, 1fr))', gap: '8px', fontSize: '0.78rem' }}>
+                {[
+                  { id: 'orders', label: '📋 Pedidos' },
+                  { id: 'inventory', label: '🍦 Carta Helada' },
+                  { id: 'packs', label: '🎁 Packs Combos' },
+                  { id: 'users', label: '👥 Personal / Staff' },
+                  { id: 'finance', label: '💵 Caja y Finanzas' },
+                  { id: 'settings', label: '⚙️ Ajustes Tienda' },
+                  { id: 'stats', label: '📈 Meta e Ingresos' }
+                ].map(tab => {
+                  const isChecked = editingUser.allowedTabs.includes(tab.id);
+                  return (
+                    <label key={tab.id} style={{ display: 'flex', alignItems: 'center', gap: '6px', cursor: 'pointer' }}>
+                      <input 
+                        type="checkbox" 
+                        checked={isChecked}
+                        onChange={() => {
+                          const nextTabs = isChecked 
+                            ? editingUser.allowedTabs.filter(t => t !== tab.id)
+                            : [...editingUser.allowedTabs, tab.id];
+                          setEditingUser({ ...editingUser, allowedTabs: nextTabs });
+                        }}
+                      />
+                      <span>{tab.label}</span>
+                    </label>
+                  );
+                })}
+              </div>
+            </div>
+
+            <div style={{ display: 'flex', gap: '8px', marginTop: '5px' }}>
+              <button type="submit" className="btn btn-primary" style={{ flex: 1, padding: '8px' }}>Guardar Cambios</button>
+              <button type="button" className="btn btn-secondary" style={{ flex: 1, padding: '8px' }} onClick={() => setEditingUser(null)}>Cancelar</button>
+            </div>
+          </form>
+        )}
+
         <div className="glass admin-table-container">
           <table className="admin-table">
             <thead>
@@ -2181,6 +2643,24 @@ export default function AdminPanel({
                   </td>
                   <td>
                     <div style={{ display: 'flex', gap: '4px' }}>
+                      <button 
+                        className="admin-action-btn" 
+                        title="Editar permisos y datos" 
+                        onClick={() => setEditingUser({
+                          email: user.email,
+                          name: user.name,
+                          role: user.role,
+                          allowedTabs: staffPermissions[user.email] || (
+                            user.role === 'Administrador' 
+                              ? ['orders', 'inventory', 'packs', 'users', 'finance', 'settings', 'stats'] 
+                              : user.role === 'Vendedor' 
+                                ? ['orders', 'inventory'] 
+                                : ['orders']
+                          )
+                        })}
+                      >
+                        ✏️
+                      </button>
                       <button className="admin-action-btn" title="Cambiar clave" onClick={() => setEditingUserPassword(user.email)}>🔑</button>
                       <button className="admin-action-btn" style={{ color: 'var(--danger)' }} onClick={() => handleDeleteUser(user.email)}>🗑️</button>
                     </div>
@@ -4177,29 +4657,41 @@ create policy "Modificación privada de personal y credenciales" on public.helad
       <div className="glass admin-sidebar">
         <h4 style={{ marginBottom: '15px', color: 'var(--primary-color)', fontSize: '1.1rem' }}>🔧 {storeName} Admin</h4>
         <div className="sidebar-menu">
-          <button className={`sidebar-btn ${activeTab === 'orders' ? 'active' : ''}`} onClick={() => setActiveTab('orders')}>
-            📋 Pedidos ({orders.filter(o => o.status === 'Pendiente').length})
-          </button>
-          <button className={`sidebar-btn ${activeTab === 'inventory' ? 'active' : ''}`} onClick={() => setActiveTab('inventory')}>
-            🍦 Carta Helada
-          </button>
-          <button className={`sidebar-btn ${activeTab === 'packs' ? 'active' : ''}`} onClick={() => setActiveTab('packs')}>
-            🎁 Packs Combos
-          </button>
-          {currentUser && currentUser.role === 'Administrador' && (
+          {isTabAllowed('orders') && (
+            <button className={`sidebar-btn ${activeTab === 'orders' ? 'active' : ''}`} onClick={() => setActiveTab('orders')}>
+              📋 Pedidos ({orders.filter(o => o.status === 'Pendiente').length})
+            </button>
+          )}
+          {isTabAllowed('inventory') && (
+            <button className={`sidebar-btn ${activeTab === 'inventory' ? 'active' : ''}`} onClick={() => setActiveTab('inventory')}>
+              🍦 Carta Helada
+            </button>
+          )}
+          {isTabAllowed('packs') && (
+            <button className={`sidebar-btn ${activeTab === 'packs' ? 'active' : ''}`} onClick={() => setActiveTab('packs')}>
+              🎁 Packs Combos
+            </button>
+          )}
+          {currentUser && currentUser.role === 'Administrador' && isTabAllowed('users') && (
             <button className={`sidebar-btn ${activeTab === 'users' ? 'active' : ''}`} onClick={() => setActiveTab('users')}>
               👥 Personal / Staff
             </button>
           )}
-          <button className={`sidebar-btn ${activeTab === 'finance' ? 'active' : ''}`} onClick={() => setActiveTab('finance')}>
-            💵 Caja y Finanzas
-          </button>
-          <button className={`sidebar-btn ${activeTab === 'settings' ? 'active' : ''}`} onClick={() => setActiveTab('settings')}>
-            ⚙️ Ajustes Tienda
-          </button>
-          <button className={`sidebar-btn ${activeTab === 'stats' ? 'active' : ''}`} onClick={() => setActiveTab('stats')}>
-            📈 Meta e Ingresos
-          </button>
+          {isTabAllowed('finance') && (
+            <button className={`sidebar-btn ${activeTab === 'finance' ? 'active' : ''}`} onClick={() => setActiveTab('finance')}>
+              💵 Caja y Finanzas
+            </button>
+          )}
+          {isTabAllowed('settings') && (
+            <button className={`sidebar-btn ${activeTab === 'settings' ? 'active' : ''}`} onClick={() => setActiveTab('settings')}>
+              ⚙️ Ajustes Tienda
+            </button>
+          )}
+          {isTabAllowed('stats') && (
+            <button className={`sidebar-btn ${activeTab === 'stats' ? 'active' : ''}`} onClick={() => setActiveTab('stats')}>
+              📈 Meta e Ingresos
+            </button>
+          )}
         </div>
       </div>
 

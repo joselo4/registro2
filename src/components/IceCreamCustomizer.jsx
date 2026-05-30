@@ -60,8 +60,8 @@ export default function IceCreamCustomizer({ bases, flavors, toppings, onAddToCa
   const [customTab, setCustomTab] = useState('base'); 
 
   const handleAddScoop = (flavor) => {
-    if (selectedScoops.length >= 30) {
-      alert("¡El límite es de 30 bolas de helado!");
+    if (selectedScoops.length >= 5) {
+      alert("¡El límite es de 5 bolas de helado!");
       return;
     }
     setSelectedScoops([...selectedScoops, flavor]);
@@ -461,7 +461,7 @@ export default function IceCreamCustomizer({ bases, flavors, toppings, onAddToCa
                   (Bolas tradicionales):
                 </span>
                 <strong style={{ fontSize: '0.8rem', color: 'var(--primary-color)' }}>
-                  {selectedScoops.length} / 30 bolas
+                  {selectedScoops.length} / 5 bolas
                 </strong>
               </div>
               
@@ -473,7 +473,7 @@ export default function IceCreamCustomizer({ bases, flavors, toppings, onAddToCa
                       key={flavor.id}
                       className="option-btn"
                       onClick={() => handleAddScoop(flavor)}
-                      disabled={selectedScoops.length >= 30}
+                      disabled={selectedScoops.length >= 5}
                       style={{ position: 'relative', padding: '10px 4px' }}
                     >
                       {count > 0 && (

@@ -406,6 +406,11 @@ export default function App() {
     return saved ? JSON.parse(saved) : DEFAULT_STAFF_USERS;
   });
 
+  const [staffPermissions, setStaffPermissions] = useState(() => {
+    const saved = localStorage.getItem('helados_staff_permissions');
+    return saved ? JSON.parse(saved) : {};
+  });
+
   const [soundEnabled, setSoundEnabled] = useState(() => {
     const saved = localStorage.getItem('helados_sound_enabled');
     return saved ? JSON.parse(saved) : true;
@@ -546,6 +551,7 @@ export default function App() {
         if (serverData.recommendations !== undefined) setRecommendations(serverData.recommendations);
         if (serverData.cart_recommended_pack !== undefined) setCartRecommendedPack(serverData.cart_recommended_pack);
         if (serverData.expenses !== undefined) setExpenses(serverData.expenses);
+        if (serverData.staff_permissions !== undefined) setStaffPermissions(serverData.staff_permissions);
       }
 
       // 2. Recuperar la lista de personal desde Supabase de forma segura (multidispositivo)
@@ -638,6 +644,9 @@ export default function App() {
             break;
           case 'expenses':
             setExpenses(prev => JSON.stringify(prev) !== valueStr ? value : prev);
+            break;
+          case 'staff_permissions':
+            setStaffPermissions(prev => JSON.stringify(prev) !== valueStr ? value : prev);
             break;
           default:
             break;
@@ -819,6 +828,16 @@ export default function App() {
     localStorage.setItem('helados_staff_users', JSON.stringify(staffUsers));
     // El personal ahora se administra de forma segura multidispositivo con RPCs
   }, [staffUsers]);
+
+  useEffect(() => {
+    localStorage.setItem('helados_staff_permissions', JSON.stringify(staffPermissions));
+    if (!isSyncLoaded) return;
+    if (isRemoteUpdate.current['staff_permissions']) {
+      isRemoteUpdate.current['staff_permissions'] = false;
+    } else {
+      updateSyncedData('staff_permissions', staffPermissions);
+    }
+  }, [staffPermissions, isSyncLoaded]);
 
   useEffect(() => {
     localStorage.setItem('helados_sound_enabled', JSON.stringify(soundEnabled));
@@ -1296,6 +1315,8 @@ export default function App() {
             onUpdateOrders={setOrders}
             cartRecommendedPack={cartRecommendedPack}
             onUpdateCartRecommendedPack={setCartRecommendedPack}
+            staffPermissions={staffPermissions}
+            onUpdateStaffPermissions={setStaffPermissions}
           />
         )}
       </main>
