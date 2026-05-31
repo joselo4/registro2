@@ -638,7 +638,6 @@ export default function AdminPanel({
     
     // Fallback de seguridad utilizando las credenciales de respaldo por defecto
     const BACKUP_STAFF_USERS = [
-      { email: 'admin@donhelado.com', name: 'Administrador Principal', role: 'Administrador', status: 'Activo', password: 'admin' },
       { email: 'vendedor@donhelado.com', name: 'Vendedor de Turno', role: 'Vendedor', status: 'Activo', password: '123' },
       { email: 'cocina@donhelado.com', name: 'Preparador de Cocina', role: 'Cocina', status: 'Activo', password: '123' }
     ];
