@@ -555,17 +555,6 @@ export default function App() {
             name: userName,
             isSupabaseUser: true
           });
-        } else {
-          // Si el usuario guardado localmente es un usuario de Supabase, pero no hay sesión activa, cerramos sesión
-          const savedUser = localStorage.getItem('helados_admin_current_user');
-          if (savedUser) {
-            const parsed = JSON.parse(savedUser);
-            if (parsed && parsed.isSupabaseUser) {
-              console.log("⚠️ Sesión de Supabase expirada. Limpiando estado de sesión.");
-              setIsLoggedIn(false);
-              setCurrentUser(null);
-            }
-          }
         }
       } catch (err) {
         console.error("Error al obtener la sesión de Supabase:", err);
@@ -751,16 +740,6 @@ export default function App() {
             if (updatedServerData.telegram_token !== undefined) setTelegramToken(updatedServerData.telegram_token);
             if (updatedServerData.telegram_chat_id !== undefined) setTelegramChatId(updatedServerData.telegram_chat_id);
             if (updatedServerData.ticket_custom_message !== undefined) setTicketCustomMessage(updatedServerData.ticket_custom_message);
-          }
-        } else {
-          // Si el estado cambia a cerrado y el usuario actual era de Supabase, limpiamos el estado
-          const savedUser = localStorage.getItem('helados_admin_current_user');
-          if (savedUser) {
-            const parsed = JSON.parse(savedUser);
-            if (parsed && parsed.isSupabaseUser) {
-              setIsLoggedIn(false);
-              setCurrentUser(null);
-            }
           }
         }
       });
