@@ -631,18 +631,18 @@ export default function AdminPanel({
       }
     }
 
-    // 2. Fallback de seguridad utilizando la lista de personal registrado (staffUsers) o de respaldo
+    // 2. Fallback de seguridad utilizando la lista de personal registrado (staffUsers) o de respaldo (solo si Supabase NO está activo)
     let foundUser = staffUsers && staffUsers.length > 0
       ? staffUsers.find(u => u.email.toLowerCase() === searchEmail)
       : null;
     
-    // Fallback de seguridad utilizando las credenciales de respaldo por defecto
-    const BACKUP_STAFF_USERS = [
+    // Fallback de seguridad utilizando las credenciales de respaldo por defecto (desactivado si hay Supabase)
+    const BACKUP_STAFF_USERS = !supabase ? [
       { email: 'vendedor@donhelado.com', name: 'Vendedor de Turno', role: 'Vendedor', status: 'Activo', password: '123' },
       { email: 'cocina@donhelado.com', name: 'Preparador de Cocina', role: 'Cocina', status: 'Activo', password: '123' }
-    ];
+    ] : [];
 
-    if (!foundUser) {
+    if (!foundUser && !supabase) {
       foundUser = BACKUP_STAFF_USERS.find(u => u.email.toLowerCase() === searchEmail);
     }
     
@@ -5719,7 +5719,22 @@ create policy "Modificación privada de personal y credenciales" on public.helad
     <div className="admin-layout">
       {/* Sidebar */}
       <div className="glass admin-sidebar">
-        <h4 style={{ marginBottom: '15px', color: 'var(--primary-color)', fontSize: '1.1rem' }}>🔧 {storeName} Admin</h4>
+        <h4 style={{ marginBottom: '5px', color: 'var(--primary-color)', fontSize: '1.1rem' }}>🔧 {storeName} Admin</h4>
+        <div style={{ 
+          display: 'flex', 
+          alignItems: 'center', 
+          gap: '6px', 
+          fontSize: '0.68rem', 
+          fontWeight: 'bold',
+          marginBottom: '20px',
+          padding: '4px 10px',
+          borderRadius: '12px',
+          backgroundColor: isCloudSynced ? 'rgba(46, 204, 113, 0.1)' : 'rgba(241, 196, 15, 0.1)',
+          color: isCloudSynced ? 'var(--success)' : 'var(--secondary-color)',
+          width: 'fit-content'
+        }}>
+          <span>{isCloudSynced ? '🟢 Sincronizado (Supabase)' : '🟡 Modo Local (Offline)'}</span>
+        </div>
         <div className="sidebar-menu">
           {isTabAllowed('orders') && (
             <button className={`sidebar-btn ${activeTab === 'orders' ? 'active' : ''}`} onClick={() => setActiveTab('orders')}>
