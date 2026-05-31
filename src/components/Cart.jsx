@@ -16,8 +16,22 @@ export default function Cart({
   coupons,
   whatsappGreeting,
   whatsappFooter,
-  cartRecommendedPack
+  cartRecommendedPack,
+  literConfig,
+  showAlert
 }) {
+  const alert = (msg) => {
+    if (showAlert) {
+      const isError = msg.toLowerCase().includes('error') || msg.toLowerCase().includes('falló') || msg.toLowerCase().includes('vacío') || msg.toLowerCase().includes('incompletos') || msg.toLowerCase().includes('campos') || msg.toLowerCase().includes('inválido');
+      const isSuccess = msg.toLowerCase().includes('éxito') || msg.toLowerCase().includes('aplicado');
+      const type = isError ? 'warning' : isSuccess ? 'success' : 'info';
+      const title = isError ? 'Atención' : isSuccess ? '¡Listo!' : 'Información';
+      showAlert(title, msg, type);
+    } else {
+      window.alert(msg);
+    }
+  };
+
   // Cargar datos autocompletados desde LocalStorage si existen
   const [name, setName] = useState(() => localStorage.getItem('last_customer_name') || '');
   const [phone, setPhone] = useState(() => localStorage.getItem('last_customer_phone') || '');
@@ -95,6 +109,9 @@ export default function Cart({
           details = `\n   Sabores: ${scoops}` + 
                     (toppings ? `\n   Toppings: ${toppings}` : '') +
                     (syrup ? `\n   Salsa: ${syrup}` : '');
+        } else if (item.type === 'liter') {
+          const scoops = item.scoops.map(s => s.name).join(', ');
+          details = `\n   Sabores: ${scoops}`;
         }
         return `• ${item.quantity}x *${item.name}*${details}`;
       }).join('\n') +
@@ -146,6 +163,9 @@ export default function Cart({
         couponCode: appliedCoupon ? appliedCoupon.code : null,
         grandTotal: total,
         status: 'Pendiente',
+        statusHistory: [
+          { status: 'Pendiente', timestamp: new Date().toISOString() }
+        ],
         date: new Date().toISOString()
       };
 
@@ -157,12 +177,16 @@ export default function Cart({
           const toppings = item.toppings.map(t => t.name).join(', ');
           const syrup = item.syrup ? item.syrup.name : '';
           detailsText = ` (${scoops}${toppings ? ` + ${toppings}` : ''}${syrup ? ` + Salsa ${syrup}` : ''})`;
+        } else if (item.type === 'liter') {
+          const scoops = item.scoops.map(s => s.name).join(', ');
+          detailsText = ` (Sabores: ${scoops})`;
         }
         return `${item.quantity}x ${item.name}${detailsText}`;
       }).join('\n');
 
       const couponLine = appliedCoupon ? `\n*Cupón:* ${appliedCoupon.code} (-S/. ${discount.toFixed(2)})` : '';
-      const whatsappMessage = `${whatsappGreeting}\n\n*Código:* ${orderId}\n*Cliente:* ${name}\n*Dirección:* ${address}\n*WhatsApp:* ${phone}\n*Pago:* ${paymentMethod}\n\n*Pedido:*\n${itemsText}\n\n*Subtotal:* S/. ${cartSubtotal.toFixed(2)}${couponLine}\n*Delivery:* S/. ${activeDeliveryFee.toFixed(2)}\n*Total:* S/. ${total.toFixed(2)}\n\n${whatsappFooter}`;
+      const trackerLink = `\n\n*Sigue tu pedido en vivo aquí:*\n${window.location.origin}${window.location.pathname}?track=${orderId}`;
+      const whatsappMessage = `${whatsappGreeting}\n\n*Código:* ${orderId}\n*Cliente:* ${name}\n*Dirección:* ${address}\n*WhatsApp:* ${phone}\n*Pago:* ${paymentMethod}\n\n*Pedido:*\n${itemsText}\n\n*Subtotal:* S/. ${cartSubtotal.toFixed(2)}${couponLine}\n*Delivery:* S/. ${activeDeliveryFee.toFixed(2)}\n*Total:* S/. ${total.toFixed(2)}${trackerLink}\n\n${whatsappFooter}`;
       
       const encodedText = encodeURIComponent(whatsappMessage);
       const cleanPhone = String(storePhone || '').replace(/\D/g, ''); // Limpiar caracteres no numéricos
@@ -173,14 +197,14 @@ export default function Cart({
         await sendTelegramNotification(newOrder);
       }
 
-      // Registrar pedido en la base de datos
+       // Registrar pedido en la base de datos
       onPlaceOrder(newOrder);
-
-      // Redirigir a WhatsApp del dueño
-      window.open(whatsappUrl, '_blank');
-      
-      // Permitimos volver a enviar después de abrir WhatsApp por si acaso
-      setTimeout(() => setIsSubmitting(false), 2000);
+ 
+       // Redirigir a WhatsApp del dueño (desactivado a petición del usuario)
+       // window.open(whatsappUrl, '_blank');
+       
+       // Permitimos volver a enviar después de abrir WhatsApp por si acaso
+       setTimeout(() => setIsSubmitting(false), 2000);
     } catch (err) {
       console.error("Fallo al enviar pedido:", err);
       alert("⚠️ Lo sentimos, ocurrió un error al estructurar el pedido. Vuelve a intentarlo.");
@@ -219,6 +243,7 @@ export default function Cart({
       name: pack.name || 'Pack Dúo Romántico',
       price: parseFloat(pack.price) || 10.0,
       items: pack.description || '2 Copas Waffle de 3 bolas + Fudge de chocolate gratis',
+      image: pack.image || '',
       quantity: 1
     };
     onAddToCart(packItem);
@@ -236,6 +261,14 @@ export default function Cart({
           Sabores: {scoopsText}
           {toppingsText && <><br />Toppings: {toppingsText}</>}
           {syrupText && <><br />Salsa: {syrupText}</>}
+        </span>
+      );
+    } else if (item.type === 'liter') {
+      const scoopsText = item.scoops.map(s => s.name).join(', ');
+      return (
+        <span style={{ fontSize: '0.8rem', color: 'var(--text-light)', display: 'block', marginTop: '4px' }}>
+          🏺 Pote de 1 Litro <br />
+          Sabores: {scoopsText}
         </span>
       );
     }
@@ -273,10 +306,19 @@ export default function Cart({
                 <button 
                   onClick={handleAddRandomScoop}
                   className="btn btn-secondary" 
-                  style={{ padding: '4px 8px', fontSize: '0.75rem', flex: 1 }}
+                  style={{ padding: '6px 10px', fontSize: '0.75rem', flex: 1 }}
                 >
-                  🍦 ¡Agregar Bola Clásica (+S/. 1.00)!
+                  🎲 Sorpréndeme
                 </button>
+                {cartRecommendedPack && !cart.some(i => i.id === (cartRecommendedPack.id || 'pack_pareja')) && (
+                  <button 
+                    onClick={handleAddSuggestedPack}
+                    className="btn btn-primary animate-pulse" 
+                    style={{ padding: '6px 10px', fontSize: '0.75rem', flex: 1 }}
+                  >
+                    🎁 Añadir Combo Sugerido
+                  </button>
+                )}
               </div>
             </div>
           )}
@@ -290,8 +332,16 @@ export default function Cart({
           {cart.map((item, index) => (
             <div key={index} className="glass-card cart-item" style={{ padding: '10px 14px' }}>
               <div className="cart-item-info">
-                <div style={{ fontSize: '1.8rem' }}>
-                  {item.type === 'custom' ? (item.base.id === 'cono' ? '🍦' : '🍧') : '🎁'}
+                <div style={{ fontSize: '1.8rem', display: 'flex', alignItems: 'center', justifyContent: 'center', width: '32px', height: '32px' }}>
+                  {item.type === 'liter' && literConfig?.image ? (
+                    <img src={literConfig.image} alt="1 Litro" style={{ width: '100%', height: '100%', objectFit: 'contain' }} />
+                  ) : item.type === 'pack' && item.image ? (
+                    <img src={item.image} alt={item.name} style={{ width: '100%', height: '100%', objectFit: 'cover', borderRadius: '4px' }} />
+                  ) : item.type === 'custom' && item.base?.image ? (
+                    <img src={item.base.image} alt={item.name} style={{ width: '100%', height: '100%', objectFit: 'contain' }} />
+                  ) : (
+                    item.type === 'custom' ? (item.base.id === 'cono' ? '🍦' : '🍧') : (item.type === 'liter' ? '🏺' : '🎁')
+                  )}
                 </div>
                 <div className="cart-item-details">
                   <h4 style={{ fontSize: '0.95rem' }}>{item.name}</h4>

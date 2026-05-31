@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
+import { supabase } from '../utils/supabaseClient';
 
 export default function OrderTracker({ orderId, orders, setView, storePhone }) {
   const [inputVal, setInputVal] = useState('');
@@ -7,6 +8,30 @@ export default function OrderTracker({ orderId, orders, setView, storePhone }) {
   const [recentOrders, setRecentOrders] = useState([]);
   const [prevStatus, setPrevStatus] = useState(null);
   const [animateStatus, setAnimateStatus] = useState(false);
+
+  // --- NUEVOS ESTADOS PARA BÚSQUEDA EN LA NUBE ---
+  const [fetchedOrder, setFetchedOrder] = useState(null);
+  const [loadingOrder, setLoadingOrder] = useState(false);
+
+  const formatPeruTime = (isoString) => {
+    if (!isoString) return '';
+    try {
+      const date = new Date(isoString);
+      const options = {
+        timeZone: 'America/Lima',
+        year: 'numeric',
+        month: '2-digit',
+        day: '2-digit',
+        hour: '2-digit',
+        minute: '2-digit',
+        second: '2-digit',
+        hour12: true
+      };
+      return new Intl.DateTimeFormat('es-PE', options).format(date);
+    } catch (e) {
+      return '';
+    }
+  };
 
   // Cargar pedidos recientes
   useEffect(() => {
@@ -31,10 +56,63 @@ export default function OrderTracker({ orderId, orders, setView, storePhone }) {
     setRecentOrders(trimmedList);
   };
 
-  // Buscar el pedido actual (insensible a mayúsculas)
-  const currentOrder = orders.find(
+  // Buscar el pedido actual (local o recuperado por Supabase)
+  const currentOrder = fetchedOrder || orders.find(
     o => o.id.toLowerCase() === activeSearchId.trim().toLowerCase()
   );
+
+  // Efecto para buscar pedido en Supabase de forma segura e independiente (por privacidad de egress)
+  useEffect(() => {
+    if (!activeSearchId || !supabase) return;
+
+    const searchUpper = activeSearchId.trim().toUpperCase();
+    const local = orders.find(o => o.id.toUpperCase() === searchUpper);
+    if (local) {
+      setFetchedOrder(local);
+    } else {
+      setFetchedOrder(null);
+    }
+
+    const fetchFromSupabase = async () => {
+      setLoadingOrder(true);
+      try {
+        const { data, error } = await supabase
+          .from('helados_sync')
+          .select('value')
+          .eq('key', `order_${searchUpper}`)
+          .maybeSingle();
+
+        if (!error && data && data.value) {
+          setFetchedOrder(data.value);
+          saveToRecentOrders(searchUpper);
+        }
+      } catch (err) {
+        console.warn("Error fetching order from cloud tracker:", err);
+      } finally {
+        setLoadingOrder(false);
+      }
+    };
+
+    fetchFromSupabase();
+
+    // Suscribirse únicamente al canal en tiempo real de este pedido específico (cero filtración de datos)
+    const channel = supabase
+      .channel(`track-${searchUpper}`)
+      .on(
+        'postgres_changes',
+        { event: 'UPDATE', schema: 'public', table: 'helados_sync', filter: `key=eq.order_${searchUpper}` },
+        (payload) => {
+          if (payload.new && payload.new.value) {
+            setFetchedOrder(payload.new.value);
+          }
+        }
+      )
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
+  }, [activeSearchId, orders]);
 
   // Efecto para animar y reproducir sonido cuando cambia el estado del pedido tracked
   useEffect(() => {
@@ -127,11 +205,6 @@ export default function OrderTracker({ orderId, orders, setView, storePhone }) {
     const cleanId = inputVal.trim();
     setActiveSearchId(cleanId);
     setHasSearched(true);
-    
-    const found = orders.some(o => o.id.toLowerCase() === cleanId.toLowerCase());
-    if (found) {
-      saveToRecentOrders(cleanId);
-    }
   };
 
   const cleanPhone = String(storePhone || '').replace(/\D/g, '');
@@ -162,7 +235,13 @@ export default function OrderTracker({ orderId, orders, setView, storePhone }) {
             />
           </div>
 
-          {hasSearched && (
+          {loadingOrder && (
+            <div style={{ textAlign: 'center', fontSize: '0.85rem', color: 'var(--primary-color)', fontWeight: 'bold' }}>
+              ⏳ Buscando en la nube...
+            </div>
+          )}
+
+          {hasSearched && !loadingOrder && !currentOrder && (
             <div style={{ 
               background: 'rgba(231, 76, 60, 0.1)', 
               color: 'var(--danger)', 
@@ -177,7 +256,7 @@ export default function OrderTracker({ orderId, orders, setView, storePhone }) {
             </div>
           )}
 
-          <button type="submit" className="btn btn-primary" style={{ width: '100%', padding: '12px', fontSize: '0.95rem' }}>
+          <button type="submit" className="btn btn-primary" style={{ width: '100%', padding: '12px', fontSize: '0.95rem' }} disabled={loadingOrder}>
             Buscar Pedido
           </button>
         </form>
@@ -346,6 +425,154 @@ export default function OrderTracker({ orderId, orders, setView, storePhone }) {
         </div>
       )}
 
+      {/* Historial de Cambios de Estado (Hora Peruana) */}
+      {(() => {
+        // Obtener todos los eventos del historial ordenados cronológicamente
+        const allHistory = currentOrder.statusHistory
+          ? [...currentOrder.statusHistory].sort((a, b) => new Date(a.timestamp) - new Date(b.timestamp))
+          : [{ status: 'Pendiente', timestamp: currentOrder.date }];
+
+        // Calcular tiempo transcurrido entre eventos
+        const getElapsed = (ts1, ts2) => {
+          if (!ts1 || !ts2) return '';
+          const diff = (new Date(ts2) - new Date(ts1)) / 60000;
+          if (diff < 60) return `${Math.round(diff)} min`;
+          const hours = Math.floor(diff / 60);
+          const mins = Math.round(diff % 60);
+          return mins > 0 ? `${hours}h ${mins}min` : `${hours}h`;
+        };
+
+        const statusMeta = {
+          'Pendiente':  { emoji: '⏳', label: 'Pedido Recibido',         color: '#f39c12', bg: 'rgba(243,156,18,0.10)' },
+          'Preparando': { emoji: '👨‍🍳', label: 'En Cocina / Preparando', color: '#3498db', bg: 'rgba(52,152,219,0.10)' },
+          'En camino':  { emoji: '🛵', label: 'En Ruta de Entrega',      color: '#9b59b6', bg: 'rgba(155,89,182,0.10)' },
+          'Entregado':  { emoji: '🎉', label: 'Entregado al Cliente',    color: '#2ecc71', bg: 'rgba(46,204,113,0.10)' },
+          'Cancelado':  { emoji: '🛑', label: 'Pedido Cancelado',        color: '#e74c3c', bg: 'rgba(231,76,60,0.10)' }
+        };
+
+        return (
+          <div className="glass" style={{ padding: '15px 18px', marginBottom: '25px', background: 'rgba(0,0,0,0.01)', border: '1px solid var(--border-color)', borderRadius: 'var(--radius-md)' }}>
+            <h4 style={{ fontSize: '0.95rem', marginBottom: '15px', fontWeight: 'bold', display: 'flex', alignItems: 'center', gap: '8px', color: 'var(--text-dark)' }}>
+              📋 Historial Detallado del Pedido
+              <span style={{ fontSize: '0.7rem', color: 'var(--text-light)', fontWeight: 'normal', marginLeft: 'auto' }}>
+                🇵🇪 Hora Perú (Lima)
+              </span>
+            </h4>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '0', position: 'relative', paddingLeft: '18px' }}>
+              {/* Línea vertical conectora */}
+              <div style={{ position: 'absolute', left: '8px', top: '10px', bottom: '10px', width: '2px', background: 'linear-gradient(180deg, var(--primary-color), var(--border-color))' }}></div>
+
+              {allHistory.map((event, idx) => {
+                const meta = statusMeta[event.status] || { emoji: '📌', label: event.status, color: 'var(--text-light)', bg: 'transparent' };
+                const isLast = idx === allHistory.length - 1;
+                const isCurrent = event.status === currentOrder.status;
+                const nextEvent = allHistory[idx + 1];
+                const elapsed = nextEvent ? getElapsed(event.timestamp, nextEvent.timestamp) : '';
+                const formattedTime = formatPeruTime(event.timestamp);
+
+                return (
+                  <div key={idx} style={{ display: 'flex', flexDirection: 'column', position: 'relative', paddingBottom: isLast ? '0' : '14px' }}>
+                    {/* Bullet circular */}
+                    <div style={{
+                      position: 'absolute',
+                      left: '-14px',
+                      top: '3px',
+                      width: '12px',
+                      height: '12px',
+                      borderRadius: '50%',
+                      backgroundColor: isCurrent ? meta.color : '#2ecc71',
+                      border: `2px solid var(--bg-primary)`,
+                      boxShadow: isCurrent ? `0 0 12px ${meta.color}90` : 'none',
+                      zIndex: 1,
+                      animation: isCurrent ? 'trackerPulse 2s infinite' : 'none',
+                      flexShrink: 0
+                    }}></div>
+
+                    {/* Tarjeta de evento */}
+                    <div style={{
+                      background: isCurrent ? meta.bg : 'transparent',
+                      border: isCurrent ? `1px solid ${meta.color}40` : 'none',
+                      borderRadius: '8px',
+                      padding: isCurrent ? '8px 10px' : '2px 8px',
+                      transition: 'all 0.3s ease'
+                    }}>
+                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '4px' }}>
+                        <span style={{
+                          fontSize: '0.82rem',
+                          fontWeight: isCurrent ? '700' : '600',
+                          color: isCurrent ? meta.color : 'var(--text-dark)',
+                          display: 'flex',
+                          alignItems: 'center',
+                          gap: '5px'
+                        }}>
+                          <span style={{ fontSize: '1rem' }}>{meta.emoji}</span>
+                          {meta.label}
+                          {isCurrent && <span style={{ fontSize: '0.6rem', background: meta.color, color: 'white', padding: '1px 5px', borderRadius: '4px', fontWeight: 'bold' }}>ACTUAL</span>}
+                        </span>
+                        <span style={{
+                          fontSize: '0.72rem',
+                          color: isCurrent ? meta.color : 'var(--text-light)',
+                          fontWeight: isCurrent ? '700' : '500',
+                          fontFamily: 'monospace',
+                          background: isCurrent ? `${meta.color}15` : 'var(--bg-secondary)',
+                          padding: '2px 7px',
+                          borderRadius: '5px',
+                          letterSpacing: '0.02em'
+                        }}>
+                          {formattedTime}
+                        </span>
+                      </div>
+                      {elapsed && (
+                        <div style={{ fontSize: '0.65rem', color: 'var(--text-light)', marginTop: '3px', paddingLeft: '22px', fontStyle: 'italic' }}>
+                          ↳ Tiempo hasta siguiente estado: <strong>{elapsed}</strong>
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                );
+              })}
+
+              {/* Mostrar estados pendientes como grises */}
+              {currentOrder.status !== 'Cancelado' && currentOrder.status !== 'Entregado' && (() => {
+                const completedStatuses = allHistory.map(h => h.status);
+                const pendingStatuses = ['Pendiente', 'Preparando', 'En camino', 'Entregado'].filter(s => !completedStatuses.includes(s));
+                return pendingStatuses.map((s, idx) => {
+                  const meta = statusMeta[s];
+                  return (
+                    <div key={`pending-${idx}`} style={{ display: 'flex', flexDirection: 'column', position: 'relative', paddingBottom: idx < pendingStatuses.length - 1 ? '14px' : '0' }}>
+                      <div style={{
+                        position: 'absolute',
+                        left: '-14px',
+                        top: '3px',
+                        width: '12px',
+                        height: '12px',
+                        borderRadius: '50%',
+                        backgroundColor: 'var(--border-color)',
+                        border: '2px solid var(--bg-primary)',
+                        zIndex: 1
+                      }}></div>
+                      <div style={{ padding: '2px 8px' }}>
+                        <span style={{ fontSize: '0.78rem', color: 'var(--text-light)', display: 'flex', alignItems: 'center', gap: '5px' }}>
+                          <span style={{ opacity: 0.4 }}>{meta?.emoji}</span>
+                          <span style={{ opacity: 0.5 }}>{meta?.label}</span>
+                          <span style={{ fontSize: '0.65rem', fontStyle: 'italic', opacity: 0.4 }}>— Pendiente</span>
+                        </span>
+                      </div>
+                    </div>
+                  );
+                });
+              })()}
+            </div>
+            <style dangerouslySetInnerHTML={{ __html: `
+              @keyframes trackerPulse {
+                0%, 100% { box-shadow: 0 0 8px rgba(0,0,0,0.2); transform: scale(1); }
+                50% { box-shadow: 0 0 16px rgba(0,0,0,0.35); transform: scale(1.15); }
+              }
+            ` }} />
+          </div>
+        );
+      })()}
+
       {/* Mensaje Informativo */}
       <p style={{ fontSize: '0.85rem', color: 'var(--text-light)', textAlign: 'center', marginBottom: '25px', lineHeight: '1.4' }}>
         {currentOrder.status === 'Pendiente' && "Estamos validando tu pedido. En breve coordinaremos la entrega."}
@@ -386,7 +613,26 @@ export default function OrderTracker({ orderId, orders, setView, storePhone }) {
             ))}
           </ul>
           
-          <div style={{ borderTop: '1px solid var(--border-color)', marginTop: '12px', paddingTop: '10px', display: 'flex', justifyContent: 'space-between', fontSize: '0.85rem', fontWeight: 700 }}>
+          <div style={{ borderTop: '1px dashed var(--border-color)', marginTop: '12px', paddingTop: '10px', display: 'flex', flexDirection: 'column', gap: '6px', fontSize: '0.8rem', color: 'var(--text-light)' }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+              <span>Subtotal:</span>
+              <span style={{ color: 'var(--text-dark)', fontWeight: '500' }}>S/. {(currentOrder.total || 0).toFixed(2)}</span>
+            </div>
+            {currentOrder.discount > 0 && (
+              <div style={{ display: 'flex', justifyContent: 'space-between', color: 'var(--success)', fontWeight: '600' }}>
+                <span>Descuento {currentOrder.couponCode ? `(${currentOrder.couponCode})` : ''}:</span>
+                <span>- S/. {(currentOrder.discount || 0).toFixed(2)}</span>
+              </div>
+            )}
+            <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+              <span>Costo de Envío:</span>
+              <span style={{ color: 'var(--text-dark)', fontWeight: '500' }}>
+                {(currentOrder.deliveryFee || 0) === 0 ? <strong style={{ color: 'var(--success)' }}>GRATIS</strong> : `S/. ${(currentOrder.deliveryFee || 0).toFixed(2)}`}
+              </span>
+            </div>
+          </div>
+          
+          <div style={{ borderTop: '1px solid var(--border-color)', marginTop: '8px', paddingTop: '8px', display: 'flex', justifyContent: 'space-between', fontSize: '0.85rem', fontWeight: 700 }}>
             <span>Total Pagado:</span>
             <span style={{ color: 'var(--primary-color)', fontSize: '1rem' }}>
               S/. {currentOrder.grandTotal.toFixed(2)}

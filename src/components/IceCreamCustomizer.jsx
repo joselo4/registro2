@@ -36,7 +36,19 @@ const GOMITA_OFFSETS = [
   { dx: 0, dy: -15, color: '#ffa502' }
 ];
 
-export default function IceCreamCustomizer({ bases, flavors, toppings, onAddToCart, setView, recommendations = [] }) {
+export default function IceCreamCustomizer({ bases, flavors, toppings, onAddToCart, setView, recommendations = [], showAlert }) {
+  const alert = (msg) => {
+    if (showAlert) {
+      const isError = msg.toLowerCase().includes('límite') || msg.toLowerCase().includes('añade') || msg.toLowerCase().includes('al menos');
+      const isSuccess = msg.toLowerCase().includes('cargó') || msg.toLowerCase().includes('éxito');
+      const type = isError ? 'warning' : isSuccess ? 'success' : 'info';
+      const title = isError ? 'Atención' : isSuccess ? '¡Listo!' : 'Aviso';
+      showAlert(title, msg, type);
+    } else {
+      window.alert(msg);
+    }
+  };
+
   const activeBases = bases.filter(b => b.active !== false);
   const activeFlavors = flavors.filter(f => f.active !== false);
   const activeToppings = toppings.filter(t => t.active !== false && t.category === 'solido');
@@ -442,7 +454,11 @@ export default function IceCreamCustomizer({ bases, flavors, toppings, onAddToCa
                     }}
                     style={{ padding: '12px 6px' }}
                   >
-                    <span style={{ fontSize: '1.8rem' }}>{base.icon}</span>
+                    {base.image ? (
+                      <img src={base.image} alt={base.name} style={{ width: '38px', height: '38px', objectFit: 'contain', marginBottom: '4px' }} />
+                    ) : (
+                      <span style={{ fontSize: '1.8rem' }}>{base.icon}</span>
+                    )}
                     <strong style={{ fontSize: '0.8rem' }}>{base.name.split(' ')[0]}</strong>
                     <span style={{ fontSize: '0.7rem', color: 'var(--primary-color)', fontWeight: 'bold' }}>
                       {base.price === 0 ? 'Gratis' : `+ S/. ${base.price.toFixed(2)}`}
@@ -522,7 +538,11 @@ export default function IceCreamCustomizer({ bases, flavors, toppings, onAddToCa
                         onClick={() => handleToggleTopping(topping)}
                         style={{ padding: '8px 4px' }}
                       >
-                        <span style={{ fontSize: '1rem' }}>🍬</span>
+                        {topping.image ? (
+                          <img src={topping.image} alt={topping.name} style={{ width: '22px', height: '22px', objectFit: 'contain', marginBottom: '2px' }} />
+                        ) : (
+                          <span style={{ fontSize: '1rem' }}>🍬</span>
+                        )}
                         <strong style={{ fontSize: '0.75rem' }}>{topping.name}</strong>
                         <span style={{ fontSize: '0.65rem', color: 'var(--text-light)' }}>+ S/. {topping.price.toFixed(2)}</span>
                       </button>
@@ -544,7 +564,11 @@ export default function IceCreamCustomizer({ bases, flavors, toppings, onAddToCa
                         onClick={() => handleToggleSyrup({ id: syrup.id, name: syrup.name, price: syrup.price })}
                         style={{ padding: '8px' }}
                       >
-                        <span style={{ fontSize: '1rem' }}>{icon}</span>
+                        {syrup.image ? (
+                          <img src={syrup.image} alt={syrup.name} style={{ width: '22px', height: '22px', objectFit: 'contain', marginBottom: '2px' }} />
+                        ) : (
+                          <span style={{ fontSize: '1rem' }}>{icon}</span>
+                        )}
                         <strong style={{ fontSize: '0.75rem' }}>{syrup.name.split(' ')[0]}</strong>
                       </button>
                     );

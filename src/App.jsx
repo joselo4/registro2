@@ -8,6 +8,7 @@ import {
 } from './utils/mockData';
 import CustomerShop from './components/CustomerShop';
 import IceCreamCustomizer from './components/IceCreamCustomizer';
+import LiterCustomizer from './components/LiterCustomizer';
 import Cart from './components/Cart';
 import OrderTracker from './components/OrderTracker';
 import AdminPanel from './components/AdminPanel';
@@ -318,8 +319,44 @@ export default function App() {
   const [isCloudSynced, setIsCloudSynced] = useState(false);
   const [isSyncLoaded, setIsSyncLoaded] = useState(false);
 
+  const [customAlert, setCustomAlert] = useState(null); // { title: string, message: string, type: 'info' | 'warning' | 'error' | 'success', onClose?: () => void }
+
+  const showAlert = (title, message, type = 'info', onClose = null) => {
+    setCustomAlert({ title, message, type, onClose });
+  };
+
+  // Local alert override for App.jsx
+  const alert = (msg) => {
+    const isError = msg.toLowerCase().includes('error') || msg.toLowerCase().includes('falló') || msg.toLowerCase().includes('cerrado');
+    const isSuccess = msg.toLowerCase().includes('éxito') || msg.toLowerCase().includes('añadido') || msg.toLowerCase().includes('incrementó');
+    const type = isError ? 'error' : isSuccess ? 'success' : 'warning';
+    const title = isError ? 'Error' : isSuccess ? 'Excelente' : 'Aviso';
+    showAlert(title, msg, type);
+  };
+
   const [qrCustomUrl, setQrCustomUrl] = useState(() => {
     return localStorage.getItem('helados_qr_custom_url') || '';
+  });
+
+  const [r2Config, setR2Config] = useState(() => {
+    const saved = localStorage.getItem('helados_r2_config');
+    return saved ? JSON.parse(saved) : {
+      accountId: '',
+      accessKeyId: '',
+      secretAccessKey: '',
+      bucketName: '',
+      publicUrl: ''
+    };
+  });
+
+  const [literConfig, setLiterConfig] = useState(() => {
+    const saved = localStorage.getItem('helados_liter_config');
+    return saved ? JSON.parse(saved) : {
+      active: true,
+      price: 15.0,
+      maxFlavors: 3,
+      image: ''
+    };
   });
 
   const [recommendations, setRecommendations] = useState(() => {
@@ -339,6 +376,11 @@ export default function App() {
 
   const [whatsappFooter, setWhatsappFooter] = useState(() => {
     return localStorage.getItem('helados_whatsapp_footer') || 'Hecho desde la heladería interactiva.';
+  });
+
+  // --- NUEVO: Estado del mensaje personalizado de comanda ---
+  const [ticketCustomMessage, setTicketCustomMessage] = useState(() => {
+    return localStorage.getItem('helados_ticket_custom_message') || '¡Gracias por preferirnos! Conserva tu helado en el congelador para mantener su textura perfecta. 🍦';
   });
 
   // --- Estados de Marca de la Heladería (Sincronizado con LocalStorage) ---
@@ -476,6 +518,16 @@ export default function App() {
     return saved || 'light';
   });
 
+  // --- NUEVO: Rastrear automáticamente desde la URL (?track=PED-XXXX) ---
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    const trackId = params.get('track') || params.get('orderId');
+    if (trackId) {
+      setActiveOrderId(trackId);
+      setView('tracker');
+    }
+  }, []);
+
   // --- NUEVO: Efecto de Sincronización e Inicialización Supabase ---
   useEffect(() => {
     let activeChannel = null;
@@ -489,10 +541,12 @@ export default function App() {
       }
 
       // 1. Verificar la sesión activa de Supabase al montar el componente
+      let hasActiveSession = false;
       try {
         const { data: { session }, error: sessionError } = await supabase.auth.getSession();
         if (session) {
           console.log("🔑 Sesión activa de Supabase recuperada:", session.user.email);
+          hasActiveSession = true;
           const userRole = session.user.user_metadata?.role || 'Administrador';
           const userName = session.user.user_metadata?.name || 'Administrador Supabase';
           setIsLoggedIn(true);
@@ -518,7 +572,7 @@ export default function App() {
         console.error("Error al obtener la sesión de Supabase:", err);
       }
       
-      const serverData = await fetchSyncedData();
+      const serverData = await fetchSyncedData(hasActiveSession);
       if (serverData) {
         console.log("🔌 Datos recuperados de Supabase:", Object.keys(serverData));
         setIsCloudSynced(true);
@@ -552,6 +606,9 @@ export default function App() {
         if (serverData.cart_recommended_pack !== undefined) setCartRecommendedPack(serverData.cart_recommended_pack);
         if (serverData.expenses !== undefined) setExpenses(serverData.expenses);
         if (serverData.staff_permissions !== undefined) setStaffPermissions(serverData.staff_permissions);
+        if (serverData.r2_config !== undefined) setR2Config(serverData.r2_config);
+        if (serverData.liter_config !== undefined) setLiterConfig(serverData.liter_config);
+        if (serverData.ticket_custom_message !== undefined) setTicketCustomMessage(serverData.ticket_custom_message);
       }
 
       // 2. Recuperar la lista de personal desde Supabase de forma segura (multidispositivo)
@@ -571,6 +628,18 @@ export default function App() {
         
         // Marcar que es un cambio remoto para evitar re-escribir a la nube
         isRemoteUpdate.current[key] = true;
+
+        if (key.startsWith('order_') && value) {
+          setOrders(prev => {
+            const exists = prev.some(o => o.id === value.id);
+            if (exists) {
+              return prev.map(o => o.id === value.id ? value : o);
+            } else {
+              return [value, ...prev];
+            }
+          });
+          return;
+        }
 
         switch (key) {
           case 'store_name':
@@ -648,10 +717,19 @@ export default function App() {
           case 'staff_permissions':
             setStaffPermissions(prev => JSON.stringify(prev) !== valueStr ? value : prev);
             break;
+          case 'r2_config':
+            setR2Config(prev => JSON.stringify(prev) !== valueStr ? value : prev);
+            break;
+          case 'liter_config':
+            setLiterConfig(prev => JSON.stringify(prev) !== valueStr ? value : prev);
+            break;
+          case 'ticket_custom_message':
+            setTicketCustomMessage(prev => prev !== value ? value : prev);
+            break;
           default:
             break;
         }
-      });
+      }, hasActiveSession);
 
       // 3. Suscribirse a cambios del estado de autenticación de Supabase
       const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event, session) => {
@@ -668,11 +746,12 @@ export default function App() {
           });
           
           // Re-sincronizar los datos una vez que tenemos la sesión activa para poder ver las claves protegidas por RLS
-          const updatedServerData = await fetchSyncedData();
+          const updatedServerData = await fetchSyncedData(true);
           if (updatedServerData) {
             if (updatedServerData.staff_users !== undefined) setStaffUsers(updatedServerData.staff_users);
             if (updatedServerData.telegram_token !== undefined) setTelegramToken(updatedServerData.telegram_token);
             if (updatedServerData.telegram_chat_id !== undefined) setTelegramChatId(updatedServerData.telegram_chat_id);
+            if (updatedServerData.ticket_custom_message !== undefined) setTicketCustomMessage(updatedServerData.ticket_custom_message);
           }
         } else {
           // Si el estado cambia a cerrado y el usuario actual era de Supabase, limpiamos el estado
@@ -700,7 +779,7 @@ export default function App() {
         authSubscription.unsubscribe();
       }
     };
-  }, []);
+  }, [isLoggedIn]);
 
   // --- Efectos de Persistencia ---
   useEffect(() => {
@@ -769,10 +848,10 @@ export default function App() {
     if (!isSyncLoaded) return;
     if (isRemoteUpdate.current['orders']) {
       isRemoteUpdate.current['orders'] = false;
-    } else {
+    } else if (isLoggedIn) {
       updateSyncedData('orders', orders);
     }
-  }, [orders, isSyncLoaded]);
+  }, [orders, isSyncLoaded, isLoggedIn]);
 
   useEffect(() => {
     localStorage.setItem('helados_delivery_fee', deliveryFee.toString());
@@ -949,6 +1028,36 @@ export default function App() {
     }
   }, [expenses, isSyncLoaded]);
 
+  useEffect(() => {
+    localStorage.setItem('helados_r2_config', JSON.stringify(r2Config));
+    if (!isSyncLoaded) return;
+    if (isRemoteUpdate.current['r2_config']) {
+      isRemoteUpdate.current['r2_config'] = false;
+    } else {
+      updateSyncedData('r2_config', r2Config);
+    }
+  }, [r2Config, isSyncLoaded]);
+
+  useEffect(() => {
+    localStorage.setItem('helados_liter_config', JSON.stringify(literConfig));
+    if (!isSyncLoaded) return;
+    if (isRemoteUpdate.current['liter_config']) {
+      isRemoteUpdate.current['liter_config'] = false;
+    } else {
+      updateSyncedData('liter_config', literConfig);
+    }
+  }, [literConfig, isSyncLoaded]);
+
+  useEffect(() => {
+    localStorage.setItem('helados_ticket_custom_message', ticketCustomMessage);
+    if (!isSyncLoaded) return;
+    if (isRemoteUpdate.current['ticket_custom_message']) {
+      isRemoteUpdate.current['ticket_custom_message'] = false;
+    } else {
+      updateSyncedData('ticket_custom_message', ticketCustomMessage);
+    }
+  }, [ticketCustomMessage, isSyncLoaded]);
+
   // Persistir Estados de Sesión de Admin
   useEffect(() => {
     localStorage.setItem('helados_admin_logged_in', isLoggedIn.toString());
@@ -1030,6 +1139,22 @@ export default function App() {
         alert(`Se incrementó la cantidad de tu helado personalizado idéntico.`);
         return;
       }
+    } else if (item.type === 'liter') {
+      const idx = cart.findIndex(i => {
+        if (i.type !== 'liter') return false;
+        if (i.scoops.length !== item.scoops.length) return false;
+        
+        // Compare scoops sorted or in the exact same order
+        return i.scoops.every((s, sIdx) => s.id === item.scoops[sIdx].id);
+      });
+
+      if (idx !== -1) {
+        const newCart = [...cart];
+        newCart[idx].quantity += 1;
+        setCart(newCart);
+        alert(`Se incrementó la cantidad de tu helado de 1 Litro idéntico.`);
+        return;
+      }
     }
 
     setCart([...cart, item]);
@@ -1051,16 +1176,35 @@ export default function App() {
     setCart(newCart);
   };
 
-  const handlePlaceOrder = (newOrder) => {
-    setOrders([newOrder, ...orders]);
+  const handlePlaceOrder = async (newOrder) => {
+    setOrders(prev => [newOrder, ...prev]);
     setCart([]);
     setActiveOrderId(newOrder.id);
     setView('tracker');
+    
+    // Subir el pedido individual bajo su propia clave para evitar descargar toda la lista de otros clientes
+    await updateSyncedData(`order_${newOrder.id}`, newOrder);
   };
 
-  const handleUpdateOrderStatus = (orderId, newStatus) => {
-    const updated = orders.map(o => o.id === orderId ? { ...o, status: newStatus } : o);
+  const handleUpdateOrderStatus = async (orderId, newStatus) => {
+    const updated = orders.map(o => {
+      if (o.id === orderId) {
+        const history = o.statusHistory || [{ status: 'Pendiente', timestamp: o.date || new Date().toISOString() }];
+        const newHistory = [...history, { status: newStatus, timestamp: new Date().toISOString() }];
+        return { ...o, status: newStatus, statusHistory: newHistory };
+      }
+      return o;
+    });
     setOrders(updated);
+
+    // Actualizar el pedido individual en la nube para que el cliente reciba la actualización en tiempo real en su rastreador
+    const targetOrder = orders.find(o => o.id === orderId);
+    if (targetOrder) {
+      const history = targetOrder.statusHistory || [{ status: 'Pendiente', timestamp: targetOrder.date || new Date().toISOString() }];
+      const newHistory = [...history, { status: newStatus, timestamp: new Date().toISOString() }];
+      const updatedOrder = { ...targetOrder, status: newStatus, statusHistory: newHistory };
+      await updateSyncedData(`order_${orderId}`, updatedOrder);
+    }
   };
 
   const handleLogout = async () => {
@@ -1212,6 +1356,7 @@ export default function App() {
             storeName={storeName}
             freeDeliveryThreshold={freeDeliveryThreshold}
             deliveryCampaignText={deliveryCampaignText}
+            literConfig={literConfig}
           />
         )}
 
@@ -1223,6 +1368,18 @@ export default function App() {
             onAddToCart={handleAddToCart}
             setView={setView}
             recommendations={recommendations}
+            showAlert={showAlert}
+          />
+        )}
+
+        {view === 'liter-customizer' && (
+          <LiterCustomizer
+            flavors={flavors}
+            toppings={toppings}
+            literConfig={literConfig}
+            onAddToCart={handleAddToCart}
+            setView={setView}
+            showAlert={showAlert}
           />
         )}
 
@@ -1246,6 +1403,8 @@ export default function App() {
             whatsappGreeting={whatsappGreeting}
             whatsappFooter={whatsappFooter}
             cartRecommendedPack={cartRecommendedPack}
+            literConfig={literConfig}
+            showAlert={showAlert}
           />
         )}
 
@@ -1317,6 +1476,13 @@ export default function App() {
             onUpdateCartRecommendedPack={setCartRecommendedPack}
             staffPermissions={staffPermissions}
             onUpdateStaffPermissions={setStaffPermissions}
+            r2Config={r2Config}
+            onUpdateR2Config={setR2Config}
+            literConfig={literConfig}
+            onUpdateLiterConfig={setLiterConfig}
+            ticketCustomMessage={ticketCustomMessage}
+            onUpdateTicketCustomMessage={setTicketCustomMessage}
+            showAlert={showAlert}
           />
         )}
       </main>
@@ -1407,6 +1573,171 @@ export default function App() {
         storeName={storeName}
         view={view}
       />
+
+      {/* Floating Cart Toast/Window */}
+      {cart.length > 0 && view !== 'cart' && view !== 'admin' && (
+        <div className="floating-cart-toast glass animate-float-toast" style={{
+          position: 'fixed',
+          bottom: '80px',
+          left: '50%',
+          transform: 'translateX(-50%)',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'space-between',
+          gap: '15px',
+          padding: '10px 16px',
+          borderRadius: '20px',
+          boxShadow: '0 8px 32px rgba(255, 107, 129, 0.25)',
+          border: '1px solid rgba(255, 107, 129, 0.4)',
+          zIndex: 9997,
+          background: 'var(--glass-bg, rgba(255, 255, 255, 0.9))',
+          backdropFilter: 'blur(10px)',
+          WebkitBackdropFilter: 'blur(10px)',
+          width: '90%',
+          maxWidth: '380px'
+        }}>
+          <style dangerouslySetInnerHTML={{ __html: `
+            @keyframes slideUpBounce {
+              from { opacity: 0; transform: translate(-50%, 30px); }
+              to { opacity: 1; transform: translate(-50%, 0); }
+            }
+            .animate-float-toast {
+              animation: slideUpBounce 0.45s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+            }
+            .floating-cart-toast button:hover {
+              transform: scale(1.05);
+            }
+          ` }} />
+          <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+            <span style={{ fontSize: '1.2rem' }}>🛒</span>
+            <span style={{ fontSize: '0.85rem', fontWeight: 'bold', color: 'var(--text-dark)' }}>
+              Tienes {totalCartItems} {totalCartItems === 1 ? 'helado' : 'helados'} en el carrito
+            </span>
+          </div>
+          <button 
+            className="btn btn-primary"
+            onClick={() => setView('cart')}
+            style={{ 
+              padding: '6px 14px', 
+              fontSize: '0.8rem', 
+              borderRadius: '12px', 
+              boxShadow: 'var(--shadow-sm)',
+              cursor: 'pointer',
+              whiteSpace: 'nowrap',
+              transition: 'transform 0.2s ease',
+              margin: 0
+            }}
+          >
+            Finalizar Compra ➔
+          </button>
+        </div>
+      )}
+
+      {/* ⚠️ Ventana de Alerta / Aviso Personalizado */}
+      {customAlert && (
+        <div style={{
+          position: 'fixed',
+          top: 0,
+          left: 0,
+          right: 0,
+          bottom: 0,
+          backgroundColor: 'rgba(0, 0, 0, 0.45)',
+          backdropFilter: 'blur(5px)',
+          WebkitBackdropFilter: 'blur(5px)',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          zIndex: 100000,
+          animation: 'fadeIn 0.25s ease-out'
+        }}>
+          <style dangerouslySetInnerHTML={{ __html: `
+            @keyframes fadeIn {
+              from { opacity: 0; }
+              to { opacity: 1; }
+            }
+            @keyframes scaleUp {
+              from { opacity: 0; transform: scale(0.9); }
+              to { opacity: 1; transform: scale(1); }
+            }
+            .alert-modal-content {
+              animation: scaleUp 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+            }
+          ` }} />
+          <div className="glass alert-modal-content" style={{
+            width: '90%',
+            maxWidth: '400px',
+            background: 'var(--glass-bg, rgba(255, 255, 255, 0.95))',
+            border: '1px solid var(--border-color)',
+            boxShadow: 'var(--shadow-lg)',
+            borderRadius: '24px',
+            padding: '24px',
+            textAlign: 'center',
+            display: 'flex',
+            flexDirection: 'column',
+            alignItems: 'center',
+            gap: '15px'
+          }}>
+            <div style={{
+              width: '60px',
+              height: '60px',
+              borderRadius: '50%',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              fontSize: '2rem',
+              backgroundColor: customAlert.type === 'error' ? 'rgba(231, 76, 60, 0.1)' : 
+                               customAlert.type === 'warning' ? 'rgba(241, 196, 15, 0.1)' : 
+                               customAlert.type === 'success' ? 'rgba(46, 204, 113, 0.1)' : 
+                               'rgba(52, 152, 219, 0.1)',
+              color: customAlert.type === 'error' ? 'var(--danger)' : 
+                     customAlert.type === 'warning' ? 'var(--secondary-color)' : 
+                     customAlert.type === 'success' ? 'var(--success)' : 
+                     'var(--info)'
+            }}>
+              {customAlert.type === 'error' ? '🛑' : 
+               customAlert.type === 'warning' ? '⚠️' : 
+               customAlert.type === 'success' ? '🎉' : 
+               'ℹ️'}
+            </div>
+            
+            <h3 style={{
+              margin: 0,
+              fontSize: '1.4rem',
+              color: 'var(--text-dark)',
+              fontFamily: 'var(--font-title)'
+            }}>
+              {customAlert.title}
+            </h3>
+            
+            <p style={{
+              margin: 0,
+              fontSize: '0.9rem',
+              color: 'var(--text-light)',
+              lineHeight: '1.5'
+            }}>
+              {customAlert.message}
+            </p>
+            
+            <button 
+              className="btn btn-primary"
+              onClick={() => {
+                const cb = customAlert.onClose;
+                setCustomAlert(null);
+                if (cb) cb();
+              }}
+              style={{
+                width: '100%',
+                padding: '10px',
+                fontSize: '0.95rem',
+                borderRadius: '50px',
+                marginTop: '5px'
+              }}
+            >
+              Aceptar
+            </button>
+          </div>
+        </div>
+      )}
 
     </div>
   );

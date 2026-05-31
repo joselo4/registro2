@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { supabase } from '../utils/supabaseClient';
+import { uploadToR2 } from '../utils/r2Client';
 
 // --- FUNCIONES DE SANITIZACIÓN Y SEGURIDAD CONTRA INYECCIONES Y XSS ---
 const sanitizeHTML = (text) => {
@@ -70,8 +71,94 @@ export default function AdminPanel({
   cartRecommendedPack,
   onUpdateCartRecommendedPack,
   staffPermissions = {},
-  onUpdateStaffPermissions
+  onUpdateStaffPermissions,
+  r2Config,
+  onUpdateR2Config,
+  literConfig,
+  onUpdateLiterConfig,
+  ticketCustomMessage,
+  onUpdateTicketCustomMessage,
+  showAlert
 }) {
+  const alert = (msg) => {
+    if (showAlert) {
+      const isError = msg.toLowerCase().includes('error') || msg.toLowerCase().includes('falló') || msg.toLowerCase().includes('no se puede') || msg.toLowerCase().includes('inválido') || msg.toLowerCase().includes('vacío') || msg.toLowerCase().includes('obligatorio') || msg.toLowerCase().includes('ya existe');
+      const isSuccess = msg.toLowerCase().includes('éxito') || msg.toLowerCase().includes('guardados') || msg.toLowerCase().includes('actualizados') || msg.toLowerCase().includes('sincronizados');
+      const type = isError ? 'warning' : isSuccess ? 'success' : 'info';
+      const title = isError ? 'Atención' : isSuccess ? 'Operación Exitosa' : 'Aviso';
+      showAlert(title, msg, type);
+    } else {
+      window.alert(msg);
+    }
+  };
+
+  // --- Estados de Cloudflare R2 ---
+  const [localR2AccountId, setLocalR2AccountId] = useState(r2Config?.accountId || '');
+  const [localR2AccessKeyId, setLocalR2AccessKeyId] = useState(r2Config?.accessKeyId || '');
+  const [localR2SecretAccessKey, setLocalR2SecretAccessKey] = useState(r2Config?.secretAccessKey || '');
+  const [localR2BucketName, setLocalR2BucketName] = useState(r2Config?.bucketName || '');
+  const [localR2PublicUrl, setLocalR2PublicUrl] = useState(r2Config?.publicUrl || '');
+
+  // --- Estados de Helados de Litro ---
+  const [localLiterActive, setLocalLiterActive] = useState(literConfig?.active !== false);
+  const [localLiterPrice, setLocalLiterPrice] = useState(literConfig?.price || 15.0);
+  const [localLiterMaxFlavors, setLocalLiterMaxFlavors] = useState(literConfig?.maxFlavors || 3);
+  const [localLiterImage, setLocalLiterImage] = useState(literConfig?.image || '');
+
+  useEffect(() => {
+    if (r2Config) {
+      setLocalR2AccountId(r2Config.accountId || '');
+      setLocalR2AccessKeyId(r2Config.accessKeyId || '');
+      setLocalR2SecretAccessKey(r2Config.secretAccessKey || '');
+      setLocalR2BucketName(r2Config.bucketName || '');
+      setLocalR2PublicUrl(r2Config.publicUrl || '');
+    }
+  }, [r2Config]);
+
+  useEffect(() => {
+    if (literConfig) {
+      setLocalLiterActive(literConfig.active !== false);
+      setLocalLiterPrice(literConfig.price || 15.0);
+      setLocalLiterMaxFlavors(literConfig.maxFlavors || 3);
+      setLocalLiterImage(literConfig.image || '');
+    }
+  }, [literConfig]);
+
+  // --- Estado de Carga para Subida de Imágenes ---
+  const [uploadingState, setUploadingState] = useState({
+    flavor: false,
+    topping: false,
+    base: false,
+    pack: false,
+    liter: false,
+    logo: false
+  });
+
+  const handleImageUpload = async (file, type, targetSetter, currentObj) => {
+    if (!file) return;
+    if (!r2Config || !r2Config.accountId || !r2Config.accessKeyId || !r2Config.secretAccessKey || !r2Config.bucketName || !r2Config.publicUrl) {
+      alert("🚨 Cloudflare R2 no está configurado. Por favor, ingresa e inicializa las credenciales en la pestaña 'Ajustes' antes de subir imágenes.");
+      return;
+    }
+
+    setUploadingState(prev => ({ ...prev, [type]: true }));
+    try {
+      const url = await uploadToR2(file, r2Config, type);
+      if (currentObj) {
+        targetSetter({ ...currentObj, image: url });
+      } else {
+        targetSetter(url);
+      }
+      alert("📸 Imagen subida y optimizada a WebP correctamente.");
+    } catch (err) {
+      console.error("Error al subir imagen a R2:", err);
+      alert(`❌ Error al subir imagen a Cloudflare R2: ${err.message || err}`);
+    } finally {
+      setUploadingState(prev => ({ ...prev, [type]: false }));
+    }
+  };
+
+  // --- Estados de Autenticación ---
   // --- Estados de Autenticación ---
   const [emailInput, setEmailInput] = useState('');
   const [passwordInput, setPasswordInput] = useState('');
@@ -107,7 +194,7 @@ export default function AdminPanel({
   const [orderFilter, setOrderFilter] = useState('all');
   const [searchQuery, setSearchQuery] = useState(''); 
   const [showSQLScript, setShowSQLScript] = useState(false);
-  const [dateFilterType, setDateFilterType] = useState('all'); // all, today, yesterday, 7days, custom
+  const [dateFilterType, setDateFilterType] = useState('today'); // all, today, yesterday, 7days, custom
   const [dateStart, setDateStart] = useState('');
   const [dateEnd, setDateEnd] = useState('');
 
@@ -146,7 +233,7 @@ export default function AdminPanel({
 
   const [showAddTopping, setShowAddTopping] = useState(false);
   const [editingTopping, setEditingTopping] = useState(null); 
-  const [newTopping, setNewTopping] = useState({ name: '', price: 0.5 });
+  const [newTopping, setNewTopping] = useState({ name: '', price: 0.5, category: 'solido' });
 
   const [showAddPack, setShowAddPack] = useState(false);
   const [editingPack, setEditingPack] = useState(null); 
@@ -163,6 +250,7 @@ export default function AdminPanel({
   const [newBase, setNewBase] = useState({ name: '', price: 0.0, icon: '🍨', description: '' });
 
   // --- Estados Locales para Módulo de Caja y Finanzas ---
+  const [financeRange, setFinanceRange] = useState('today'); // today, week, month, all
   const [quickSaleProduct, setQuickSaleProduct] = useState('libre');
   const [quickSaleAmount, setQuickSaleAmount] = useState('');
   const [quickSaleName, setQuickSaleName] = useState('');
@@ -204,6 +292,7 @@ export default function AdminPanel({
   const [localWhatsappGreeting, setLocalWhatsappGreeting] = useState(whatsappGreeting);
   const [localWhatsappFooter, setLocalWhatsappFooter] = useState(whatsappFooter);
   const [localQrCustomUrl, setLocalQrCustomUrl] = useState(qrCustomUrl);
+  const [localTicketCustomMessage, setLocalTicketCustomMessage] = useState(ticketCustomMessage || '');
 
   // --- Estados Locales para Combo Recomendado del Carrito (Evita bugs de pérdida de foco) ---
   const [localRecPackActive, setLocalRecPackActive] = useState(cartRecommendedPack?.active !== false);
@@ -233,6 +322,7 @@ export default function AdminPanel({
   useEffect(() => { setLocalWhatsappGreeting(whatsappGreeting); }, [whatsappGreeting]);
   useEffect(() => { setLocalWhatsappFooter(whatsappFooter); }, [whatsappFooter]);
   useEffect(() => { setLocalQrCustomUrl(qrCustomUrl); }, [qrCustomUrl]);
+  useEffect(() => { setLocalTicketCustomMessage(ticketCustomMessage || ''); }, [ticketCustomMessage]);
 
   const handleSaveSettings = () => {
     onChangeStoreName(localStoreName);
@@ -246,6 +336,23 @@ export default function AdminPanel({
     onChangeWhatsappGreeting(localWhatsappGreeting);
     onChangeWhatsappFooter(localWhatsappFooter);
     onChangeQrCustomUrl(localQrCustomUrl);
+    onUpdateTicketCustomMessage(localTicketCustomMessage);
+    
+    // Guardar configuración de R2 y Litro
+    onUpdateR2Config({
+      accountId: localR2AccountId.trim(),
+      accessKeyId: localR2AccessKeyId.trim(),
+      secretAccessKey: localR2SecretAccessKey.trim(),
+      bucketName: localR2BucketName.trim(),
+      publicUrl: localR2PublicUrl.trim()
+    });
+
+    onUpdateLiterConfig({
+      active: !!localLiterActive,
+      price: parseFloat(localLiterPrice) || 15.0,
+      maxFlavors: parseInt(localLiterMaxFlavors, 10) || 3,
+      image: localLiterImage
+    });
     
     addLog(`Ajustes de heladería guardados en Supabase por ${currentUser?.name || 'Administrador'}.`);
     alert("¡Ajustes de heladería guardados y sincronizados correctamente en la nube!");
@@ -276,7 +383,7 @@ export default function AdminPanel({
     document.body.removeChild(link);
   };
 
-  const [statsRange, setStatsRange] = useState('7days'); // today, 7days, 30days, all, custom
+  const [statsRange, setStatsRange] = useState('today'); // today, 7days, 30days, all, custom
   const [statsStartDate, setStatsStartDate] = useState('');
   const [statsEndDate, setStatsEndDate] = useState('');
   const [expandedDay, setExpandedDay] = useState(null); // Para ver el desglose de pedidos de un día específico
@@ -588,12 +695,13 @@ export default function AdminPanel({
       color: newFlavor.color, 
       isPremium: newFlavor.isPremium, 
       description: sanitizedDesc, 
+      image: newFlavor.image || '',
       active: true 
     };
     onUpdateFlavors([...flavors, added]);
     setShowAddFlavor(false);
     addLog(`Sabor creado: ${sanitizedName} por ${currentUser?.name}.`);
-    setNewFlavor({ name: '', price: 1.0, color: '#ff6b81', isPremium: false, description: '' });
+    setNewFlavor({ name: '', price: 1.0, color: '#ff6b81', isPremium: false, description: '', image: '' });
   };
 
   const handleEditFlavorSubmit = (e) => {
@@ -618,6 +726,7 @@ export default function AdminPanel({
       color: editingFlavor.color, 
       isPremium: editingFlavor.isPremium, 
       description: sanitizedDesc,
+      image: editingFlavor.image || '',
       active: editingFlavor.active !== false
     } : f);
     onUpdateFlavors(updated);
@@ -649,11 +758,11 @@ export default function AdminPanel({
     }
 
     const id = sanitizedName.toLowerCase().replace(/[^a-z0-9_]/g, '_').replace(/_+/g, '_');
-    const added = { id, name: sanitizedName, price: priceVal, active: true };
+    const added = { id, name: sanitizedName, price: priceVal, category: newTopping.category || 'solido', image: newTopping.image || '', active: true };
     onUpdateToppings([...toppings, added]);
     setShowAddTopping(false);
     addLog(`Topping creado: ${sanitizedName} por ${currentUser?.name}.`);
-    setNewTopping({ name: '', price: 0.5 });
+    setNewTopping({ name: '', price: 0.5, category: 'solido', image: '' });
   };
 
   const handleEditToppingSubmit = (e) => {
@@ -674,6 +783,8 @@ export default function AdminPanel({
       ...t, 
       name: sanitizedName, 
       price: priceVal,
+      category: editingTopping.category || 'solido',
+      image: editingTopping.image || '',
       active: editingTopping.active !== false
     } : t);
     onUpdateToppings(updated);
@@ -717,12 +828,13 @@ export default function AdminPanel({
       discountText: sanitizedDiscount,
       badge: sanitizedBadge,
       price: priceVal, 
+      image: newPack.image || '',
       active: true 
     };
     onUpdatePacks([...packs, added]);
     setShowAddPack(false);
     addLog(`Combo creado: ${sanitizedName} por ${currentUser?.name}.`);
-    setNewPack({ name: '', description: '', price: 10.0, items: '', discountText: '', badge: '' });
+    setNewPack({ name: '', description: '', price: 10.0, items: '', discountText: '', badge: '', image: '' });
   };
 
   const handleEditPackSubmit = (e) => {
@@ -751,6 +863,7 @@ export default function AdminPanel({
       discountText: sanitizedDiscount,
       badge: sanitizedBadge,
       price: priceVal,
+      image: editingPack.image || '',
       active: editingPack.active !== false
     } : p);
     onUpdatePacks(updated);
@@ -988,11 +1101,11 @@ export default function AdminPanel({
     }
 
     const id = nameSanitized.toLowerCase().replace(/[^a-z0-9_]/g, '_').replace(/_+/g, '_');
-    const added = { id, name: nameSanitized, price: priceVal, icon: iconSanitized, description: descSanitized, active: true };
+    const added = { id, name: nameSanitized, price: priceVal, icon: iconSanitized, description: descSanitized, image: newBase.image || '', active: true };
     onUpdateBases([...bases, added]);
     setShowAddBase(false);
     addLog(`Base/Envase creado: ${nameSanitized} por ${currentUser?.name}.`);
-    setNewBase({ name: '', price: 0.0, icon: '🍨', description: '' });
+    setNewBase({ name: '', price: 0.0, icon: '🍨', description: '', image: '' });
   };
 
   const handleEditBaseSubmit = (e) => {
@@ -1017,6 +1130,7 @@ export default function AdminPanel({
       price: priceVal,
       icon: iconSanitized,
       description: descSanitized,
+      image: editingBase.image || '',
       active: editingBase.active !== false
     } : b);
     onUpdateBases(updated);
@@ -1756,7 +1870,6 @@ export default function AdminPanel({
                           style={{ color: '#e58e26' }}
                           title="Imprimir ticket de comanda para la cocina"
                           onClick={() => {
-                            const printWindow = window.open('', '_blank');
                             const dateStr = new Date(order.date).toLocaleString('es-PE', { 
                               day: '2-digit', month: '2-digit', year: 'numeric', 
                               hour: '2-digit', minute: '2-digit', second: '2-digit' 
@@ -1791,7 +1904,17 @@ export default function AdminPanel({
                               }
                             }).join('');
 
-                            printWindow.document.write(`
+                            const printFrame = document.createElement('iframe');
+                            printFrame.style.position = 'fixed';
+                            printFrame.style.left = '-9999px';
+                            printFrame.style.width = '0px';
+                            printFrame.style.height = '0px';
+                            printFrame.style.border = 'none';
+                            document.body.appendChild(printFrame);
+
+                            const doc = printFrame.contentWindow.document;
+                            doc.open();
+                            doc.write(`
                               <html>
                                 <head>
                                   <title>Comanda Cocina - ${order.id}</title>
@@ -1832,21 +1955,22 @@ export default function AdminPanel({
                                   </div>
 
                                   <div class="footer">
-                                    <div style="font-weight: bold; font-size: 0.9rem;">⚠️ ¡ATENCIÓN COCINA!</div>
-                                    <div style="margin-top: 4px;">Mantener cadena de frío de las cremas. Preparar con higiene extrema.</div>
+                                    <div style="font-weight: bold; font-size: 0.9rem; margin-bottom: 8px;">⚠️ ¡ATENCIÓN COCINA!</div>
+                                    <div style="margin-bottom: 12px;">Mantener cadena de frío de las cremas. Preparar con higiene extrema.</div>
+                                    ${ticketCustomMessage ? `<div style="margin-top: 10px; font-size: 0.85rem; font-style: italic; font-weight: bold; border-top: 1px dashed #000; padding-top: 8px; color: #333;">${ticketCustomMessage}</div>` : ''}
                                     <div style="margin-top: 10px; font-size: 0.7rem;">Impreso desde Panel Don Helado.</div>
                                   </div>
-                                  
-                                  <script>
-                                    window.onload = function() {
-                                      window.print();
-                                      setTimeout(() => { window.close(); }, 500);
-                                    }
-                                  </script>
                                 </body>
                               </html>
                             `);
-                            printWindow.document.close();
+                            doc.close();
+
+                            printFrame.contentWindow.focus();
+                            printFrame.contentWindow.print();
+                            setTimeout(() => {
+                              document.body.removeChild(printFrame);
+                            }, 1000);
+
                             addLog(`Comanda de Cocina impresa para el pedido ${order.id}.`);
                           }}
                         >
@@ -1890,6 +2014,27 @@ export default function AdminPanel({
                 </select>
               </div>
               <div className="form-group" style={{ gridColumn: 'span 2' }}><label>Descripción</label><input type="text" className="form-control" value={newFlavor.description} onChange={(e) => setNewFlavor({ ...newFlavor, description: e.target.value })} /></div>
+              
+              <div className="form-group" style={{ gridColumn: 'span 2' }}>
+                <label style={{ display: 'block', marginBottom: '4px', fontSize: '0.8rem', fontWeight: 'bold' }}>Fotografía del Sabor (Cloudflare R2)</label>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                  {newFlavor.image ? (
+                    <img src={newFlavor.image} alt="Sabor Preview" style={{ width: '40px', height: '40px', objectFit: 'cover', borderRadius: '6px', border: '1px solid var(--border-color)' }} />
+                  ) : (
+                    <span style={{ fontSize: '1.5rem' }}>🍦</span>
+                  )}
+                  <div style={{ flex: 1 }}>
+                    <input type="file" accept="image/*" style={{ display: 'none' }} id="new-flavor-image-upload" onChange={(e) => handleImageUpload(e.target.files[0], 'flavor', setNewFlavor, newFlavor)} />
+                    <label htmlFor="new-flavor-image-upload" className="btn btn-secondary" style={{ padding: '6px 10px', fontSize: '0.75rem', display: 'inline-block', cursor: 'pointer', textAlign: 'center' }}>
+                      {uploadingState.flavor ? '⏳ Subiendo...' : '📷 Subir Foto R2'}
+                    </label>
+                    {newFlavor.image && (
+                      <button type="button" className="btn btn-secondary" style={{ padding: '6px 10px', fontSize: '0.75rem', color: 'var(--danger)', borderColor: 'var(--danger)', marginLeft: '6px' }} onClick={() => setNewFlavor({ ...newFlavor, image: '' })}>Quitar</button>
+                    )}
+                  </div>
+                </div>
+              </div>
+
               <div className="form-group" style={{ display: 'flex', alignItems: 'center', gap: '8px', gridColumn: 'span 2', margin: '5px 0' }}>
                 <label className="toggle-switch" style={{ transform: 'scale(0.8)' }}>
                   <input type="checkbox" checked={newFlavor.isPopular || false} onChange={(e) => setNewFlavor({ ...newFlavor, isPopular: e.target.checked })} />
@@ -1915,6 +2060,27 @@ export default function AdminPanel({
                 </select>
               </div>
               <div className="form-group" style={{ gridColumn: 'span 2' }}><label>Descripción</label><input type="text" className="form-control" value={editingFlavor.description} onChange={(e) => setEditingFlavor({ ...editingFlavor, description: e.target.value })} /></div>
+              
+              <div className="form-group" style={{ gridColumn: 'span 2' }}>
+                <label style={{ display: 'block', marginBottom: '4px', fontSize: '0.8rem', fontWeight: 'bold' }}>Fotografía del Sabor (Cloudflare R2)</label>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                  {editingFlavor.image ? (
+                    <img src={editingFlavor.image} alt="Sabor Preview" style={{ width: '40px', height: '40px', objectFit: 'cover', borderRadius: '6px', border: '1px solid var(--border-color)' }} />
+                  ) : (
+                    <span style={{ fontSize: '1.5rem' }}>🍦</span>
+                  )}
+                  <div style={{ flex: 1 }}>
+                    <input type="file" accept="image/*" style={{ display: 'none' }} id="edit-flavor-image-upload" onChange={(e) => handleImageUpload(e.target.files[0], 'flavor', setEditingFlavor, editingFlavor)} />
+                    <label htmlFor="edit-flavor-image-upload" className="btn btn-secondary" style={{ padding: '6px 10px', fontSize: '0.75rem', display: 'inline-block', cursor: 'pointer', textAlign: 'center' }}>
+                      {uploadingState.flavor ? '⏳ Subiendo...' : '📷 Subir Foto R2'}
+                    </label>
+                    {editingFlavor.image && (
+                      <button type="button" className="btn btn-secondary" style={{ padding: '6px 10px', fontSize: '0.75rem', color: 'var(--danger)', borderColor: 'var(--danger)', marginLeft: '6px' }} onClick={() => setEditingFlavor({ ...editingFlavor, image: '' })}>Quitar</button>
+                    )}
+                  </div>
+                </div>
+              </div>
+
               <div className="form-group" style={{ display: 'flex', alignItems: 'center', gap: '8px', gridColumn: 'span 2', margin: '5px 0' }}>
                 <label className="toggle-switch" style={{ transform: 'scale(0.8)' }}>
                   <input type="checkbox" checked={editingFlavor.isPopular || false} onChange={(e) => setEditingFlavor({ ...editingFlavor, isPopular: e.target.checked })} />
@@ -1943,8 +2109,12 @@ export default function AdminPanel({
                 {flavors.map(f => (
                   <tr key={f.id}>
                     <td>
-                      <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-                        <span style={{ width: '12px', height: '12px', borderRadius: '50%', backgroundColor: f.color }}></span>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                        {f.image ? (
+                          <img src={f.image} alt={f.name} style={{ width: '28px', height: '28px', objectFit: 'cover', borderRadius: '4px' }} />
+                        ) : (
+                          <span style={{ width: '28px', height: '28px', borderRadius: '4px', backgroundColor: f.color, display: 'inline-block', border: '1px solid var(--border-color)' }}></span>
+                        )}
                         <strong style={{ fontSize: '0.85rem' }}>{f.name}</strong>
                       </div>
                     </td>
@@ -1987,19 +2157,88 @@ export default function AdminPanel({
           </div>
 
           {showAddTopping && (
-            <form onSubmit={handleAddToppingSubmit} style={{ display: 'flex', gap: '10px', marginBottom: '15px', background: 'rgba(0,0,0,0.02)', padding: '12px', borderRadius: '8px' }}>
-              <input type="text" className="form-control" placeholder="Nombre" value={newTopping.name} onChange={(e) => setNewTopping({ ...newTopping, name: e.target.value })} required />
-              <input type="number" step="0.10" className="form-control" placeholder="Precio" value={newTopping.price} onChange={(e) => setNewTopping({ ...newTopping, price: e.target.value })} required />
-              <button type="submit" className="btn btn-primary" style={{ padding: '6px 12px' }}>Agregar</button>
+            <form onSubmit={handleAddToppingSubmit} style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '10px', marginBottom: '15px', background: 'rgba(0,0,0,0.02)', padding: '12px', borderRadius: '8px' }}>
+              <div className="form-group" style={{ gridColumn: 'span 2' }}>
+                <label style={{ fontSize: '0.8rem', fontWeight: 'bold' }}>Nombre del Topping/Salsa</label>
+                <input type="text" className="form-control" placeholder="Nombre" value={newTopping.name} onChange={(e) => setNewTopping({ ...newTopping, name: e.target.value })} required />
+              </div>
+              <div className="form-group" style={{ gridColumn: 'span 2' }}>
+                <label style={{ fontSize: '0.8rem', fontWeight: 'bold' }}>Categoría</label>
+                <select className="form-control" value={newTopping.category || 'solido'} onChange={(e) => setNewTopping({ ...newTopping, category: e.target.value })}>
+                  <option value="solido">🍬 Topping Sólido</option>
+                  <option value="liquido">🍯 Jarabe / Salsa</option>
+                </select>
+              </div>
+              <div className="form-group" style={{ gridColumn: 'span 2' }}>
+                <label style={{ fontSize: '0.8rem', fontWeight: 'bold' }}>Precio S/.</label>
+                <input type="number" step="0.10" className="form-control" placeholder="Precio" value={newTopping.price} onChange={(e) => setNewTopping({ ...newTopping, price: e.target.value })} required />
+              </div>
+              
+              <div className="form-group" style={{ gridColumn: 'span 2' }}>
+                <label style={{ display: 'block', marginBottom: '4px', fontSize: '0.8rem', fontWeight: 'bold' }}>Fotografía del Topping (Cloudflare R2)</label>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                  {newTopping.image ? (
+                    <img src={newTopping.image} alt="Topping Preview" style={{ width: '40px', height: '40px', objectFit: 'cover', borderRadius: '6px', border: '1px solid var(--border-color)' }} />
+                  ) : (
+                    <span style={{ fontSize: '1.5rem' }}>🍬</span>
+                  )}
+                  <div style={{ flex: 1 }}>
+                    <input type="file" accept="image/*" style={{ display: 'none' }} id="new-topping-image-upload" onChange={(e) => handleImageUpload(e.target.files[0], 'topping', setNewTopping, newTopping)} />
+                    <label htmlFor="new-topping-image-upload" className="btn btn-secondary" style={{ padding: '6px 10px', fontSize: '0.75rem', display: 'inline-block', cursor: 'pointer', textAlign: 'center' }}>
+                      {uploadingState.topping ? '⏳ Subiendo...' : '📷 Subir Foto R2'}
+                    </label>
+                    {newTopping.image && (
+                      <button type="button" className="btn btn-secondary" style={{ padding: '6px 10px', fontSize: '0.75rem', color: 'var(--danger)', borderColor: 'var(--danger)', marginLeft: '6px' }} onClick={() => setNewTopping({ ...newTopping, image: '' })}>Quitar</button>
+                    )}
+                  </div>
+                </div>
+              </div>
+              <button type="submit" className="btn btn-primary" style={{ gridColumn: 'span 2', padding: '6px' }}>Agregar Topping</button>
             </form>
           )}
 
           {editingTopping && (
-            <form onSubmit={handleEditToppingSubmit} style={{ display: 'flex', gap: '10px', marginBottom: '15px', background: 'rgba(229, 142, 38, 0.05)', padding: '12px', borderRadius: '8px', border: '1px solid var(--secondary-color)' }}>
-              <input type="text" className="form-control" value={editingTopping.name} onChange={(e) => setEditingTopping({ ...editingTopping, name: e.target.value })} required />
-              <input type="number" step="0.10" className="form-control" value={editingTopping.price} onChange={(e) => setEditingTopping({ ...editingTopping, price: e.target.value })} required />
-              <button type="submit" className="btn btn-primary" style={{ padding: '6px 12px' }}>Editar</button>
-              <button type="button" className="btn btn-secondary" style={{ padding: '6px 12px' }} onClick={() => setEditingTopping(null)}>✕</button>
+            <form onSubmit={handleEditToppingSubmit} style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '10px', marginBottom: '15px', background: 'rgba(229, 142, 38, 0.05)', padding: '12px', borderRadius: '8px', border: '1px solid var(--secondary-color)' }}>
+              <div className="form-group" style={{ gridColumn: 'span 2' }}><strong>Editar Topping: {editingTopping.name}</strong></div>
+              <div className="form-group" style={{ gridColumn: 'span 2' }}>
+                <label style={{ fontSize: '0.8rem', fontWeight: 'bold' }}>Nombre</label>
+                <input type="text" className="form-control" value={editingTopping.name} onChange={(e) => setEditingTopping({ ...editingTopping, name: e.target.value })} required />
+              </div>
+              <div className="form-group" style={{ gridColumn: 'span 2' }}>
+                <label style={{ fontSize: '0.8rem', fontWeight: 'bold' }}>Categoría</label>
+                <select className="form-control" value={editingTopping.category || 'solido'} onChange={(e) => setEditingTopping({ ...editingTopping, category: e.target.value })}>
+                  <option value="solido">🍬 Topping Sólido</option>
+                  <option value="liquido">🍯 Jarabe / Salsa</option>
+                </select>
+              </div>
+              <div className="form-group" style={{ gridColumn: 'span 2' }}>
+                <label style={{ fontSize: '0.8rem', fontWeight: 'bold' }}>Precio S/.</label>
+                <input type="number" step="0.10" className="form-control" value={editingTopping.price} onChange={(e) => setEditingTopping({ ...editingTopping, price: e.target.value })} required />
+              </div>
+              
+              <div className="form-group" style={{ gridColumn: 'span 2' }}>
+                <label style={{ display: 'block', marginBottom: '4px', fontSize: '0.8rem', fontWeight: 'bold' }}>Fotografía del Topping (Cloudflare R2)</label>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                  {editingTopping.image ? (
+                    <img src={editingTopping.image} alt="Topping Preview" style={{ width: '40px', height: '40px', objectFit: 'cover', borderRadius: '6px', border: '1px solid var(--border-color)' }} />
+                  ) : (
+                    <span style={{ fontSize: '1.5rem' }}>🍬</span>
+                  )}
+                  <div style={{ flex: 1 }}>
+                    <input type="file" accept="image/*" style={{ display: 'none' }} id="edit-topping-image-upload" onChange={(e) => handleImageUpload(e.target.files[0], 'topping', setEditingTopping, editingTopping)} />
+                    <label htmlFor="edit-topping-image-upload" className="btn btn-secondary" style={{ padding: '6px 10px', fontSize: '0.75rem', display: 'inline-block', cursor: 'pointer', textAlign: 'center' }}>
+                      {uploadingState.topping ? '⏳ Subiendo...' : '📷 Subir Foto R2'}
+                    </label>
+                    {editingTopping.image && (
+                      <button type="button" className="btn btn-secondary" style={{ padding: '6px 10px', fontSize: '0.75rem', color: 'var(--danger)', borderColor: 'var(--danger)', marginLeft: '6px' }} onClick={() => setEditingTopping({ ...editingTopping, image: '' })}>Quitar</button>
+                    )}
+                  </div>
+                </div>
+              </div>
+              <div style={{ gridColumn: 'span 2', display: 'flex', gap: '8px' }}>
+                <button type="submit" className="btn btn-primary" style={{ flex: 1, padding: '6px' }}>Guardar Cambios</button>
+                <button type="button" className="btn btn-secondary" style={{ flex: 1, padding: '6px' }} onClick={() => setEditingTopping(null)}>Cancelar</button>
+              </div>
             </form>
           )}
 
@@ -2017,8 +2256,17 @@ export default function AdminPanel({
                 {toppings.map(t => (
                   <tr key={t.id}>
                     <td>
-                      <strong style={{ fontSize: '0.85rem' }}>{t.name}</strong>
-                      <span style={{ fontSize: '0.7rem', color: 'var(--text-light)', display: 'block' }}>{t.category === 'liquido' ? 'Liquid / Jarabe' : 'Solid / Topping'}</span>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                        {t.image ? (
+                          <img src={t.image} alt={t.name} style={{ width: '28px', height: '28px', objectFit: 'cover', borderRadius: '4px' }} />
+                        ) : (
+                          <span style={{ fontSize: '1.2rem', width: '28px', height: '28px', display: 'flex', alignItems: 'center', justifyContent: 'center', borderRadius: '4px', background: 'rgba(0,0,0,0.05)' }}>🍬</span>
+                        )}
+                        <div>
+                          <strong style={{ fontSize: '0.85rem' }}>{t.name}</strong>
+                          <span style={{ fontSize: '0.7rem', color: 'var(--text-light)', display: 'block' }}>{t.category === 'liquido' ? 'Liquid / Jarabe' : 'Solid / Topping'}</span>
+                        </div>
+                      </div>
                     </td>
                     <td style={{ fontSize: '0.85rem' }}>S/. {t.price.toFixed(2)}</td>
                     <td>
@@ -2076,6 +2324,27 @@ export default function AdminPanel({
                 <label>Descripción</label>
                 <input type="text" className="form-control" placeholder="Ej: Copa de vidrio de alta resistencia" value={newBase.description} onChange={(e) => setNewBase({ ...newBase, description: e.target.value })} />
               </div>
+              
+              <div className="form-group" style={{ gridColumn: 'span 2' }}>
+                <label style={{ display: 'block', marginBottom: '4px', fontSize: '0.8rem', fontWeight: 'bold' }}>Fotografía del Envase (Cloudflare R2)</label>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                  {newBase.image ? (
+                    <img src={newBase.image} alt="Base Preview" style={{ width: '40px', height: '40px', objectFit: 'cover', borderRadius: '6px', border: '1px solid var(--border-color)' }} />
+                  ) : (
+                    <span style={{ fontSize: '1.5rem' }}>🍨</span>
+                  )}
+                  <div style={{ flex: 1 }}>
+                    <input type="file" accept="image/*" style={{ display: 'none' }} id="new-base-image-upload" onChange={(e) => handleImageUpload(e.target.files[0], 'base', setNewBase, newBase)} />
+                    <label htmlFor="new-base-image-upload" className="btn btn-secondary" style={{ padding: '6px 10px', fontSize: '0.75rem', display: 'inline-block', cursor: 'pointer', textAlign: 'center' }}>
+                      {uploadingState.base ? '⏳ Subiendo...' : '📷 Subir Foto R2'}
+                    </label>
+                    {newBase.image && (
+                      <button type="button" className="btn btn-secondary" style={{ padding: '6px 10px', fontSize: '0.75rem', color: 'var(--danger)', borderColor: 'var(--danger)', marginLeft: '6px' }} onClick={() => setNewBase({ ...newBase, image: '' })}>Quitar</button>
+                    )}
+                  </div>
+                </div>
+              </div>
+
               <button type="submit" className="btn btn-primary" style={{ gridColumn: 'span 2', padding: '6px' }}>Agregar Envase</button>
             </form>
           )}
@@ -2099,6 +2368,27 @@ export default function AdminPanel({
                 <label>Descripción</label>
                 <input type="text" className="form-control" value={editingBase.description} onChange={(e) => setEditingBase({ ...editingBase, description: e.target.value })} />
               </div>
+              
+              <div className="form-group" style={{ gridColumn: 'span 2' }}>
+                <label style={{ display: 'block', marginBottom: '4px', fontSize: '0.8rem', fontWeight: 'bold' }}>Fotografía del Envase (Cloudflare R2)</label>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                  {editingBase.image ? (
+                    <img src={editingBase.image} alt="Base Preview" style={{ width: '40px', height: '40px', objectFit: 'cover', borderRadius: '6px', border: '1px solid var(--border-color)' }} />
+                  ) : (
+                    <span style={{ fontSize: '1.5rem' }}>🍨</span>
+                  )}
+                  <div style={{ flex: 1 }}>
+                    <input type="file" accept="image/*" style={{ display: 'none' }} id="edit-base-image-upload" onChange={(e) => handleImageUpload(e.target.files[0], 'base', setEditingBase, editingBase)} />
+                    <label htmlFor="edit-base-image-upload" className="btn btn-secondary" style={{ padding: '6px 10px', fontSize: '0.75rem', display: 'inline-block', cursor: 'pointer', textAlign: 'center' }}>
+                      {uploadingState.base ? '⏳ Subiendo...' : '📷 Subir Foto R2'}
+                    </label>
+                    {editingBase.image && (
+                      <button type="button" className="btn btn-secondary" style={{ padding: '6px 10px', fontSize: '0.75rem', color: 'var(--danger)', borderColor: 'var(--danger)', marginLeft: '6px' }} onClick={() => setEditingBase({ ...editingBase, image: '' })}>Quitar</button>
+                    )}
+                  </div>
+                </div>
+              </div>
+
               <div style={{ gridColumn: 'span 2', display: 'flex', gap: '8px' }}>
                 <button type="submit" className="btn btn-primary" style={{ flex: 1, padding: '6px' }}>Guardar Cambios</button>
                 <button type="button" className="btn btn-secondary" style={{ flex: 1, padding: '6px' }} onClick={() => setEditingBase(null)}>Cancelar</button>
@@ -2120,9 +2410,17 @@ export default function AdminPanel({
                 {bases.map(b => (
                   <tr key={b.id}>
                     <td>
-                      <span style={{ fontSize: '1.2rem', marginRight: '6px' }}>{b.icon}</span>
-                      <strong style={{ fontSize: '0.85rem' }}>{b.name}</strong>
-                      {b.description && <span style={{ fontSize: '0.7rem', color: 'var(--text-light)', display: 'block' }}>{b.description}</span>}
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                        {b.image ? (
+                          <img src={b.image} alt={b.name} style={{ width: '28px', height: '28px', objectFit: 'cover', borderRadius: '4px' }} />
+                        ) : (
+                          <span style={{ fontSize: '1.1rem', width: '28px', height: '28px', display: 'flex', alignItems: 'center', justifyContent: 'center', borderRadius: '4px', background: 'rgba(0,0,0,0.05)' }}>{b.icon}</span>
+                        )}
+                        <div>
+                          <strong style={{ fontSize: '0.85rem' }}>{b.name}</strong>
+                          {b.description && <span style={{ fontSize: '0.7rem', color: 'var(--text-light)', display: 'block' }}>{b.description}</span>}
+                        </div>
+                      </div>
                     </td>
                     <td style={{ fontSize: '0.85rem' }}>
                       {b.price === 0 ? 'Sin costo' : `S/. ${b.price.toFixed(2)}`}
@@ -2152,6 +2450,119 @@ export default function AdminPanel({
                 ))}
               </tbody>
             </table>
+          </div>
+        </div>
+
+        {/* 🏺 CONFIGURACIÓN HELADO DE 1 LITRO (Familiar) */}
+        <div className="glass" style={{ padding: '15px', borderRadius: '8px' }}>
+          <strong style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '0.9rem', marginBottom: '4px' }}>
+            🏺 Configuración del Helado de 1 Litro (Familiar)
+          </strong>
+          <p style={{ fontSize: '0.75rem', color: 'var(--text-light)', marginBottom: '12px' }}>
+            Habilita la venta de potes de litro, define sus parámetros de personalización y fotografía.
+          </p>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+              <span style={{ fontSize: '0.8rem', fontWeight: 'bold' }}>Activar Venta de Litro en la Tienda</span>
+              <label className="toggle-switch" style={{ transform: 'scale(0.8)' }}>
+                <input 
+                  type="checkbox" 
+                  checked={localLiterActive} 
+                  onChange={(e) => setLocalLiterActive(e.target.checked)} 
+                />
+                <span className="slider"></span>
+              </label>
+            </div>
+
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '10px' }}>
+              <div className="form-group">
+                <label style={{ fontSize: '0.75rem', fontWeight: 'bold' }}>Precio Base S/.</label>
+                <input
+                  type="number"
+                  step="0.50"
+                  className="form-control"
+                  style={{ fontSize: '0.8rem', padding: '6px 10px' }}
+                  value={localLiterPrice}
+                  onChange={(e) => setLocalLiterPrice(e.target.value)}
+                />
+              </div>
+              <div className="form-group">
+                <label style={{ fontSize: '0.75rem', fontWeight: 'bold' }}>Máx. Sabores por Pote</label>
+                <input
+                  type="number"
+                  min="1"
+                  max="5"
+                  className="form-control"
+                  style={{ fontSize: '0.8rem', padding: '6px 10px' }}
+                  value={localLiterMaxFlavors}
+                  onChange={(e) => setLocalLiterMaxFlavors(e.target.value)}
+                />
+              </div>
+            </div>
+
+            <div className="form-group">
+              <label style={{ fontSize: '0.75rem', fontWeight: 'bold', display: 'block', marginBottom: '4px' }}>
+                Fotografía de Presentación (Litro)
+              </label>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                {localLiterImage ? (
+                  <img 
+                    src={localLiterImage} 
+                    alt="Pote Litro" 
+                    style={{ width: '40px', height: '40px', objectFit: 'contain', border: '1px solid var(--border-color)', borderRadius: '6px' }} 
+                  />
+                ) : (
+                  <span style={{ fontSize: '2rem' }}>🏺</span>
+                )}
+                
+                <div style={{ flex: 1 }}>
+                  <input
+                    type="file"
+                    accept="image/*"
+                    style={{ display: 'none' }}
+                    id="inventory-liter-image-upload"
+                    onChange={(e) => handleImageUpload(e.target.files[0], 'liter', setLocalLiterImage)}
+                  />
+                  <label 
+                    htmlFor="inventory-liter-image-upload" 
+                    className="btn btn-secondary" 
+                    style={{ padding: '6px 10px', fontSize: '0.75rem', display: 'inline-block', cursor: 'pointer', textAlign: 'center' }}
+                  >
+                    {uploadingState.liter ? '⏳ Subiendo...' : '📷 Subir Foto R2'}
+                  </label>
+                  {localLiterImage && (
+                    <button 
+                      type="button" 
+                      className="btn btn-secondary" 
+                      style={{ padding: '6px 10px', fontSize: '0.75rem', color: 'var(--danger)', borderColor: 'var(--danger)', marginLeft: '6px' }}
+                      onClick={() => setLocalLiterImage('')}
+                    >
+                      Quitar
+                    </button>
+                  )}
+                </div>
+              </div>
+            </div>
+
+            <div style={{ display: 'flex', justifyContent: 'flex-end', marginTop: '5px' }}>
+              <button 
+                type="button" 
+                className="btn btn-primary" 
+                onClick={() => {
+                  onUpdateLiterConfig({
+                    active: !!localLiterActive,
+                    price: parseFloat(localLiterPrice) || 15.0,
+                    maxFlavors: parseInt(localLiterMaxFlavors, 10) || 3,
+                    image: localLiterImage
+                  });
+                  addLog(`Configuración de Helado Familiar de 1 Litro actualizada desde Carta Helada por ${currentUser?.name || 'Administrador'}.`);
+                  alert("¡Configuración del Helado de 1 Litro guardada correctamente!");
+                }}
+                style={{ padding: '8px 16px', fontSize: '0.8rem', cursor: 'pointer' }}
+              >
+                💾 Guardar Ajustes de 1 Litro
+              </button>
+            </div>
           </div>
         </div>
 
@@ -2368,6 +2779,27 @@ export default function AdminPanel({
             <div className="form-group"><label>Artículos que incluye</label><input type="text" className="form-control" value={newPack.items} onChange={(e) => setNewPack({ ...newPack, items: e.target.value })} required /></div>
             <div className="form-group"><label>Mensaje de Ahorro</label><input type="text" className="form-control" value={newPack.discountText} onChange={(e) => setNewPack({ ...newPack, discountText: e.target.value })} /></div>
             <div className="form-group"><label>Etiqueta / Badge</label><input type="text" className="form-control" value={newPack.badge} onChange={(e) => setNewPack({ ...newPack, badge: e.target.value })} /></div>
+            
+            <div className="form-group">
+              <label style={{ display: 'block', marginBottom: '4px', fontSize: '0.8rem', fontWeight: 'bold' }}>Fotografía del Pack (Cloudflare R2)</label>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                {newPack.image ? (
+                  <img src={newPack.image} alt="Pack Preview" style={{ width: '40px', height: '40px', objectFit: 'cover', borderRadius: '6px', border: '1px solid var(--border-color)' }} />
+                ) : (
+                  <span style={{ fontSize: '1.5rem' }}>🎁</span>
+                )}
+                <div style={{ flex: 1 }}>
+                  <input type="file" accept="image/*" style={{ display: 'none' }} id="new-pack-image-upload" onChange={(e) => handleImageUpload(e.target.files[0], 'pack', setNewPack, newPack)} />
+                  <label htmlFor="new-pack-image-upload" className="btn btn-secondary" style={{ padding: '6px 10px', fontSize: '0.75rem', display: 'inline-block', cursor: 'pointer', textAlign: 'center' }}>
+                    {uploadingState.pack ? '⏳ Subiendo...' : '📷 Subir Foto R2'}
+                  </label>
+                  {newPack.image && (
+                    <button type="button" className="btn btn-secondary" style={{ padding: '6px 10px', fontSize: '0.75rem', color: 'var(--danger)', borderColor: 'var(--danger)', marginLeft: '6px' }} onClick={() => setNewPack({ ...newPack, image: '' })}>Quitar</button>
+                  )}
+                </div>
+              </div>
+            </div>
+
             <button type="submit" className="btn btn-primary" style={{ padding: '8px' }}>Guardar Pack</button>
           </form>
         )}
@@ -2381,6 +2813,27 @@ export default function AdminPanel({
             <div className="form-group"><label>Incluye</label><input type="text" className="form-control" value={editingPack.items} onChange={(e) => setEditingPack({ ...editingPack, items: e.target.value })} required /></div>
             <div className="form-group"><label>Mensaje Ahorro</label><input type="text" className="form-control" value={editingPack.discountText} onChange={(e) => setEditingPack({ ...editingPack, discountText: e.target.value })} /></div>
             <div className="form-group"><label>Etiqueta</label><input type="text" className="form-control" value={editingPack.badge} onChange={(e) => setEditingPack({ ...editingPack, badge: e.target.value })} /></div>
+            
+            <div className="form-group">
+              <label style={{ display: 'block', marginBottom: '4px', fontSize: '0.8rem', fontWeight: 'bold' }}>Fotografía del Pack (Cloudflare R2)</label>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                {editingPack.image ? (
+                  <img src={editingPack.image} alt="Pack Preview" style={{ width: '40px', height: '40px', objectFit: 'cover', borderRadius: '6px', border: '1px solid var(--border-color)' }} />
+                ) : (
+                  <span style={{ fontSize: '1.5rem' }}>🎁</span>
+                )}
+                <div style={{ flex: 1 }}>
+                  <input type="file" accept="image/*" style={{ display: 'none' }} id="edit-pack-image-upload" onChange={(e) => handleImageUpload(e.target.files[0], 'pack', setEditingPack, editingPack)} />
+                  <label htmlFor="edit-pack-image-upload" className="btn btn-secondary" style={{ padding: '6px 10px', fontSize: '0.75rem', display: 'inline-block', cursor: 'pointer', textAlign: 'center' }}>
+                    {uploadingState.pack ? '⏳ Subiendo...' : '📷 Subir Foto R2'}
+                  </label>
+                  {editingPack.image && (
+                    <button type="button" className="btn btn-secondary" style={{ padding: '6px 10px', fontSize: '0.75rem', color: 'var(--danger)', borderColor: 'var(--danger)', marginLeft: '6px' }} onClick={() => setEditingPack({ ...editingPack, image: '' })}>Quitar</button>
+                  )}
+                </div>
+              </div>
+            </div>
+
             <div style={{ display: 'flex', gap: '8px' }}>
               <button type="submit" className="btn btn-primary" style={{ flex: 1, padding: '8px' }}>Guardar Cambios</button>
               <button type="button" className="btn btn-secondary" style={{ flex: 1, padding: '8px' }} onClick={() => setEditingPack(null)}>Cancelar</button>
@@ -2401,8 +2854,17 @@ export default function AdminPanel({
               {packs.map(p => (
                 <tr key={p.id}>
                   <td>
-                    <div style={{ fontWeight: 'bold', fontSize: '0.85rem' }}>{p.name}</div>
-                    <div style={{ fontSize: '0.75rem', color: 'var(--text-light)' }}>{p.items}</div>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                      {p.image ? (
+                        <img src={p.image} alt={p.name} style={{ width: '28px', height: '28px', objectFit: 'cover', borderRadius: '4px' }} />
+                      ) : (
+                        <span style={{ fontSize: '1.1rem', width: '28px', height: '28px', display: 'flex', alignItems: 'center', justifyContent: 'center', borderRadius: '4px', background: 'rgba(0,0,0,0.05)' }}>🎁</span>
+                      )}
+                      <div>
+                        <div style={{ fontWeight: 'bold', fontSize: '0.85rem' }}>{p.name}</div>
+                        <div style={{ fontSize: '0.75rem', color: 'var(--text-light)' }}>{p.items}</div>
+                      </div>
+                    </div>
                   </td>
                   <td style={{ fontSize: '0.85rem', fontWeight: 600 }}>S/. {p.price.toFixed(2)}</td>
                   <td>
@@ -2674,6 +3136,145 @@ export default function AdminPanel({
     );
   };
 
+  // --- MÓDULO DE COPIA DE SEGURIDAD Y RESTAURACIÓN (BACKUP & RESTORE) ---
+  const handleExportBackup = () => {
+    try {
+      const backupData = {
+        version: '1.0',
+        timestamp: new Date().toISOString(),
+        storeName,
+        storeLogo,
+        flavors,
+        toppings,
+        bases,
+        packs,
+        orders,
+        expenses,
+        deliveryFee,
+        shopOpen,
+        freeDeliveryThreshold,
+        deliveryCampaignText,
+        storePhone,
+        telegramToken,
+        telegramChatId,
+        salesGoal,
+        whatsappGreeting,
+        whatsappFooter,
+        qrCustomUrl,
+        recommendations,
+        cartRecommendedPack,
+        literConfig,
+        ticketCustomMessage
+      };
+
+      const dataStr = "data:text/json;charset=utf-8," + encodeURIComponent(JSON.stringify(backupData, null, 2));
+      const downloadAnchor = document.createElement('a');
+      downloadAnchor.setAttribute("href", dataStr);
+      const filename = `backup_heladeria_${new Date().toISOString().slice(0,10)}.json`;
+      downloadAnchor.setAttribute("download", filename);
+      document.body.appendChild(downloadAnchor);
+      downloadAnchor.click();
+      downloadAnchor.remove();
+      
+      alert("Copia de seguridad exportada con éxito en tu computadora.");
+    } catch (err) {
+      alert("Error al exportar copia de seguridad: " + err.message);
+    }
+  };
+
+  const handleImportBackup = (e) => {
+    const file = e.target.files[0];
+    if (!file) return;
+
+    const reader = new FileReader();
+    reader.onload = async (event) => {
+      try {
+        const data = JSON.parse(event.target.result);
+        
+        // Simple validation
+        if (!data || typeof data !== 'object') {
+          throw new Error("El archivo no contiene un formato de copia de seguridad válido.");
+        }
+
+        if (window.confirm("⚠️ ¿Estás seguro de que deseas restaurar esta copia de seguridad? Se reemplazarán todos los datos actuales de la heladería por los de la copia.")) {
+          if (data.storeName && onChangeStoreName) onChangeStoreName(data.storeName);
+          if (data.storeLogo && onChangeStoreLogo) onChangeStoreLogo(data.storeLogo);
+          if (data.flavors && onUpdateFlavors) onUpdateFlavors(data.flavors);
+          if (data.toppings && onUpdateToppings) onUpdateToppings(data.toppings);
+          if (data.bases && onUpdateBases) onUpdateBases(data.bases);
+          if (data.packs && onUpdatePacks) onUpdatePacks(data.packs);
+          if (data.orders && onUpdateOrders) onUpdateOrders(data.orders);
+          if (data.expenses && onUpdateExpenses) onUpdateExpenses(data.expenses);
+          if (data.deliveryFee !== undefined && onChangeDeliveryFee) onChangeDeliveryFee(parseFloat(data.deliveryFee));
+          if (data.shopOpen !== undefined && onToggleShopOpen) onToggleShopOpen(data.shopOpen);
+          if (data.freeDeliveryThreshold !== undefined && onChangeFreeDeliveryThreshold) onChangeFreeDeliveryThreshold(parseFloat(data.freeDeliveryThreshold));
+          if (data.deliveryCampaignText !== undefined && onChangeDeliveryCampaignText) onChangeDeliveryCampaignText(data.deliveryCampaignText);
+          if (data.storePhone !== undefined && onChangeStorePhone) onChangeStorePhone(data.storePhone);
+          if (data.telegramToken !== undefined && onChangeTelegramToken) onChangeTelegramToken(data.telegramToken);
+          if (data.telegramChatId !== undefined && onChangeTelegramChatId) onChangeTelegramChatId(data.telegramChatId);
+          if (data.salesGoal !== undefined && onChangeSalesGoal) onChangeSalesGoal(parseFloat(data.salesGoal));
+          if (data.whatsappGreeting !== undefined && onChangeWhatsappGreeting) onChangeWhatsappGreeting(data.whatsappGreeting);
+          if (data.whatsappFooter !== undefined && onChangeWhatsappFooter) onChangeWhatsappFooter(data.whatsappFooter);
+          if (data.qrCustomUrl !== undefined && onChangeQrCustomUrl) onChangeQrCustomUrl(data.qrCustomUrl);
+          if (data.recommendations && onUpdateRecommendations) onUpdateRecommendations(data.recommendations);
+          if (data.cartRecommendedPack !== undefined && onUpdateCartRecommendedPack) onUpdateCartRecommendedPack(data.cartRecommendedPack);
+          if (data.literConfig && onUpdateLiterConfig) onUpdateLiterConfig(data.literConfig);
+          if (data.ticketCustomMessage && onUpdateTicketCustomMessage) onUpdateTicketCustomMessage(data.ticketCustomMessage);
+
+          // Sincronizar por lote a Supabase
+          if (supabase) {
+            const keysToSync = [
+              { key: 'store_name', val: data.storeName },
+              { key: 'store_logo', val: data.storeLogo },
+              { key: 'flavors', val: data.flavors },
+              { key: 'toppings', val: data.toppings },
+              { key: 'bases', val: data.bases },
+              { key: 'packs', val: data.packs },
+              { key: 'orders', val: data.orders },
+              { key: 'expenses', val: data.expenses },
+              { key: 'delivery_fee', val: data.deliveryFee },
+              { key: 'shop_open', val: data.shopOpen },
+              { key: 'free_delivery_threshold', val: data.freeDeliveryThreshold },
+              { key: 'delivery_campaign_text', val: data.deliveryCampaignText },
+              { key: 'store_phone', val: data.storePhone },
+              { key: 'telegram_token', val: data.telegramToken },
+              { key: 'telegram_chat_id', val: data.telegramChatId },
+              { key: 'sales_goal', val: data.salesGoal },
+              { key: 'whatsapp_greeting', val: data.whatsappGreeting },
+              { key: 'whatsapp_footer', val: data.whatsappFooter },
+              { key: 'qr_custom_url', val: data.qrCustomUrl },
+              { key: 'recommendations', val: data.recommendations },
+              { key: 'cart_recommended_pack', val: data.cartRecommendedPack },
+              { key: 'liter_config', val: data.literConfig },
+              { key: 'ticket_custom_message', val: data.ticketCustomMessage }
+            ];
+
+            const { updateSyncedData } = await import('../utils/supabaseSync');
+            for (const item of keysToSync) {
+              if (item.val !== undefined) {
+                await updateSyncedData(item.key, item.val);
+              }
+            }
+
+            // También subir los pedidos individuales para que sigan rastreables
+            if (data.orders && Array.isArray(data.orders)) {
+              for (const o of data.orders) {
+                await updateSyncedData(`order_${o.id}`, o);
+              }
+            }
+          }
+
+          addLog(`Base de datos restaurada desde copia de seguridad por ${currentUser?.name}.`);
+          alert("¡Copia de seguridad restaurada con éxito y sincronizada con la nube!");
+        }
+      } catch (err) {
+        alert("Error al importar copia de seguridad: " + err.message);
+      }
+    };
+    reader.readAsText(file);
+    e.target.value = '';
+  };
+
   // --- RENDER TAB - CONFIGURACIONES AVANZADAS (INCLUYE EDICIÓN DE MARCA: NOMBRE Y LOGO) ---
   const renderSettingsTab = () => {
     return (
@@ -2697,13 +3298,41 @@ export default function AdminPanel({
             </div>
             <div className="form-group">
               <label>Emoji o URL de Imagen del Logotipo</label>
-              <input
-                type="text"
-                className="form-control"
-                placeholder="Emoji o URL de Imagen"
-                value={localStoreLogo}
-                onChange={(e) => setLocalStoreLogo(e.target.value)}
-              />
+              <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
+                <input
+                  type="text"
+                  className="form-control"
+                  placeholder="Emoji o URL de Imagen"
+                  value={localStoreLogo}
+                  onChange={(e) => setLocalStoreLogo(e.target.value)}
+                  style={{ flex: 1 }}
+                />
+                <label 
+                  htmlFor="logo-image-upload" 
+                  className="btn btn-secondary" 
+                  style={{ 
+                    padding: '8px 12px', 
+                    fontSize: '0.8rem', 
+                    cursor: 'pointer', 
+                    margin: 0, 
+                    display: 'flex', 
+                    alignItems: 'center', 
+                    justifyContent: 'center',
+                    gap: '4px',
+                    whiteSpace: 'nowrap'
+                  }}
+                >
+                  📁 {uploadingState.logo ? 'Subiendo...' : 'Subir'}
+                </label>
+                <input 
+                  type="file" 
+                  accept="image/*" 
+                  style={{ display: 'none' }} 
+                  id="logo-image-upload" 
+                  onChange={(e) => handleImageUpload(e.target.files[0], 'logo', setLocalStoreLogo)} 
+                  disabled={uploadingState.logo}
+                />
+              </div>
             </div>
           </div>
 
@@ -3050,9 +3679,19 @@ create policy "Modificación privada de personal y credenciales" on public.helad
                   className="btn btn-secondary"
                   style={{ padding: '6px 12px', fontSize: '0.75rem', cursor: 'pointer' }}
                   onClick={() => {
-                    const printWindow = window.open('', '_blank');
                     const targetQr = qrCustomUrl || (window.location.origin + window.location.pathname);
-                    printWindow.document.write(`
+                    
+                    const printFrame = document.createElement('iframe');
+                    printFrame.style.position = 'fixed';
+                    printFrame.style.left = '-9999px';
+                    printFrame.style.width = '0px';
+                    printFrame.style.height = '0px';
+                    printFrame.style.border = 'none';
+                    document.body.appendChild(printFrame);
+
+                    const doc = printFrame.contentWindow.document;
+                    doc.open();
+                    doc.write(`
                       <html>
                         <head>
                           <title>Imprimir QR de Heladería</title>
@@ -3067,14 +3706,39 @@ create policy "Modificación privada de personal y credenciales" on public.helad
                           <div class="card">
                             <h1>🍦 ¡Pide desde tu Celular!</h1>
                             <p>Escanea este código QR para ver la carta digital, armar tu helado personalizado y pedir al instante.</p>
-                            <img src="https://api.qrserver.com/v1/create-qr-code/?size=250x250&data=${encodeURIComponent(targetQr)}" width="250" height="250" />
+                            <img id="qr-img" src="https://api.qrserver.com/v1/create-qr-code/?size=250x250&data=${encodeURIComponent(targetQr)}" width="250" height="250" />
                             <h2 style="color: #e58e26; margin-top: 20px;">${storeName}</h2>
                           </div>
-                          <script>window.onload = function() { window.print(); }</script>
                         </body>
                       </html>
                     `);
-                    printWindow.document.close();
+                    doc.close();
+
+                    const img = doc.getElementById('qr-img');
+                    if (img) {
+                      img.onload = () => {
+                        printFrame.contentWindow.focus();
+                        printFrame.contentWindow.print();
+                        setTimeout(() => {
+                          document.body.removeChild(printFrame);
+                        }, 1000);
+                      };
+                      setTimeout(() => {
+                        if (printFrame.parentNode) {
+                          printFrame.contentWindow.focus();
+                          printFrame.contentWindow.print();
+                          setTimeout(() => {
+                            if (printFrame.parentNode) document.body.removeChild(printFrame);
+                          }, 1000);
+                        }
+                      }, 2500);
+                    } else {
+                      printFrame.contentWindow.focus();
+                      printFrame.contentWindow.print();
+                      setTimeout(() => {
+                        document.body.removeChild(printFrame);
+                      }, 1000);
+                    }
                   }}
                 >
                   🖨️ Imprimir QR de Mesas
@@ -3112,6 +3776,27 @@ create policy "Modificación privada de personal y credenciales" on public.helad
                   onChange={(e) => setLocalWhatsappFooter(e.target.value)}
                 />
               </div>
+            </div>
+          </div>
+
+          {/* 🖨️ Personalización de Ticket de Entrega */}
+          <div className="glass" style={{ borderLeft: '4px solid var(--warning)', padding: '15px', background: 'rgba(229, 142, 38, 0.02)', borderRadius: '8px', marginBottom: '15px' }}>
+            <strong style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '0.9rem' }}>
+              🖨️ Personalización de Ticket de Entrega
+            </strong>
+            <p style={{ fontSize: '0.75rem', color: 'var(--text-light)', marginTop: '4px', marginBottom: '12px' }}>
+              Define un mensaje personalizado que aparecerá en el pie de página de los tickets físicos impresos para los clientes.
+            </p>
+            <div className="form-group">
+              <label style={{ fontSize: '0.75rem', fontWeight: 600 }}>Mensaje al Pie del Ticket:</label>
+              <textarea
+                className="form-control"
+                rows="2"
+                style={{ fontSize: '0.8rem', padding: '6px', resize: 'vertical', width: '100%', fontFamily: 'inherit' }}
+                value={localTicketCustomMessage}
+                onChange={(e) => setLocalTicketCustomMessage(e.target.value)}
+                placeholder="Ej: ¡Gracias por tu compra! Conserva tu helado en el congelador."
+              />
             </div>
           </div>
 
@@ -3187,6 +3872,167 @@ create policy "Modificación privada de personal y credenciales" on public.helad
             </div>
           </div>
 
+          {/* 📸 CONFIGURACIÓN CLOUDFLARE R2 */}
+          <div className="glass" style={{ padding: '15px', borderRadius: '8px', marginBottom: '15px' }}>
+            <strong style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '0.9rem', marginBottom: '4px' }}>
+              📸 Configuración de Almacenamiento Cloudflare R2
+            </strong>
+            <p style={{ fontSize: '0.75rem', color: 'var(--text-light)', marginBottom: '12px' }}>
+              Permite la subida directa de fotografías en formato web (WebP optimizado) para los productos del menú.
+            </p>
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '10px' }}>
+              <div className="form-group" style={{ gridColumn: 'span 2' }}>
+                <label style={{ fontSize: '0.75rem', fontWeight: 'bold' }}>Account ID</label>
+                <input
+                  type="text"
+                  className="form-control"
+                  placeholder="Ej. d41d8cd98f00b204e9800998ecf8427e"
+                  style={{ fontSize: '0.8rem', padding: '6px 10px' }}
+                  value={localR2AccountId}
+                  onChange={(e) => setLocalR2AccountId(e.target.value)}
+                />
+              </div>
+              <div className="form-group">
+                <label style={{ fontSize: '0.75rem', fontWeight: 'bold' }}>Access Key ID</label>
+                <input
+                  type="text"
+                  className="form-control"
+                  placeholder="Access Key"
+                  style={{ fontSize: '0.8rem', padding: '6px 10px' }}
+                  value={localR2AccessKeyId}
+                  onChange={(e) => setLocalR2AccessKeyId(e.target.value)}
+                />
+              </div>
+              <div className="form-group">
+                <label style={{ fontSize: '0.75rem', fontWeight: 'bold' }}>Secret Access Key</label>
+                <input
+                  type="password"
+                  className="form-control"
+                  placeholder="Secret Key"
+                  style={{ fontSize: '0.8rem', padding: '6px 10px' }}
+                  value={localR2SecretAccessKey}
+                  onChange={(e) => setLocalR2SecretAccessKey(e.target.value)}
+                />
+              </div>
+              <div className="form-group">
+                <label style={{ fontSize: '0.75rem', fontWeight: 'bold' }}>Bucket Name</label>
+                <input
+                  type="text"
+                  className="form-control"
+                  placeholder="ej: don-helado-imagenes"
+                  style={{ fontSize: '0.8rem', padding: '6px 10px' }}
+                  value={localR2BucketName}
+                  onChange={(e) => setLocalR2BucketName(e.target.value)}
+                />
+              </div>
+              <div className="form-group">
+                <label style={{ fontSize: '0.75rem', fontWeight: 'bold' }}>Public URL / Dominio Público</label>
+                <input
+                  type="text"
+                  className="form-control"
+                  placeholder="ej: https://pub-xxxxxx.r2.dev"
+                  style={{ fontSize: '0.8rem', padding: '6px 10px' }}
+                  value={localR2PublicUrl}
+                  onChange={(e) => setLocalR2PublicUrl(e.target.value)}
+                />
+              </div>
+            </div>
+          </div>
+
+          {/* 🏺 CONFIGURACIÓN HELADO DE 1 LITRO */}
+          <div className="glass" style={{ padding: '15px', borderRadius: '8px', marginBottom: '15px' }}>
+            <strong style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '0.9rem', marginBottom: '4px' }}>
+              🏺 Configuración del Helado de 1 Litro (Familiar)
+            </strong>
+            <p style={{ fontSize: '0.75rem', color: 'var(--text-light)', marginBottom: '12px' }}>
+              Habilita la venta de potes de litro y define sus parámetros de personalización y fotografía.
+            </p>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                <span style={{ fontSize: '0.8rem', fontWeight: 'bold' }}>Activar Venta de Litro en la Tienda</span>
+                <label className="toggle-switch" style={{ transform: 'scale(0.8)' }}>
+                  <input 
+                    type="checkbox" 
+                    checked={localLiterActive} 
+                    onChange={(e) => setLocalLiterActive(e.target.checked)} 
+                  />
+                  <span className="slider"></span>
+                </label>
+              </div>
+
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '10px' }}>
+                <div className="form-group">
+                  <label style={{ fontSize: '0.75rem', fontWeight: 'bold' }}>Precio Base S/.</label>
+                  <input
+                    type="number"
+                    step="0.50"
+                    className="form-control"
+                    style={{ fontSize: '0.8rem', padding: '6px 10px' }}
+                    value={localLiterPrice}
+                    onChange={(e) => setLocalLiterPrice(e.target.value)}
+                  />
+                </div>
+                <div className="form-group">
+                  <label style={{ fontSize: '0.75rem', fontWeight: 'bold' }}>Máx. Sabores por Pote</label>
+                  <input
+                    type="number"
+                    min="1"
+                    max="5"
+                    className="form-control"
+                    style={{ fontSize: '0.8rem', padding: '6px 10px' }}
+                    value={localLiterMaxFlavors}
+                    onChange={(e) => setLocalLiterMaxFlavors(e.target.value)}
+                  />
+                </div>
+              </div>
+
+              <div className="form-group">
+                <label style={{ fontSize: '0.75rem', fontWeight: 'bold', display: 'block', marginBottom: '4px' }}>
+                  Fotografía de Presentación (Litro)
+                </label>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                  {localLiterImage ? (
+                    <img 
+                      src={localLiterImage} 
+                      alt="Pote Litro" 
+                      style={{ width: '40px', height: '40px', objectFit: 'contain', border: '1px solid var(--border-color)', borderRadius: '6px' }} 
+                    />
+                  ) : (
+                    <span style={{ fontSize: '2rem' }}>🏺</span>
+                  )}
+                  
+                  <div style={{ flex: 1 }}>
+                    <input
+                      type="file"
+                      accept="image/*"
+                      style={{ display: 'none' }}
+                      id="liter-image-upload"
+                      onChange={(e) => handleImageUpload(e.target.files[0], 'liter', setLocalLiterImage)}
+                    />
+                    <label 
+                      htmlFor="liter-image-upload" 
+                      className="btn btn-secondary" 
+                      style={{ padding: '6px 10px', fontSize: '0.75rem', display: 'inline-block', cursor: 'pointer', textAlign: 'center' }}
+                    >
+                      {uploadingState.liter ? '⏳ Subiendo...' : '📷 Subir Foto R2'}
+                    </label>
+                    {localLiterImage && (
+                      <button 
+                        type="button" 
+                        className="btn btn-secondary" 
+                        style={{ padding: '6px 10px', fontSize: '0.75rem', color: 'var(--danger)', borderColor: 'var(--danger)', marginLeft: '6px' }}
+                        onClick={() => setLocalLiterImage('')}
+                      >
+                        Quitar
+                      </button>
+                    )}
+                  </div>
+                </div>
+              </div>
+
+            </div>
+          </div>
+
           {/* Bitácora de Operaciones (Logs) */}
           <div>
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '8px', flexWrap: 'wrap', gap: '8px' }}>
@@ -3255,6 +4101,41 @@ create policy "Modificación privada de personal y credenciales" on public.helad
             </div>
           </div>
 
+          {/* COPIA DE SEGURIDAD Y RESTAURACIÓN */}
+          <div className="glass" style={{ padding: '20px', marginBottom: '20px' }}>
+            <h4 style={{ marginBottom: '10px', display: 'flex', alignItems: 'center', gap: '8px' }}>
+              📦 Respaldo de Base de Datos
+            </h4>
+            <p style={{ color: 'var(--text-light)', fontSize: '0.8rem', marginBottom: '15px' }}>
+              Exporta toda la configuración de la tienda, sabores, toppings, comandas y finanzas a un archivo JSON local, o restáuralos en cualquier momento.
+            </p>
+            <div style={{ display: 'flex', gap: '10px', flexWrap: 'wrap' }}>
+              <button 
+                type="button" 
+                className="btn btn-secondary" 
+                onClick={handleExportBackup} 
+                style={{ fontSize: '0.85rem', padding: '10px 18px', display: 'flex', alignItems: 'center', gap: '6px' }}
+              >
+                📥 Descargar Copia (JSON)
+              </button>
+              
+              <input 
+                type="file" 
+                accept=".json" 
+                id="import-backup-file-input" 
+                style={{ display: 'none' }} 
+                onChange={handleImportBackup} 
+              />
+              <label 
+                htmlFor="import-backup-file-input" 
+                className="btn btn-primary" 
+                style={{ fontSize: '0.85rem', padding: '10px 18px', display: 'flex', alignItems: 'center', gap: '6px', cursor: 'pointer', margin: 0 }}
+              >
+                📤 Subir Copia (JSON)
+              </label>
+            </div>
+          </div>
+
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: '10px', flexWrap: 'wrap' }}>
             <button className="btn btn-secondary" onClick={handleLogoutAction} style={{ color: 'var(--danger)', borderColor: 'var(--danger)', fontSize: '0.8rem', padding: '6px 12px' }}>
               🚪 Cerrar Sesión ({currentUser?.name})
@@ -3268,27 +4149,75 @@ create policy "Modificación privada de personal y credenciales" on public.helad
     );
   };  // --- RENDER TAB - CAJA Y FINANZAS (VENTAS FÍSICAS Y GASTOS) ---
   const renderFinanceTab = () => {
-    const totalSales = orders.filter(o => o.status !== 'Cancelado').reduce((sum, o) => sum + o.grandTotal, 0);
-    const totalExpenses = expenses.reduce((sum, e) => sum + e.amount, 0);
+    // Filtrar órdenes y gastos según el rango seleccionado
+    const getFilteredFinanceData = () => {
+      const today = new Date();
+      today.setHours(0,0,0,0);
+      const todayStr = today.toDateString();
+
+      const startOfWeek = new Date(today);
+      startOfWeek.setDate(today.getDate() - 7);
+
+      const startOfMonth = new Date(today.getFullYear(), today.getMonth(), 1);
+
+      const filteredOrders = orders.filter(o => {
+        if (o.status === 'Cancelado') return false;
+        const oDate = new Date(o.date);
+        if (financeRange === 'today') {
+          return oDate.toDateString() === todayStr;
+        }
+        if (financeRange === 'week') {
+          return oDate >= startOfWeek;
+        }
+        if (financeRange === 'month') {
+          return oDate >= startOfMonth;
+        }
+        return true; // all
+      });
+
+      const filteredExpenses = expenses.filter(e => {
+        const eDate = new Date(e.date);
+        eDate.setHours(0,0,0,0);
+        if (financeRange === 'today') {
+          return eDate.toDateString() === todayStr;
+        }
+        if (financeRange === 'week') {
+          return eDate >= startOfWeek;
+        }
+        if (financeRange === 'month') {
+          return eDate >= startOfMonth;
+        }
+        return true; // all
+      });
+
+      return { filteredOrders, filteredExpenses };
+    };
+
+    const { filteredOrders, filteredExpenses } = getFilteredFinanceData();
+
+    const totalSales = filteredOrders.reduce((sum, o) => sum + o.grandTotal, 0);
+    const totalExpenses = filteredExpenses.reduce((sum, e) => sum + e.amount, 0);
     const balance = totalSales - totalExpenses;
 
     // Clasificar ventas por canal
-    const onlineSales = orders
-      .filter(o => o.status !== 'Cancelado' && !o.id.startsWith('FIS-'))
+    const onlineSales = filteredOrders
+      .filter(o => !o.id.startsWith('FIS-'))
       .reduce((sum, o) => sum + o.grandTotal, 0);
-    const physicalSales = orders
-      .filter(o => o.status !== 'Cancelado' && o.id.startsWith('FIS-'))
+    const physicalSales = filteredOrders
+      .filter(o => o.id.startsWith('FIS-'))
       .reduce((sum, o) => sum + o.grandTotal, 0);
 
     // Tasa de rentabilidad estimada
     const profitMargin = totalSales > 0 ? Math.round((balance / totalSales) * 100) : 0;
 
     // Agrupación de gastos por categoría
-    const expensesByCategory = { Insumos: 0, Servicios: 0, Alquiler: 0, Personal: 0 };
-    expenses.forEach(e => {
+    const expensesByCategory = { Insumos: 0, Servicios: 0, Alquiler: 0, Personal: 0, Otros: 0 };
+    filteredExpenses.forEach(e => {
       const cat = e.category || 'Insumos';
       if (expensesByCategory[cat] !== undefined) {
         expensesByCategory[cat] += e.amount;
+      } else {
+        expensesByCategory['Otros'] = (expensesByCategory['Otros'] || 0) + e.amount;
       }
     });
 
@@ -3329,6 +4258,9 @@ create policy "Modificación privada de personal y credenciales" on public.helad
         couponCode: null,
         grandTotal: amountVal,
         status: 'Entregado',
+        statusHistory: [
+          { status: 'Entregado', timestamp: new Date().toISOString() }
+        ],
         date: new Date().toISOString()
       };
 
@@ -3381,7 +4313,27 @@ create policy "Modificación privada de personal y credenciales" on public.helad
 
     return (
       <div style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
-        <h3>Caja y Control de Finanzas</h3>
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '15px' }}>
+          <h3 style={{ margin: 0 }}>Caja y Control de Finanzas</h3>
+          <div style={{ display: 'flex', gap: '6px', background: 'rgba(0,0,0,0.03)', padding: '4px', borderRadius: '20px' }}>
+            {[
+              { id: 'today', label: 'Hoy 📅' },
+              { id: 'week', label: 'Esta Semana 📅' },
+              { id: 'month', label: 'Este Mes 📅' },
+              { id: 'all', label: 'Todo 📦' }
+            ].map(r => (
+              <button
+                key={r.id}
+                type="button"
+                onClick={() => setFinanceRange(r.id)}
+                className={`filter-btn ${financeRange === r.id ? 'active' : ''}`}
+                style={{ padding: '4px 10px', fontSize: '0.75rem', border: 'none', background: 'transparent', whiteSpace: 'nowrap' }}
+              >
+                {r.label}
+              </button>
+            ))}
+          </div>
+        </div>
 
         {/* Resumen Financiero en Fichas Premium */}
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))', gap: '15px' }}>
@@ -3620,12 +4572,12 @@ create policy "Modificación privada de personal y credenciales" on public.helad
                 </tr>
               </thead>
               <tbody>
-                {expenses.length === 0 ? (
+                {filteredExpenses.length === 0 ? (
                   <tr>
-                    <td colSpan="5" style={{ textAlign: 'center', color: 'var(--text-light)' }}>No hay gastos registrados en el sistema.</td>
+                    <td colSpan="5" style={{ textAlign: 'center', color: 'var(--text-light)' }}>No hay gastos registrados en el sistema para este período.</td>
                   </tr>
                 ) : (
-                  expenses.map(e => (
+                  filteredExpenses.map(e => (
                     <tr key={e.id}>
                       <td><strong>{e.concept}</strong></td>
                       <td><span className="badge" style={{ backgroundColor: 'var(--bg-secondary)', border: '1px solid var(--border-color)', color: 'var(--text-dark)' }}>{e.category}</span></td>
@@ -3641,6 +4593,118 @@ create policy "Modificación privada de personal y credenciales" on public.helad
             </table>
           </div>
         </div>
+
+        {/* DESGLOSE DIARIO DE VENTAS */}
+        {financeRange !== 'today' && (() => {
+          const dayMap = {};
+          filteredOrders.forEach(o => {
+            const d = new Date(o.date).toLocaleDateString('es-PE', { timeZone: 'America/Lima', year: 'numeric', month: '2-digit', day: '2-digit' });
+            if (!dayMap[d]) dayMap[d] = { orders: [], expTotal: 0, sales: 0 };
+            dayMap[d].orders.push(o);
+            dayMap[d].sales += o.grandTotal;
+          });
+          filteredExpenses.forEach(e => {
+            const d = new Date(e.date + 'T12:00:00').toLocaleDateString('es-PE', { timeZone: 'America/Lima', year: 'numeric', month: '2-digit', day: '2-digit' });
+            if (!dayMap[d]) dayMap[d] = { orders: [], expTotal: 0, sales: 0 };
+            dayMap[d].expTotal += e.amount;
+          });
+          const sortedDays = Object.entries(dayMap).sort((a, b) => {
+            const p = str => { const [d,m,y] = str.split('/').map(Number); return new Date(y,m-1,d); };
+            return p(b[0]) - p(a[0]);
+          });
+          if (sortedDays.length === 0) return null;
+          return (
+            <div className="glass" style={{ padding: '15px' }}>
+              <h4 style={{ marginBottom: '12px', display: 'flex', alignItems: 'center', gap: '8px' }}>
+                📅 Desglose por Día
+                <span style={{ fontSize: '0.7rem', color: 'var(--text-light)', fontWeight: 'normal' }}>
+                  {financeRange === 'week' ? 'Últimos 7 días' : financeRange === 'month' ? 'Este mes' : 'Todos los registros'} — clic para ver pedidos
+                </span>
+              </h4>
+              <div className="admin-table-container">
+                <table className="admin-table">
+                  <thead>
+                    <tr>
+                      <th>Fecha</th>
+                      <th>Pedidos</th>
+                      <th style={{ color: 'var(--success)' }}>Ingresos S/.</th>
+                      <th style={{ color: 'var(--danger)' }}>Gastos S/.</th>
+                      <th>Balance</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {sortedDays.map(([day, data]) => {
+                      const bal = data.sales - data.expTotal;
+                      const isExp = expandedDay === day;
+                      return (
+                        <React.Fragment key={day}>
+                          <tr
+                            style={{ cursor: data.orders.length > 0 ? 'pointer' : 'default', background: isExp ? 'rgba(255,107,129,0.04)' : '' }}
+                            onClick={() => setExpandedDay(isExp ? null : day)}
+                          >
+                            <td><strong>{day}</strong> {data.orders.length > 0 && <span style={{ fontSize: '0.65rem', color: 'var(--primary-color)', marginLeft: '4px' }}>{isExp ? '▼' : '▶'}</span>}</td>
+                            <td style={{ textAlign: 'center' }}><span style={{ background: 'var(--bg-secondary)', padding: '2px 8px', borderRadius: '10px' }}>{data.orders.length}</span></td>
+                            <td style={{ color: 'var(--success)', fontWeight: 'bold' }}>{data.sales.toFixed(2)}</td>
+                            <td style={{ color: data.expTotal > 0 ? 'var(--danger)' : 'var(--text-light)' }}>{data.expTotal > 0 ? `- ${data.expTotal.toFixed(2)}` : '—'}</td>
+                            <td style={{ color: bal >= 0 ? 'var(--success)' : 'var(--danger)', fontWeight: 'bold' }}>{bal.toFixed(2)}</td>
+                          </tr>
+                          {isExp && data.orders.map(o => {
+                            const hora = new Date(o.date).toLocaleTimeString('es-PE', { timeZone: 'America/Lima', hour: '2-digit', minute: '2-digit', hour12: true });
+                            return (
+                              <tr key={o.id} style={{ background: 'rgba(0,0,0,0.018)', fontSize: '0.75rem' }}>
+                                <td style={{ paddingLeft: '22px' }}><span style={{ color: 'var(--text-light)', fontFamily: 'monospace' }}>{hora}</span> · <strong>{o.id}</strong></td>
+                                <td style={{ color: 'var(--text-light)' }}>{o.customer.name}</td>
+                                <td style={{ color: 'var(--success)', fontWeight: '600' }}>{o.grandTotal.toFixed(2)}</td>
+                                <td style={{ color: 'var(--text-light)' }}>{o.customer.paymentMethod}</td>
+                                <td><span className={`badge status-badge-${o.status.toLowerCase().replace(' ','_')}`} style={{ fontSize: '0.65rem' }}>{o.status}</span></td>
+                              </tr>
+                            );
+                          })}
+                        </React.Fragment>
+                      );
+                    })}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          );
+        })()}
+
+        {/* DETALLE DE PEDIDOS DE HOY */}
+        {financeRange === 'today' && filteredOrders.length > 0 && (
+          <div className="glass" style={{ padding: '15px' }}>
+            <h4 style={{ marginBottom: '10px' }}>🧾 Pedidos de Hoy ({filteredOrders.length})</h4>
+            <div className="admin-table-container">
+              <table className="admin-table">
+                <thead>
+                  <tr>
+                    <th>Código</th>
+                    <th>Cliente</th>
+                    <th>Hora (Lima)</th>
+                    <th>Total S/.</th>
+                    <th>Estado</th>
+                    <th>Pago</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {filteredOrders.map(o => {
+                    const hora = new Date(o.date).toLocaleTimeString('es-PE', { timeZone: 'America/Lima', hour: '2-digit', minute: '2-digit', hour12: true });
+                    return (
+                      <tr key={o.id}>
+                        <td><strong>{o.id}</strong></td>
+                        <td>{o.customer.name}</td>
+                        <td style={{ fontFamily: 'monospace', fontSize: '0.8rem' }}>{hora}</td>
+                        <td style={{ color: 'var(--success)', fontWeight: 'bold' }}>{o.grandTotal.toFixed(2)}</td>
+                        <td><span className={`badge status-badge-${o.status.toLowerCase().replace(' ','_')}`} style={{ fontSize: '0.75rem' }}>{o.status}</span></td>
+                        <td>{o.customer.paymentMethod}</td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
+            </div>
+          </div>
+        )}
 
       </div>
     );
@@ -3875,6 +4939,7 @@ create policy "Modificación privada de personal y credenciales" on public.helad
               { id: '7days', label: '7 Días' },
               { id: '30days', label: '30 Días' },
               { id: 'thismonth', label: 'Este Mes' },
+              { id: 'all', label: 'Todo' },
               { id: 'custom', label: 'Calendario 📅' }
             ].map(r => (
               <button
