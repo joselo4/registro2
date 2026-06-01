@@ -592,7 +592,6 @@ export default function App() {
 
   // --- NUEVO: Efecto de Sincronización e Inicialización Supabase ---
   useEffect(() => {
-    let activeChannel = null;
     let authSubscription = null;
 
     const initSync = async () => {
@@ -658,117 +657,8 @@ export default function App() {
         console.warn("⚠️ No se pudo obtener la lista de personal de Supabase:", err.message);
       }
 
-      // Suscribirse a cambios en tiempo real
-      activeChannel = subscribeToSync((key, value) => {
-        const valueStr = JSON.stringify(value);
-        
-        // Marcar que es un cambio remoto para evitar re-escribir a la nube
-        isRemoteUpdate.current[key] = true;
-
-        if (key.startsWith('order_') && value) {
-          setOrders(prev => {
-            const exists = prev.some(o => o.id === value.id);
-            if (exists) {
-              return prev.map(o => o.id === value.id ? value : o);
-            } else {
-              return [value, ...prev];
-            }
-          });
-          return;
-        }
-
-        switch (key) {
-          case 'store_name':
-            setStoreName(prev => JSON.stringify(prev) !== valueStr ? value : prev);
-            break;
-          case 'catalog_order':
-            setCatalogOrder(prev => JSON.stringify(prev) !== valueStr ? value : prev);
-            break;
-          case 'store_logo':
-            setStoreLogo(prev => JSON.stringify(prev) !== valueStr ? value : prev);
-            break;
-          case 'flavors':
-            setFlavors(prev => JSON.stringify(prev) !== valueStr ? value : prev);
-            break;
-          case 'toppings':
-            setToppings(prev => JSON.stringify(prev) !== valueStr ? value : prev);
-            break;
-          case 'bases':
-            setBases(prev => JSON.stringify(prev) !== valueStr ? value : prev);
-            break;
-          case 'packs':
-            setPacks(prev => JSON.stringify(prev) !== valueStr ? value : prev);
-            break;
-          case 'orders':
-            setOrders(prev => JSON.stringify(prev) !== valueStr ? value : prev);
-            break;
-          case 'delivery_fee':
-            setDeliveryFee(prev => JSON.stringify(prev) !== valueStr ? value : prev);
-            break;
-          case 'shop_open':
-            setShopOpen(prev => JSON.stringify(prev) !== valueStr ? value : prev);
-            break;
-          case 'free_delivery_threshold':
-            setFreeDeliveryThreshold(prev => JSON.stringify(prev) !== valueStr ? value : prev);
-            break;
-          case 'delivery_campaign_text':
-            setDeliveryCampaignText(prev => prev !== value ? value : prev);
-            break;
-          case 'store_phone':
-            setStorePhone(prev => JSON.stringify(prev) !== valueStr ? value : prev);
-            break;
-          case 'staff_users':
-            setStaffUsers(prev => JSON.stringify(prev) !== valueStr ? value : prev);
-            break;
-          case 'sound_enabled':
-            setSoundEnabled(prev => JSON.stringify(prev) !== valueStr ? value : prev);
-            break;
-          case 'coupons':
-            setCoupons(prev => JSON.stringify(prev) !== valueStr ? value : prev);
-            break;
-          case 'telegram_token':
-            setTelegramToken(prev => JSON.stringify(prev) !== valueStr ? value : prev);
-            break;
-          case 'telegram_chat_id':
-            setTelegramChatId(prev => JSON.stringify(prev) !== valueStr ? value : prev);
-            break;
-          case 'sales_goal':
-            setSalesGoal(prev => JSON.stringify(prev) !== valueStr ? value : prev);
-            break;
-          case 'whatsapp_greeting':
-            setWhatsappGreeting(prev => JSON.stringify(prev) !== valueStr ? value : prev);
-            break;
-          case 'whatsapp_footer':
-            setWhatsappFooter(prev => JSON.stringify(prev) !== valueStr ? value : prev);
-            break;
-          case 'qr_custom_url':
-            setQrCustomUrl(prev => prev !== value ? value : prev);
-            break;
-          case 'recommendations':
-            setRecommendations(prev => JSON.stringify(prev) !== valueStr ? value : prev);
-            break;
-          case 'cart_recommended_pack':
-            setCartRecommendedPack(prev => JSON.stringify(prev) !== valueStr ? value : prev);
-            break;
-          case 'expenses':
-            setExpenses(prev => JSON.stringify(prev) !== valueStr ? value : prev);
-            break;
-          case 'staff_permissions':
-            setStaffPermissions(prev => JSON.stringify(prev) !== valueStr ? value : prev);
-            break;
-          case 'r2_config':
-            setR2Config(prev => JSON.stringify(prev) !== valueStr ? value : prev);
-            break;
-          case 'liter_config':
-            setLiterConfig(prev => JSON.stringify(prev) !== valueStr ? value : prev);
-            break;
-          case 'ticket_custom_message':
-            setTicketCustomMessage(prev => prev !== value ? value : prev);
-            break;
-          default:
-            break;
-        }
-      }, hasActiveSession);
+      // La suscripción en tiempo real ahora se maneja de forma reactiva y separada
+      // en un useEffect independiente para evitar condiciones de carrera.
 
       // 3. Suscribirse a cambios del estado de autenticación de Supabase
       const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event, session) => {
@@ -812,9 +702,6 @@ export default function App() {
     initSync();
 
     return () => {
-      if (activeChannel && supabase) {
-        supabase.removeChannel(activeChannel);
-      }
       if (authSubscription) {
         authSubscription.unsubscribe();
       }
@@ -925,6 +812,129 @@ export default function App() {
 
     return () => clearInterval(intervalId);
   }, [view, isLoggedIn]);
+
+  // --- NUEVO: Suscripción en tiempo real reactiva al estado de autenticación ---
+  useEffect(() => {
+    if (!supabase || !isSyncLoaded) return;
+    
+    console.log(`🔌 Suscribiendo canal en tiempo real. ¿Es Admin?: ${isLoggedIn}`);
+    const activeChannel = subscribeToSync((key, value) => {
+      const valueStr = JSON.stringify(value);
+      
+      // Marcar que es un cambio remoto para evitar re-escribir a la nube
+      isRemoteUpdate.current[key] = true;
+
+      if (key.startsWith('order_') && value) {
+        setOrders(prev => {
+          const exists = prev.some(o => o.id === value.id);
+          if (exists) {
+            return prev.map(o => o.id === value.id ? value : o);
+          } else {
+            return [value, ...prev];
+          }
+        });
+        return;
+      }
+
+      switch (key) {
+        case 'store_name':
+          setStoreName(prev => JSON.stringify(prev) !== valueStr ? value : prev);
+          break;
+        case 'catalog_order':
+          setCatalogOrder(prev => JSON.stringify(prev) !== valueStr ? value : prev);
+          break;
+        case 'store_logo':
+          setStoreLogo(prev => JSON.stringify(prev) !== valueStr ? value : prev);
+          break;
+        case 'flavors':
+          setFlavors(prev => JSON.stringify(prev) !== valueStr ? value : prev);
+          break;
+        case 'toppings':
+          setToppings(prev => JSON.stringify(prev) !== valueStr ? value : prev);
+          break;
+        case 'bases':
+          setBases(prev => JSON.stringify(prev) !== valueStr ? value : prev);
+          break;
+        case 'packs':
+          setPacks(prev => JSON.stringify(prev) !== valueStr ? value : prev);
+          break;
+        case 'orders':
+          setOrders(prev => JSON.stringify(prev) !== valueStr ? value : prev);
+          break;
+        case 'delivery_fee':
+          setDeliveryFee(prev => JSON.stringify(prev) !== valueStr ? value : prev);
+          break;
+        case 'shop_open':
+          setShopOpen(prev => JSON.stringify(prev) !== valueStr ? value : prev);
+          break;
+        case 'free_delivery_threshold':
+          setFreeDeliveryThreshold(prev => JSON.stringify(prev) !== valueStr ? value : prev);
+          break;
+        case 'delivery_campaign_text':
+          setDeliveryCampaignText(prev => prev !== value ? value : prev);
+          break;
+        case 'store_phone':
+          setStorePhone(prev => JSON.stringify(prev) !== valueStr ? value : prev);
+          break;
+        case 'staff_users':
+          setStaffUsers(prev => JSON.stringify(prev) !== valueStr ? value : prev);
+          break;
+        case 'sound_enabled':
+          setSoundEnabled(prev => JSON.stringify(prev) !== valueStr ? value : prev);
+          break;
+        case 'coupons':
+          setCoupons(prev => JSON.stringify(prev) !== valueStr ? value : prev);
+          break;
+        case 'telegram_token':
+          setTelegramToken(prev => JSON.stringify(prev) !== valueStr ? value : prev);
+          break;
+        case 'telegram_chat_id':
+          setTelegramChatId(prev => JSON.stringify(prev) !== valueStr ? value : prev);
+          break;
+        case 'sales_goal':
+          setSalesGoal(prev => JSON.stringify(prev) !== valueStr ? value : prev);
+          break;
+        case 'whatsapp_greeting':
+          setWhatsappGreeting(prev => JSON.stringify(prev) !== valueStr ? value : prev);
+          break;
+        case 'whatsapp_footer':
+          setWhatsappFooter(prev => JSON.stringify(prev) !== valueStr ? value : prev);
+          break;
+        case 'qr_custom_url':
+          setQrCustomUrl(prev => prev !== value ? value : prev);
+          break;
+        case 'recommendations':
+          setRecommendations(prev => JSON.stringify(prev) !== valueStr ? value : prev);
+          break;
+        case 'cart_recommended_pack':
+          setCartRecommendedPack(prev => JSON.stringify(prev) !== valueStr ? value : prev);
+          break;
+        case 'expenses':
+          setExpenses(prev => JSON.stringify(prev) !== valueStr ? value : prev);
+          break;
+        case 'staff_permissions':
+          setStaffPermissions(prev => JSON.stringify(prev) !== valueStr ? value : prev);
+          break;
+        case 'r2_config':
+          setR2Config(prev => JSON.stringify(prev) !== valueStr ? value : prev);
+          break;
+        case 'liter_config':
+          setLiterConfig(prev => JSON.stringify(prev) !== valueStr ? value : prev);
+          break;
+        case 'ticket_custom_message':
+          setTicketCustomMessage(prev => prev !== value ? value : prev);
+          break;
+        default:
+          break;
+      }
+    }, isLoggedIn);
+
+    return () => {
+      if (supabase && activeChannel) {
+        supabase.removeChannel(activeChannel);
+      }
+    };
+  }, [isLoggedIn, isSyncLoaded]);
 
   useEffect(() => {
     localStorage.setItem('helados_delivery_fee', deliveryFee.toString());
