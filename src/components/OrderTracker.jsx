@@ -79,21 +79,13 @@ export default function OrderTracker({ orderId, orders, setView, storePhone, tel
           })
         });
         if (!response.ok) throw new Error("Error en bot de Telegram");
-      } else {
-        const cleanStorePhone = String(storePhone || '').replace(/\D/g, '');
-        const waMessage = `¡Hola! Quería valorar mi pedido ${orderIdUpper}:\n\nCalificación: ${stars} (${rating}/5)\nComentario: ${comment.trim() || 'Sin comentarios'}`;
-        const waUrl = `https://wa.me/${cleanStorePhone}?text=${encodeURIComponent(waMessage)}`;
-        window.open(waUrl, '_blank');
       }
 
       localStorage.setItem(`helados_survey_submitted_${orderIdUpper}`, 'true');
       setSurveySubmitted(true);
     } catch (err) {
-      console.warn("Fallo al enviar reseña remota. Desviando a WhatsApp...", err.message);
-      const cleanStorePhone = String(storePhone || '').replace(/\D/g, '');
-      const waMessage = `¡Hola! Quería valorar mi pedido ${orderIdUpper}:\n\nCalificación: ${stars} (${rating}/5)\nComentario: ${comment.trim() || 'Sin comentarios'}`;
-      const waUrl = `https://wa.me/${cleanStorePhone}?text=${encodeURIComponent(waMessage)}`;
-      window.open(waUrl, '_blank');
+      console.warn("Fallo al enviar reseña a Telegram:", err.message);
+      // Fallback: Aceptar el guardado local de todas formas ya que se subió a Supabase
       localStorage.setItem(`helados_survey_submitted_${orderIdUpper}`, 'true');
       setSurveySubmitted(true);
     } finally {
