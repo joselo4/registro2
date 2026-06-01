@@ -1,7 +1,8 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { supabase } from '../utils/supabaseClient';
+import { updateSyncedData } from '../utils/supabaseSync';
 
-export default function OrderTracker({ orderId, orders, setView, storePhone, telegramToken, telegramChatId }) {
+export default function OrderTracker({ orderId, orders, setView, storePhone, telegramToken, telegramChatId, onClearActiveOrder }) {
   const [inputVal, setInputVal] = useState('');
   const [activeSearchId, setActiveSearchId] = useState(orderId || '');
   const [hasSearched, setHasSearched] = useState(false);
@@ -39,6 +40,26 @@ export default function OrderTracker({ orderId, orders, setView, storePhone, tel
 
     setSubmittingSurvey(true);
     const orderIdUpper = activeSearchId.trim().toUpperCase();
+    const currentOrderObj = fetchedOrder || orders.find(o => o.id.toLowerCase() === orderIdUpper.toLowerCase());
+    
+    // Guardar encuesta dentro del objeto de pedido en Supabase
+    if (currentOrderObj) {
+      try {
+        const updatedOrder = {
+          ...currentOrderObj,
+          survey: {
+            rating,
+            comment: comment.trim(),
+            date: new Date().toISOString()
+          }
+        };
+        await updateSyncedData(`order_${orderIdUpper}`, updatedOrder);
+        setFetchedOrder(updatedOrder);
+      } catch (errSurvey) {
+        console.warn("Fallo al guardar encuesta en el pedido:", errSurvey);
+      }
+    }
+
     const stars = '🍦'.repeat(rating);
     const textMsg = `🌟 *NUEVA VALORACIÓN DE CLIENTE* 🌟\n\n` +
       `*Pedido:* ${orderIdUpper}\n` +
@@ -463,8 +484,12 @@ export default function OrderTracker({ orderId, orders, setView, storePhone, tel
           style={{ padding: '6px 12px', fontSize: '0.75rem' }} 
           onClick={() => {
             setActiveSearchId('');
+            setFetchedOrder(null);
             setInputVal('');
             setHasSearched(false);
+            if (onClearActiveOrder) {
+              onClearActiveOrder();
+            }
           }}
         >
           🔍 Buscar Otro

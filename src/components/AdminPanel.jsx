@@ -192,13 +192,14 @@ export default function AdminPanel({
   }, [lockoutUntil]);
 
   // --- Estados de UI ---
-  const [activeTab, setActiveTab] = useState('orders'); // orders, inventory, packs, users, settings, stats
+  const [activeTab, setActiveTab] = useState('orders'); // orders, inventory, packs, users, settings, stats, surveys
   const [orderFilter, setOrderFilter] = useState('all');
   const [searchQuery, setSearchQuery] = useState(''); 
   const [showSQLScript, setShowSQLScript] = useState(false);
-  const [dateFilterType, setDateFilterType] = useState('today'); // all, today, yesterday, 7days, custom
+  const [dateFilterType, setDateFilterType] = useState('all'); // all, today, yesterday, 7days, custom
   const [dateStart, setDateStart] = useState('');
   const [dateEnd, setDateEnd] = useState('');
+  const [ratingFilter, setRatingFilter] = useState('all'); // all, low, high
 
   // --- NUEVO: Control de Acceso por Ventanas/Módulos ---
   const isTabAllowed = (tabId) => {
@@ -213,14 +214,14 @@ export default function AdminPanel({
     
     // Configuración por defecto si no se han asignado permisos aún
     if (currentUser.role === 'Administrador') return true;
-    if (currentUser.role === 'Vendedor') return ['orders', 'inventory'].includes(tabId);
+    if (currentUser.role === 'Vendedor') return ['orders', 'inventory', 'surveys'].includes(tabId);
     if (currentUser.role === 'Cocina') return ['orders'].includes(tabId);
     return false;
   };
 
   useEffect(() => {
     if (currentUser && !isTabAllowed(activeTab)) {
-      const tabs = ['orders', 'inventory', 'packs', 'users', 'finance', 'settings', 'stats'];
+      const tabs = ['orders', 'inventory', 'packs', 'users', 'finance', 'settings', 'stats', 'surveys'];
       const allowed = tabs.find(t => isTabAllowed(t));
       if (allowed) {
         setActiveTab(allowed);
@@ -1342,6 +1343,137 @@ export default function AdminPanel({
     navigator.clipboard.writeText(textReport)
       .then(() => alert("¡Reporte de ventas copiado al portapapeles! Listo para enviar por WhatsApp."))
       .catch(() => alert("Error al copiar reporte."));
+  };
+
+  // --- RENDER TAB - ENCUESTAS DE SATISFACCIÓN ---
+  const renderSurveysTab = () => {
+    const surveyOrders = orders.filter(o => o.survey);
+
+    const filteredSurveys = surveyOrders.filter(o => {
+      if (ratingFilter === 'low') return o.survey.rating <= 3;
+      if (ratingFilter === 'high') return o.survey.rating >= 4;
+      return true;
+    });
+
+    return (
+      <div>
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '15px', flexWrap: 'wrap', gap: '10px' }}>
+          <h3>⭐ Encuestas de Satisfacción de Clientes ({filteredSurveys.length})</h3>
+          <div style={{ display: 'flex', gap: '5px' }}>
+            {['all', 'low', 'high'].map(f => (
+              <button
+                key={f}
+                type="button"
+                className={`filter-btn ${ratingFilter === f ? 'active' : ''}`}
+                onClick={() => setRatingFilter(f)}
+                style={{ fontSize: '0.75rem', padding: '5px 10px' }}
+              >
+                {f === 'all' && 'Todas'}
+                {f === 'low' && 'Críticas (1-3 🍦)'}
+                {f === 'high' && 'Excelentes (4-5 🍦)'}
+              </button>
+            ))}
+          </div>
+        </div>
+
+        {filteredSurveys.length === 0 ? (
+          <div className="glass" style={{ padding: '30px', textAlign: 'center', color: 'var(--text-light)' }}>
+            <span style={{ fontSize: '3rem', display: 'block', marginBottom: '10px' }}>🍦📋</span>
+            <strong>No se encontraron encuestas</strong>
+            <p style={{ fontSize: '0.8rem', marginTop: '6px', margin: 0 }}>
+              Las opiniones de los clientes aparecerán aquí cuando califiquen su pedido entregado.
+            </p>
+          </div>
+        ) : (
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))', gap: '15px' }}>
+            {filteredSurveys.map(order => {
+              const cleanPhone = String(order.customer.phone || '').replace(/\D/g, '');
+              const waUrl = cleanPhone ? `https://wa.me/${cleanPhone}?text=${encodeURIComponent(`Hola ${order.customer.name}, nos comunicamos de ${storeName} con relación a tu pedido ${order.id}...`)}` : null;
+              
+              const surveyDateStr = order.survey.date 
+                ? new Date(order.survey.date).toLocaleString('es-PE', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' }) 
+                : 'Reciente';
+
+              return (
+                <div key={order.id} className="glass" style={{ 
+                  padding: '15px', 
+                  borderLeft: `5px solid ${order.survey.rating <= 3 ? 'var(--danger)' : 'var(--success)'}`,
+                  display: 'flex',
+                  flexDirection: 'column',
+                  gap: '10px',
+                  boxShadow: 'var(--shadow-sm)',
+                  position: 'relative'
+                }}>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                    <strong style={{ color: 'var(--primary-color)', fontSize: '0.95rem' }}>{order.id}</strong>
+                    <span style={{ fontSize: '0.7rem', color: 'var(--text-light)' }}>🕒 {surveyDateStr}</span>
+                  </div>
+
+                  <div style={{ display: 'flex', gap: '4px', fontSize: '1.2rem', color: '#ff6b81', margin: '2px 0' }}>
+                    {[1, 2, 3, 4, 5].map(idx => (
+                      <span key={idx} style={{ filter: idx <= order.survey.rating ? 'none' : 'grayscale(100%) opacity(20%)' }}>🍦</span>
+                    ))}
+                    <strong style={{ fontSize: '0.8rem', color: 'var(--text-dark)', marginLeft: '6px', alignSelf: 'center' }}>
+                      ({order.survey.rating}/5)
+                    </strong>
+                  </div>
+
+                  {order.survey.comment && (
+                    <div style={{ 
+                      background: 'rgba(0,0,0,0.015)', 
+                      padding: '8px 10px', 
+                      borderRadius: '6px', 
+                      fontSize: '0.8rem', 
+                      fontStyle: 'italic', 
+                      lineHeight: '1.4', 
+                      borderLeft: '2px solid var(--border-color)',
+                      color: 'var(--text-dark)'
+                    }}>
+                      "{order.survey.comment}"
+                    </div>
+                  )}
+
+                  <div style={{ fontSize: '0.78rem', color: 'var(--text-light)', borderTop: '1px solid rgba(0,0,0,0.05)', paddingTop: '8px', display: 'flex', flexDirection: 'column', gap: '3px' }}>
+                    <div>👤 <b>Cliente:</b> {order.customer.name}</div>
+                    {order.customer.phone && <div>📞 <b>Teléfono:</b> {order.customer.phone}</div>}
+                    <div>📍 <b>Dirección:</b> {order.customer.address}</div>
+                    <div>🛵 <b>Estado Pedido:</b> {order.status}</div>
+                  </div>
+
+                  {waUrl && (
+                    <div style={{ marginTop: 'auto', paddingTop: '10px' }}>
+                      <a 
+                        href={waUrl} 
+                        target="_blank" 
+                        rel="noopener noreferrer" 
+                        className="btn btn-secondary" 
+                        style={{ 
+                          width: '100%', 
+                          padding: '6px', 
+                          fontSize: '0.75rem', 
+                          display: 'inline-flex', 
+                          alignItems: 'center', 
+                          justifyContent: 'center', 
+                          gap: '4px', 
+                          backgroundColor: '#25D366', 
+                          borderColor: '#25D366', 
+                          color: 'white',
+                          borderRadius: '6px',
+                          textDecoration: 'none',
+                          fontWeight: '600'
+                        }}
+                      >
+                        💬 Contactar por WhatsApp
+                      </a>
+                    </div>
+                  )}
+                </div>
+              );
+            })}
+          </div>
+        )}
+      </div>
+    );
   };
 
   // --- RENDER TAB - PEDIDOS ---
@@ -3274,7 +3406,8 @@ export default function AdminPanel({
                   { id: 'users', label: '👥 Personal / Staff' },
                   { id: 'finance', label: '💵 Caja y Finanzas' },
                   { id: 'settings', label: '⚙️ Ajustes Tienda' },
-                  { id: 'stats', label: '📈 Meta e Ingresos' }
+                  { id: 'stats', label: '📈 Meta e Ingresos' },
+                  { id: 'surveys', label: '⭐ Encuestas' }
                 ].map(tab => {
                   const isChecked = editingUser.allowedTabs.includes(tab.id);
                   return (
@@ -6132,6 +6265,11 @@ create policy "Modificación privada de personal y credenciales" on public.helad
               📈 Meta e Ingresos
             </button>
           )}
+          {isTabAllowed('surveys') && (
+            <button className={`sidebar-btn ${activeTab === 'surveys' ? 'active' : ''}`} onClick={() => setActiveTab('surveys')}>
+              ⭐ Encuestas ({orders.filter(o => o.survey).length})
+            </button>
+          )}
         </div>
       </div>
 
@@ -6144,6 +6282,7 @@ create policy "Modificación privada de personal y credenciales" on public.helad
         {activeTab === 'finance' && renderFinanceTab()}
         {activeTab === 'settings' && renderSettingsTab()}
         {activeTab === 'stats' && renderStatsTab()}
+        {activeTab === 'surveys' && renderSurveysTab()}
       </div>
     </div>
   );

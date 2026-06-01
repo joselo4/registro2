@@ -903,6 +903,29 @@ export default function App() {
     }
   }, [orders, isSyncLoaded, isLoggedIn]);
 
+  // --- NUEVO: Polling automático del panel administrativo cada 60 segundos ---
+  useEffect(() => {
+    if (view !== 'admin' || !isLoggedIn || !supabase) return;
+
+    const intervalId = setInterval(async () => {
+      console.log("🔄 Actualizando datos del panel administrativo de forma automática (60s)...");
+      try {
+        const updatedServerData = await fetchSyncedData(true);
+        if (updatedServerData) {
+          // Desactivar temporalmente escrituras mientras cargamos
+          Object.keys(updatedServerData).forEach(k => {
+            isRemoteUpdate.current[k] = true;
+          });
+          applyLoadedData(updatedServerData);
+        }
+      } catch (err) {
+        console.warn("⚠️ Error en auto-actualización del panel administrativo:", err);
+      }
+    }, 60000);
+
+    return () => clearInterval(intervalId);
+  }, [view, isLoggedIn]);
+
   useEffect(() => {
     localStorage.setItem('helados_delivery_fee', deliveryFee.toString());
     if (!isSyncLoaded || !allowCloudWrite.current) return;
@@ -1468,6 +1491,10 @@ export default function App() {
             storePhone={storePhone}
             telegramToken={telegramToken}
             telegramChatId={telegramChatId}
+            onClearActiveOrder={() => {
+              setActiveOrderId(null);
+              localStorage.removeItem('helados_active_order_id');
+            }}
           />
         )}
 
