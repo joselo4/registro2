@@ -1440,6 +1440,8 @@ export default function App() {
             orders={orders}
             setView={setView}
             storePhone={storePhone}
+            telegramToken={telegramToken}
+            telegramChatId={telegramChatId}
           />
         )}
 

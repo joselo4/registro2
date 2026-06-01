@@ -1883,28 +1883,33 @@ export default function AdminPanel({
                             });
                             
                             const itemsHtml = order.items.map((item, idx) => {
+                              const itemPrice = parseFloat(item.price || 0);
+                              const itemQuantity = item.quantity || 1;
+                              const itemTotal = itemPrice * itemQuantity;
                               if (item.type === 'custom') {
                                 const scoopsStr = item.scoops ? item.scoops.map(s => s.name).join(', ') : 'Ninguno';
                                 const toppingsStr = item.toppings && item.toppings.length > 0 ? item.toppings.map(t => t.name).join(', ') : 'Ninguno';
                                 const syrupStr = item.syrup ? item.syrup.name : 'Ninguna';
                                 return `
-                                  <div style="border-bottom: 1px dashed #333; padding: 8px 0;">
-                                    <div style="font-size: 1.15rem; font-weight: bold;">[${idx + 1}] HELADO PERSONALIZADO x ${item.quantity || 1}</div>
-                                    <div style="margin-left: 10px; font-size: 0.95rem; line-height: 1.3;">
+                                  <div style="border-bottom: 1px dashed #333; padding: 6px 0; font-family: 'Courier New', Courier, monospace;">
+                                    <div style="font-size: 1.05rem; font-weight: bold;">[${idx + 1}] HELADO PERSONALIZADO x ${itemQuantity}</div>
+                                    <div style="margin-left: 10px; font-size: 0.9rem; line-height: 1.3;">
                                       • <b>Base:</b> ${item.base ? item.base.name : 'No especificada'}<br/>
                                       • <b>Sabores:</b> ${scoopsStr}<br/>
                                       • <b>Toppings:</b> ${toppingsStr}<br/>
-                                      • <b>Salsa:</b> ${syrupStr}
+                                      • <b>Salsa:</b> ${syrupStr}<br/>
+                                      • <b>Precio:</b> S/. ${itemPrice.toFixed(2)} c/u (Total: S/. ${itemTotal.toFixed(2)})
                                     </div>
                                   </div>
                                 `;
                               } else {
                                 return `
-                                  <div style="border-bottom: 1px dashed #333; padding: 8px 0;">
-                                    <div style="font-size: 1.15rem; font-weight: bold;">[${idx + 1}] COMBO/PACK x ${item.quantity || 1}</div>
-                                    <div style="margin-left: 10px; font-size: 0.95rem; line-height: 1.3;">
+                                  <div style="border-bottom: 1px dashed #333; padding: 6px 0; font-family: 'Courier New', Courier, monospace;">
+                                    <div style="font-size: 1.05rem; font-weight: bold;">[${idx + 1}] COMBO/PACK x ${itemQuantity}</div>
+                                    <div style="margin-left: 10px; font-size: 0.9rem; line-height: 1.3;">
                                       • <b>Nombre:</b> ${item.name}<br/>
-                                      • <b>Contenido:</b> ${item.items || 'Pack promocional'}
+                                      • <b>Contenido:</b> ${item.items || 'Pack promocional'}<br/>
+                                      • <b>Precio:</b> S/. ${itemPrice.toFixed(2)} c/u (Total: S/. ${itemTotal.toFixed(2)})
                                     </div>
                                   </div>
                                 `;
@@ -1924,48 +1929,75 @@ export default function AdminPanel({
                             doc.write(`
                               <html>
                                 <head>
-                                  <title>Comanda Cocina - ${order.id}</title>
+                                  <title>Comanda - ${order.id}</title>
                                   <style>
-                                    @page { size: 80px auto; margin: 0; }
+                                    @media print {
+                                      @page { size: auto; margin: 0mm; }
+                                      body { margin: 0; }
+                                    }
                                     body { 
                                       font-family: 'Courier New', Courier, monospace; 
-                                      width: 280px; 
+                                      width: 260px; 
                                       margin: 0 auto; 
-                                      padding: 10px; 
+                                      padding: 8px; 
                                       color: #000;
                                       background: #fff;
-                                      font-size: 12px;
+                                      font-size: 11px;
+                                      line-height: 1.3;
                                     }
-                                    .header { text-align: center; border-bottom: 2px double #000; padding-bottom: 8px; margin-bottom: 10px; }
-                                    .title { font-size: 1.5rem; font-weight: bold; margin: 5px 0; }
-                                    .section-title { font-size: 1rem; font-weight: bold; border-bottom: 1px solid #000; padding: 4px 0; margin-top: 10px; }
-                                    .footer { text-align: center; margin-top: 20px; border-top: 1px dashed #000; padding-top: 10px; font-size: 0.75rem; }
+                                    .header { text-align: center; border-bottom: 2px double #000; padding-bottom: 6px; margin-bottom: 8px; }
+                                    .title { font-size: 1.3rem; font-weight: bold; margin: 3px 0; letter-spacing: 1px; }
+                                    .section-title { font-size: 0.95rem; font-weight: bold; border-bottom: 1px solid #000; border-top: 1px solid #000; padding: 4px 0; margin-top: 8px; text-align: center; }
+                                    .totals-table { width: 100%; border-collapse: collapse; margin-top: 8px; font-family: 'Courier New', Courier, monospace; font-size: 0.9rem; }
+                                    .totals-table td { padding: 2px 0; }
+                                    .footer { text-align: center; margin-top: 15px; border-top: 1px dashed #000; padding-top: 8px; font-size: 0.8rem; }
                                   </style>
                                 </head>
                                 <body>
                                   <div class="header">
-                                    <div style="font-size: 1.1rem; font-weight: bold;">🍦 ${storeName.toUpperCase()} 🍦</div>
-                                    <div class="title">${order.id}</div>
+                                    <div style="font-size: 1.15rem; font-weight: bold;">🍦 ${storeName.toUpperCase()} 🍦</div>
+                                    <div class="title">PEDIDO: ${order.id}</div>
                                     <div style="font-size: 0.8rem;">Fecha: ${dateStr}</div>
                                   </div>
 
-                                  <div style="margin-bottom: 10px; font-size: 0.9rem;">
-                                    <b>Cliente:</b> ${order.customer.name}<br/>
-                                    <b>Teléfono:</b> ${order.customer.phone}<br/>
-                                    <b>Tipo Pago:</b> ${order.customer.paymentMethod || 'Yape/Plin'}<br/>
-                                    <b>Dirección:</b> ${order.customer.address}
+                                  <div style="margin-bottom: 8px; font-size: 0.9rem; border-bottom: 1px dashed #000; padding-bottom: 6px;">
+                                    <b>CLIENTE:</b> ${order.customer.name}<br/>
+                                    <b>TELÉFONO:</b> ${order.customer.phone}<br/>
+                                    <b>PAGO:</b> ${order.customer.paymentMethod || 'Yape/Plin'}<br/>
+                                    <b>DIRECCIÓN:</b> ${order.customer.address}
                                   </div>
 
-                                  <div class="section-title">🍨 DETALLE DE PREPARACIÓN 🍨</div>
-                                  <div style="margin-top: 5px;">
+                                  <div class="section-title">🍨 DETALLE DEL PEDIDO 🍨</div>
+                                  <div style="margin-top: 4px;">
                                     ${itemsHtml}
                                   </div>
 
+                                  <table class="totals-table">
+                                    <tr>
+                                      <td>Subtotal:</td>
+                                      <td style="text-align: right;">S/. ${(order.total || 0).toFixed(2)}</td>
+                                    </tr>
+                                    ${(order.discount && order.discount > 0) ? `
+                                    <tr>
+                                      <td>Descuento ${order.couponCode ? `(${order.couponCode})` : ''}:</td>
+                                      <td style="text-align: right;">-S/. ${(order.discount || 0).toFixed(2)}</td>
+                                    </tr>
+                                    ` : ''}
+                                    <tr>
+                                      <td>Envío:</td>
+                                      <td style="text-align: right;">S/. ${(order.deliveryFee || 0).toFixed(2)}</td>
+                                    </tr>
+                                    <tr style="font-weight: bold; border-top: 1px double #000; font-size: 1rem;">
+                                      <td style="padding-top: 4px;">TOTAL A PAGAR:</td>
+                                      <td style="text-align: right; padding-top: 4px;">S/. ${(order.grandTotal || 0).toFixed(2)}</td>
+                                    </tr>
+                                  </table>
+
                                   <div class="footer">
-                                    <div style="font-weight: bold; font-size: 0.9rem; margin-bottom: 8px;">⚠️ ¡ATENCIÓN COCINA!</div>
-                                    <div style="margin-bottom: 12px;">Mantener cadena de frío de las cremas. Preparar con higiene extrema.</div>
-                                    ${ticketCustomMessage ? `<div style="margin-top: 10px; font-size: 0.85rem; font-style: italic; font-weight: bold; border-top: 1px dashed #000; padding-top: 8px; color: #333;">${ticketCustomMessage}</div>` : ''}
-                                    <div style="margin-top: 10px; font-size: 0.7rem;">Impreso desde Panel Don Helado.</div>
+                                    <div style="font-weight: bold; font-size: 0.85rem; margin-bottom: 4px;">⚠️ ¡ATENCIÓN COCINA / REPARTO!</div>
+                                    <div style="margin-bottom: 8px; font-size: 0.75rem;">Mantener cadena de frío. Entregar con máxima higiene.</div>
+                                    ${ticketCustomMessage ? `<div style="margin-top: 6px; font-size: 0.8rem; font-style: italic; font-weight: bold; border-top: 1px dashed #000; padding-top: 6px; color: #111;">${ticketCustomMessage}</div>` : ''}
+                                    <div style="margin-top: 8px; font-size: 0.7rem; color: #555;">Impreso desde Panel Don Helado.</div>
                                   </div>
                                 </body>
                               </html>
@@ -3610,6 +3642,61 @@ export default function AdminPanel({
             <div>
               <strong>Alerta Sonora de Pedidos</strong>
               <span style={{ fontSize: '0.75rem', color: 'var(--text-light)', display: 'block' }}>Campanada para notificar pedidos.</span>
+              <button 
+                type="button" 
+                style={{ 
+                  padding: '4px 10px', 
+                  fontSize: '0.7rem', 
+                  marginTop: '6px', 
+                  cursor: 'pointer', 
+                  background: 'rgba(229, 142, 38, 0.1)', 
+                  color: '#e58e26', 
+                  border: '1px solid rgba(229, 142, 38, 0.3)', 
+                  borderRadius: '6px', 
+                  display: 'inline-flex', 
+                  alignItems: 'center', 
+                  gap: '4px',
+                  fontWeight: '600',
+                  transition: 'all 0.2s ease'
+                }}
+                onClick={() => {
+                  try {
+                    const AudioContext = window.AudioContext || window.webkitAudioContext;
+                    if (AudioContext) {
+                      const ctx = new AudioContext();
+                      const osc1 = ctx.createOscillator();
+                      const osc2 = ctx.createOscillator();
+                      const gain = ctx.createGain();
+                      
+                      osc1.type = 'sine';
+                      osc1.frequency.setValueAtTime(523.25, ctx.currentTime);
+                      osc1.frequency.exponentialRampToValueAtTime(783.99, ctx.currentTime + 0.15);
+                      
+                      osc2.type = 'triangle';
+                      osc2.frequency.setValueAtTime(783.99, ctx.currentTime);
+                      osc2.frequency.exponentialRampToValueAtTime(1046.50, ctx.currentTime + 0.15);
+                      
+                      gain.gain.setValueAtTime(0.2, ctx.currentTime);
+                      gain.gain.exponentialRampToValueAtTime(0.01, ctx.currentTime + 0.8);
+                      
+                      osc1.connect(gain);
+                      osc2.connect(gain);
+                      gain.connect(ctx.destination);
+                      
+                      osc1.start();
+                      osc2.start();
+                      osc1.stop(ctx.currentTime + 0.8);
+                      osc2.stop(ctx.currentTime + 0.8);
+                    }
+                  } catch (e) {
+                    console.warn("Audio preview blocked by autoplay policies:", e);
+                  }
+                }}
+                onMouseOver={(e) => { e.currentTarget.style.background = 'rgba(229, 142, 38, 0.2)'; }}
+                onMouseOut={(e) => { e.currentTarget.style.background = 'rgba(229, 142, 38, 0.1)'; }}
+              >
+                🔔 Probar Sonido
+              </button>
             </div>
             <label className="toggle-switch">
               <input type="checkbox" checked={soundEnabled} onChange={onToggleSoundEnabled} />

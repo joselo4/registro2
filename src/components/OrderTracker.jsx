@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { supabase } from '../utils/supabaseClient';
 
-export default function OrderTracker({ orderId, orders, setView, storePhone }) {
+export default function OrderTracker({ orderId, orders, setView, storePhone, telegramToken, telegramChatId }) {
   const [inputVal, setInputVal] = useState('');
   const [activeSearchId, setActiveSearchId] = useState(orderId || '');
   const [hasSearched, setHasSearched] = useState(false);
@@ -12,6 +12,73 @@ export default function OrderTracker({ orderId, orders, setView, storePhone }) {
   // --- NUEVOS ESTADOS PARA BÚSQUEDA EN LA NUBE ---
   const [fetchedOrder, setFetchedOrder] = useState(null);
   const [loadingOrder, setLoadingOrder] = useState(false);
+
+  // --- ESTADOS Y LÓGICA PARA LA ENCUESTA DE SATISFACCIÓN ---
+  const [rating, setRating] = useState(0);
+  const [hoverRating, setHoverRating] = useState(0);
+  const [comment, setComment] = useState('');
+  const [submittingSurvey, setSubmittingSurvey] = useState(false);
+  const [surveySubmitted, setSurveySubmitted] = useState(false);
+
+  // Comprobar si la encuesta ya fue enviada para este pedido
+  useEffect(() => {
+    if (activeSearchId) {
+      const orderIdUpper = activeSearchId.trim().toUpperCase();
+      setSurveySubmitted(localStorage.getItem(`helados_survey_submitted_${orderIdUpper}`) === 'true');
+      setRating(0);
+      setComment('');
+    }
+  }, [activeSearchId]);
+
+  const handleSendSurvey = async (e) => {
+    e.preventDefault();
+    if (rating === 0) {
+      alert("Por favor, selecciona una calificación.");
+      return;
+    }
+
+    setSubmittingSurvey(true);
+    const orderIdUpper = activeSearchId.trim().toUpperCase();
+    const stars = '🍦'.repeat(rating);
+    const textMsg = `🌟 *NUEVA VALORACIÓN DE CLIENTE* 🌟\n\n` +
+      `*Pedido:* ${orderIdUpper}\n` +
+      `*Calificación:* ${stars} (${rating}/5)\n` +
+      `*Comentario:* ${comment.trim() || 'Sin comentarios'}\n\n` +
+      `_Enviado desde la encuesta rápida post-entrega._`;
+
+    try {
+      if (telegramToken && telegramChatId) {
+        const response = await fetch(`https://api.telegram.org/bot${telegramToken}/sendMessage`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            chat_id: telegramChatId,
+            text: textMsg,
+            parse_mode: 'Markdown'
+          })
+        });
+        if (!response.ok) throw new Error("Error en bot de Telegram");
+      } else {
+        const cleanStorePhone = String(storePhone || '').replace(/\D/g, '');
+        const waMessage = `¡Hola! Quería valorar mi pedido ${orderIdUpper}:\n\nCalificación: ${stars} (${rating}/5)\nComentario: ${comment.trim() || 'Sin comentarios'}`;
+        const waUrl = `https://wa.me/${cleanStorePhone}?text=${encodeURIComponent(waMessage)}`;
+        window.open(waUrl, '_blank');
+      }
+
+      localStorage.setItem(`helados_survey_submitted_${orderIdUpper}`, 'true');
+      setSurveySubmitted(true);
+    } catch (err) {
+      console.warn("Fallo al enviar reseña remota. Desviando a WhatsApp...", err.message);
+      const cleanStorePhone = String(storePhone || '').replace(/\D/g, '');
+      const waMessage = `¡Hola! Quería valorar mi pedido ${orderIdUpper}:\n\nCalificación: ${stars} (${rating}/5)\nComentario: ${comment.trim() || 'Sin comentarios'}`;
+      const waUrl = `https://wa.me/${cleanStorePhone}?text=${encodeURIComponent(waMessage)}`;
+      window.open(waUrl, '_blank');
+      localStorage.setItem(`helados_survey_submitted_${orderIdUpper}`, 'true');
+      setSurveySubmitted(true);
+    } finally {
+      setSubmittingSurvey(false);
+    }
+  };
 
   const formatPeruTime = (isoString) => {
     if (!isoString) return '';
@@ -448,6 +515,108 @@ export default function OrderTracker({ orderId, orders, setView, storePhone }) {
       ) : (
         <div className="glass" style={{ padding: '15px', color: 'var(--danger)', margin: '20px 0', border: '1px solid var(--danger)', borderRadius: '8px', textAlign: 'center', background: 'rgba(231,76,60,0.05)' }}>
           <strong>🛑 Este pedido ha sido cancelado por la administración.</strong>
+        </div>
+      )}
+
+      {/* 🍦 ENCUESTA DE SATISFACCIÓN POST-ENTREGA */}
+      {currentOrder && currentOrder.status === 'Entregado' && (
+        <div className="glass animate-float-toast" style={{
+          padding: '20px',
+          margin: '20px 0 25px 0',
+          border: '2px dashed var(--success)',
+          borderRadius: 'var(--radius-md)',
+          background: 'linear-gradient(135deg, rgba(46, 204, 113, 0.05) 0%, var(--bg-secondary) 100%)',
+          textAlign: 'center',
+          boxShadow: 'var(--shadow-md)'
+        }}>
+          {surveySubmitted ? (
+            <div style={{ animation: 'scalePop 0.4s ease-out' }}>
+              <span style={{ fontSize: '3rem', display: 'block', marginBottom: '8px' }}>🍦💖</span>
+              <strong style={{ fontSize: '1.1rem', color: 'var(--success)', display: 'block' }}>¡Muchas Gracias!</strong>
+              <p style={{ fontSize: '0.8rem', color: 'var(--text-light)', marginTop: '6px', margin: 0, lineHeight: 1.45 }}>
+                Tu opinión nos alegra el día y nos ayuda a seguir sirviendo helados deliciosos con la mejor calidad artesana.
+              </p>
+            </div>
+          ) : (
+            <div>
+              <strong style={{ fontSize: '1.05rem', color: 'var(--text-dark)', display: 'block', marginBottom: '5px' }}>
+                ¿Disfrutaste tu Helado? 🍨
+              </strong>
+              <span style={{ fontSize: '0.78rem', color: 'var(--text-light)', display: 'block', marginBottom: '12px' }}>
+                Tu valoración nos ayuda a mejorar. Califícanos pulsando los conos de helado:
+              </span>
+              
+              <form onSubmit={handleSendSurvey} style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '15px' }}>
+                {/* Conos de Helado Interactivos */}
+                <div style={{ display: 'flex', gap: '8px', fontSize: '2.2rem', justifyContent: 'center' }}>
+                  {[1, 2, 3, 4, 5].map((index) => {
+                    const filled = index <= (hoverRating || rating);
+                    return (
+                      <span
+                        key={index}
+                        style={{
+                          cursor: 'pointer',
+                          filter: filled ? 'none' : 'grayscale(100%) opacity(30%)',
+                          transition: 'transform 0.15s cubic-bezier(0.175, 0.885, 0.32, 1.275), filter 0.2s',
+                          transform: filled ? 'scale(1.18)' : 'scale(1)',
+                          display: 'inline-block'
+                        }}
+                        onMouseEnter={() => setHoverRating(index)}
+                        onMouseLeave={() => setHoverRating(0)}
+                        onClick={() => setRating(index)}
+                        title={`${index} cono${index > 1 ? 's' : ''}`}
+                      >
+                        🍦
+                      </span>
+                    );
+                  })}
+                </div>
+
+                <div style={{ width: '100%' }}>
+                  <textarea
+                    className="form-control"
+                    rows="2"
+                    placeholder="Escribe algún comentario o sugerencia sobre tus helados (Opcional)..."
+                    style={{
+                      fontSize: '0.8rem',
+                      padding: '8px 12px',
+                      resize: 'none',
+                      borderRadius: 'var(--radius-sm)',
+                      border: '1px solid var(--border-color)',
+                      width: '100%',
+                      background: 'var(--bg-secondary)',
+                      color: 'var(--text-dark)'
+                    }}
+                    value={comment}
+                    onChange={(e) => setComment(e.target.value)}
+                  />
+                </div>
+
+                <button
+                  type="submit"
+                  className="btn btn-primary"
+                  style={{
+                    width: '100%',
+                    padding: '10px',
+                    fontSize: '0.85rem',
+                    backgroundColor: 'var(--success)',
+                    borderColor: 'var(--success)',
+                    color: 'white',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    gap: '6px',
+                    cursor: 'pointer',
+                    borderRadius: 'var(--radius-full)',
+                    margin: 0
+                  }}
+                  disabled={submittingSurvey}
+                >
+                  {submittingSurvey ? 'Enviando...' : '🚀 Enviar Valoración'}
+                </button>
+              </form>
+            </div>
+          )}
         </div>
       )}
 
