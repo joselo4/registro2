@@ -228,6 +228,7 @@ h1, h2, h3, h4, h5, h6 {
 .hero-cta {
   display: flex;
   gap: 15px;
+  flex-wrap: wrap;
 }
 
 .btn {
@@ -1481,6 +1482,19 @@ input:checked + .slider:before {
   .hero-text h1 {
     font-size: 1.75rem !important;
     line-height: 1.25 !important;
+  }
+
+  .hero-cta {
+    flex-direction: column !important;
+    align-items: center !important;
+    gap: 10px !important;
+    width: 100% !important;
+  }
+
+  .hero-cta .btn {
+    width: 100% !important;
+    max-width: 280px !important;
+    margin: 0 auto !important;
   }
 
   .desktop-only {
