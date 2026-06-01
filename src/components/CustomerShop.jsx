@@ -8,7 +8,8 @@ export default function CustomerShop({
   storeName,
   freeDeliveryThreshold = 15.0,
   deliveryCampaignText = '¡Arma tu helado con toppings o elige un pack promocional para no pagar envío!',
-  literConfig
+  literConfig,
+  catalogOrder = ['liter', 'classic', 'packs']
 }) {
   const [filter, setFilter] = useState('all'); // all, classic, packs, liter
 
@@ -234,247 +235,266 @@ export default function CustomerShop({
 
         {/* Grid de Productos */}
         <div className="catalog-grid">
-          {/* 🏺 Mostrar Helado de Litro */}
-          {(filter === 'all' || filter === 'liter') && literConfig?.active !== false && (
-            <div className="glass-card product-card" style={{ borderColor: 'var(--primary-color)' }}>
-              <span className="product-badge badge-premium">🏺 Familiar 1L</span>
-              <div className="product-illustration" style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', minHeight: '120px' }}>
-                {literConfig?.image ? (
-                  <img 
-                    src={literConfig.image} 
-                    alt="Helado de 1 Litro" 
-                    style={{ width: '100%', height: '110px', objectFit: 'contain', borderRadius: '8px' }} 
-                    loading="lazy"
-                  />
-                ) : (
-                  <svg viewBox="0 0 100 100" width="90" height="90" style={{ display: 'block', margin: '0 auto' }}>
-                    <ellipse cx="50" cy="85" rx="35" ry="6" fill="rgba(0,0,0,0.06)" />
-                    <path d="M 22 28 L 30 78 C 30 78, 50 82, 70 78 L 78 28 Z" fill="#f5f6fa" stroke="var(--primary-color)" strokeWidth="2.5" />
-                    <ellipse cx="50" cy="28" rx="28" ry="6" fill="none" stroke="var(--primary-color)" strokeWidth="2" />
-                    {/* Helado saliendo */}
-                    <path d="M 24 28 C 24 15, 50 15, 50 15 C 50 15, 76 15, 76 28 Z" fill="#ff6b81" opacity="0.9" />
-                    <rect x="35" y="44" width="30" height="18" rx="2" fill="white" stroke="var(--primary-color)" strokeWidth="0.8" />
-                    <text x="50" y="52" fill="var(--primary-color)" fontSize="6" fontWeight="bold" textAnchor="middle">1 LITRO</text>
-                  </svg>
-                )}
-              </div>
-              <div className="product-info">
-                <div>
-                  <h3>Helado Familiar de 1 Litro</h3>
-                  <p className="product-desc">Lleva a casa el mejor helado artesanal. Combina tus sabores favoritos (hasta {literConfig?.maxFlavors || 3} sabores) en un pote de un litro para compartir.</p>
-                </div>
-                <div className="product-price-action">
-                  <div className="price-tag">
-                    S/. {(literConfig?.price || 15.0).toFixed(2)}
-                    <span> / pote</span>
-                  </div>
-                  <button 
-                    className="add-btn" 
-                    style={{ backgroundColor: 'var(--primary-color)', fontSize: '0.75rem', width: 'auto', padding: '6px 12px', borderRadius: '12px' }}
-                    onClick={() => setView('liter-customizer')}
-                  >
-                    🎨 Armar
-                  </button>
-                </div>
-              </div>
-            </div>
-          )}
-
-          {/* Mostrar Helados Clásicos */}
-          {(filter === 'all' || filter === 'classic') && activeFlavors.map(flavor => {
-            const isPopular = flavor.isPopular === true;
-            return (
-              <div key={flavor.id} className="glass-card product-card">
-                {isPopular && <span className="product-badge badge-popular">🔥 El Más Pedido</span>}
-                {flavor.isPremium && !isPopular && <span className="product-badge badge-premium">✨ Premium</span>}
-                
-                <div className="product-illustration" style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', minHeight: '120px' }}>
-                  {flavor.image ? (
-                    <img 
-                      src={flavor.image} 
-                      alt={flavor.name} 
-                      style={{ width: '100%', height: '110px', objectFit: 'contain', borderRadius: '8px' }} 
-                      loading="lazy"
-                    />
-                  ) : (
-                    <svg viewBox="0 0 100 120" width="90" height="108" style={{ display: 'block' }}>
-                      <defs>
-                        <filter id={`sh-${flavor.id}`} x="-10%" y="-10%" width="120%" height="120%">
-                          <feDropShadow dx="0" dy="3" stdDeviation="3" floodOpacity="0.15" />
-                        </filter>
-                        <radialGradient id={`specular-${flavor.id}`} cx="30%" cy="30%" r="60%" fx="30%" fy="30%">
-                          <stop offset="0%" stopColor="#ffffff" stopOpacity="0.8"/>
-                          <stop offset="50%" stopColor="#ffffff" stopOpacity="0.2"/>
-                          <stop offset="100%" stopColor="#ffffff" stopOpacity="0"/>
-                        </radialGradient>
-                        <radialGradient id={`shadow-${flavor.id}`} cx="70%" cy="70%" r="70%">
-                          <stop offset="0%" stopColor="#000000" stopOpacity="0.35"/>
-                          <stop offset="100%" stopColor="#000000" stopOpacity="0"/>
-                        </radialGradient>
-                        
-                        <linearGradient id={`coneGrad-${flavor.id}`} x1="0" y1="0" x2="1" y2="1">
-                          <stop offset="0%" stopColor="#f3a683"/>
-                          <stop offset="50%" stopColor="#cf8a4f"/>
-                          <stop offset="100%" stopColor="#8d5624"/>
-                        </linearGradient>
-                        
-                        <linearGradient id={`coneShadow-${flavor.id}`} x1="0" y1="0" x2="1" y2="0">
-                          <stop offset="0%" stopColor="#ffffff" stopOpacity="0.3" />
-                          <stop offset="50%" stopColor="#ffffff" stopOpacity="0" />
-                          <stop offset="100%" stopColor="#000000" stopOpacity="0.45" />
-                        </linearGradient>
-                        
-                        <clipPath id={`cone-clip-${flavor.id}`}>
-                          <path d="M32 63 L50 110 L68 63 Z" />
-                        </clipPath>
-                      </defs>
-                      
-                      {/* Sombra base */}
-                      <ellipse cx="50" cy="114" rx="20" ry="3.5" fill="rgba(0,0,0,0.08)" />
-                      
-                      {/* Cono Waffle */}
-                      <g filter={`url(#sh-${flavor.id})`}>
-                        {/* Base Cone styled with clipPath */}
-                        <g clipPath={`url(#cone-clip-${flavor.id})`}>
-                          <path d="M32 63 L50 110 L68 63 Z" fill={`url(#coneGrad-${flavor.id})`} />
-                          {/* Waffle Grid */}
-                          <path d="M 10 30 L 80 100 M 10 40 L 80 110 M 10 20 L 80 90 M 10 10 L 80 80 M 10 50 L 80 120 M 10 0 L 80 70" stroke="#7a4b1c" strokeWidth="0.8" opacity="0.3" />
-                          <path d="M 90 30 L 20 100 M 90 40 L 20 110 M 90 20 L 20 90 M 90 10 L 20 80 M 90 50 L 20 120 M 90 0 L 20 70" stroke="#7a4b1c" strokeWidth="0.8" opacity="0.3" />
-                          {/* Cone 3D shadow overlay */}
-                          <path d="M32 63 L50 110 L68 63 Z" fill={`url(#coneShadow-${flavor.id})`} />
-                        </g>
-                        {/* Outline borders */}
-                        <path d="M32 63 L50 110 L68 63 Z" fill="none" stroke="#7a4b1c" strokeWidth="1" opacity="0.6" />
-                      </g>
-                      
-                      {/* Bola de Helado con brillo 3D y faldón realista */}
-                      <g filter={`url(#sh-${flavor.id})`}>
-                        <circle cx="50" cy="46" r="24" fill={flavor.color} />
-                        <circle cx="50" cy="46" r="24" fill={`url(#shadow-${flavor.id})`} />
-                        <circle cx="50" cy="46" r="24" fill={`url(#specular-${flavor.id})`} />
-                        <ellipse cx="42" cy="38" rx="8" ry="4" fill="white" opacity="0.25" transform="rotate(-15, 42, 38)" />
-                        
-                        {/* Dynamic Toppings */}
-                        {renderDynamicToppings(flavor.id)}
-                        
-                        {/* Wavy Gelato faldón at the bottom of the scoop */}
-                        <path d="M 25 58 Q 31 66 37 60 Q 43 67 50 61 Q 57 67 63 60 Q 69 66 75 58 Q 50 72 25 58 Z" fill={flavor.color} />
-                        <path d="M 25 58 Q 31 66 37 60 Q 43 67 50 61 Q 57 67 63 60 Q 69 66 75 58 Q 50 72 25 58 Z" fill={`url(#shadow-${flavor.id})`} opacity="0.3" />
-                      </g>
-                    </svg>
-                  )}
-                </div>
-
-                <div className="product-info">
-                  <div>
-                    <h3>{flavor.name}</h3>
-                    <p className="product-desc">{flavor.description}</p>
-                  </div>
-                  <div className="product-price-action">
-                    <div className="price-tag">
-                      S/. {flavor.price.toFixed(2)}
-                      <span> / bola</span>
-                    </div>
-                    <button 
-                      className="add-btn" 
-                      title="Añadir helado simple de 1 bola al carrito"
-                      onClick={() => handleAddClassicToCart(flavor)}
-                    >
-                      +
-                    </button>
-                  </div>
-                </div>
-              </div>
-            );
-          })}
-
-          {/* Mostrar Packs */}
-          {(filter === 'all' || filter === 'packs') && activePacks.map(pack => {
-            const badgeClass = `badge-${pack.badge.toLowerCase().replace(/\s+/g, '-')}`;
-            return (
-              <div key={pack.id} className="glass-card product-card" style={{ borderColor: 'rgba(229, 142, 38, 0.2)' }}>
-                {pack.badge && (
-                  <span className={`product-badge ${badgeClass}`}>
-                    {pack.badge}
-                  </span>
-                )}
-                
-                <div className="product-illustration" style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', minHeight: '100px' }}>
-                  {pack.image ? (
-                    <img 
-                      src={pack.image} 
-                      alt={pack.name} 
-                      style={{ width: '100%', height: '100px', objectFit: 'contain', borderRadius: '8px' }} 
-                      loading="lazy"
-                    />
-                  ) : (
-                    <svg viewBox="0 0 100 100" width="90" height="90" style={{ display: 'block', margin: '0 auto' }}>
-                      <defs>
-                        <linearGradient id="boxGrad" x1="0" y1="0" x2="1" y2="1">
-                          <stop offset="0%" stopColor="#ff4757" />
-                          <stop offset="100%" stopColor="#ff1f3b" />
-                        </linearGradient>
-                        <linearGradient id="lidGrad" x1="0" y1="0" x2="0" y2="1">
-                          <stop offset="0%" stopColor="#ff6b81" />
-                          <stop offset="100%" stopColor="#ff3855" />
-                        </linearGradient>
-                        <linearGradient id="ribbonGrad" x1="0" y1="0" x2="1" y2="1">
-                          <stop offset="0%" stopColor="#eccc68" />
-                          <stop offset="100%" stopColor="#ff7f50" />
-                        </linearGradient>
-                        <linearGradient id="goldGrad" x1="0" y1="0" x2="0" y2="1">
-                          <stop offset="0%" stopColor="#ffa502" />
-                          <stop offset="100%" stopColor="#ff7f50" />
-                        </linearGradient>
-                        <filter id="giftShadow" x="-10%" y="-10%" width="120%" height="120%">
-                          <feDropShadow dx="0" dy="3" stdDeviation="3" floodOpacity="0.15" />
-                        </filter>
-                      </defs>
-  
-                      <ellipse cx="50" cy="88" rx="28" ry="5" fill="rgba(0,0,0,0.1)" />
-  
-                      <g filter="url(#giftShadow)">
-                        <rect x="18" y="42" width="64" height="6" rx="1" fill="rgba(0,0,0,0.15)" />
-                        <rect x="22" y="44" width="56" height="40" rx="3" fill="url(#boxGrad)" />
-                        <rect x="44" y="44" width="12" height="40" fill="url(#ribbonGrad)" />
-                        <rect x="18" y="34" width="64" height="10" rx="2" fill="url(#lidGrad)" />
-                        <rect x="44" y="34" width="12" height="10" fill="url(#ribbonGrad)" />
-                        <path d="M 45 34 C 30 24, 30 12, 45 22 Z" fill="url(#goldGrad)" stroke="#ff7f50" strokeWidth="0.8" />
-                        <path d="M 55 34 C 70 24, 70 12, 55 22 Z" fill="url(#goldGrad)" stroke="#ff7f50" strokeWidth="0.8" />
-                        <path d="M 45 34 C 40 40, 32 45, 34 52" fill="none" stroke="url(#goldGrad)" strokeWidth="3" strokeLinecap="round" />
-                        <path d="M 55 34 C 60 40, 68 45, 66 52" fill="none" stroke="url(#goldGrad)" strokeWidth="3" strokeLinecap="round" />
-                        <rect x="43" y="24" width="14" height="10" rx="3" fill="url(#goldGrad)" stroke="#d5822b" strokeWidth="0.8" />
-                      </g>
-                    </svg>
-                  )}
-                </div>
-                <div className="product-info">
-                  <div>
-                    <h3>{pack.name}</h3>
-                    <p className="product-desc">{pack.description}</p>
-                    <p style={{ fontSize: '0.85rem', fontWeight: 600, color: 'var(--primary-color)', marginBottom: '15px' }}>
-                      📦 Incluye: {pack.items}
-                    </p>
-                  </div>
-                  <div className="product-price-action">
-                    <div className="price-tag">
-                      S/. {pack.price.toFixed(2)}
-                      <div style={{ fontSize: '0.75rem', color: 'var(--success)', fontWeight: 600 }}>
-                        {pack.discountText}
+          {(catalogOrder || ['liter', 'classic', 'packs']).map(section => {
+            if (section === 'liter') {
+              return (
+                <React.Fragment key="liter">
+                  {/* 🏺 Mostrar Helado de Litro */}
+                  {(filter === 'all' || filter === 'liter') && literConfig?.active !== false && (
+                    <div className="glass-card product-card" style={{ borderColor: 'var(--primary-color)' }}>
+                      <span className="product-badge badge-premium">🏺 Familiar 1L</span>
+                      <div className="product-illustration" style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', minHeight: '120px' }}>
+                        {literConfig?.image ? (
+                          <img 
+                            src={literConfig.image} 
+                            alt="Helado de 1 Litro" 
+                            style={{ width: '100%', height: '110px', objectFit: 'contain', borderRadius: '8px' }} 
+                            loading="lazy"
+                          />
+                        ) : (
+                          <svg viewBox="0 0 100 100" width="90" height="90" style={{ display: 'block', margin: '0 auto' }}>
+                            <ellipse cx="50" cy="85" rx="35" ry="6" fill="rgba(0,0,0,0.06)" />
+                            <path d="M 22 28 L 30 78 C 30 78, 50 82, 70 78 L 78 28 Z" fill="#f5f6fa" stroke="var(--primary-color)" strokeWidth="2.5" />
+                            <ellipse cx="50" cy="28" rx="28" ry="6" fill="none" stroke="var(--primary-color)" strokeWidth="2" />
+                            {/* Helado saliendo */}
+                            <path d="M 24 28 C 24 15, 50 15, 50 15 C 50 15, 76 15, 76 28 Z" fill="#ff6b81" opacity="0.9" />
+                            <rect x="35" y="44" width="30" height="18" rx="2" fill="white" stroke="var(--primary-color)" strokeWidth="0.8" />
+                            <text x="50" y="52" fill="var(--primary-color)" fontSize="6" fontWeight="bold" textAnchor="middle">1 LITRO</text>
+                          </svg>
+                        )}
+                      </div>
+                      <div className="product-info">
+                        <div>
+                          <h3>Helado Familiar de 1 Litro</h3>
+                          <p className="product-desc">Lleva a casa el mejor helado artesanal. Combina tus sabores favoritos (hasta {literConfig?.maxFlavors || 3} sabores) en un pote de un litro para compartir.</p>
+                        </div>
+                        <div className="product-price-action">
+                          <div className="price-tag">
+                            S/. {(literConfig?.price || 15.0).toFixed(2)}
+                            <span> / pote</span>
+                          </div>
+                          <button 
+                            className="add-btn" 
+                            style={{ backgroundColor: 'var(--primary-color)', fontSize: '0.75rem', width: 'auto', padding: '6px 12px', borderRadius: '12px' }}
+                            onClick={() => setView('liter-customizer')}
+                          >
+                            🎨 Armar
+                          </button>
+                        </div>
                       </div>
                     </div>
-                    <button 
-                      className="add-btn" 
-                      style={{ backgroundColor: 'var(--secondary-color)' }}
-                      title="Añadir pack al carrito"
-                      onClick={() => handleAddPackToCart(pack)}
-                    >
-                      +
-                    </button>
-                  </div>
-                </div>
-              </div>
-            );
+                  )}
+                </React.Fragment>
+              );
+            }
+            if (section === 'classic') {
+              return (
+                <React.Fragment key="classic">
+                  {/* Mostrar Helados Clásicos */}
+                  {(filter === 'all' || filter === 'classic') && activeFlavors.map(flavor => {
+                    const isPopular = flavor.isPopular === true;
+                    return (
+                      <div key={flavor.id} className="glass-card product-card">
+                        {isPopular && <span className="product-badge badge-popular">🔥 El Más Pedido</span>}
+                        {flavor.isPremium && !isPopular && <span className="product-badge badge-premium">✨ Premium</span>}
+                        
+                        <div className="product-illustration" style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', minHeight: '120px' }}>
+                          {flavor.image ? (
+                            <img 
+                              src={flavor.image} 
+                              alt={flavor.name} 
+                              style={{ width: '100%', height: '110px', objectFit: 'contain', borderRadius: '8px' }} 
+                              loading="lazy"
+                            />
+                          ) : (
+                            <svg viewBox="0 0 100 120" width="90" height="108" style={{ display: 'block' }}>
+                              <defs>
+                                <filter id={`sh-${flavor.id}`} x="-10%" y="-10%" width="120%" height="120%">
+                                  <feDropShadow dx="0" dy="3" stdDeviation="3" floodOpacity="0.15" />
+                                </filter>
+                                <radialGradient id={`specular-${flavor.id}`} cx="30%" cy="30%" r="60%" fx="30%" fy="30%">
+                                  <stop offset="0%" stopColor="#ffffff" stopOpacity="0.8"/>
+                                  <stop offset="50%" stopColor="#ffffff" stopOpacity="0.2"/>
+                                  <stop offset="100%" stopColor="#ffffff" stopOpacity="0"/>
+                                </radialGradient>
+                                <radialGradient id={`shadow-${flavor.id}`} cx="70%" cy="70%" r="70%">
+                                  <stop offset="0%" stopColor="#000000" stopOpacity="0.35"/>
+                                  <stop offset="100%" stopColor="#000000" stopOpacity="0"/>
+                                </radialGradient>
+                                
+                                <linearGradient id={`coneGrad-${flavor.id}`} x1="0" y1="0" x2="1" y2="1">
+                                  <stop offset="0%" stopColor="#f3a683"/>
+                                  <stop offset="50%" stopColor="#cf8a4f"/>
+                                  <stop offset="100%" stopColor="#8d5624"/>
+                                </linearGradient>
+                                
+                                <linearGradient id={`coneShadow-${flavor.id}`} x1="0" y1="0" x2="1" y2="0">
+                                  <stop offset="0%" stopColor="#ffffff" stopOpacity="0.3" />
+                                  <stop offset="50%" stopColor="#ffffff" stopOpacity="0" />
+                                  <stop offset="100%" stopColor="#000000" stopOpacity="0.45" />
+                                </linearGradient>
+                                
+                                <clipPath id={`cone-clip-${flavor.id}`}>
+                                  <path d="M32 63 L50 110 L68 63 Z" />
+                                </clipPath>
+                              </defs>
+                              
+                              {/* Sombra base */}
+                              <ellipse cx="50" cy="114" rx="20" ry="3.5" fill="rgba(0,0,0,0.08)" />
+                              
+                              {/* Cono Waffle */}
+                              <g filter={`url(#sh-${flavor.id})`}>
+                                {/* Base Cone styled with clipPath */}
+                                <g clipPath={`url(#cone-clip-${flavor.id})`}>
+                                  <path d="M32 63 L50 110 L68 63 Z" fill={`url(#coneGrad-${flavor.id})`} />
+                                  {/* Waffle Grid */}
+                                  <path d="M 10 30 L 80 100 M 10 40 L 80 110 M 10 20 L 80 90 M 10 10 L 80 80 M 10 50 L 80 120 M 10 0 L 80 70" stroke="#7a4b1c" strokeWidth="0.8" opacity="0.3" />
+                                  <path d="M 90 30 L 20 100 M 90 40 L 20 110 M 90 20 L 20 90 M 90 10 L 20 80 M 90 50 L 20 120 M 90 0 L 20 70" stroke="#7a4b1c" strokeWidth="0.8" opacity="0.3" />
+                                  {/* Cone 3D shadow overlay */}
+                                  <path d="M32 63 L50 110 L68 63 Z" fill={`url(#coneShadow-${flavor.id})`} />
+                                </g>
+                                {/* Outline borders */}
+                                <path d="M32 63 L50 110 L68 63 Z" fill="none" stroke="#7a4b1c" strokeWidth="1" opacity="0.6" />
+                              </g>
+                              
+                              {/* Bola de Helado con brillo 3D y faldón realista */}
+                              <g filter={`url(#sh-${flavor.id})`}>
+                                <circle cx="50" cy="46" r="24" fill={flavor.color} />
+                                <circle cx="50" cy="46" r="24" fill={`url(#shadow-${flavor.id})`} />
+                                <circle cx="50" cy="46" r="24" fill={`url(#specular-${flavor.id})`} />
+                                <ellipse cx="42" cy="38" rx="8" ry="4" fill="white" opacity="0.25" transform="rotate(-15, 42, 38)" />
+                                
+                                {/* Dynamic Toppings */}
+                                {renderDynamicToppings(flavor.id)}
+                                
+                                {/* Wavy Gelato faldón at the bottom of the scoop */}
+                                <path d="M 25 58 Q 31 66 37 60 Q 43 67 50 61 Q 57 67 63 60 Q 69 66 75 58 Q 50 72 25 58 Z" fill={flavor.color} />
+                                <path d="M 25 58 Q 31 66 37 60 Q 43 67 50 61 Q 57 67 63 60 Q 69 66 75 58 Q 50 72 25 58 Z" fill={`url(#shadow-${flavor.id})`} opacity="0.3" />
+                              </g>
+                            </svg>
+                          )}
+                        </div>
+
+                        <div className="product-info">
+                          <div>
+                            <h3>{flavor.name}</h3>
+                            <p className="product-desc">{flavor.description}</p>
+                          </div>
+                          <div className="product-price-action">
+                            <div className="price-tag">
+                              S/. {flavor.price.toFixed(2)}
+                              <span> / bola</span>
+                            </div>
+                            <button 
+                              className="add-btn" 
+                              title="Añadir helado simple de 1 bola al carrito"
+                              onClick={() => handleAddClassicToCart(flavor)}
+                            >
+                              +
+                            </button>
+                          </div>
+                        </div>
+                      </div>
+                    );
+                  })}
+                </React.Fragment>
+              );
+            }
+            if (section === 'packs') {
+              return (
+                <React.Fragment key="packs">
+                  {/* Mostrar Packs */}
+                  {(filter === 'all' || filter === 'packs') && activePacks.map(pack => {
+                    const badgeClass = `badge-${pack.badge.toLowerCase().replace(/\s+/g, '-')}`;
+                    return (
+                      <div key={pack.id} className="glass-card product-card" style={{ borderColor: 'rgba(229, 142, 38, 0.2)' }}>
+                        {pack.badge && (
+                          <span className={`product-badge ${badgeClass}`}>
+                            {pack.badge}
+                          </span>
+                        )}
+                        
+                        <div className="product-illustration" style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', minHeight: '100px' }}>
+                          {pack.image ? (
+                            <img 
+                              src={pack.image} 
+                              alt={pack.name} 
+                              style={{ width: '100%', height: '100px', objectFit: 'contain', borderRadius: '8px' }} 
+                              loading="lazy"
+                            />
+                          ) : (
+                            <svg viewBox="0 0 100 100" width="90" height="90" style={{ display: 'block', margin: '0 auto' }}>
+                              <defs>
+                                <linearGradient id="boxGrad" x1="0" y1="0" x2="1" y2="1">
+                                  <stop offset="0%" stopColor="#ff4757" />
+                                  <stop offset="100%" stopColor="#ff1f3b" />
+                                </linearGradient>
+                                <linearGradient id="lidGrad" x1="0" y1="0" x2="0" y2="1">
+                                  <stop offset="0%" stopColor="#ff6b81" />
+                                  <stop offset="100%" stopColor="#ff3855" />
+                                </linearGradient>
+                                <linearGradient id="ribbonGrad" x1="0" y1="0" x2="1" y2="1">
+                                  <stop offset="0%" stopColor="#eccc68" />
+                                  <stop offset="100%" stopColor="#ff7f50" />
+                                </linearGradient>
+                                <linearGradient id="goldGrad" x1="0" y1="0" x2="0" y2="1">
+                                  <stop offset="0%" stopColor="#ffa502" />
+                                  <stop offset="100%" stopColor="#ff7f50" />
+                                </linearGradient>
+                                <filter id="giftShadow" x="-10%" y="-10%" width="120%" height="120%">
+                                  <feDropShadow dx="0" dy="3" stdDeviation="3" floodOpacity="0.15" />
+                                </filter>
+                              </defs>
+          
+                              <ellipse cx="50" cy="88" rx="28" ry="5" fill="rgba(0,0,0,0.1)" />
+          
+                              <g filter="url(#giftShadow)">
+                                <rect x="18" y="42" width="64" height="6" rx="1" fill="rgba(0,0,0,0.15)" />
+                                <rect x="22" y="44" width="56" height="40" rx="3" fill="url(#boxGrad)" />
+                                <rect x="44" y="44" width="12" height="40" fill="url(#ribbonGrad)" />
+                                <rect x="18" y="34" width="64" height="10" rx="2" fill="url(#lidGrad)" />
+                                <rect x="44" y="34" width="12" height="10" fill="url(#ribbonGrad)" />
+                                <path d="M 45 34 C 30 24, 30 12, 45 22 Z" fill="url(#goldGrad)" stroke="#ff7f50" strokeWidth="0.8" />
+                                <path d="M 55 34 C 70 24, 70 12, 55 22 Z" fill="url(#goldGrad)" stroke="#ff7f50" strokeWidth="0.8" />
+                                <path d="M 45 34 C 40 40, 32 45, 34 52" fill="none" stroke="url(#goldGrad)" strokeWidth="3" strokeLinecap="round" />
+                                <path d="M 55 34 C 60 40, 68 45, 66 52" fill="none" stroke="url(#goldGrad)" strokeWidth="3" strokeLinecap="round" />
+                                <rect x="43" y="24" width="14" height="10" rx="3" fill="url(#goldGrad)" stroke="#d5822b" strokeWidth="0.8" />
+                              </g>
+                            </svg>
+                          )}
+                        </div>
+                        <div className="product-info">
+                          <div>
+                            <h3>{pack.name}</h3>
+                            <p className="product-desc">{pack.description}</p>
+                            <p style={{ fontSize: '0.85rem', fontWeight: 600, color: 'var(--primary-color)', marginBottom: '15px' }}>
+                              📦 Incluye: {pack.items}
+                            </p>
+                          </div>
+                          <div className="product-price-action">
+                            <div className="price-tag">
+                              S/. {pack.price.toFixed(2)}
+                              <div style={{ fontSize: '0.75rem', color: 'var(--success)', fontWeight: 600 }}>
+                                {pack.discountText}
+                              </div>
+                            </div>
+                            <button 
+                              className="add-btn" 
+                              style={{ backgroundColor: 'var(--secondary-color)' }}
+                              title="Añadir pack al carrito"
+                              onClick={() => handleAddPackToCart(pack)}
+                            >
+                              +
+                            </button>
+                          </div>
+                        </div>
+                      </div>
+                    );
+                  })}
+                </React.Fragment>
+              );
+            }
+            return null;
           })}
         </div>
       </section>

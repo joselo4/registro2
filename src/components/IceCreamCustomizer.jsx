@@ -173,7 +173,7 @@ export default function IceCreamCustomizer({ bases, flavors, toppings, onAddToCa
       return;
     }
 
-    const name = `Helado Personalizado en ${selectedBase.name.split(' ')[0]} (${selectedScoops.length} bola${selectedScoops.length > 1 ? 's' : ''})`;
+    const name = `Helado Personalizado en ${selectedBase.name} (${selectedScoops.length} bola${selectedScoops.length > 1 ? 's' : ''})`;
     const customItem = {
       type: 'custom',
       base: selectedBase,
@@ -294,6 +294,25 @@ export default function IceCreamCustomizer({ bases, flavors, toppings, onAddToCa
               </g>
             )}
 
+            {selectedBase.id !== 'cono' && selectedBase.id !== 'vaso' && selectedBase.id !== 'waffle' && (
+              <g filter="url(#shadow)">
+                {selectedBase.image && selectedBase.image.trim() !== '' ? (
+                  <>
+                    {/* Fondo blanco sólido para que la imagen con fondo transparente no quede flotando ni transparente */}
+                    <ellipse cx="100" cy="205" rx="42" ry="52" fill="#ffffff" opacity="0.98" />
+                    <image href={selectedBase.image} x="55" y="150" width="90" height="110" preserveAspectRatio="xMidYMid meet" />
+                  </>
+                ) : (
+                  <g>
+                    <path d="M 62 170 L 72 250 L 128 250 L 138 170 Z" fill="#e0f7fa" stroke="#00acc1" strokeWidth="2.5" />
+                    <path d="M 58 165 H 142 V 173 H 58 Z" fill="#00acc1" rx="2" />
+                    <circle cx="100" cy="210" r="18" fill="white" opacity="0.9" />
+                    <text x="100" y="216" fontSize="18" textAnchor="middle">{selectedBase.icon || '🍨'}</text>
+                  </g>
+                )}
+              </g>
+            )}
+
             {/* Bolas de Helado */}
             {selectedScoops.map((scoop, idx) => {
               const { y, r } = scoopCoords[idx];
@@ -382,7 +401,7 @@ export default function IceCreamCustomizer({ bases, flavors, toppings, onAddToCa
             <div style={{ fontSize: '0.8rem', color: 'var(--text-light)', fontWeight: 600 }}>
               {selectedScoops.length === 0 
                 ? "Agrega tu primera bola 👇" 
-                : `${selectedScoops.length} bola${selectedScoops.length > 1 ? 's' : ''} en ${selectedBase.name.split(' ')[0]}`
+                : `${selectedScoops.length} bola${selectedScoops.length > 1 ? 's' : ''} en ${selectedBase.name}`
               }
             </div>
             
@@ -459,7 +478,7 @@ export default function IceCreamCustomizer({ bases, flavors, toppings, onAddToCa
                     ) : (
                       <span style={{ fontSize: '1.8rem' }}>{base.icon}</span>
                     )}
-                    <strong style={{ fontSize: '0.8rem' }}>{base.name.split(' ')[0]}</strong>
+                    <strong style={{ fontSize: '0.8rem' }}>{base.name}</strong>
                     <span style={{ fontSize: '0.7rem', color: 'var(--primary-color)', fontWeight: 'bold' }}>
                       {base.price === 0 ? 'Gratis' : `+ S/. ${base.price.toFixed(2)}`}
                     </span>

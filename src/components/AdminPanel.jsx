@@ -78,6 +78,8 @@ export default function AdminPanel({
   onUpdateLiterConfig,
   ticketCustomMessage,
   onUpdateTicketCustomMessage,
+  catalogOrder = ['liter', 'classic', 'packs'],
+  onUpdateCatalogOrder,
   showAlert
 }) {
   const alert = (msg) => {
@@ -293,6 +295,7 @@ export default function AdminPanel({
   const [localWhatsappFooter, setLocalWhatsappFooter] = useState(whatsappFooter);
   const [localQrCustomUrl, setLocalQrCustomUrl] = useState(qrCustomUrl);
   const [localTicketCustomMessage, setLocalTicketCustomMessage] = useState(ticketCustomMessage || '');
+  const [localCatalogOrder, setLocalCatalogOrder] = useState(() => catalogOrder || ['liter', 'classic', 'packs']);
 
   // --- Estados Locales para Combo Recomendado del Carrito (Evita bugs de pérdida de foco) ---
   const [localRecPackActive, setLocalRecPackActive] = useState(cartRecommendedPack?.active !== false);
@@ -323,6 +326,7 @@ export default function AdminPanel({
   useEffect(() => { setLocalWhatsappFooter(whatsappFooter); }, [whatsappFooter]);
   useEffect(() => { setLocalQrCustomUrl(qrCustomUrl); }, [qrCustomUrl]);
   useEffect(() => { setLocalTicketCustomMessage(ticketCustomMessage || ''); }, [ticketCustomMessage]);
+  useEffect(() => { setLocalCatalogOrder(catalogOrder || ['liter', 'classic', 'packs']); }, [catalogOrder]);
 
   const handleSaveSettings = () => {
     onChangeStoreName(localStoreName);
@@ -353,6 +357,10 @@ export default function AdminPanel({
       maxFlavors: parseInt(localLiterMaxFlavors, 10) || 3,
       image: localLiterImage
     });
+
+    if (onUpdateCatalogOrder) {
+      onUpdateCatalogOrder(localCatalogOrder);
+    }
     
     addLog(`Ajustes de heladería guardados en Supabase por ${currentUser?.name || 'Administrador'}.`);
     alert("¡Ajustes de heladería guardados y sincronizados correctamente en la nube!");
@@ -1431,7 +1439,7 @@ export default function AdminPanel({
           toppings: [],
           price: f.price + b.price,
           quantity: 1,
-          name: `Helado de ${f.name} en ${b.name.split(' ')[0]}`
+          name: `Helado de ${f.name} en ${b.name}`
         };
         setEditingOrder({ ...editingOrder, items: [...editingOrder.items, newItem] });
       };
@@ -1561,7 +1569,7 @@ export default function AdminPanel({
                     value={editNewBaseId}
                     onChange={(e) => setEditNewBaseId(e.target.value)}
                   >
-                    {bases.map(b => <option key={b.id} value={b.id}>{b.name.split(' ')[0]}</option>)}
+                    {bases.map(b => <option key={b.id} value={b.id}>{b.name}</option>)}
                   </select>
                 </div>
                 <button type="button" className="btn btn-secondary" style={{ width: '100%', padding: '5px', fontSize: '0.75rem' }} onClick={handleAddFlavorToOrder}>
@@ -1594,7 +1602,7 @@ export default function AdminPanel({
             <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
               {editingOrder.items.map((item, idx) => {
                 const itemLabel = item.type === 'custom' 
-                  ? `Helado Personalizado: ${item.scoops ? item.scoops.map(s => s.name).join(', ') : ''} en ${item.base ? item.base.name.split(' ')[0] : ''}` 
+                  ? `Helado Personalizado: ${item.scoops ? item.scoops.map(s => s.name).join(', ') : ''} en ${item.base ? item.base.name : ''}` 
                   : `Pack: ${item.name}`;
                 return (
                   <div key={idx} style={{ 
@@ -2101,11 +2109,12 @@ export default function AdminPanel({
                   <th>Sabor</th>
                   <th>Precio</th>
                   <th>Estado</th>
+                  <th style={{ textAlign: 'center' }}>Orden</th>
                   <th>Acción</th>
                 </tr>
               </thead>
               <tbody>
-                {flavors.map(f => (
+                {flavors.map((f, idx) => (
                   <tr key={f.id}>
                     <td>
                       <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
@@ -2132,6 +2141,44 @@ export default function AdminPanel({
                         />
                         <span className="slider"></span>
                       </label>
+                    </td>
+                    <td>
+                      <div style={{ display: 'flex', gap: '4px', justifyContent: 'center' }}>
+                        <button 
+                          type="button"
+                          className="admin-action-btn" 
+                          style={{ padding: '2px 6px', fontSize: '0.75rem' }}
+                          disabled={idx === 0} 
+                          onClick={() => {
+                            const newFlavors = [...flavors];
+                            const temp = newFlavors[idx];
+                            newFlavors[idx] = newFlavors[idx - 1];
+                            newFlavors[idx - 1] = temp;
+                            onUpdateFlavors(newFlavors);
+                            addLog(`Orden: Se cambió el orden del sabor ${f.name}.`);
+                          }}
+                          title="Subir"
+                        >
+                          ⬆️
+                        </button>
+                        <button 
+                          type="button"
+                          className="admin-action-btn" 
+                          style={{ padding: '2px 6px', fontSize: '0.75rem' }}
+                          disabled={idx === flavors.length - 1} 
+                          onClick={() => {
+                            const newFlavors = [...flavors];
+                            const temp = newFlavors[idx];
+                            newFlavors[idx] = newFlavors[idx + 1];
+                            newFlavors[idx + 1] = temp;
+                            onUpdateFlavors(newFlavors);
+                            addLog(`Orden: Se cambió el orden del sabor ${f.name}.`);
+                          }}
+                          title="Bajar"
+                        >
+                          ⬇️
+                        </button>
+                      </div>
                     </td>
                     <td>
                       <div style={{ display: 'flex', gap: '4px' }}>
@@ -2248,11 +2295,12 @@ export default function AdminPanel({
                   <th>Topping / Salsa</th>
                   <th>Precio</th>
                   <th>Estado</th>
+                  <th style={{ textAlign: 'center' }}>Orden</th>
                   <th>Acción</th>
                 </tr>
               </thead>
               <tbody>
-                {toppings.map(t => (
+                {toppings.map((t, idx) => (
                   <tr key={t.id}>
                     <td>
                       <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
@@ -2282,6 +2330,44 @@ export default function AdminPanel({
                         />
                         <span className="slider"></span>
                       </label>
+                    </td>
+                    <td>
+                      <div style={{ display: 'flex', gap: '4px', justifyContent: 'center' }}>
+                        <button 
+                          type="button"
+                          className="admin-action-btn" 
+                          style={{ padding: '2px 6px', fontSize: '0.75rem' }}
+                          disabled={idx === 0} 
+                          onClick={() => {
+                            const newToppings = [...toppings];
+                            const temp = newToppings[idx];
+                            newToppings[idx] = newToppings[idx - 1];
+                            newToppings[idx - 1] = temp;
+                            onUpdateToppings(newToppings);
+                            addLog(`Orden: Se cambió el orden del topping ${t.name}.`);
+                          }}
+                          title="Subir"
+                        >
+                          ⬆️
+                        </button>
+                        <button 
+                          type="button"
+                          className="admin-action-btn" 
+                          style={{ padding: '2px 6px', fontSize: '0.75rem' }}
+                          disabled={idx === toppings.length - 1} 
+                          onClick={() => {
+                            const newToppings = [...toppings];
+                            const temp = newToppings[idx];
+                            newToppings[idx] = newToppings[idx + 1];
+                            newToppings[idx + 1] = temp;
+                            onUpdateToppings(newToppings);
+                            addLog(`Orden: Se cambió el orden del topping ${t.name}.`);
+                          }}
+                          title="Bajar"
+                        >
+                          ⬇️
+                        </button>
+                      </div>
                     </td>
                     <td>
                       <div style={{ display: 'flex', gap: '4px' }}>
@@ -2402,11 +2488,12 @@ export default function AdminPanel({
                   <th>Envase</th>
                   <th>Costo Adicional</th>
                   <th>Estado</th>
+                  <th style={{ textAlign: 'center' }}>Orden</th>
                   <th>Acción</th>
                 </tr>
               </thead>
               <tbody>
-                {bases.map(b => (
+                {bases.map((b, idx) => (
                   <tr key={b.id}>
                     <td>
                       <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
@@ -2438,6 +2525,44 @@ export default function AdminPanel({
                         />
                         <span className="slider"></span>
                       </label>
+                    </td>
+                    <td>
+                      <div style={{ display: 'flex', gap: '4px', justifyContent: 'center' }}>
+                        <button 
+                          type="button"
+                          className="admin-action-btn" 
+                          style={{ padding: '2px 6px', fontSize: '0.75rem' }}
+                          disabled={idx === 0} 
+                          onClick={() => {
+                            const newBases = [...bases];
+                            const temp = newBases[idx];
+                            newBases[idx] = newBases[idx - 1];
+                            newBases[idx - 1] = temp;
+                            onUpdateBases(newBases);
+                            addLog(`Orden: Se cambió el orden del envase ${b.name}.`);
+                          }}
+                          title="Subir"
+                        >
+                          ⬆️
+                        </button>
+                        <button 
+                          type="button"
+                          className="admin-action-btn" 
+                          style={{ padding: '2px 6px', fontSize: '0.75rem' }}
+                          disabled={idx === bases.length - 1} 
+                          onClick={() => {
+                            const newBases = [...bases];
+                            const temp = newBases[idx];
+                            newBases[idx] = newBases[idx + 1];
+                            newBases[idx + 1] = temp;
+                            onUpdateBases(newBases);
+                            addLog(`Orden: Se cambió el orden del envase ${b.name}.`);
+                          }}
+                          title="Bajar"
+                        >
+                          ⬇️
+                        </button>
+                      </div>
                     </td>
                     <td>
                       <div style={{ display: 'flex', gap: '4px' }}>
@@ -2709,17 +2834,18 @@ export default function AdminPanel({
                 <tr>
                   <th>Combinación</th>
                   <th>Detalle Creado</th>
+                  <th style={{ textAlign: 'center' }}>Orden</th>
                   <th>Acción</th>
                 </tr>
               </thead>
               <tbody>
                 {recommendations.length === 0 ? (
                   <tr>
-                    <td colSpan="3" style={{ textAlign: 'center', color: 'var(--text-light)', padding: '15px' }}>No hay combinaciones recomendadas.</td>
+                    <td colSpan="4" style={{ textAlign: 'center', color: 'var(--text-light)', padding: '15px' }}>No hay combinaciones recomendadas.</td>
                   </tr>
                 ) : (
-                  recommendations.map(rec => {
-                    const baseName = bases.find(b => b.id === rec.baseId)?.name.split(' ')[0] || rec.baseId;
+                  recommendations.map((rec, idx) => {
+                    const baseName = bases.find(b => b.id === rec.baseId)?.name || rec.baseId;
                     const flavorNames = rec.flavorIds.map(fid => flavors.find(f => f.id === fid)?.name || fid).join(' + ');
                     const toppingNames = rec.toppingIds && rec.toppingIds.length > 0 ? rec.toppingIds.map(tid => toppings.find(t => t.id === tid)?.name || tid).join(', ') : 'Ninguno';
                     const syrupName = rec.syrupId ? (rec.syrupId === 'fudge' ? 'Fudge' : rec.syrupId === 'fresa' ? 'Fresa' : 'Manjar') : 'Ninguna';
@@ -2728,6 +2854,44 @@ export default function AdminPanel({
                         <td><strong style={{ fontSize: '0.85rem' }}>{rec.name}</strong></td>
                         <td style={{ fontSize: '0.75rem', color: 'var(--text-light)' }}>
                           {baseName} | {flavorNames} | Topping: {toppingNames} | Salsa: {syrupName}
+                        </td>
+                        <td>
+                          <div style={{ display: 'flex', gap: '4px', justifyContent: 'center' }}>
+                            <button 
+                              type="button"
+                              className="admin-action-btn" 
+                              style={{ padding: '2px 6px', fontSize: '0.75rem' }}
+                              disabled={idx === 0} 
+                              onClick={() => {
+                                const newRecs = [...recommendations];
+                                const temp = newRecs[idx];
+                                newRecs[idx] = newRecs[idx - 1];
+                                newRecs[idx - 1] = temp;
+                                onUpdateRecommendations(newRecs);
+                                addLog(`Orden: Se cambió el orden de la combinación ${rec.name}.`);
+                              }}
+                              title="Subir"
+                            >
+                              ⬆️
+                            </button>
+                            <button 
+                              type="button"
+                              className="admin-action-btn" 
+                              style={{ padding: '2px 6px', fontSize: '0.75rem' }}
+                              disabled={idx === recommendations.length - 1} 
+                              onClick={() => {
+                                const newRecs = [...recommendations];
+                                const temp = newRecs[idx];
+                                newRecs[idx] = newRecs[idx + 1];
+                                newRecs[idx + 1] = temp;
+                                onUpdateRecommendations(newRecs);
+                                addLog(`Orden: Se cambió el orden de la combinación ${rec.name}.`);
+                              }}
+                              title="Bajar"
+                            >
+                              ⬇️
+                            </button>
+                          </div>
                         </td>
                         <td>
                           <button className="admin-action-btn" style={{ color: 'var(--primary-color)', marginRight: '8px' }} onClick={() => {
@@ -2846,11 +3010,12 @@ export default function AdminPanel({
               <tr>
                 <th>Combo</th>
                 <th>Precio</th>
+                <th style={{ textAlign: 'center' }}>Orden</th>
                 <th>Acción</th>
               </tr>
             </thead>
             <tbody>
-              {packs.map(p => (
+              {packs.map((p, idx) => (
                 <tr key={p.id}>
                   <td>
                     <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
@@ -2866,6 +3031,44 @@ export default function AdminPanel({
                     </div>
                   </td>
                   <td style={{ fontSize: '0.85rem', fontWeight: 600 }}>S/. {p.price.toFixed(2)}</td>
+                  <td>
+                    <div style={{ display: 'flex', gap: '4px', justifyContent: 'center' }}>
+                      <button 
+                         type="button"
+                         className="admin-action-btn" 
+                         style={{ padding: '2px 6px', fontSize: '0.75rem' }}
+                         disabled={idx === 0} 
+                         onClick={() => {
+                           const newPacks = [...packs];
+                           const temp = newPacks[idx];
+                           newPacks[idx] = newPacks[idx - 1];
+                           newPacks[idx - 1] = temp;
+                           onUpdatePacks(newPacks);
+                           addLog(`Orden: Se cambió el orden del combo ${p.name}.`);
+                         }}
+                         title="Subir"
+                      >
+                        ⬆️
+                      </button>
+                      <button 
+                         type="button"
+                         className="admin-action-btn" 
+                         style={{ padding: '2px 6px', fontSize: '0.75rem' }}
+                         disabled={idx === packs.length - 1} 
+                         onClick={() => {
+                           const newPacks = [...packs];
+                           const temp = newPacks[idx];
+                           newPacks[idx] = newPacks[idx + 1];
+                           newPacks[idx + 1] = temp;
+                           onUpdatePacks(newPacks);
+                           addLog(`Orden: Se cambió el orden del combo ${p.name}.`);
+                         }}
+                         title="Bajar"
+                      >
+                        ⬇️
+                      </button>
+                    </div>
+                  </td>
                   <td>
                     <div style={{ display: 'flex', gap: '4px' }}>
                       <button className="admin-action-btn" onClick={() => { setEditingPack(p); setShowAddPack(false); }}>✏️</button>
@@ -3163,7 +3366,8 @@ export default function AdminPanel({
         recommendations,
         cartRecommendedPack,
         literConfig,
-        ticketCustomMessage
+        ticketCustomMessage,
+        catalogOrder
       };
 
       const dataStr = "data:text/json;charset=utf-8," + encodeURIComponent(JSON.stringify(backupData, null, 2));
@@ -3219,6 +3423,7 @@ export default function AdminPanel({
           if (data.cartRecommendedPack !== undefined && onUpdateCartRecommendedPack) onUpdateCartRecommendedPack(data.cartRecommendedPack);
           if (data.literConfig && onUpdateLiterConfig) onUpdateLiterConfig(data.literConfig);
           if (data.ticketCustomMessage && onUpdateTicketCustomMessage) onUpdateTicketCustomMessage(data.ticketCustomMessage);
+          if (data.catalogOrder && onUpdateCatalogOrder) onUpdateCatalogOrder(data.catalogOrder);
 
           // Sincronizar por lote a Supabase
           if (supabase) {
@@ -3245,7 +3450,8 @@ export default function AdminPanel({
               { key: 'recommendations', val: data.recommendations },
               { key: 'cart_recommended_pack', val: data.cartRecommendedPack },
               { key: 'liter_config', val: data.literConfig },
-              { key: 'ticket_custom_message', val: data.ticketCustomMessage }
+              { key: 'ticket_custom_message', val: data.ticketCustomMessage },
+              { key: 'catalog_order', val: data.catalogOrder }
             ];
 
             const { updateSyncedData } = await import('../utils/supabaseSync');
@@ -4132,6 +4338,74 @@ create policy "Modificación privada de personal y credenciales" on public.helad
               >
                 📤 Subir Copia (JSON)
               </label>
+            </div>
+          </div>
+
+          {/* Prioridad de Secciones de la Carta */}
+          <div className="glass" style={{ padding: '20px', borderRadius: '8px', borderLeft: '4px solid var(--secondary-color)', background: 'rgba(229, 142, 38, 0.02)', marginBottom: '15px' }}>
+            <strong style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '0.9rem' }}>
+              🗂️ Prioridad y Orden de Secciones en la Carta
+            </strong>
+            <p style={{ fontSize: '0.75rem', color: 'var(--text-light)', marginTop: '4px', marginBottom: '15px' }}>
+              Usa los botones para reorganizar cómo se muestran las categorías en el catálogo principal de los clientes en tiempo real.
+            </p>
+            
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
+              {localCatalogOrder.map((section, idx) => {
+                const label = section === 'liter' 
+                  ? '🏺 Helado Familiar de 1 Litro' 
+                  : section === 'classic' 
+                  ? '🍦 Helados Simples / Sabores' 
+                  : '🎁 Packs & Combos Promocionales';
+                return (
+                  <div key={section} style={{
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'space-between',
+                    background: 'var(--bg-primary)',
+                    padding: '10px 15px',
+                    borderRadius: '8px',
+                    border: '1px solid var(--border-color)',
+                    boxShadow: 'var(--shadow-sm)'
+                  }}>
+                    <span style={{ fontSize: '0.85rem', fontWeight: 600 }}>{label}</span>
+                    <div style={{ display: 'flex', gap: '6px' }}>
+                      <button
+                        type="button"
+                        className="admin-action-btn"
+                        style={{ padding: '2px 6px', fontSize: '0.75rem' }}
+                        disabled={idx === 0}
+                        onClick={() => {
+                          const newOrder = [...localCatalogOrder];
+                          const temp = newOrder[idx];
+                          newOrder[idx] = newOrder[idx - 1];
+                          newOrder[idx - 1] = temp;
+                          setLocalCatalogOrder(newOrder);
+                        }}
+                        title="Subir"
+                      >
+                        ⬆️
+                      </button>
+                      <button
+                        type="button"
+                        className="admin-action-btn"
+                        style={{ padding: '2px 6px', fontSize: '0.75rem' }}
+                        disabled={idx === localCatalogOrder.length - 1}
+                        onClick={() => {
+                          const newOrder = [...localCatalogOrder];
+                          const temp = newOrder[idx];
+                          newOrder[idx] = newOrder[idx + 1];
+                          newOrder[idx + 1] = temp;
+                          setLocalCatalogOrder(newOrder);
+                        }}
+                        title="Bajar"
+                      >
+                        ⬇️
+                      </button>
+                    </div>
+                  </div>
+                );
+              })}
             </div>
           </div>
 
@@ -5594,7 +5868,7 @@ create policy "Modificación privada de personal y credenciales" on public.helad
                       return (
                         <div key={name}>
                           <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.75rem', marginBottom: '3px' }}>
-                            <span><strong>#{idx + 1}</strong> {name.split(' ')[0]}</span>
+                            <span><strong>#{idx + 1}</strong> {name}</span>
                             <span style={{ color: 'var(--text-light)' }}>{count} pedido{count > 1 ? 's' : ''}</span>
                           </div>
                           <div style={{ width: '100%', height: '6px', background: 'var(--border-color)', borderRadius: '3px', overflow: 'hidden' }}>
@@ -5620,7 +5894,7 @@ create policy "Modificación privada de personal y credenciales" on public.helad
                       return (
                         <div key={name}>
                           <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.75rem', marginBottom: '3px' }}>
-                            <span><strong>#{idx + 1}</strong> {name.split(' ')[0]}</span>
+                            <span><strong>#{idx + 1}</strong> {name}</span>
                             <span style={{ color: 'var(--text-light)' }}>{count} porci{count > 1 ? 'ones' : 'ón'}</span>
                           </div>
                           <div style={{ width: '100%', height: '6px', background: 'var(--border-color)', borderRadius: '3px', overflow: 'hidden' }}>

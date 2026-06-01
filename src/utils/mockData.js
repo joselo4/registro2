@@ -12,9 +12,9 @@ export const INITIAL_FLAVORS = [
 ];
 
 export const INITIAL_BASES = [
-  { id: 'cono', name: 'Cono de Galleta Crujiente', price: 0.0, icon: '🍦', description: 'El clásico barquillo de galleta dulce.' },
-  { id: 'vaso', name: 'Vaso Eco-Amigable', price: 0.0, icon: '🍧', description: 'Vaso de cartón biodegradable con cucharita.' },
-  { id: 'waffle', name: 'Copa Waffle Artesanal', price: 1.5, icon: '🧇', description: 'Copa comestible crujiente hecha a mano (+S/. 1.50).' }
+  { id: 'cono', name: 'Cono', price: 0.0, icon: '🍦', description: 'El clásico barquillo de galleta dulce.' },
+  { id: 'vaso', name: 'Vaso', price: 0.0, icon: '🍧', description: 'Vaso de cartón biodegradable con cucharita.' },
+  { id: 'waffle', name: 'Copa Waffle', price: 1.5, icon: '🧇', description: 'Copa comestible crujiente hecha a mano (+S/. 1.50).' }
 ];
 
 export const INITIAL_TOPPINGS = [

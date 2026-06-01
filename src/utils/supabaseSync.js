@@ -130,6 +130,16 @@ export const subscribeToSync = (onUpdateCallback, isAdmin = false) => {
             }
           }
         )
+        .on(
+          'postgres_changes',
+          { event: 'UPDATE', schema: 'public', table: 'helados_sync', filter: 'key=eq.catalog_order' },
+          (payload) => {
+            if (payload.new && payload.new.key) {
+              invalidateSyncCache();
+              onUpdateCallback(payload.new.key, payload.new.value);
+            }
+          }
+        )
         .subscribe((status) => {
           if (status === 'SUBSCRIBED') {
             console.log("🔌 Canal Supabase Realtime (Cliente) suscrito con éxito.");

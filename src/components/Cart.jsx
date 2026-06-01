@@ -340,7 +340,7 @@ export default function Cart({
                   ) : item.type === 'custom' && item.base?.image ? (
                     <img src={item.base.image} alt={item.name} style={{ width: '100%', height: '100%', objectFit: 'contain' }} />
                   ) : (
-                    item.type === 'custom' ? (item.base.id === 'cono' ? '🍦' : '🍧') : (item.type === 'liter' ? '🏺' : '🎁')
+                    item.type === 'custom' ? (item.base.icon || (item.base.id === 'cono' ? '🍦' : '🍧')) : (item.type === 'liter' ? '🏺' : '🎁')
                   )}
                 </div>
                 <div className="cart-item-details">
