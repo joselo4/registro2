@@ -387,6 +387,35 @@ export default function Cart({
         <div className="glass checkout-section" style={{ padding: '15px', borderRadius: 'var(--radius-md)' }}>
           <h3 style={{ fontSize: '1.1rem', marginBottom: '8px' }}>Checkout Exprés (Rápido)</h3>
           
+          <button
+            type="button"
+            className="btn btn-secondary"
+            style={{
+              backgroundColor: '#25D366',
+              color: 'white',
+              borderColor: '#25D366',
+              width: '100%',
+              fontSize: '0.8rem',
+              padding: '8px',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              gap: '6px',
+              cursor: 'pointer',
+              marginBottom: '10px',
+              marginTop: '5px'
+            }}
+            onClick={() => {
+              const waUrl = `https://wa.me/${String(storePhone || '51987654321').replace(/\D/g, '')}?text=${encodeURIComponent('¡Hola! Estoy revisando mi carrito de compras y tengo una consulta sobre mi pedido 🍦')}`;
+              window.open(waUrl, '_blank');
+            }}
+          >
+            <svg viewBox="0 0 24 24" width="16" height="16" fill="currentColor" style={{ verticalAlign: 'middle' }}>
+              <path d="M.057 24l1.687-6.163c-1.041-1.804-1.588-3.849-1.587-5.946C.06 5.348 5.397.01 12.008.01c3.202.001 6.212 1.246 8.477 3.514 2.266 2.268 3.507 5.28 3.505 8.484-.004 6.657-5.34 11.997-11.953 11.997-2.005-.001-3.973-.502-5.724-1.455L0 24zm6.59-4.846c1.66.986 3.284 1.447 4.74 1.448 5.4 0 9.792-4.393 9.795-9.79.002-2.615-1.012-5.074-2.855-6.918C16.483 2.05 14.032.99(11.417.99c-5.402 0-9.794 4.393-9.797 9.79-.001 1.733.456 3.238 1.411 4.887L2.03 20.485l4.616-1.331zM16.518 14.1c-.266-.134-1.577-.777-1.821-.866-.245-.09-.423-.134-.6.134-.178.266-.689.866-.844 1.04-.155.178-.312.2-.578.066-.266-.134-1.124-.414-2.141-1.32-.79-.705-1.326-1.577-1.482-1.844-.155-.266-.017-.41.117-.543.12-.12.266-.312.4-.467.135-.156.18-.266.27-.444.09-.178.045-.334-.022-.467-.067-.134-.6-1.446-.823-1.979-.217-.523-.454-.452-.6-.452h-.51c-.178 0-.467.067-.71.334-.244.267-.933.912-.933 2.224 0 1.312.955 2.58 1.088 2.757.135.178 1.88 2.87 4.554 4.024.637.275 1.13.438 1.517.56.64.204 1.22.175 1.68.107.513-.075 1.577-.644 1.8-.1.223-.545.223-1.013.156-1.1zm-.058-.058v.058-.058z"/>
+            </svg>
+            <span>¿Dudas con tu pedido? Escríbenos por WhatsApp</span>
+          </button>
+          
           <form className="checkout-form" onSubmit={handleSubmit} style={{ gap: '10px', marginTop: '10px' }}>
             <div className="form-group">
               <label style={{ fontSize: '0.8rem' }}>¿Tu Nombre?</label>

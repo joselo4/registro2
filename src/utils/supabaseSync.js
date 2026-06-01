@@ -90,6 +90,31 @@ export const updateSyncedData = async (key, value) => {
 };
 
 /**
+ * Guarda o actualiza múltiples registros clave-valor en un solo query (Bulk Upsert).
+ * Optimiza el rendimiento y ahorra conexiones/egress en la cuenta Free de Supabase.
+ */
+export const updateMultipleSyncedData = async (keyValuePairs) => {
+  if (!supabase || !keyValuePairs || keyValuePairs.length === 0) return false;
+  try {
+    const rows = keyValuePairs.map(item => ({
+      key: item.key,
+      value: item.value,
+      updated_at: new Date().toISOString()
+    }));
+    
+    const { error } = await supabase
+      .from('helados_sync')
+      .upsert(rows, { onConflict: 'key' });
+      
+    if (error) throw error;
+    return true;
+  } catch (err) {
+    console.warn("⚠️ Supabase Sync: Error en actualización en lote.", err.message);
+    return false;
+  }
+};
+
+/**
  * Suscribe la aplicación a los cambios de la tabla `helados_sync` en tiempo real.
  * Ejecuta el callback onUpdateCallback(key, value) ante cada cambio remoto.
  */

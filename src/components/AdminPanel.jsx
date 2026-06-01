@@ -3425,48 +3425,48 @@ export default function AdminPanel({
           if (data.ticketCustomMessage && onUpdateTicketCustomMessage) onUpdateTicketCustomMessage(data.ticketCustomMessage);
           if (data.catalogOrder && onUpdateCatalogOrder) onUpdateCatalogOrder(data.catalogOrder);
 
-          // Sincronizar por lote a Supabase
+          // Sincronizar por lote a Supabase (Bulk Upsert para optimización en cuenta Free)
           if (supabase) {
-            const keysToSync = [
-              { key: 'store_name', val: data.storeName },
-              { key: 'store_logo', val: data.storeLogo },
-              { key: 'flavors', val: data.flavors },
-              { key: 'toppings', val: data.toppings },
-              { key: 'bases', val: data.bases },
-              { key: 'packs', val: data.packs },
-              { key: 'orders', val: data.orders },
-              { key: 'expenses', val: data.expenses },
-              { key: 'delivery_fee', val: data.deliveryFee },
-              { key: 'shop_open', val: data.shopOpen },
-              { key: 'free_delivery_threshold', val: data.freeDeliveryThreshold },
-              { key: 'delivery_campaign_text', val: data.deliveryCampaignText },
-              { key: 'store_phone', val: data.storePhone },
-              { key: 'telegram_token', val: data.telegramToken },
-              { key: 'telegram_chat_id', val: data.telegramChatId },
-              { key: 'sales_goal', val: data.salesGoal },
-              { key: 'whatsapp_greeting', val: data.whatsappGreeting },
-              { key: 'whatsapp_footer', val: data.whatsappFooter },
-              { key: 'qr_custom_url', val: data.qrCustomUrl },
-              { key: 'recommendations', val: data.recommendations },
-              { key: 'cart_recommended_pack', val: data.cartRecommendedPack },
-              { key: 'liter_config', val: data.literConfig },
-              { key: 'ticket_custom_message', val: data.ticketCustomMessage },
-              { key: 'catalog_order', val: data.catalogOrder }
-            ];
-
-            const { updateSyncedData } = await import('../utils/supabaseSync');
-            for (const item of keysToSync) {
-              if (item.val !== undefined) {
-                await updateSyncedData(item.key, item.val);
+            const keysToSync = [];
+            const addKey = (key, val) => {
+              if (val !== undefined) {
+                keysToSync.push({ key, value: val });
               }
-            }
+            };
+            addKey('store_name', data.storeName);
+            addKey('store_logo', data.storeLogo);
+            addKey('flavors', data.flavors);
+            addKey('toppings', data.toppings);
+            addKey('bases', data.bases);
+            addKey('packs', data.packs);
+            addKey('orders', data.orders);
+            addKey('expenses', data.expenses);
+            addKey('delivery_fee', data.deliveryFee);
+            addKey('shop_open', data.shopOpen);
+            addKey('free_delivery_threshold', data.freeDeliveryThreshold);
+            addKey('delivery_campaign_text', data.deliveryCampaignText);
+            addKey('store_phone', data.storePhone);
+            addKey('telegram_token', data.telegramToken);
+            addKey('telegram_chat_id', data.telegramChatId);
+            addKey('sales_goal', data.salesGoal);
+            addKey('whatsapp_greeting', data.whatsappGreeting);
+            addKey('whatsapp_footer', data.whatsappFooter);
+            addKey('qr_custom_url', data.qrCustomUrl);
+            addKey('recommendations', data.recommendations);
+            addKey('cart_recommended_pack', data.cartRecommendedPack);
+            addKey('liter_config', data.literConfig);
+            addKey('ticket_custom_message', data.ticketCustomMessage);
+            addKey('catalog_order', data.catalogOrder);
 
-            // También subir los pedidos individuales para que sigan rastreables
+            // Subir los pedidos individuales en el mismo lote
             if (data.orders && Array.isArray(data.orders)) {
-              for (const o of data.orders) {
-                await updateSyncedData(`order_${o.id}`, o);
-              }
+              data.orders.forEach(o => {
+                addKey(`order_${o.id}`, o);
+              });
             }
+
+            const { updateMultipleSyncedData } = await import('../utils/supabaseSync');
+            await updateMultipleSyncedData(keysToSync);
           }
 
           addLog(`Base de datos restaurada desde copia de seguridad por ${currentUser?.name}.`);

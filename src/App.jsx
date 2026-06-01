@@ -54,7 +54,7 @@ const renderLogo = (logo, size = '32px') => {
 };
 
 // Live chat bubble bridged to Telegram
-function LiveChatTelegramBridge({ telegramToken, telegramChatId, storePhone, storeName, view }) {
+function LiveChatTelegramBridge({ telegramToken, telegramChatId, storePhone, storeName, view, hasFloatingCart }) {
   const [isOpen, setIsOpen] = useState(false);
   const [name, setName] = useState('');
   const [message, setMessage] = useState('');
@@ -117,7 +117,7 @@ function LiveChatTelegramBridge({ telegramToken, telegramChatId, storePhone, sto
       <style dangerouslySetInnerHTML={{ __html: `
         .live-chat-bubble {
           position: fixed;
-          bottom: 85px;
+          bottom: ${hasFloatingCart ? '145px' : '85px'};
           right: 20px;
           width: 56px;
           height: 56px;
@@ -131,7 +131,7 @@ function LiveChatTelegramBridge({ telegramToken, telegramChatId, storePhone, sto
           cursor: pointer;
           box-shadow: 0 4px 15px rgba(255, 107, 129, 0.4);
           z-index: 9999;
-          transition: transform 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275), box-shadow 0.3s ease;
+          transition: bottom 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275), transform 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275), box-shadow 0.3s ease;
         }
         .live-chat-bubble:hover {
           transform: scale(1.1);
@@ -139,7 +139,7 @@ function LiveChatTelegramBridge({ telegramToken, telegramChatId, storePhone, sto
         }
         .live-chat-window {
           position: fixed;
-          bottom: 155px;
+          bottom: ${hasFloatingCart ? '215px' : '155px'};
           right: 20px;
           width: 320px;
           max-width: calc(100vw - 40px);
@@ -153,6 +153,7 @@ function LiveChatTelegramBridge({ telegramToken, telegramChatId, storePhone, sto
           overflow: hidden;
           display: flex;
           flex-direction: column;
+          transition: bottom 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275);
           animation: slideUpIn 0.3s cubic-bezier(0.165, 0.84, 0.44, 1);
         }
         @keyframes slideUpIn {
@@ -315,6 +316,7 @@ const DEFAULT_STAFF_USERS = [
 
 export default function App() {
   const isRemoteUpdate = useRef({});
+  const allowCloudWrite = useRef(false);
   const [isCloudSynced, setIsCloudSynced] = useState(false);
   const [isSyncLoaded, setIsSyncLoaded] = useState(false);
 
@@ -539,6 +541,9 @@ export default function App() {
     let authSubscription = null;
 
     const initSync = async () => {
+      allowCloudWrite.current = false; // Bloquear escrituras inmediatamente al iniciar sincronización
+      setIsSyncLoaded(false);
+
       if (!supabase) {
         console.log("💾 Supabase no configurado. Utilizando base de datos local (LocalStorage) en modo fuera de línea.");
         setIsSyncLoaded(true);
@@ -604,6 +609,14 @@ export default function App() {
         if (serverData.liter_config !== undefined) setLiterConfig(serverData.liter_config);
         if (serverData.ticket_custom_message !== undefined) setTicketCustomMessage(serverData.ticket_custom_message);
         if (serverData.catalog_order !== undefined) setCatalogOrder(serverData.catalog_order);
+
+        // Habilitar escrituras después de que las actualizaciones del estado de React se procesen
+        setTimeout(() => {
+          allowCloudWrite.current = true;
+        }, 400);
+      } else {
+        console.warn("⚠️ No se pudieron obtener datos de Supabase. Escrituras remotas desactivadas para proteger la base de datos.");
+        allowCloudWrite.current = false;
       }
 
       // 2. Recuperar la lista de personal desde Supabase de forma segura (multidispositivo)
@@ -743,14 +756,27 @@ export default function App() {
             isSupabaseUser: true
           });
           
-          // Re-sincronizar los datos una vez que tenemos la sesión activa para poder ver las claves protegidas por RLS
+          // Re-sincronizar los datos una vez que tenemos la sesión activa de forma segura
+          allowCloudWrite.current = false;
+          setIsSyncLoaded(false);
           const updatedServerData = await fetchSyncedData(true);
           if (updatedServerData) {
+            // Desactivar temporalmente escrituras mientras cargamos datos de admin
+            Object.keys(updatedServerData).forEach(k => {
+              isRemoteUpdate.current[k] = true;
+            });
             if (updatedServerData.staff_users !== undefined) setStaffUsers(updatedServerData.staff_users);
             if (updatedServerData.telegram_token !== undefined) setTelegramToken(updatedServerData.telegram_token);
             if (updatedServerData.telegram_chat_id !== undefined) setTelegramChatId(updatedServerData.telegram_chat_id);
             if (updatedServerData.ticket_custom_message !== undefined) setTicketCustomMessage(updatedServerData.ticket_custom_message);
+            
+            setTimeout(() => {
+              allowCloudWrite.current = true;
+            }, 400);
+          } else {
+            allowCloudWrite.current = false;
           }
+          setIsSyncLoaded(true);
         }
       });
       authSubscription = subscription;
@@ -773,7 +799,7 @@ export default function App() {
   useEffect(() => {
     localStorage.setItem('helados_store_name', storeName);
     document.title = `${storeName} - Heladería Online Interactiva`;
-    if (!isSyncLoaded) return;
+    if (!isSyncLoaded || !allowCloudWrite.current) return;
     if (isRemoteUpdate.current['store_name']) {
       isRemoteUpdate.current['store_name'] = false;
     } else if (isLoggedIn) {
@@ -783,7 +809,7 @@ export default function App() {
 
   useEffect(() => {
     localStorage.setItem('helados_catalog_order', JSON.stringify(catalogOrder));
-    if (!isSyncLoaded) return;
+    if (!isSyncLoaded || !allowCloudWrite.current) return;
     if (isRemoteUpdate.current['catalog_order']) {
       isRemoteUpdate.current['catalog_order'] = false;
     } else if (isLoggedIn) {
@@ -793,7 +819,7 @@ export default function App() {
 
   useEffect(() => {
     localStorage.setItem('helados_store_logo', storeLogo);
-    if (!isSyncLoaded) return;
+    if (!isSyncLoaded || !allowCloudWrite.current) return;
     if (isRemoteUpdate.current['store_logo']) {
       isRemoteUpdate.current['store_logo'] = false;
     } else if (isLoggedIn) {
@@ -803,7 +829,7 @@ export default function App() {
 
   useEffect(() => {
     localStorage.setItem('helados_flavors', JSON.stringify(flavors));
-    if (!isSyncLoaded) return;
+    if (!isSyncLoaded || !allowCloudWrite.current) return;
     if (isRemoteUpdate.current['flavors']) {
       isRemoteUpdate.current['flavors'] = false;
     } else if (isLoggedIn) {
@@ -813,7 +839,7 @@ export default function App() {
 
   useEffect(() => {
     localStorage.setItem('helados_toppings', JSON.stringify(toppings));
-    if (!isSyncLoaded) return;
+    if (!isSyncLoaded || !allowCloudWrite.current) return;
     if (isRemoteUpdate.current['toppings']) {
       isRemoteUpdate.current['toppings'] = false;
     } else if (isLoggedIn) {
@@ -823,7 +849,7 @@ export default function App() {
 
   useEffect(() => {
     localStorage.setItem('helados_bases', JSON.stringify(bases));
-    if (!isSyncLoaded) return;
+    if (!isSyncLoaded || !allowCloudWrite.current) return;
     if (isRemoteUpdate.current['bases']) {
       isRemoteUpdate.current['bases'] = false;
     } else if (isLoggedIn) {
@@ -833,7 +859,7 @@ export default function App() {
 
   useEffect(() => {
     localStorage.setItem('helados_packs', JSON.stringify(packs));
-    if (!isSyncLoaded) return;
+    if (!isSyncLoaded || !allowCloudWrite.current) return;
     if (isRemoteUpdate.current['packs']) {
       isRemoteUpdate.current['packs'] = false;
     } else if (isLoggedIn) {
@@ -843,7 +869,7 @@ export default function App() {
 
   useEffect(() => {
     localStorage.setItem('helados_orders', JSON.stringify(orders));
-    if (!isSyncLoaded) return;
+    if (!isSyncLoaded || !allowCloudWrite.current) return;
     if (isRemoteUpdate.current['orders']) {
       isRemoteUpdate.current['orders'] = false;
     } else if (isLoggedIn) {
@@ -853,7 +879,7 @@ export default function App() {
 
   useEffect(() => {
     localStorage.setItem('helados_delivery_fee', deliveryFee.toString());
-    if (!isSyncLoaded) return;
+    if (!isSyncLoaded || !allowCloudWrite.current) return;
     if (isRemoteUpdate.current['delivery_fee']) {
       isRemoteUpdate.current['delivery_fee'] = false;
     } else if (isLoggedIn) {
@@ -863,7 +889,7 @@ export default function App() {
 
   useEffect(() => {
     localStorage.setItem('helados_shop_open', JSON.stringify(shopOpen));
-    if (!isSyncLoaded) return;
+    if (!isSyncLoaded || !allowCloudWrite.current) return;
     if (isRemoteUpdate.current['shop_open']) {
       isRemoteUpdate.current['shop_open'] = false;
     } else if (isLoggedIn) {
@@ -873,7 +899,7 @@ export default function App() {
 
   useEffect(() => {
     localStorage.setItem('helados_free_delivery_threshold', freeDeliveryThreshold.toString());
-    if (!isSyncLoaded) return;
+    if (!isSyncLoaded || !allowCloudWrite.current) return;
     if (isRemoteUpdate.current['free_delivery_threshold']) {
       isRemoteUpdate.current['free_delivery_threshold'] = false;
     } else if (isLoggedIn) {
@@ -883,7 +909,7 @@ export default function App() {
 
   useEffect(() => {
     localStorage.setItem('helados_delivery_campaign_text', deliveryCampaignText);
-    if (!isSyncLoaded) return;
+    if (!isSyncLoaded || !allowCloudWrite.current) return;
     if (isRemoteUpdate.current['delivery_campaign_text']) {
       isRemoteUpdate.current['delivery_campaign_text'] = false;
     } else if (isLoggedIn) {
@@ -893,7 +919,7 @@ export default function App() {
 
   useEffect(() => {
     localStorage.setItem('helados_store_phone', storePhone);
-    if (!isSyncLoaded) return;
+    if (!isSyncLoaded || !allowCloudWrite.current) return;
     if (isRemoteUpdate.current['store_phone']) {
       isRemoteUpdate.current['store_phone'] = false;
     } else if (isLoggedIn) {
@@ -908,7 +934,7 @@ export default function App() {
 
   useEffect(() => {
     localStorage.setItem('helados_staff_permissions', JSON.stringify(staffPermissions));
-    if (!isSyncLoaded) return;
+    if (!isSyncLoaded || !allowCloudWrite.current) return;
     if (isRemoteUpdate.current['staff_permissions']) {
       isRemoteUpdate.current['staff_permissions'] = false;
     } else if (isLoggedIn) {
@@ -918,7 +944,7 @@ export default function App() {
 
   useEffect(() => {
     localStorage.setItem('helados_sound_enabled', JSON.stringify(soundEnabled));
-    if (!isSyncLoaded) return;
+    if (!isSyncLoaded || !allowCloudWrite.current) return;
     if (isRemoteUpdate.current['sound_enabled']) {
       isRemoteUpdate.current['sound_enabled'] = false;
     } else if (isLoggedIn) {
@@ -928,7 +954,7 @@ export default function App() {
 
   useEffect(() => {
     localStorage.setItem('helados_telegram_token', telegramToken);
-    if (!isSyncLoaded) return;
+    if (!isSyncLoaded || !allowCloudWrite.current) return;
     if (isRemoteUpdate.current['telegram_token']) {
       isRemoteUpdate.current['telegram_token'] = false;
     } else if (isLoggedIn) {
@@ -938,7 +964,7 @@ export default function App() {
 
   useEffect(() => {
     localStorage.setItem('helados_telegram_chat_id', telegramChatId);
-    if (!isSyncLoaded) return;
+    if (!isSyncLoaded || !allowCloudWrite.current) return;
     if (isRemoteUpdate.current['telegram_chat_id']) {
       isRemoteUpdate.current['telegram_chat_id'] = false;
     } else if (isLoggedIn) {
@@ -948,7 +974,7 @@ export default function App() {
 
   useEffect(() => {
     localStorage.setItem('helados_coupons', JSON.stringify(coupons));
-    if (!isSyncLoaded) return;
+    if (!isSyncLoaded || !allowCloudWrite.current) return;
     if (isRemoteUpdate.current['coupons']) {
       isRemoteUpdate.current['coupons'] = false;
     } else if (isLoggedIn) {
@@ -958,7 +984,7 @@ export default function App() {
 
   useEffect(() => {
     localStorage.setItem('helados_sales_goal', salesGoal.toString());
-    if (!isSyncLoaded) return;
+    if (!isSyncLoaded || !allowCloudWrite.current) return;
     if (isRemoteUpdate.current['sales_goal']) {
       isRemoteUpdate.current['sales_goal'] = false;
     } else if (isLoggedIn) {
@@ -968,7 +994,7 @@ export default function App() {
 
   useEffect(() => {
     localStorage.setItem('helados_whatsapp_greeting', whatsappGreeting);
-    if (!isSyncLoaded) return;
+    if (!isSyncLoaded || !allowCloudWrite.current) return;
     if (isRemoteUpdate.current['whatsapp_greeting']) {
       isRemoteUpdate.current['whatsapp_greeting'] = false;
     } else if (isLoggedIn) {
@@ -978,7 +1004,7 @@ export default function App() {
 
   useEffect(() => {
     localStorage.setItem('helados_whatsapp_footer', whatsappFooter);
-    if (!isSyncLoaded) return;
+    if (!isSyncLoaded || !allowCloudWrite.current) return;
     if (isRemoteUpdate.current['whatsapp_footer']) {
       isRemoteUpdate.current['whatsapp_footer'] = false;
     } else if (isLoggedIn) {
@@ -988,7 +1014,7 @@ export default function App() {
 
   useEffect(() => {
     localStorage.setItem('helados_qr_custom_url', qrCustomUrl);
-    if (!isSyncLoaded) return;
+    if (!isSyncLoaded || !allowCloudWrite.current) return;
     if (isRemoteUpdate.current['qr_custom_url']) {
       isRemoteUpdate.current['qr_custom_url'] = false;
     } else if (isLoggedIn) {
@@ -998,7 +1024,7 @@ export default function App() {
 
   useEffect(() => {
     localStorage.setItem('helados_recommendations', JSON.stringify(recommendations));
-    if (!isSyncLoaded) return;
+    if (!isSyncLoaded || !allowCloudWrite.current) return;
     if (isRemoteUpdate.current['recommendations']) {
       isRemoteUpdate.current['recommendations'] = false;
     } else if (isLoggedIn) {
@@ -1008,7 +1034,7 @@ export default function App() {
 
   useEffect(() => {
     localStorage.setItem('helados_cart_recommended_pack', JSON.stringify(cartRecommendedPack));
-    if (!isSyncLoaded) return;
+    if (!isSyncLoaded || !allowCloudWrite.current) return;
     if (isRemoteUpdate.current['cart_recommended_pack']) {
       isRemoteUpdate.current['cart_recommended_pack'] = false;
     } else if (isLoggedIn) {
@@ -1018,7 +1044,7 @@ export default function App() {
 
   useEffect(() => {
     localStorage.setItem('helados_expenses', JSON.stringify(expenses));
-    if (!isSyncLoaded) return;
+    if (!isSyncLoaded || !allowCloudWrite.current) return;
     if (isRemoteUpdate.current['expenses']) {
       isRemoteUpdate.current['expenses'] = false;
     } else if (isLoggedIn) {
@@ -1028,7 +1054,7 @@ export default function App() {
 
   useEffect(() => {
     localStorage.setItem('helados_r2_config', JSON.stringify(r2Config));
-    if (!isSyncLoaded) return;
+    if (!isSyncLoaded || !allowCloudWrite.current) return;
     if (isRemoteUpdate.current['r2_config']) {
       isRemoteUpdate.current['r2_config'] = false;
     } else if (isLoggedIn) {
@@ -1038,7 +1064,7 @@ export default function App() {
 
   useEffect(() => {
     localStorage.setItem('helados_liter_config', JSON.stringify(literConfig));
-    if (!isSyncLoaded) return;
+    if (!isSyncLoaded || !allowCloudWrite.current) return;
     if (isRemoteUpdate.current['liter_config']) {
       isRemoteUpdate.current['liter_config'] = false;
     } else if (isLoggedIn) {
@@ -1048,7 +1074,7 @@ export default function App() {
 
   useEffect(() => {
     localStorage.setItem('helados_ticket_custom_message', ticketCustomMessage);
-    if (!isSyncLoaded) return;
+    if (!isSyncLoaded || !allowCloudWrite.current) return;
     if (isRemoteUpdate.current['ticket_custom_message']) {
       isRemoteUpdate.current['ticket_custom_message'] = false;
     } else if (isLoggedIn) {
@@ -1356,6 +1382,7 @@ export default function App() {
             deliveryCampaignText={deliveryCampaignText}
             literConfig={literConfig}
             catalogOrder={catalogOrder}
+            storePhone={storePhone}
           />
         )}
 
@@ -1431,7 +1458,7 @@ export default function App() {
             deliveryFee={deliveryFee}
             onChangeDeliveryFee={setDeliveryFee}
             shopOpen={shopOpen}
-            onToggleShopOpen={() => setShopOpen(!shopOpen)}
+            onToggleShopOpen={(val) => setShopOpen(typeof val === 'boolean' ? val : !shopOpen)}
             telegramToken={telegramToken}
             onChangeTelegramToken={setTelegramToken}
             telegramChatId={telegramChatId}
@@ -1573,6 +1600,7 @@ export default function App() {
         storePhone={storePhone}
         storeName={storeName}
         view={view}
+        hasFloatingCart={cart.length > 0 && view !== 'cart' && view !== 'admin'}
       />
 
       {/* Floating Cart Toast/Window */}
