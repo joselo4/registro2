@@ -535,6 +535,61 @@ export default function App() {
     }
   }, []);
 
+  // --- Función auxiliar para aplicar los datos sincronizados y combinar las órdenes ---
+  const applyLoadedData = (serverData) => {
+    if (serverData.store_name !== undefined) setStoreName(serverData.store_name);
+    if (serverData.store_logo !== undefined) setStoreLogo(serverData.store_logo);
+    if (serverData.flavors !== undefined) setFlavors(serverData.flavors);
+    if (serverData.toppings !== undefined) setToppings(serverData.toppings);
+    if (serverData.bases !== undefined) setBases(serverData.bases);
+    if (serverData.packs !== undefined) setPacks(serverData.packs);
+
+    // Combinar órdenes generales e individuales order_PED-XXXX de forma única por ID y ordenar desc
+    let initialOrders = serverData.orders || [];
+    const individualOrders = [];
+    Object.keys(serverData).forEach(k => {
+      if (k.startsWith('order_') && serverData[k]) {
+        individualOrders.push(serverData[k]);
+      }
+    });
+
+    if (individualOrders.length > 0 || serverData.orders !== undefined) {
+      const combinedMap = {};
+      // 1. Agregar las de orders globales
+      initialOrders.forEach(o => {
+        if (o && o.id) combinedMap[o.id] = o;
+      });
+      // 2. Sobreescribir o agregar con las individuales (las más frescas)
+      individualOrders.forEach(o => {
+        if (o && o.id) combinedMap[o.id] = o;
+      });
+      const finalOrders = Object.values(combinedMap).sort((a, b) => new Date(b.date) - new Date(a.date));
+      setOrders(finalOrders);
+    }
+
+    if (serverData.delivery_fee !== undefined) setDeliveryFee(parseFloat(serverData.delivery_fee) || 0);
+    if (serverData.shop_open !== undefined) setShopOpen(!!serverData.shop_open);
+    if (serverData.free_delivery_threshold !== undefined) setFreeDeliveryThreshold(parseFloat(serverData.free_delivery_threshold) || 0);
+    if (serverData.delivery_campaign_text !== undefined) setDeliveryCampaignText(serverData.delivery_campaign_text);
+    if (serverData.store_phone !== undefined) setStorePhone(serverData.store_phone);
+    if (serverData.sound_enabled !== undefined) setSoundEnabled(!!serverData.sound_enabled);
+    if (serverData.coupons !== undefined) setCoupons(serverData.coupons);
+    if (serverData.telegram_token !== undefined) setTelegramToken(serverData.telegram_token);
+    if (serverData.telegram_chat_id !== undefined) setTelegramChatId(serverData.telegram_chat_id);
+    if (serverData.sales_goal !== undefined) setSalesGoal(parseFloat(serverData.sales_goal) || 100.0);
+    if (serverData.whatsapp_greeting !== undefined) setWhatsappGreeting(serverData.whatsapp_greeting);
+    if (serverData.whatsapp_footer !== undefined) setWhatsappFooter(serverData.whatsapp_footer);
+    if (serverData.qr_custom_url !== undefined) setQrCustomUrl(serverData.qr_custom_url);
+    if (serverData.recommendations !== undefined) setRecommendations(serverData.recommendations);
+    if (serverData.cart_recommended_pack !== undefined) setCartRecommendedPack(serverData.cart_recommended_pack);
+    if (serverData.expenses !== undefined) setExpenses(serverData.expenses);
+    if (serverData.staff_permissions !== undefined) setStaffPermissions(serverData.staff_permissions);
+    if (serverData.r2_config !== undefined) setR2Config(serverData.r2_config);
+    if (serverData.liter_config !== undefined) setLiterConfig(serverData.liter_config);
+    if (serverData.ticket_custom_message !== undefined) setTicketCustomMessage(serverData.ticket_custom_message);
+    if (serverData.catalog_order !== undefined) setCatalogOrder(serverData.catalog_order);
+  };
+
   // --- NUEVO: Efecto de Sincronización e Inicialización Supabase ---
   useEffect(() => {
     let activeChannel = null;
@@ -581,34 +636,7 @@ export default function App() {
           isRemoteUpdate.current[k] = true;
         });
 
-        if (serverData.store_name !== undefined) setStoreName(serverData.store_name);
-        if (serverData.store_logo !== undefined) setStoreLogo(serverData.store_logo);
-        if (serverData.flavors !== undefined) setFlavors(serverData.flavors);
-        if (serverData.toppings !== undefined) setToppings(serverData.toppings);
-        if (serverData.bases !== undefined) setBases(serverData.bases);
-        if (serverData.packs !== undefined) setPacks(serverData.packs);
-        if (serverData.orders !== undefined) setOrders(serverData.orders);
-        if (serverData.delivery_fee !== undefined) setDeliveryFee(parseFloat(serverData.delivery_fee) || 0);
-        if (serverData.shop_open !== undefined) setShopOpen(!!serverData.shop_open);
-        if (serverData.free_delivery_threshold !== undefined) setFreeDeliveryThreshold(parseFloat(serverData.free_delivery_threshold) || 0);
-        if (serverData.delivery_campaign_text !== undefined) setDeliveryCampaignText(serverData.delivery_campaign_text);
-        if (serverData.store_phone !== undefined) setStorePhone(serverData.store_phone);
-        if (serverData.sound_enabled !== undefined) setSoundEnabled(!!serverData.sound_enabled);
-        if (serverData.coupons !== undefined) setCoupons(serverData.coupons);
-        if (serverData.telegram_token !== undefined) setTelegramToken(serverData.telegram_token);
-        if (serverData.telegram_chat_id !== undefined) setTelegramChatId(serverData.telegram_chat_id);
-        if (serverData.sales_goal !== undefined) setSalesGoal(parseFloat(serverData.sales_goal) || 100.0);
-        if (serverData.whatsapp_greeting !== undefined) setWhatsappGreeting(serverData.whatsapp_greeting);
-        if (serverData.whatsapp_footer !== undefined) setWhatsappFooter(serverData.whatsapp_footer);
-        if (serverData.qr_custom_url !== undefined) setQrCustomUrl(serverData.qr_custom_url);
-        if (serverData.recommendations !== undefined) setRecommendations(serverData.recommendations);
-        if (serverData.cart_recommended_pack !== undefined) setCartRecommendedPack(serverData.cart_recommended_pack);
-        if (serverData.expenses !== undefined) setExpenses(serverData.expenses);
-        if (serverData.staff_permissions !== undefined) setStaffPermissions(serverData.staff_permissions);
-        if (serverData.r2_config !== undefined) setR2Config(serverData.r2_config);
-        if (serverData.liter_config !== undefined) setLiterConfig(serverData.liter_config);
-        if (serverData.ticket_custom_message !== undefined) setTicketCustomMessage(serverData.ticket_custom_message);
-        if (serverData.catalog_order !== undefined) setCatalogOrder(serverData.catalog_order);
+        applyLoadedData(serverData);
 
         // Habilitar escrituras después de que las actualizaciones del estado de React se procesen
         setTimeout(() => {
@@ -765,10 +793,8 @@ export default function App() {
             Object.keys(updatedServerData).forEach(k => {
               isRemoteUpdate.current[k] = true;
             });
+            applyLoadedData(updatedServerData);
             if (updatedServerData.staff_users !== undefined) setStaffUsers(updatedServerData.staff_users);
-            if (updatedServerData.telegram_token !== undefined) setTelegramToken(updatedServerData.telegram_token);
-            if (updatedServerData.telegram_chat_id !== undefined) setTelegramChatId(updatedServerData.telegram_chat_id);
-            if (updatedServerData.ticket_custom_message !== undefined) setTicketCustomMessage(updatedServerData.ticket_custom_message);
             
             setTimeout(() => {
               allowCloudWrite.current = true;
