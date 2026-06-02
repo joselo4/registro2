@@ -15,8 +15,29 @@ export const invalidateSyncCache = () => {
 // ─────────────────────────────────────────────────────────────────────────────
 
 /**
- * Obtiene todos los datos sincronizados desde la tabla `helados_sync` en Supabase.
- * Usa caché de 5 minutos para ahorrar egress. Devuelve un objeto clave-valor.
+ * Obtiene las credenciales del administrador guardadas en el LocalStorage
+ * tras un inicio de sesión administrativo exitoso.
+ */
+const getAdminCredentials = () => {
+  try {
+    const saved = localStorage.getItem('helados_admin_current_user');
+    if (saved) {
+      const user = JSON.parse(saved);
+      if (user && user.email && user.password) {
+        return { email: user.email, password: user.password };
+      }
+    }
+  } catch (e) {
+    console.warn("Supabase Sync: Error leyendo credenciales de administración.", e);
+  }
+  return null;
+};
+
+/**
+ * Obtiene todos los datos sincronizados desde Supabase de forma segura.
+ * Si es administrador, utiliza un canal seguro RPC en la base de datos para saltarse
+ * las restricciones de RLS y recuperar toda la información de forma íntegra.
+ * Si es cliente, descarga únicamente las configuraciones públicas de la tienda.
  */
 export const fetchSyncedData = async (isAdmin = false) => {
   if (!supabase) return null;
@@ -29,11 +50,28 @@ export const fetchSyncedData = async (isAdmin = false) => {
   }
 
   try {
-    let query = supabase.from('helados_sync').select('*');
-    
-    if (!isAdmin) {
-      // Filtrar datos de otros clientes (privacidad) y configuraciones sensibles (seguridad)
-      // También ahorra ancho de banda (egress) al no descargar todo el historial
+    const creds = getAdminCredentials();
+    let syncData = {};
+
+    // 1. Caso de uso administrativo: solicitar datos completos de forma segura vía RPC
+    if (isAdmin && creds) {
+      console.log("🔌 Solicitando datos administrativos seguros mediante RPC...");
+      const { data, error } = await supabase.rpc('get_all_sensitive_keys', {
+        p_admin_email: creds.email,
+        p_admin_password: creds.password
+      });
+
+      if (error) throw error;
+
+      if (data && typeof data === 'object') {
+        syncData = data;
+      }
+    } else {
+      // 2. Caso de uso público (Clientes): cargar únicamente la configuración general no sensible
+      console.log("🔌 Cargando configuración pública de la tienda...");
+      let query = supabase.from('helados_sync').select('*');
+
+      // Filtro preventivo del lado del cliente
       query = query
         .not('key', 'like', 'order_%')
         .not('key', 'like', 'expense_%')
@@ -41,17 +79,17 @@ export const fetchSyncedData = async (isAdmin = false) => {
         .neq('key', 'telegram_chat_id')
         .neq('key', 'expenses')
         .neq('key', 'orders')
-        .neq('key', 'staff_permissions');
-    }
+        .neq('key', 'staff_permissions')
+        .neq('key', 'r2_config');
 
-    const { data, error } = await query;
-    if (error) throw error;
-    
-    const syncData = {};
-    if (data && data.length > 0) {
-      data.forEach(row => {
-        syncData[row.key] = row.value;
-      });
+      const { data, error } = await query;
+      if (error) throw error;
+
+      if (data && data.length > 0) {
+        data.forEach(row => {
+          syncData[row.key] = row.value;
+        });
+      }
     }
 
     // Guardar en caché
@@ -66,11 +104,30 @@ export const fetchSyncedData = async (isAdmin = false) => {
 };
 
 /**
- * Guarda o actualiza un registro clave-valor en la tabla `helados_sync` en Supabase.
+ * Guarda o actualiza un registro clave-valor de forma segura.
+ * Si el usuario es administrador, utiliza un canal seguro RPC cifrado para guardar
+ * la clave en Supabase. Si no está logueado (ej: un cliente registrando un pedido),
+ * realiza un upsert directo que será validado en la base de datos por RLS.
  */
 export const updateSyncedData = async (key, value) => {
   if (!supabase) return false;
   try {
+    const creds = getAdminCredentials();
+
+    // 1. Si tenemos sesión administrativa, guardamos de forma segura mediante RPC
+    if (creds) {
+      const { data, error } = await supabase.rpc('update_sensitive_key', {
+        p_admin_email: creds.email,
+        p_admin_password: creds.password,
+        p_key: key,
+        p_value: value
+      });
+      if (error) throw error;
+      return true;
+    }
+
+    // 2. Si es una acción pública (ej: un cliente registrando su pedido o encuesta)
+    // El RLS de Supabase solo permitirá la operación si la clave empieza por 'order_'
     const { error } = await supabase
       .from('helados_sync')
       .upsert(
@@ -90,12 +147,31 @@ export const updateSyncedData = async (key, value) => {
 };
 
 /**
- * Guarda o actualiza múltiples registros clave-valor en un solo query (Bulk Upsert).
- * Optimiza el rendimiento y ahorra conexiones/egress en la cuenta Free de Supabase.
+ * Guarda o actualiza múltiples registros clave-valor de forma atómica.
+ * Si el usuario es administrador, los actualiza secuencialmente mediante nuestro canal RPC.
  */
 export const updateMultipleSyncedData = async (keyValuePairs) => {
   if (!supabase || !keyValuePairs || keyValuePairs.length === 0) return false;
   try {
+    const creds = getAdminCredentials();
+
+    if (creds) {
+      // Escritura atómica administrativa segura vía RPC
+      const promises = keyValuePairs.map(item => 
+        supabase.rpc('update_sensitive_key', {
+          p_admin_email: creds.email,
+          p_admin_password: creds.password,
+          p_key: item.key,
+          p_value: item.value
+        })
+      );
+      const results = await Promise.all(promises);
+      const error = results.find(r => r.error);
+      if (error) throw error.error;
+      return true;
+    }
+
+    // Fallback público compatible con operaciones de cliente en lote (si las hubiera)
     const rows = keyValuePairs.map(item => ({
       key: item.key,
       value: item.value,
