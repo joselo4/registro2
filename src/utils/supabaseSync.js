@@ -12,6 +12,9 @@ export const invalidateSyncCache = () => {
   _syncCacheTime.admin = 0;
   _syncCacheTime.client = 0;
 };
+
+// Cola de timeouts para debouncing de escrituras por llave
+const _writeTimeouts = {};
 // ─────────────────────────────────────────────────────────────────────────────
 
 /**
@@ -88,20 +91,35 @@ export const fetchSyncedData = async (isAdmin = false) => {
     } else {
       // 2. Caso de uso público (Clientes): cargar únicamente la configuración general no sensible
       console.log("🔌 Cargando configuración pública de la tienda...");
-      let query = supabase.from('helados_sync').select('*');
+      const publicKeys = [
+        'store_name', 
+        'store_logo', 
+        'store_phone', 
+        'shop_open',
+        'catalog_order', 
+        'flavors', 
+        'toppings', 
+        'bases', 
+        'packs', 
+        'coupons',
+        'delivery_fee', 
+        'free_delivery_threshold', 
+        'delivery_campaign_text',
+        'sound_enabled', 
+        'whatsapp_greeting', 
+        'whatsapp_footer', 
+        'qr_custom_url', 
+        'recommendations', 
+        'cart_recommended_pack', 
+        'liter_config', 
+        'ticket_custom_message'
+      ];
 
-      // Filtro preventivo del lado del cliente
-      query = query
-        .not('key', 'like', 'order_%')
-        .not('key', 'like', 'expense_%')
-        .neq('key', 'telegram_token')
-        .neq('key', 'telegram_chat_id')
-        .neq('key', 'expenses')
-        .neq('key', 'orders')
-        .neq('key', 'staff_permissions')
-        .neq('key', 'r2_config');
+      const { data, error } = await supabase
+        .from('helados_sync')
+        .select('*')
+        .in('key', publicKeys);
 
-      const { data, error } = await query;
       if (error) throw error;
 
       if (data && data.length > 0) {
@@ -130,6 +148,28 @@ export const fetchSyncedData = async (isAdmin = false) => {
  */
 export const updateSyncedData = async (key, value) => {
   if (!supabase) return false;
+
+  // Si la llave no requiere debouncing (ej: creación de pedidos 'order_'), se ejecuta inmediatamente.
+  const shouldDebounce = !key.startsWith('order_');
+
+  if (shouldDebounce) {
+    if (_writeTimeouts[key]) {
+      clearTimeout(_writeTimeouts[key]);
+    }
+
+    return new Promise((resolve) => {
+      _writeTimeouts[key] = setTimeout(async () => {
+        delete _writeTimeouts[key];
+        const res = await _executeUpsert(key, value);
+        resolve(res);
+      }, 800); // 800ms de retraso para agrupar escrituras concurrentes
+    });
+  } else {
+    return _executeUpsert(key, value);
+  }
+};
+
+const _executeUpsert = async (key, value) => {
   try {
     const { data: { session } } = await supabase.auth.getSession();
 
