@@ -200,6 +200,7 @@ export default function AdminPanel({
   const [dateStart, setDateStart] = useState('');
   const [dateEnd, setDateEnd] = useState('');
   const [ratingFilter, setRatingFilter] = useState('all'); // all, low, high
+  const [ordersLimit, setOrdersLimit] = useState(20); // 20, 40, 60, all
 
   // --- NUEVO: Control de Acceso por Ventanas/Módulos ---
   const isTabAllowed = (tabId) => {
@@ -1526,6 +1527,18 @@ export default function AdminPanel({
       });
     }
 
+    const todayStr = new Date().toDateString();
+    const kpis = {
+      pending: orders.filter(o => o.status === 'Pendiente').length,
+      preparing: orders.filter(o => o.status === 'Preparando').length,
+      delivery: orders.filter(o => o.status === 'En camino').length,
+      todaySales: orders
+        .filter(o => o.status !== 'Cancelado' && new Date(o.date).toDateString() === todayStr)
+        .reduce((sum, o) => sum + (o.grandTotal || 0), 0)
+    };
+
+    const displayedOrders = ordersLimit === 'all' ? filtered : filtered.slice(0, ordersLimit);
+
     const getStatusStyle = (status) => {
       switch (status) {
         case 'Pendiente': return 'status-pendiente';
@@ -1617,6 +1630,9 @@ export default function AdminPanel({
         <div className="glass" style={{ padding: '20px', borderRadius: 'var(--radius-lg)' }}>
           <h3 style={{ borderBottom: '1px solid var(--border-color)', paddingBottom: '10px', marginBottom: '15px' }}>
             ✏️ Editar Pedido: <span style={{ color: 'var(--primary-color)' }}>{editingOrder.id}</span>
+            <span style={{ fontSize: '0.8rem', color: 'var(--text-light)', marginLeft: '10px', fontWeight: 'normal' }}>
+              ({new Date(editingOrder.date).toLocaleDateString('es-PE', { day: '2-digit', month: '2-digit', year: 'numeric' })} {new Date(editingOrder.date).toLocaleTimeString('es-PE', { hour: '2-digit', minute: '2-digit', hour12: true })})
+            </span>
           </h3>
 
           <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '15px', marginBottom: '20px' }} className="admin-stats-columns">
@@ -1841,6 +1857,30 @@ export default function AdminPanel({
           </div>
         </div>
 
+        {/* TARJETAS KPI DE RESUMEN OPERATIVO */}
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(130px, 1fr))', gap: '12px', marginBottom: '20px' }}>
+          <div className="glass" style={{ padding: '12px 15px', borderRadius: '12px', borderLeft: '4px solid var(--secondary-color)', display: 'flex', flexDirection: 'column', gap: '4px' }}>
+            <span style={{ fontSize: '1.2rem' }}>⏳</span>
+            <span style={{ fontSize: '0.7rem', color: 'var(--text-light)', fontWeight: 'bold', textTransform: 'uppercase' }}>Pendientes</span>
+            <strong style={{ fontSize: '1.3rem', color: 'var(--text-dark)' }}>{kpis.pending}</strong>
+          </div>
+          <div className="glass" style={{ padding: '12px 15px', borderRadius: '12px', borderLeft: '4px solid #3498db', display: 'flex', flexDirection: 'column', gap: '4px' }}>
+            <span style={{ fontSize: '1.2rem' }}>🍳</span>
+            <span style={{ fontSize: '0.7rem', color: 'var(--text-light)', fontWeight: 'bold', textTransform: 'uppercase' }}>Preparando</span>
+            <strong style={{ fontSize: '1.3rem', color: 'var(--text-dark)' }}>{kpis.preparing}</strong>
+          </div>
+          <div className="glass" style={{ padding: '12px 15px', borderRadius: '12px', borderLeft: '4px solid #9b59b6', display: 'flex', flexDirection: 'column', gap: '4px' }}>
+            <span style={{ fontSize: '1.2rem' }}>🛵</span>
+            <span style={{ fontSize: '0.7rem', color: 'var(--text-light)', fontWeight: 'bold', textTransform: 'uppercase' }}>En camino</span>
+            <strong style={{ fontSize: '1.3rem', color: 'var(--text-dark)' }}>{kpis.delivery}</strong>
+          </div>
+          <div className="glass" style={{ padding: '12px 15px', borderRadius: '12px', borderLeft: '4px solid var(--success)', display: 'flex', flexDirection: 'column', gap: '4px' }}>
+            <span style={{ fontSize: '1.2rem' }}>💰</span>
+            <span style={{ fontSize: '0.7rem', color: 'var(--text-light)', fontWeight: 'bold', textTransform: 'uppercase' }}>Ventas Hoy</span>
+            <strong style={{ fontSize: '1.2rem', color: 'var(--success)' }}>S/. {kpis.todaySales.toFixed(2)}</strong>
+          </div>
+        </div>
+
         <div style={{ marginBottom: '15px' }}>
           <input
             type="text"
@@ -1851,58 +1891,94 @@ export default function AdminPanel({
           />
         </div>
 
-        {/* Filtro de Fechas */}
-        <div style={{ 
-          display: 'flex', 
-          gap: '8px', 
-          alignItems: 'center', 
-          flexWrap: 'wrap', 
-          marginBottom: '15px', 
-          padding: '10px', 
-          background: 'rgba(0,0,0,0.02)', 
-          borderRadius: 'var(--radius-sm)',
-          border: '1px solid var(--border-color)' 
-        }}>
-          <span style={{ fontSize: '0.8rem', fontWeight: 'bold', color: 'var(--text-dark)' }}>📅 Filtrar Fecha:</span>
-          <div style={{ display: 'flex', gap: '4px', flexWrap: 'wrap', flex: 1 }}>
-            {[
-              { id: 'all', label: 'Todos' },
-              { id: 'today', label: 'Hoy' },
-              { id: 'yesterday', label: 'Ayer' },
-              { id: '7days', label: 'Últimos 7 días' },
-              { id: 'custom', label: 'Rango Personalizado' }
-            ].map(df => (
-              <button
-                key={df.id}
-                type="button"
-                className={`filter-btn ${dateFilterType === df.id ? 'active' : ''}`}
-                onClick={() => setDateFilterType(df.id)}
-                style={{ fontSize: '0.7rem', padding: '4px 8px', whiteSpace: 'nowrap' }}
-              >
-                {df.label}
-              </button>
-            ))}
-          </div>
-          
-          {dateFilterType === 'custom' && (
-            <div style={{ display: 'flex', gap: '8px', alignItems: 'center', flexWrap: 'wrap', width: '100%', marginTop: '8px' }}>
-              <input
-                type="date"
-                className="form-control"
-                style={{ fontSize: '0.75rem', padding: '4px 8px', width: 'auto', flex: 1 }}
-                value={dateStart}
-                onChange={(e) => setDateStart(e.target.value)}
-              />
-              <span style={{ fontSize: '0.75rem' }}>a</span>
-              <input
-                type="date"
-                className="form-control"
-                style={{ fontSize: '0.75rem', padding: '4px 8px', width: 'auto', flex: 1 }}
-                value={dateEnd}
-                onChange={(e) => setDateEnd(e.target.value)}
-              />
+        {/* Filtros Combinados (Fechas y Límite) */}
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))', gap: '15px', marginBottom: '15px' }}>
+          {/* Filtro de Fechas */}
+          <div style={{ 
+            display: 'flex', 
+            gap: '8px', 
+            alignItems: 'center', 
+            flexWrap: 'wrap', 
+            padding: '10px', 
+            background: 'rgba(0,0,0,0.02)', 
+            borderRadius: 'var(--radius-sm)',
+            border: '1px solid var(--border-color)',
+            height: '100%'
+          }}>
+            <span style={{ fontSize: '0.8rem', fontWeight: 'bold', color: 'var(--text-dark)' }}>📅 Filtrar Fecha:</span>
+            <div style={{ display: 'flex', gap: '4px', flexWrap: 'wrap', flex: 1 }}>
+              {[
+                { id: 'all', label: 'Todos' },
+                { id: 'today', label: 'Hoy' },
+                { id: 'yesterday', label: 'Ayer' },
+                { id: '7days', label: 'Últimos 7 días' },
+                { id: 'custom', label: 'Rango Personalizado' }
+              ].map(df => (
+                <button
+                  key={df.id}
+                  type="button"
+                  className={`filter-btn ${dateFilterType === df.id ? 'active' : ''}`}
+                  onClick={() => setDateFilterType(df.id)}
+                  style={{ fontSize: '0.7rem', padding: '4px 8px', whiteSpace: 'nowrap' }}
+                >
+                  {df.label}
+                </button>
+              ))}
             </div>
-          )}
+            
+            {dateFilterType === 'custom' && (
+              <div style={{ display: 'flex', gap: '8px', alignItems: 'center', flexWrap: 'wrap', width: '100%', marginTop: '8px' }}>
+                <input
+                  type="date"
+                  className="form-control"
+                  style={{ fontSize: '0.75rem', padding: '4px 8px', width: 'auto', flex: 1 }}
+                  value={dateStart}
+                  onChange={(e) => setDateStart(e.target.value)}
+                />
+                <span style={{ fontSize: '0.75rem' }}>a</span>
+                <input
+                  type="date"
+                  className="form-control"
+                  style={{ fontSize: '0.75rem', padding: '4px 8px', width: 'auto', flex: 1 }}
+                  value={dateEnd}
+                  onChange={(e) => setDateEnd(e.target.value)}
+                />
+              </div>
+            )}
+          </div>
+
+          {/* Filtro de Límite de Pedidos */}
+          <div style={{ 
+            display: 'flex', 
+            gap: '8px', 
+            alignItems: 'center', 
+            flexWrap: 'wrap', 
+            padding: '10px', 
+            background: 'rgba(0,0,0,0.02)', 
+            borderRadius: 'var(--radius-sm)',
+            border: '1px solid var(--border-color)',
+            height: '100%'
+          }}>
+            <span style={{ fontSize: '0.8rem', fontWeight: 'bold', color: 'var(--text-dark)' }}>🔢 Mostrar Últimos:</span>
+            <div style={{ display: 'flex', gap: '4px', flexWrap: 'wrap', flex: 1 }}>
+              {[
+                { id: 20, label: '20' },
+                { id: 40, label: '40' },
+                { id: 60, label: '60' },
+                { id: 'all', label: 'Todos' }
+              ].map(lim => (
+                <button
+                  key={lim.id}
+                  type="button"
+                  className={`filter-btn ${ordersLimit === lim.id ? 'active' : ''}`}
+                  onClick={() => setOrdersLimit(lim.id)}
+                  style={{ fontSize: '0.7rem', padding: '4px 8px', minWidth: '40px', textAlign: 'center' }}
+                >
+                  {lim.label}
+                </button>
+              ))}
+            </div>
+          </div>
         </div>
 
         <div style={{ display: 'flex', gap: '5px', overflowX: 'auto', paddingBottom: '6px', marginBottom: '15px' }}>
@@ -1936,12 +2012,12 @@ export default function AdminPanel({
                   </td>
                 </tr>
               ) : (
-                filtered.map(order => (
+                displayedOrders.map(order => (
                   <tr key={order.id}>
                     <td>
                       <strong>{order.id}</strong>
-                      <div style={{ fontSize: '0.7rem', color: 'var(--text-light)' }}>
-                        {new Date(order.date).toLocaleTimeString('es-PE', { hour: '2-digit', minute: '2-digit' })}
+                      <div style={{ fontSize: '0.7rem', color: 'var(--text-light)', marginTop: '2px' }}>
+                        {new Date(order.date).toLocaleDateString('es-PE', { day: '2-digit', month: '2-digit', year: 'numeric' })} {new Date(order.date).toLocaleTimeString('es-PE', { hour: '2-digit', minute: '2-digit', hour12: true })}
                       </div>
                     </td>
                     <td>
@@ -6229,6 +6305,41 @@ create policy "Modificación privada de personal y credenciales" on public.helad
         }}>
           <span>{isCloudSynced ? '🟢 Sincronizado (Supabase)' : '🟡 Modo Local (Offline)'}</span>
         </div>
+        {currentUser && (
+          <div style={{
+            background: 'var(--bg-secondary, rgba(0, 0, 0, 0.02))',
+            border: '1px solid var(--border-color)',
+            borderRadius: '12px',
+            padding: '8px 12px',
+            marginBottom: '15px',
+            display: 'flex',
+            alignItems: 'center',
+            gap: '10px'
+          }}>
+            <div style={{
+              width: '32px',
+              height: '32px',
+              borderRadius: '50%',
+              background: 'linear-gradient(135deg, var(--primary-color) 0%, var(--secondary-color) 100%)',
+              color: 'white',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              fontWeight: 'bold',
+              fontSize: '0.85rem'
+            }}>
+              {(currentUser.name || currentUser.username || 'U').charAt(0).toUpperCase()}
+            </div>
+            <div style={{ display: 'flex', flexDirection: 'column', minWidth: 0, flex: 1 }}>
+              <span style={{ fontSize: '0.8rem', fontWeight: 'bold', color: 'var(--text-dark)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                {currentUser.name || currentUser.username}
+              </span>
+              <span style={{ fontSize: '0.65rem', color: 'var(--text-light)', fontWeight: 600 }}>
+                👤 {currentUser.role || 'Operador'}
+              </span>
+            </div>
+          </div>
+        )}
         <div className="sidebar-menu">
           {isTabAllowed('orders') && (
             <button className={`sidebar-btn ${activeTab === 'orders' ? 'active' : ''}`} onClick={() => setActiveTab('orders')}>
