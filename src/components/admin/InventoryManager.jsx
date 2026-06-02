@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { uploadToR2 } from '../../utils/r2Client';
 
 // --- FUNCIONES DE SANITIZACIÓN ---
@@ -21,7 +21,8 @@ export default function InventoryManager({
   r2Config,
   addLog,
   currentUser,
-  showAlert
+  showAlert,
+  subTab: subTabProp
 }) {
   const alert = (msg) => {
     if (showAlert) {
@@ -68,7 +69,13 @@ export default function InventoryManager({
   };
 
   // --- Estados de Subpestañas ---
-  const [subTab, setSubTab] = useState('flavors'); // flavors, toppings, bases, recommendations, packs
+  const [subTab, setSubTab] = useState(subTabProp || 'flavors');
+
+  useEffect(() => {
+    if (subTabProp) {
+      setSubTab(subTabProp);
+    }
+  }, [subTabProp]);
 
   // --- Estados CRUD Sabores ---
   const [showAddFlavor, setShowAddFlavor] = useState(false);

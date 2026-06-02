@@ -37,7 +37,9 @@ export default function SettingsManager({
   orders, onUpdateOrders,
   expenses, onUpdateExpenses,
   deliveryFee, onChangeDeliveryFee,
-  onToggleShopOpen: onToggleShopOpenProp
+  onToggleShopOpen: onToggleShopOpenProp,
+  recommendations, onUpdateRecommendations,
+  cartRecommendedPack, onUpdateCartRecommendedPack
 }) {
   // --- Estados Locales para Ajustes (Evita lags en el dashboard completo al escribir) ---
   const [localStoreName, setLocalStoreName] = useState(storeName);
@@ -334,6 +336,8 @@ export default function SettingsManager({
           if (data.literConfig && onUpdateLiterConfig) onUpdateLiterConfig(data.literConfig);
           if (data.ticketCustomMessage && onUpdateTicketCustomMessage) onUpdateTicketCustomMessage(data.ticketCustomMessage);
           if (data.catalogOrder && onUpdateCatalogOrder) onUpdateCatalogOrder(data.catalogOrder);
+          if (data.recommendations && onUpdateRecommendations) onUpdateRecommendations(data.recommendations);
+          if (data.cartRecommendedPack && onUpdateCartRecommendedPack) onUpdateCartRecommendedPack(data.cartRecommendedPack);
 
           if (supabase) {
             const keysToSync = [];
@@ -364,6 +368,8 @@ export default function SettingsManager({
             addKey('liter_config', data.literConfig);
             addKey('ticket_custom_message', data.ticketCustomMessage);
             addKey('catalog_order', data.catalogOrder);
+            addKey('recommendations', data.recommendations);
+            addKey('cart_recommended_pack', data.cartRecommendedPack);
 
             if (data.orders && Array.isArray(data.orders)) {
               data.orders.forEach(o => {

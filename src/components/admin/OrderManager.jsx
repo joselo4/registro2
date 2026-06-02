@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 
 // --- FUNCIONES DE SANITIZACIÓN ---
 const sanitizeHTML = (text) => {
@@ -18,7 +18,8 @@ export default function OrderManager({
   ticketCustomMessage,
   addLog,
   currentUser,
-  showAlert
+  showAlert,
+  activeSubTab: activeSubTabProp
 }) {
   const alert = (msg) => {
     if (showAlert) {
@@ -33,7 +34,13 @@ export default function OrderManager({
   };
 
   // --- Sub Tab: orders o surveys ---
-  const [activeSubTab, setActiveSubTab] = useState('orders');
+  const [activeSubTab, setActiveSubTab] = useState(activeSubTabProp || 'orders');
+
+  useEffect(() => {
+    if (activeSubTabProp) {
+      setActiveSubTab(activeSubTabProp);
+    }
+  }, [activeSubTabProp]);
 
   // --- Estados Locales de Filtro y Búsqueda ---
   const [orderFilter, setOrderFilter] = useState('all');

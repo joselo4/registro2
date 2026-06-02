@@ -721,6 +721,10 @@ export default function AdminPanel({
             onUpdateExpenses={onUpdateExpenses}
             deliveryFee={deliveryFee}
             onChangeDeliveryFee={onChangeDeliveryFee}
+            recommendations={recommendations}
+            onUpdateRecommendations={onUpdateRecommendations}
+            cartRecommendedPack={cartRecommendedPack}
+            onUpdateCartRecommendedPack={onUpdateCartRecommendedPack}
           />
         )}
 
