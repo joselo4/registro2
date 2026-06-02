@@ -50,7 +50,10 @@ export default function SettingsManager({
   recommendations, onUpdateRecommendations,
   cartRecommendedPack, onUpdateCartRecommendedPack,
   storeTitle, onChangeStoreTitle,
-  storeFavicon, onChangeStoreFavicon
+  storeFavicon, onChangeStoreFavicon,
+  storeInstagram, onChangeStoreInstagram,
+  storeFacebook, onChangeStoreFacebook,
+  whatsappContactMessage, onChangeWhatsappContactMessage
 }) {
   // --- Estados Locales para Ajustes (Evita lags en el dashboard completo al escribir) ---
   const [localStoreName, setLocalStoreName] = useState(storeName);
@@ -58,6 +61,9 @@ export default function SettingsManager({
   const [localStoreTitle, setLocalStoreTitle] = useState(storeTitle || '');
   const [localStoreFavicon, setLocalStoreFavicon] = useState(storeFavicon || '🍦');
   const [localStorePhone, setLocalStorePhone] = useState(storePhone);
+  const [localStoreInstagram, setLocalStoreInstagram] = useState(storeInstagram || 'https://www.instagram.com/');
+  const [localStoreFacebook, setLocalStoreFacebook] = useState(storeFacebook || 'https://www.facebook.com/');
+  const [localWhatsappContactMessage, setLocalWhatsappContactMessage] = useState(whatsappContactMessage || '¡Hola! Me gustaría hacer una consulta. 🍦');
   const [localSalesGoal, setLocalSalesGoal] = useState(salesGoal);
   const [localFreeDeliveryThreshold, setLocalFreeDeliveryThreshold] = useState(freeDeliveryThreshold);
   const [localDeliveryCampaignText, setLocalDeliveryCampaignText] = useState(deliveryCampaignText);
@@ -97,6 +103,9 @@ export default function SettingsManager({
   useEffect(() => { setLocalStoreLogo(storeLogo); }, [storeLogo]);
   useEffect(() => { setLocalStoreTitle(storeTitle || ''); }, [storeTitle]);
   useEffect(() => { setLocalStoreFavicon(storeFavicon || '🍦'); }, [storeFavicon]);
+  useEffect(() => { setLocalStoreInstagram(storeInstagram || 'https://www.instagram.com/'); }, [storeInstagram]);
+  useEffect(() => { setLocalStoreFacebook(storeFacebook || 'https://www.facebook.com/'); }, [storeFacebook]);
+  useEffect(() => { setLocalWhatsappContactMessage(whatsappContactMessage || '¡Hola! Me gustaría hacer una consulta. 🍦'); }, [whatsappContactMessage]);
   useEffect(() => { setLocalStorePhone(storePhone); }, [storePhone]);
   useEffect(() => { setLocalSalesGoal(salesGoal); }, [salesGoal]);
   useEffect(() => { setLocalFreeDeliveryThreshold(freeDeliveryThreshold); }, [freeDeliveryThreshold]);
@@ -132,6 +141,8 @@ export default function SettingsManager({
     // Sanitizar URLs para evitar enlaces HTTP inseguros (mixed content) en HTTPS
     const sanitizedLogo = localStoreLogo.toLowerCase().startsWith('http') ? sanitizeUrlToHTTPS(localStoreLogo) : localStoreLogo.trim();
     const sanitizedFavicon = localStoreFavicon.toLowerCase().startsWith('http') ? sanitizeUrlToHTTPS(localStoreFavicon) : localStoreFavicon.trim();
+    const sanitizedInstagram = localStoreInstagram.toLowerCase().startsWith('http') ? sanitizeUrlToHTTPS(localStoreInstagram) : localStoreInstagram.trim();
+    const sanitizedFacebook = localStoreFacebook.toLowerCase().startsWith('http') ? sanitizeUrlToHTTPS(localStoreFacebook) : localStoreFacebook.trim();
     const sanitizedQrUrl = sanitizeUrlToHTTPS(localQrCustomUrl);
     const sanitizedR2PublicUrl = sanitizeUrlToHTTPS(localR2PublicUrl);
     const sanitizedLiterImage = sanitizeUrlToHTTPS(localLiterImage);
@@ -140,7 +151,10 @@ export default function SettingsManager({
     onChangeStoreLogo(sanitizedLogo);
     if (onChangeStoreTitle) onChangeStoreTitle(localStoreTitle);
     if (onChangeStoreFavicon) onChangeStoreFavicon(sanitizedFavicon);
+    if (onChangeStoreInstagram) onChangeStoreInstagram(sanitizedInstagram);
+    if (onChangeStoreFacebook) onChangeStoreFacebook(sanitizedFacebook);
     onChangeStorePhone(localStorePhone);
+    if (onChangeWhatsappContactMessage) onChangeWhatsappContactMessage(localWhatsappContactMessage);
     onChangeSalesGoal(parseFloat(localSalesGoal) || 0);
     onChangeFreeDeliveryThreshold(parseFloat(localFreeDeliveryThreshold) || 0);
     onChangeDeliveryCampaignText(localDeliveryCampaignText);
@@ -288,6 +302,9 @@ export default function SettingsManager({
         storeLogo,
         storeTitle,
         storeFavicon,
+        storeInstagram,
+        storeFacebook,
+        whatsappContactMessage,
         flavors,
         toppings,
         bases,
@@ -345,6 +362,8 @@ export default function SettingsManager({
           if (data.storeLogo && onChangeStoreLogo) onChangeStoreLogo(data.storeLogo);
           if (data.storeTitle && onChangeStoreTitle) onChangeStoreTitle(data.storeTitle);
           if (data.storeFavicon && onChangeStoreFavicon) onChangeStoreFavicon(data.storeFavicon);
+          if (data.storeInstagram && onChangeStoreInstagram) onChangeStoreInstagram(data.storeInstagram);
+          if (data.storeFacebook && onChangeStoreFacebook) onChangeStoreFacebook(data.storeFacebook);
           if (data.flavors && onUpdateFlavors) onUpdateFlavors(data.flavors);
           if (data.toppings && onUpdateToppings) onUpdateToppings(data.toppings);
           if (data.bases && onUpdateBases) onUpdateBases(data.bases);
@@ -356,6 +375,7 @@ export default function SettingsManager({
           if (data.freeDeliveryThreshold !== undefined && onChangeFreeDeliveryThreshold) onChangeFreeDeliveryThreshold(parseFloat(data.freeDeliveryThreshold));
           if (data.deliveryCampaignText !== undefined && onChangeDeliveryCampaignText) onChangeDeliveryCampaignText(data.deliveryCampaignText);
           if (data.storePhone !== undefined && onChangeStorePhone) onChangeStorePhone(data.storePhone);
+          if (data.whatsappContactMessage !== undefined && onChangeWhatsappContactMessage) onChangeWhatsappContactMessage(data.whatsappContactMessage);
           if (data.telegramToken !== undefined && onChangeTelegramToken) onChangeTelegramToken(data.telegramToken);
           if (data.telegramChatId !== undefined && onChangeTelegramChatId) onChangeTelegramChatId(data.telegramChatId);
           if (data.salesGoal !== undefined && onChangeSalesGoal) onChangeSalesGoal(parseFloat(data.salesGoal));
@@ -379,6 +399,8 @@ export default function SettingsManager({
             addKey('store_logo', data.storeLogo);
             addKey('store_title', data.storeTitle);
             addKey('store_favicon', data.storeFavicon);
+            addKey('store_instagram', data.storeInstagram);
+            addKey('store_facebook', data.storeFacebook);
             addKey('flavors', data.flavors);
             addKey('toppings', data.toppings);
             addKey('bases', data.bases);
@@ -390,6 +412,7 @@ export default function SettingsManager({
             addKey('free_delivery_threshold', data.freeDeliveryThreshold);
             addKey('delivery_campaign_text', data.deliveryCampaignText);
             addKey('store_phone', data.storePhone);
+            addKey('whatsapp_contact_message', data.whatsappContactMessage);
             addKey('telegram_token', data.telegramToken);
             addKey('telegram_chat_id', data.telegramChatId);
             addKey('sales_goal', data.salesGoal);
@@ -431,8 +454,10 @@ export default function SettingsManager({
         {/* Nombre, Título, Logo y Favicon del Local */}
         <div style={{ display: 'grid', gridTemplateColumns: '1.2fr 0.8fr', gap: '15px', borderBottom: '1px solid var(--border-color)', paddingBottom: '15px' }}>
           <div className="form-group">
-            <label>Nombre de la Heladería / Sitio Web</label>
+            <label htmlFor="store-name-input">Nombre de la Heladería / Sitio Web</label>
             <input
+              id="store-name-input"
+              name="store-name"
               type="text"
               className="form-control"
               value={localStoreName}
@@ -440,9 +465,11 @@ export default function SettingsManager({
             />
           </div>
           <div className="form-group">
-            <label>Emoji o Imagen Logotipo</label>
+            <label htmlFor="store-logo-input">Emoji o Imagen Logotipo</label>
             <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
               <input
+                id="store-logo-input"
+                name="store-logo"
                 type="text"
                 className="form-control"
                 placeholder="Emoji o URL"
@@ -479,8 +506,10 @@ export default function SettingsManager({
           </div>
 
           <div className="form-group" style={{ gridColumn: 'span 2' }}>
-            <label>Título de la Página (SEO - Recomendado min 50 caracteres)</label>
+            <label htmlFor="store-title-input">Título de la Página (SEO - Recomendado min 50 caracteres)</label>
             <input
+              id="store-title-input"
+              name="store-title"
               type="text"
               className="form-control"
               placeholder="Ej: Don Helado - Heladería Online & Delivery de Helados Artesanales"
@@ -493,9 +522,11 @@ export default function SettingsManager({
           </div>
 
           <div className="form-group" style={{ gridColumn: 'span 2' }}>
-            <label>Favicon de la Pestaña (Emoji o URL de Imagen)</label>
+            <label htmlFor="store-favicon-input">Favicon de la Pestaña (Emoji o URL de Imagen)</label>
             <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
               <input
+                id="store-favicon-input"
+                name="store-favicon"
                 type="text"
                 className="form-control"
                 placeholder="Ej: 🍦 o enlace de imagen https://..."
@@ -533,14 +564,42 @@ export default function SettingsManager({
               Puedes ingresar un Emoji (ej: 🍨) o subir una imagen cuadrada (PNG/SVG) para representarla en la pestaña del navegador.
             </span>
           </div>
+
+          <div className="form-group" style={{ gridColumn: 'span 2' }}>
+            <label htmlFor="store-instagram-input">📸 Enlace de Instagram</label>
+            <input
+              id="store-instagram-input"
+              name="store-instagram"
+              type="text"
+              className="form-control"
+              placeholder="Ej: https://www.instagram.com/tu_heladeria"
+              value={localStoreInstagram}
+              onChange={(e) => setLocalStoreInstagram(e.target.value)}
+            />
+          </div>
+
+          <div className="form-group" style={{ gridColumn: 'span 2' }}>
+            <label htmlFor="store-facebook-input">📘 Enlace de Facebook</label>
+            <input
+              id="store-facebook-input"
+              name="store-facebook"
+              type="text"
+              className="form-control"
+              placeholder="Ej: https://www.facebook.com/tu_heladeria"
+              value={localStoreFacebook}
+              onChange={(e) => setLocalStoreFacebook(e.target.value)}
+            />
+          </div>
         </div>
 
         {/* Teléfono de WhatsApp */}
         <div>
-          <label style={{ fontSize: '0.85rem', fontWeight: 600, display: 'block', marginBottom: '5px' }}>
+          <label htmlFor="store-phone-input" style={{ fontSize: '0.85rem', fontWeight: 600, display: 'block', marginBottom: '5px' }}>
             📞 Número de Celular (Llamadas y WhatsApp)
           </label>
           <input 
+            id="store-phone-input"
+            name="store-phone"
             type="text" 
             className="form-control" 
             value={localStorePhone} 
@@ -551,13 +610,36 @@ export default function SettingsManager({
           </span>
         </div>
 
+        {/* Mensaje de Consulta de WhatsApp */}
+        <div>
+          <label htmlFor="store-whatsapp-contact-message-input" style={{ fontSize: '0.85rem', fontWeight: 600, display: 'block', marginBottom: '5px' }}>
+            💬 Mensaje Predeterminado de Consulta de WhatsApp
+          </label>
+          <input 
+            id="store-whatsapp-contact-message-input"
+            name="store-whatsapp-contact-message"
+            type="text" 
+            className="form-control" 
+            placeholder="Ej: ¡Hola! Me gustaría hacer una consulta. 🍦"
+            value={localWhatsappContactMessage} 
+            onChange={(e) => setLocalWhatsappContactMessage(e.target.value)} 
+          />
+          <span style={{ fontSize: '0.7rem', color: 'var(--text-light)' }}>
+            El mensaje que se rellenará automáticamente cuando un cliente haga clic en el botón de WhatsApp del pie de página.
+          </span>
+        </div>
+
         {/* Meta de Ventas del día */}
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderBottom: '1px solid var(--border-color)', paddingBottom: '10px' }}>
           <div>
-            <strong>🎯 Meta Diaria de Ventas (S/.)</strong>
+            <label htmlFor="sales-goal-input" style={{ display: 'block', cursor: 'pointer' }}>
+              <strong>🎯 Meta Diaria de Ventas (S/.)</strong>
+            </label>
             <span style={{ fontSize: '0.75rem', color: 'var(--text-light)', display: 'block' }}>Objetivo de ingresos diario.</span>
           </div>
           <input
+            id="sales-goal-input"
+            name="sales-goal"
             type="number"
             step="10.00"
             style={{ width: '80px', padding: '6px' }}
@@ -570,10 +652,14 @@ export default function SettingsManager({
         {/* Envío Gratis */}
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderBottom: '1px solid var(--border-color)', paddingBottom: '10px' }}>
           <div>
-            <strong>Monto Envío Gratis Mínimo (S/.)</strong>
+            <label htmlFor="free-delivery-threshold-input" style={{ display: 'block', cursor: 'pointer' }}>
+              <strong>Monto Envío Gratis Mínimo (S/.)</strong>
+            </label>
             <span style={{ fontSize: '0.75rem', color: 'var(--text-light)', display: 'block' }}>Monto necesario para delivery gratuito.</span>
           </div>
           <input
+            id="free-delivery-threshold-input"
+            name="free-delivery-threshold"
             type="number"
             step="1.00"
             style={{ width: '80px', padding: '6px' }}
@@ -586,10 +672,14 @@ export default function SettingsManager({
         {/* Mensaje de Campaña */}
         <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', borderBottom: '1px solid var(--border-color)', paddingBottom: '12px' }}>
           <div>
-            <strong>Mensaje de Campaña de Delivery</strong>
+            <label htmlFor="delivery-campaign-text-input" style={{ display: 'block', cursor: 'pointer' }}>
+              <strong>Mensaje de Campaña de Delivery</strong>
+            </label>
             <span style={{ fontSize: '0.75rem', color: 'var(--text-light)', display: 'block' }}>Texto secundario del banner para promociones y campañas de envío.</span>
           </div>
           <textarea
+            id="delivery-campaign-text-input"
+            name="delivery-campaign-text"
             className="form-control"
             rows={2}
             style={{ width: '100%', fontSize: '0.8rem', resize: 'vertical' }}
@@ -605,7 +695,9 @@ export default function SettingsManager({
         {/* Alerta Sonora */}
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderBottom: '1px solid var(--border-color)', paddingBottom: '10px' }}>
           <div>
-            <strong>Alerta Sonora de Pedidos</strong>
+            <label htmlFor="sound-enabled-input" style={{ display: 'block', cursor: 'pointer' }}>
+              <strong>Alerta Sonora de Pedidos</strong>
+            </label>
             <span style={{ fontSize: '0.75rem', color: 'var(--text-light)', display: 'block' }}>Campanada para notificar pedidos.</span>
             <button 
               type="button" 
@@ -661,8 +753,8 @@ export default function SettingsManager({
               🔔 Probar Sonido
             </button>
           </div>
-          <label className="toggle-switch">
-            <input type="checkbox" checked={soundEnabled} onChange={onToggleSoundEnabled} />
+          <label className="toggle-switch" htmlFor="sound-enabled-input">
+            <input id="sound-enabled-input" name="sound-enabled" type="checkbox" checked={soundEnabled} onChange={onToggleSoundEnabled} />
             <span className="slider"></span>
           </label>
         </div>
@@ -670,11 +762,13 @@ export default function SettingsManager({
         {/* Estado de Heladería */}
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderBottom: '1px solid var(--border-color)', paddingBottom: '10px' }}>
           <div>
-            <strong>Estado de Heladería</strong>
+            <label htmlFor="shop-open-input" style={{ display: 'block', cursor: 'pointer' }}>
+              <strong>Estado de Heladería</strong>
+            </label>
             <span style={{ fontSize: '0.75rem', color: 'var(--text-light)', display: 'block' }}>Si está cerrado, se bloquea el carrito.</span>
           </div>
-          <label className="toggle-switch">
-            <input type="checkbox" checked={shopOpen} onChange={onToggleShopOpenProp} />
+          <label className="toggle-switch" htmlFor="shop-open-input">
+            <input id="shop-open-input" name="shop-open" type="checkbox" checked={shopOpen} onChange={onToggleShopOpenProp} />
             <span className="slider"></span>
           </label>
         </div>
@@ -689,22 +783,32 @@ export default function SettingsManager({
           </p>
           <div style={{ display: 'flex', gap: '10px', flexDirection: 'column' }}>
             <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
-              <input
-                type="text"
-                className="form-control"
-                placeholder="Token del Bot"
-                style={{ flex: 2, minWidth: '200px', fontSize: '0.8rem', padding: '8px' }}
-                value={localTelegramToken}
-                onChange={(e) => setLocalTelegramToken(e.target.value)}
-              />
-              <input
-                type="text"
-                className="form-control"
-                placeholder="Chat ID"
-                style={{ flex: 1, minWidth: '100px', fontSize: '0.8rem', padding: '8px' }}
-                value={localTelegramChatId}
-                onChange={(e) => setLocalTelegramChatId(e.target.value)}
-              />
+              <div style={{ flex: 2, minWidth: '200px', display: 'flex', flexDirection: 'column', gap: '4px' }}>
+                <label htmlFor="telegram-token-input" style={{ fontSize: '0.75rem', fontWeight: 'bold' }}>Token del Bot</label>
+                <input
+                  id="telegram-token-input"
+                  name="telegram-token"
+                  type="text"
+                  className="form-control"
+                  placeholder="Token del Bot"
+                  style={{ width: '100%', fontSize: '0.8rem', padding: '8px' }}
+                  value={localTelegramToken}
+                  onChange={(e) => setLocalTelegramToken(e.target.value)}
+                />
+              </div>
+              <div style={{ flex: 1, minWidth: '100px', display: 'flex', flexDirection: 'column', gap: '4px' }}>
+                <label htmlFor="telegram-chat-id-input" style={{ fontSize: '0.75rem', fontWeight: 'bold' }}>Chat ID</label>
+                <input
+                  id="telegram-chat-id-input"
+                  name="telegram-chat-id"
+                  type="text"
+                  className="form-control"
+                  placeholder="Chat ID"
+                  style={{ width: '100%', fontSize: '0.8rem', padding: '8px' }}
+                  value={localTelegramChatId}
+                  onChange={(e) => setLocalTelegramChatId(e.target.value)}
+                />
+              </div>
             </div>
             
             <div style={{ display: 'flex', alignItems: 'center', gap: '10px', flexWrap: 'wrap' }}>

@@ -88,6 +88,12 @@ export default function AdminPanel({
   onUpdateTicketCustomMessage,
   catalogOrder = ['liter', 'classic', 'packs'],
   onUpdateCatalogOrder,
+  storeInstagram,
+  onChangeStoreInstagram,
+  storeFacebook,
+  onChangeStoreFacebook,
+  whatsappContactMessage,
+  onChangeWhatsappContactMessage,
   showAlert
 }) {
   const alert = (msg) => {
@@ -696,7 +702,7 @@ export default function AdminPanel({
             onToggleShopOpen={onToggleShopOpen}
             isCloudSynced={isCloudSynced}
             whatsappGreeting={whatsappGreeting}
-            onChangeWhitespaceGreeting={onChangeWhatsappGreeting}
+            onChangeWhatsappGreeting={onChangeWhatsappGreeting}
             whatsappFooter={whatsappFooter}
             onChangeWhatsappFooter={onChangeWhatsappFooter}
             qrCustomUrl={qrCustomUrl}
@@ -705,6 +711,12 @@ export default function AdminPanel({
             onUpdateTicketCustomMessage={onUpdateTicketCustomMessage}
             catalogOrder={catalogOrder}
             onUpdateCatalogOrder={onUpdateCatalogOrder}
+            storeInstagram={storeInstagram}
+            onChangeStoreInstagram={onChangeStoreInstagram}
+            storeFacebook={storeFacebook}
+            onChangeStoreFacebook={onChangeStoreFacebook}
+            whatsappContactMessage={whatsappContactMessage}
+            onChangeWhatsappContactMessage={onChangeWhatsappContactMessage}
             r2Config={r2Config}
             onUpdateR2Config={onUpdateR2Config}
             literConfig={literConfig}

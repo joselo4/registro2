@@ -408,6 +408,18 @@ export default function App() {
     return localStorage.getItem('helados_store_favicon') || '🍦';
   });
 
+  const [storeInstagram, setStoreInstagram] = useState(() => {
+    return localStorage.getItem('helados_store_instagram') || 'https://www.instagram.com/';
+  });
+
+  const [storeFacebook, setStoreFacebook] = useState(() => {
+    return localStorage.getItem('helados_store_facebook') || 'https://www.facebook.com/';
+  });
+
+  const [whatsappContactMessage, setWhatsappContactMessage] = useState(() => {
+    return localStorage.getItem('helados_whatsapp_contact_message') || '¡Hola! Me gustaría hacer una consulta. 🍦';
+  });
+
   // --- Estados de Datos de Tienda ---
   const [flavors, setFlavors] = useState(() => {
     const saved = localStorage.getItem('helados_flavors');
@@ -599,6 +611,9 @@ export default function App() {
     if (serverData.liter_config !== undefined) setLiterConfig(serverData.liter_config);
     if (serverData.ticket_custom_message !== undefined) setTicketCustomMessage(serverData.ticket_custom_message);
     if (serverData.catalog_order !== undefined) setCatalogOrder(serverData.catalog_order);
+    if (serverData.store_instagram !== undefined) setStoreInstagram(serverData.store_instagram);
+    if (serverData.store_facebook !== undefined) setStoreFacebook(serverData.store_facebook);
+    if (serverData.whatsapp_contact_message !== undefined) setWhatsappContactMessage(serverData.whatsapp_contact_message);
   };
 
   // --- NUEVO: Efecto de Sincronización e Inicialización Supabase ---
@@ -787,6 +802,9 @@ export default function App() {
   useSyncEffect('r2_config', r2Config, true);
   useSyncEffect('liter_config', literConfig, true);
   useSyncEffect('ticket_custom_message', ticketCustomMessage, false);
+  useSyncEffect('store_instagram', storeInstagram, false);
+  useSyncEffect('store_facebook', storeFacebook, false);
+  useSyncEffect('whatsapp_contact_message', whatsappContactMessage, false);
 
   // --- Efectos para actualizar el título y favicon dinámicamente ---
   useEffect(() => {
@@ -944,6 +962,15 @@ export default function App() {
           break;
         case 'ticket_custom_message':
           updateStateIfChanged(setTicketCustomMessage, 'ticket_custom_message', value);
+          break;
+        case 'store_instagram':
+          updateStateIfChanged(setStoreInstagram, 'store_instagram', value);
+          break;
+        case 'store_facebook':
+          updateStateIfChanged(setStoreFacebook, 'store_facebook', value);
+          break;
+        case 'whatsapp_contact_message':
+          updateStateIfChanged(setWhatsappContactMessage, 'whatsapp_contact_message', value);
           break;
         default:
           break;
@@ -1404,6 +1431,12 @@ export default function App() {
             onUpdateTicketCustomMessage={setTicketCustomMessage}
             catalogOrder={catalogOrder}
             onUpdateCatalogOrder={setCatalogOrder}
+            storeInstagram={storeInstagram}
+            onChangeStoreInstagram={setStoreInstagram}
+            storeFacebook={storeFacebook}
+            onChangeStoreFacebook={setStoreFacebook}
+            whatsappContactMessage={whatsappContactMessage}
+            onChangeWhatsappContactMessage={setWhatsappContactMessage}
             showAlert={showAlert}
           />
         )}
@@ -1422,13 +1455,13 @@ export default function App() {
       }}>
         {/* Redes Sociales del Local */}
         <div style={{ marginBottom: '15px', display: 'flex', justifyContent: 'center', gap: '20px', flexWrap: 'wrap' }}>
-          <a href="https://www.instagram.com/" target="_blank" rel="noopener noreferrer" style={{ color: 'var(--text-light)', display: 'inline-flex', alignItems: 'center', gap: '4px', textDecoration: 'none', fontWeight: '600' }} title="Instagram">
+          <a href={storeInstagram || "https://www.instagram.com/"} target="_blank" rel="noopener noreferrer" style={{ color: 'var(--text-light)', display: 'inline-flex', alignItems: 'center', gap: '4px', textDecoration: 'none', fontWeight: '600' }} title="Instagram">
             <span>📸</span> Instagram
           </a>
-          <a href="https://www.facebook.com/" target="_blank" rel="noopener noreferrer" style={{ color: 'var(--text-light)', display: 'inline-flex', alignItems: 'center', gap: '4px', textDecoration: 'none', fontWeight: '600' }} title="Facebook">
+          <a href={storeFacebook || "https://www.facebook.com/"} target="_blank" rel="noopener noreferrer" style={{ color: 'var(--text-light)', display: 'inline-flex', alignItems: 'center', gap: '4px', textDecoration: 'none', fontWeight: '600' }} title="Facebook">
             <span>📘</span> Facebook
           </a>
-          <a href={`https://wa.me/${String(storePhone || '51987654321').replace(/\D/g, '')}`} target="_blank" rel="noopener noreferrer" style={{ color: 'var(--text-light)', display: 'inline-flex', alignItems: 'center', gap: '4px', textDecoration: 'none', fontWeight: '600' }} title="WhatsApp">
+          <a href={`https://wa.me/${String(storePhone || '51987654321').replace(/\D/g, '')}?text=${encodeURIComponent(whatsappContactMessage || '¡Hola! Me gustaría hacer una consulta. 🍦')}`} target="_blank" rel="noopener noreferrer" style={{ color: 'var(--text-light)', display: 'inline-flex', alignItems: 'center', gap: '4px', textDecoration: 'none', fontWeight: '600' }} title="WhatsApp">
             <span>💬</span> WhatsApp
           </a>
         </div>
