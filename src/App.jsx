@@ -625,7 +625,7 @@ export default function App() {
         console.error("Error al obtener la sesión de Supabase:", err);
       }
       
-      const serverData = await fetchSyncedData(hasActiveSession);
+      const serverData = await fetchSyncedData(hasActiveSession || isLoggedIn);
       if (serverData) {
         console.log("🔌 Datos recuperados de Supabase:", Object.keys(serverData));
         setIsCloudSynced(true);
