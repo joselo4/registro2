@@ -474,7 +474,7 @@ export default function IceCreamCustomizer({ bases, flavors, toppings, onAddToCa
                     style={{ padding: '12px 6px' }}
                   >
                     {base.image ? (
-                      <img src={base.image} alt={base.name} style={{ width: '38px', height: '38px', objectFit: 'contain', marginBottom: '4px' }} />
+                      <img src={base.image} alt={base.name} width="38" height="38" style={{ width: '38px', height: '38px', objectFit: 'contain', marginBottom: '4px' }} />
                     ) : (
                       <span style={{ fontSize: '1.8rem' }}>{base.icon}</span>
                     )}
@@ -558,7 +558,7 @@ export default function IceCreamCustomizer({ bases, flavors, toppings, onAddToCa
                         style={{ padding: '8px 4px' }}
                       >
                         {topping.image ? (
-                          <img src={topping.image} alt={topping.name} style={{ width: '22px', height: '22px', objectFit: 'contain', marginBottom: '2px' }} />
+                          <img src={topping.image} alt={topping.name} width="22" height="22" style={{ width: '22px', height: '22px', objectFit: 'contain', marginBottom: '2px' }} />
                         ) : (
                           <span style={{ fontSize: '1rem' }}>🍬</span>
                         )}
@@ -584,7 +584,7 @@ export default function IceCreamCustomizer({ bases, flavors, toppings, onAddToCa
                         style={{ padding: '8px' }}
                       >
                         {syrup.image ? (
-                          <img src={syrup.image} alt={syrup.name} style={{ width: '22px', height: '22px', objectFit: 'contain', marginBottom: '2px' }} />
+                          <img src={syrup.image} alt={syrup.name} width="22" height="22" style={{ width: '22px', height: '22px', objectFit: 'contain', marginBottom: '2px' }} />
                         ) : (
                           <span style={{ fontSize: '1rem' }}>{icon}</span>
                         )}

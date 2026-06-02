@@ -334,11 +334,11 @@ export default function Cart({
               <div className="cart-item-info">
                 <div style={{ fontSize: '1.8rem', display: 'flex', alignItems: 'center', justifyContent: 'center', width: '32px', height: '32px' }}>
                   {item.type === 'liter' && literConfig?.image ? (
-                    <img src={literConfig.image} alt="1 Litro" style={{ width: '100%', height: '100%', objectFit: 'contain' }} />
+                    <img src={literConfig.image} alt="1 Litro" width="32" height="32" style={{ width: '100%', height: '100%', objectFit: 'contain' }} />
                   ) : item.type === 'pack' && item.image ? (
-                    <img src={item.image} alt={item.name} style={{ width: '100%', height: '100%', objectFit: 'cover', borderRadius: '4px' }} />
+                    <img src={item.image} alt={item.name} width="32" height="32" style={{ width: '100%', height: '100%', objectFit: 'cover', borderRadius: '4px' }} />
                   ) : item.type === 'custom' && item.base?.image ? (
-                    <img src={item.base.image} alt={item.name} style={{ width: '100%', height: '100%', objectFit: 'contain' }} />
+                    <img src={item.base.image} alt={item.name} width="32" height="32" style={{ width: '100%', height: '100%', objectFit: 'contain' }} />
                   ) : (
                     item.type === 'custom' ? (item.base.icon || (item.base.id === 'cono' ? '🍦' : '🍧')) : (item.type === 'liter' ? '🏺' : '🎁')
                   )}

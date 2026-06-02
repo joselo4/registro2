@@ -48,7 +48,8 @@ const renderLogo = (logo, size = '32px') => {
   if (!logo) return null;
   const isUrl = logo.startsWith('http://') || logo.startsWith('https://') || logo.startsWith('/') || logo.startsWith('./') || logo.includes('.') || logo.startsWith('data:image/');
   if (isUrl) {
-    return <img src={logo} alt="Logo" style={{ width: size, height: size, objectFit: 'contain', borderRadius: '50%' }} />;
+    const numericSize = parseInt(size, 10) || 32;
+    return <img src={logo} alt="Logo" width={numericSize} height={numericSize} style={{ width: size, height: size, objectFit: 'contain', borderRadius: '50%' }} />;
   }
   return <span className="logo-icon">{logo}</span>;
 };
@@ -1149,40 +1150,49 @@ export default function App() {
 
           {/* Menú de Navegación para Escritorio */}
           <div className="nav-links desktop-only">
-            <button 
+            <a 
+              href="#tienda"
               className={`nav-btn ${view === 'shop' ? 'active' : ''}`}
-              onClick={() => setView('shop')}
+              onClick={(e) => { e.preventDefault(); setView('shop'); }}
+              style={{ textDecoration: 'none', display: 'inline-flex', alignItems: 'center' }}
             >
               🍨 Tienda
-            </button>
-            <button 
+            </a>
+            <a 
+              href="#personalizar"
               className={`nav-btn ${view === 'customizer' ? 'active' : ''}`}
-              onClick={() => setView('customizer')}
+              onClick={(e) => { e.preventDefault(); setView('customizer'); }}
+              style={{ textDecoration: 'none', display: 'inline-flex', alignItems: 'center' }}
             >
               🎨 Personalizar
-            </button>
-            <button 
+            </a>
+            <a 
+              href="#carrito"
               className={`nav-btn ${view === 'cart' ? 'active' : ''}`}
-              onClick={() => setView('cart')}
+              onClick={(e) => { e.preventDefault(); setView('cart'); }}
+              style={{ textDecoration: 'none', display: 'inline-flex', alignItems: 'center' }}
             >
               🛒 Carrito 
               {totalCartItems > 0 && <span className="cart-badge">{totalCartItems}</span>}
-            </button>
-            <button 
+            </a>
+            <a 
+              href="#rastrear"
               className={`nav-btn ${view === 'tracker' ? 'active' : ''}`}
-              onClick={() => setView('tracker')}
+              onClick={(e) => { e.preventDefault(); setView('tracker'); }}
+              style={{ textDecoration: 'none', display: 'inline-flex', alignItems: 'center' }}
             >
               🔍 Rastrear
-            </button>
+            </a>
             
             {isLoggedIn && (
-              <button 
+              <a 
+                href="#admin"
                 className={`nav-btn ${view === 'admin' ? 'active' : ''}`}
-                onClick={() => setView('admin')}
-                style={{ borderLeft: '1px solid var(--border-color)', borderRadius: 0, paddingLeft: '15px' }}
+                onClick={(e) => { e.preventDefault(); setView('admin'); }}
+                style={{ borderLeft: '1px solid var(--border-color)', borderRadius: 0, paddingLeft: '15px', textDecoration: 'none', display: 'inline-flex', alignItems: 'center' }}
               >
                 🔧 Panel Admin
-              </button>
+              </a>
             )}
             
             <button 
@@ -1402,7 +1412,7 @@ export default function App() {
       {/* 🔑 PIE DE PÁGINA (Footer) CON ACCESO DISCRETO */}
       <footer style={{
         textAlign: 'center',
-        padding: '15px',
+        padding: '20px 15px',
         fontSize: '0.8rem',
         color: 'var(--text-light)',
         borderTop: '1px solid var(--border-color)',
@@ -1410,6 +1420,18 @@ export default function App() {
         marginTop: 'auto',
         marginBottom: '65px' // Espacio para evitar que tape la barra inferior en móvil
       }}>
+        {/* Redes Sociales del Local */}
+        <div style={{ marginBottom: '15px', display: 'flex', justifyContent: 'center', gap: '20px', flexWrap: 'wrap' }}>
+          <a href="https://www.instagram.com/" target="_blank" rel="noopener noreferrer" style={{ color: 'var(--text-light)', display: 'inline-flex', alignItems: 'center', gap: '4px', textDecoration: 'none', fontWeight: '600' }} title="Instagram">
+            <span>📸</span> Instagram
+          </a>
+          <a href="https://www.facebook.com/" target="_blank" rel="noopener noreferrer" style={{ color: 'var(--text-light)', display: 'inline-flex', alignItems: 'center', gap: '4px', textDecoration: 'none', fontWeight: '600' }} title="Facebook">
+            <span>📘</span> Facebook
+          </a>
+          <a href={`https://wa.me/${String(storePhone || '51987654321').replace(/\D/g, '')}`} target="_blank" rel="noopener noreferrer" style={{ color: 'var(--text-light)', display: 'inline-flex', alignItems: 'center', gap: '4px', textDecoration: 'none', fontWeight: '600' }} title="WhatsApp">
+            <span>💬</span> WhatsApp
+          </a>
+        </div>
         <div>&copy; {new Date().getFullYear()} {storeName} - Todos los derechos reservados.</div>
         <div style={{ marginTop: '5px' }}>
           Hecho con mucho 💖 para heladeros artesanos.
@@ -1433,23 +1455,29 @@ export default function App() {
 
       {/* 📱 BARRA DE NAVEGACIÓN INFERIOR PARA MÓVIL (Bottom Tab Bar) */}
       <nav className="mobile-tab-bar glass">
-        <button 
+        <a 
+          href="#tienda"
           className={`tab-item ${view === 'shop' ? 'active' : ''}`}
-          onClick={() => setView('shop')}
+          onClick={(e) => { e.preventDefault(); setView('shop'); }}
+          style={{ textDecoration: 'none' }}
         >
           <span className="tab-icon">🍨</span>
           <span className="tab-label">Tienda</span>
-        </button>
-        <button 
+        </a>
+        <a 
+          href="#personalizar"
           className={`tab-item ${view === 'customizer' ? 'active' : ''}`}
-          onClick={() => setView('customizer')}
+          onClick={(e) => { e.preventDefault(); setView('customizer'); }}
+          style={{ textDecoration: 'none' }}
         >
           <span className="tab-icon">🎨</span>
           <span className="tab-label">Diseñar</span>
-        </button>
-        <button 
+        </a>
+        <a 
+          href="#carrito"
           className={`tab-item ${view === 'cart' ? 'active' : ''}`}
-          onClick={() => setView('cart')}
+          onClick={(e) => { e.preventDefault(); setView('cart'); }}
+          style={{ textDecoration: 'none' }}
         >
           <span className="tab-icon" style={{ position: 'relative' }}>
             🛒
@@ -1458,22 +1486,26 @@ export default function App() {
             )}
           </span>
           <span className="tab-label">Carrito</span>
-        </button>
-        <button 
+        </a>
+        <a 
+          href="#rastrear"
           className={`tab-item ${view === 'tracker' ? 'active' : ''}`}
-          onClick={() => setView('tracker')}
+          onClick={(e) => { e.preventDefault(); setView('tracker'); }}
+          style={{ textDecoration: 'none' }}
         >
           <span className="tab-icon">🔍</span>
           <span className="tab-label">Rastrear</span>
-        </button>
+        </a>
         {isLoggedIn && (
-          <button 
+          <a 
+            href="#admin"
             className={`tab-item ${view === 'admin' ? 'active' : ''}`}
-            onClick={() => setView('admin')}
+            onClick={(e) => { e.preventDefault(); setView('admin'); }}
+            style={{ textDecoration: 'none' }}
           >
             <span className="tab-icon">🔧</span>
             <span className="tab-label">Admin</span>
-          </button>
+          </a>
         )}
       </nav>
 

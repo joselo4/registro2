@@ -272,6 +272,9 @@ export default function CustomerShop({
                           <img 
                             src={literConfig.image} 
                             alt="Helado de 1 Litro" 
+                            width="200"
+                            height="110"
+                            decoding="async"
                             style={{ width: '100%', height: '110px', objectFit: 'contain', borderRadius: '8px' }} 
                             loading="lazy"
                           />
@@ -327,6 +330,9 @@ export default function CustomerShop({
                             <img 
                               src={flavor.image} 
                               alt={flavor.name} 
+                              width="200"
+                              height="110"
+                              decoding="async"
                               style={{ width: '100%', height: '110px', objectFit: 'contain', borderRadius: '8px' }} 
                               loading="lazy"
                             />
@@ -443,46 +449,49 @@ export default function CustomerShop({
                             <img 
                               src={pack.image} 
                               alt={pack.name} 
+                              width="200"
+                              height="100"
+                              decoding="async"
                               style={{ width: '100%', height: '100px', objectFit: 'contain', borderRadius: '8px' }} 
                               loading="lazy"
                             />
                           ) : (
                             <svg viewBox="0 0 100 100" width="90" height="90" style={{ display: 'block', margin: '0 auto' }}>
                               <defs>
-                                <linearGradient id="boxGrad" x1="0" y1="0" x2="1" y2="1">
+                                <linearGradient id={`boxGrad-${pack.id}`} x1="0" y1="0" x2="1" y2="1">
                                   <stop offset="0%" stopColor="#ff4757" />
                                   <stop offset="100%" stopColor="#ff1f3b" />
                                 </linearGradient>
-                                <linearGradient id="lidGrad" x1="0" y1="0" x2="0" y2="1">
+                                <linearGradient id={`lidGrad-${pack.id}`} x1="0" y1="0" x2="0" y2="1">
                                   <stop offset="0%" stopColor="#ff6b81" />
                                   <stop offset="100%" stopColor="#ff3855" />
                                 </linearGradient>
-                                <linearGradient id="ribbonGrad" x1="0" y1="0" x2="1" y2="1">
+                                <linearGradient id={`ribbonGrad-${pack.id}`} x1="0" y1="0" x2="1" y2="1">
                                   <stop offset="0%" stopColor="#eccc68" />
                                   <stop offset="100%" stopColor="#ff7f50" />
                                 </linearGradient>
-                                <linearGradient id="goldGrad" x1="0" y1="0" x2="0" y2="1">
+                                <linearGradient id={`goldGrad-${pack.id}`} x1="0" y1="0" x2="0" y2="1">
                                   <stop offset="0%" stopColor="#ffa502" />
                                   <stop offset="100%" stopColor="#ff7f50" />
                                 </linearGradient>
-                                <filter id="giftShadow" x="-10%" y="-10%" width="120%" height="120%">
+                                <filter id={`giftShadow-${pack.id}`} x="-10%" y="-10%" width="120%" height="120%">
                                   <feDropShadow dx="0" dy="3" stdDeviation="3" floodOpacity="0.15" />
                                 </filter>
                               </defs>
           
                               <ellipse cx="50" cy="88" rx="28" ry="5" fill="rgba(0,0,0,0.1)" />
           
-                              <g filter="url(#giftShadow)">
+                              <g filter={`url(#giftShadow-${pack.id})`}>
                                 <rect x="18" y="42" width="64" height="6" rx="1" fill="rgba(0,0,0,0.15)" />
-                                <rect x="22" y="44" width="56" height="40" rx="3" fill="url(#boxGrad)" />
-                                <rect x="44" y="44" width="12" height="40" fill="url(#ribbonGrad)" />
-                                <rect x="18" y="34" width="64" height="10" rx="2" fill="url(#lidGrad)" />
-                                <rect x="44" y="34" width="12" height="10" fill="url(#ribbonGrad)" />
-                                <path d="M 45 34 C 30 24, 30 12, 45 22 Z" fill="url(#goldGrad)" stroke="#ff7f50" strokeWidth="0.8" />
-                                <path d="M 55 34 C 70 24, 70 12, 55 22 Z" fill="url(#goldGrad)" stroke="#ff7f50" strokeWidth="0.8" />
-                                <path d="M 45 34 C 40 40, 32 45, 34 52" fill="none" stroke="url(#goldGrad)" strokeWidth="3" strokeLinecap="round" />
-                                <path d="M 55 34 C 60 40, 68 45, 66 52" fill="none" stroke="url(#goldGrad)" strokeWidth="3" strokeLinecap="round" />
-                                <rect x="43" y="24" width="14" height="10" rx="3" fill="url(#goldGrad)" stroke="#d5822b" strokeWidth="0.8" />
+                                <rect x="22" y="44" width="56" height="40" rx="3" fill={`url(#boxGrad-${pack.id})`} />
+                                <rect x="44" y="44" width="12" height="40" fill={`url(#ribbonGrad-${pack.id})`} />
+                                <rect x="18" y="34" width="64" height="10" rx="2" fill={`url(#lidGrad-${pack.id})`} />
+                                <rect x="44" y="34" width="12" height="10" fill={`url(#ribbonGrad-${pack.id})`} />
+                                <path d="M 45 34 C 30 24, 30 12, 45 22 Z" fill={`url(#goldGrad-${pack.id})`} stroke={`url(#goldGrad-${pack.id})`} strokeWidth="0.8" />
+                                <path d="M 55 34 C 70 24, 70 12, 55 22 Z" fill={`url(#goldGrad-${pack.id})`} stroke={`url(#goldGrad-${pack.id})`} strokeWidth="0.8" />
+                                <path d="M 45 34 C 40 40, 32 45, 34 52" fill="none" stroke={`url(#goldGrad-${pack.id})`} strokeWidth="3" strokeLinecap="round" />
+                                <path d="M 55 34 C 60 40, 68 45, 66 52" fill="none" stroke={`url(#goldGrad-${pack.id})`} strokeWidth="3" strokeLinecap="round" />
+                                <rect x="43" y="24" width="14" height="10" rx="3" fill={`url(#goldGrad-${pack.id})`} stroke="#d5822b" strokeWidth="0.8" />
                               </g>
                             </svg>
                           )}

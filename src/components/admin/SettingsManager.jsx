@@ -878,6 +878,8 @@ alter table public.helados_sync enable row level security;`}
               <img
                 src={`https://api.qrserver.com/v1/create-qr-code/?size=130x130&data=${encodeURIComponent(qrCustomUrl || (window.location.origin + window.location.pathname))}`}
                 alt="Código QR"
+                width="130"
+                height="130"
                 style={{ width: '130px', height: '130px', display: 'block' }}
               />
             </div>
@@ -1187,6 +1189,8 @@ alter table public.helados_sync enable row level security;`}
                   <img 
                     src={localLiterImage} 
                     alt="Pote Litro" 
+                    width="40"
+                    height="40"
                     style={{ width: '40px', height: '40px', objectFit: 'contain', border: '1px solid var(--border-color)', borderRadius: '6px' }} 
                   />
                 ) : (
