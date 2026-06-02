@@ -399,6 +399,14 @@ export default function App() {
     return localStorage.getItem('helados_store_logo') || '🍦';
   });
 
+  const [storeTitle, setStoreTitle] = useState(() => {
+    return localStorage.getItem('helados_store_title') || 'Don Helado - Heladería Online & Delivery de Helados Artesanales';
+  });
+
+  const [storeFavicon, setStoreFavicon] = useState(() => {
+    return localStorage.getItem('helados_store_favicon') || '🍦';
+  });
+
   // --- Estados de Datos de Tienda ---
   const [flavors, setFlavors] = useState(() => {
     const saved = localStorage.getItem('helados_flavors');
@@ -539,6 +547,8 @@ export default function App() {
   const applyLoadedData = (serverData) => {
     if (serverData.store_name !== undefined) setStoreName(serverData.store_name);
     if (serverData.store_logo !== undefined) setStoreLogo(serverData.store_logo);
+    if (serverData.store_title !== undefined) setStoreTitle(serverData.store_title);
+    if (serverData.store_favicon !== undefined) setStoreFavicon(serverData.store_favicon);
     if (serverData.flavors !== undefined) setFlavors(serverData.flavors);
     if (serverData.toppings !== undefined) setToppings(serverData.toppings);
     if (serverData.bases !== undefined) setBases(serverData.bases);
@@ -747,6 +757,8 @@ export default function App() {
 
   // --- Invocaciones de Sincronización de Estados ---
   useSyncEffect('store_name', storeName, false);
+  useSyncEffect('store_title', storeTitle, false);
+  useSyncEffect('store_favicon', storeFavicon, false);
   useSyncEffect('catalog_order', catalogOrder, true);
   useSyncEffect('store_logo', storeLogo, false);
   useSyncEffect('flavors', flavors, true);
@@ -775,10 +787,29 @@ export default function App() {
   useSyncEffect('liter_config', literConfig, true);
   useSyncEffect('ticket_custom_message', ticketCustomMessage, false);
 
-  // --- Efectos Locales Adicionales ---
+  // --- Efectos para actualizar el título y favicon dinámicamente ---
   useEffect(() => {
-    document.title = `${storeName} - Heladería Online Interactiva`;
-  }, [storeName]);
+    const activeTitle = storeTitle || `${storeName || 'Don Helado'} - Heladería Online & Delivery de Helados Artesanales`;
+    document.title = activeTitle;
+  }, [storeTitle, storeName]);
+
+  useEffect(() => {
+    let faviconUrl = storeFavicon || '🍦';
+    if (faviconUrl.length <= 4 && !faviconUrl.startsWith('http') && !faviconUrl.startsWith('/')) {
+      faviconUrl = `data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>${faviconUrl}</text></svg>`;
+    } else {
+      if (faviconUrl.startsWith('http://')) {
+        faviconUrl = faviconUrl.replace('http://', 'https://');
+      }
+    }
+    const link = document.querySelector("link[rel~='icon']") || document.createElement('link');
+    link.type = faviconUrl.includes('svg+xml') ? 'image/svg+xml' : 'image/png';
+    link.rel = 'icon';
+    link.href = faviconUrl;
+    if (!document.querySelector("link[rel~='icon']")) {
+      document.head.appendChild(link);
+    }
+  }, [storeFavicon]);
 
   useEffect(() => {
     localStorage.setItem('helados_staff_users', JSON.stringify(staffUsers));
@@ -822,6 +853,12 @@ export default function App() {
       switch (key) {
         case 'store_name':
           updateStateIfChanged(setStoreName, 'store_name', value);
+          break;
+        case 'store_title':
+          updateStateIfChanged(setStoreTitle, 'store_title', value);
+          break;
+        case 'store_favicon':
+          updateStateIfChanged(setStoreFavicon, 'store_favicon', value);
           break;
         case 'catalog_order':
           updateStateIfChanged(setCatalogOrder, 'catalog_order', value);
@@ -1325,6 +1362,10 @@ export default function App() {
             onChangeStoreName={setStoreName}
             storeLogo={storeLogo}
             onChangeStoreLogo={setStoreLogo}
+            storeTitle={storeTitle}
+            onChangeStoreTitle={setStoreTitle}
+            storeFavicon={storeFavicon}
+            onChangeStoreFavicon={setStoreFavicon}
             coupons={coupons}
             onUpdateCoupons={setCoupons}
             salesGoal={salesGoal}

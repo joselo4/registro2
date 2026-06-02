@@ -31,6 +31,8 @@ USING (
     key IN (
         'store_name', 
         'store_logo', 
+        'store_title',
+        'store_favicon',
         'store_phone', 
         'shop_open',
         'catalog_order', 

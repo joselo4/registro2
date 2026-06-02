@@ -56,6 +56,10 @@ export default function AdminPanel({
   onChangeStoreName,
   storeLogo,
   onChangeStoreLogo,
+  storeTitle,
+  onChangeStoreTitle,
+  storeFavicon,
+  onChangeStoreFavicon,
   coupons,
   onUpdateCoupons,
   salesGoal,
@@ -670,6 +674,10 @@ export default function AdminPanel({
             onChangeStoreName={onChangeStoreName}
             storeLogo={storeLogo}
             onChangeStoreLogo={onChangeStoreLogo}
+            storeTitle={storeTitle}
+            onChangeStoreTitle={onChangeStoreTitle}
+            storeFavicon={storeFavicon}
+            onChangeStoreFavicon={onChangeStoreFavicon}
             storePhone={storePhone}
             onChangeStorePhone={onChangeStorePhone}
             salesGoal={salesGoal}

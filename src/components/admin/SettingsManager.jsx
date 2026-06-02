@@ -9,6 +9,15 @@ const sanitizeHTML = (text) => {
   return text.replace(/<[^>]*>/g, '').trim();
 };
 
+const sanitizeUrlToHTTPS = (url) => {
+  if (typeof url !== 'string') return '';
+  const trimmed = url.trim();
+  if (trimmed.toLowerCase().startsWith('http://')) {
+    return 'https://' + trimmed.slice(7);
+  }
+  return trimmed;
+};
+
 export default function SettingsManager({
   storeName, onChangeStoreName,
   storeLogo, onChangeStoreLogo,
@@ -39,11 +48,15 @@ export default function SettingsManager({
   deliveryFee, onChangeDeliveryFee,
   onToggleShopOpen: onToggleShopOpenProp,
   recommendations, onUpdateRecommendations,
-  cartRecommendedPack, onUpdateCartRecommendedPack
+  cartRecommendedPack, onUpdateCartRecommendedPack,
+  storeTitle, onChangeStoreTitle,
+  storeFavicon, onChangeStoreFavicon
 }) {
   // --- Estados Locales para Ajustes (Evita lags en el dashboard completo al escribir) ---
   const [localStoreName, setLocalStoreName] = useState(storeName);
   const [localStoreLogo, setLocalStoreLogo] = useState(storeLogo);
+  const [localStoreTitle, setLocalStoreTitle] = useState(storeTitle || '');
+  const [localStoreFavicon, setLocalStoreFavicon] = useState(storeFavicon || '🍦');
   const [localStorePhone, setLocalStorePhone] = useState(storePhone);
   const [localSalesGoal, setLocalSalesGoal] = useState(salesGoal);
   const [localFreeDeliveryThreshold, setLocalFreeDeliveryThreshold] = useState(freeDeliveryThreshold);
@@ -75,12 +88,15 @@ export default function SettingsManager({
 
   const [uploadingState, setUploadingState] = useState({
     logo: false,
-    liter: false
+    liter: false,
+    favicon: false
   });
 
   // --- Sincronizar estados locales con los globales cuando cambien externamente ---
   useEffect(() => { setLocalStoreName(storeName); }, [storeName]);
   useEffect(() => { setLocalStoreLogo(storeLogo); }, [storeLogo]);
+  useEffect(() => { setLocalStoreTitle(storeTitle || ''); }, [storeTitle]);
+  useEffect(() => { setLocalStoreFavicon(storeFavicon || '🍦'); }, [storeFavicon]);
   useEffect(() => { setLocalStorePhone(storePhone); }, [storePhone]);
   useEffect(() => { setLocalSalesGoal(salesGoal); }, [salesGoal]);
   useEffect(() => { setLocalFreeDeliveryThreshold(freeDeliveryThreshold); }, [freeDeliveryThreshold]);
@@ -113,8 +129,17 @@ export default function SettingsManager({
   }, [literConfig]);
 
   const handleSaveSettings = () => {
+    // Sanitizar URLs para evitar enlaces HTTP inseguros (mixed content) en HTTPS
+    const sanitizedLogo = localStoreLogo.toLowerCase().startsWith('http') ? sanitizeUrlToHTTPS(localStoreLogo) : localStoreLogo.trim();
+    const sanitizedFavicon = localStoreFavicon.toLowerCase().startsWith('http') ? sanitizeUrlToHTTPS(localStoreFavicon) : localStoreFavicon.trim();
+    const sanitizedQrUrl = sanitizeUrlToHTTPS(localQrCustomUrl);
+    const sanitizedR2PublicUrl = sanitizeUrlToHTTPS(localR2PublicUrl);
+    const sanitizedLiterImage = sanitizeUrlToHTTPS(localLiterImage);
+
     onChangeStoreName(localStoreName);
-    onChangeStoreLogo(localStoreLogo);
+    onChangeStoreLogo(sanitizedLogo);
+    if (onChangeStoreTitle) onChangeStoreTitle(localStoreTitle);
+    if (onChangeStoreFavicon) onChangeStoreFavicon(sanitizedFavicon);
     onChangeStorePhone(localStorePhone);
     onChangeSalesGoal(parseFloat(localSalesGoal) || 0);
     onChangeFreeDeliveryThreshold(parseFloat(localFreeDeliveryThreshold) || 0);
@@ -123,7 +148,7 @@ export default function SettingsManager({
     onChangeTelegramChatId(localTelegramChatId);
     onChangeWhatsappGreeting(localWhatsappGreeting);
     onChangeWhatsappFooter(localWhatsappFooter);
-    onChangeQrCustomUrl(localQrCustomUrl);
+    onChangeQrCustomUrl(sanitizedQrUrl);
     onUpdateTicketCustomMessage(localTicketCustomMessage);
     
     onUpdateR2Config({
@@ -131,14 +156,14 @@ export default function SettingsManager({
       accessKeyId: localR2AccessKeyId.trim(),
       secretAccessKey: localR2SecretAccessKey.trim(),
       bucketName: localR2BucketName.trim(),
-      publicUrl: localR2PublicUrl.trim()
+      publicUrl: sanitizedR2PublicUrl
     });
 
     onUpdateLiterConfig({
       active: !!localLiterActive,
       price: parseFloat(localLiterPrice) || 15.0,
       maxFlavors: parseInt(localLiterMaxFlavors, 10) || 3,
-      image: localLiterImage
+      image: sanitizedLiterImage
     });
 
     if (onUpdateCatalogOrder) {
@@ -261,6 +286,8 @@ export default function SettingsManager({
         timestamp: new Date().toISOString(),
         storeName,
         storeLogo,
+        storeTitle,
+        storeFavicon,
         flavors,
         toppings,
         bases,
@@ -316,6 +343,8 @@ export default function SettingsManager({
         if (window.confirm("⚠️ ¿Estás seguro de que deseas restaurar esta copia de seguridad? Se reemplazarán todos los datos actuales de la heladería por los de la copia.")) {
           if (data.storeName && onChangeStoreName) onChangeStoreName(data.storeName);
           if (data.storeLogo && onChangeStoreLogo) onChangeStoreLogo(data.storeLogo);
+          if (data.storeTitle && onChangeStoreTitle) onChangeStoreTitle(data.storeTitle);
+          if (data.storeFavicon && onChangeStoreFavicon) onChangeStoreFavicon(data.storeFavicon);
           if (data.flavors && onUpdateFlavors) onUpdateFlavors(data.flavors);
           if (data.toppings && onUpdateToppings) onUpdateToppings(data.toppings);
           if (data.bases && onUpdateBases) onUpdateBases(data.bases);
@@ -348,6 +377,8 @@ export default function SettingsManager({
             };
             addKey('store_name', data.storeName);
             addKey('store_logo', data.storeLogo);
+            addKey('store_title', data.storeTitle);
+            addKey('store_favicon', data.storeFavicon);
             addKey('flavors', data.flavors);
             addKey('toppings', data.toppings);
             addKey('bases', data.bases);
@@ -397,7 +428,7 @@ export default function SettingsManager({
       
       <div className="glass" style={{ padding: '20px', display: 'flex', flexDirection: 'column', gap: '15px' }}>
         
-        {/* Nombre y Logo del Local */}
+        {/* Nombre, Título, Logo y Favicon del Local */}
         <div style={{ display: 'grid', gridTemplateColumns: '1.2fr 0.8fr', gap: '15px', borderBottom: '1px solid var(--border-color)', paddingBottom: '15px' }}>
           <div className="form-group">
             <label>Nombre de la Heladería / Sitio Web</label>
@@ -445,6 +476,62 @@ export default function SettingsManager({
                 disabled={uploadingState.logo}
               />
             </div>
+          </div>
+
+          <div className="form-group" style={{ gridColumn: 'span 2' }}>
+            <label>Título de la Página (SEO - Recomendado min 50 caracteres)</label>
+            <input
+              type="text"
+              className="form-control"
+              placeholder="Ej: Don Helado - Heladería Online & Delivery de Helados Artesanales"
+              value={localStoreTitle}
+              onChange={(e) => setLocalStoreTitle(e.target.value)}
+            />
+            <span style={{ fontSize: '0.7rem', color: localStoreTitle.length >= 50 ? 'var(--success)' : 'var(--danger)', fontWeight: 600 }}>
+              Longitud actual: {localStoreTitle.length} caracteres {localStoreTitle.length < 50 && "(Demasiado corto para SEO)"}
+            </span>
+          </div>
+
+          <div className="form-group" style={{ gridColumn: 'span 2' }}>
+            <label>Favicon de la Pestaña (Emoji o URL de Imagen)</label>
+            <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
+              <input
+                type="text"
+                className="form-control"
+                placeholder="Ej: 🍦 o enlace de imagen https://..."
+                value={localStoreFavicon}
+                onChange={(e) => setLocalStoreFavicon(e.target.value)}
+                style={{ flex: 1 }}
+              />
+              <label 
+                htmlFor="favicon-image-upload" 
+                className="btn btn-secondary" 
+                style={{ 
+                  padding: '8px 12px', 
+                  fontSize: '0.8rem', 
+                  cursor: 'pointer', 
+                  margin: 0, 
+                  display: 'flex', 
+                  alignItems: 'center', 
+                  justifyContent: 'center',
+                  gap: '4px',
+                  whiteSpace: 'nowrap'
+                }}
+              >
+                📁 {uploadingState.favicon ? 'Subiendo...' : 'Subir'}
+              </label>
+              <input 
+                type="file" 
+                accept="image/*" 
+                style={{ display: 'none' }} 
+                id="favicon-image-upload" 
+                onChange={(e) => handleImageUpload(e.target.files[0], 'favicon', setLocalStoreFavicon)} 
+                disabled={uploadingState.favicon}
+              />
+            </div>
+            <span style={{ fontSize: '0.7rem', color: 'var(--text-light)' }}>
+              Puedes ingresar un Emoji (ej: 🍨) o subir una imagen cuadrada (PNG/SVG) para representarla en la pestaña del navegador.
+            </span>
           </div>
         </div>
 
