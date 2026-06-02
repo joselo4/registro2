@@ -708,128 +708,111 @@ export default function App() {
     };
   }, [isLoggedIn]);
 
-  // --- Efectos de Persistencia ---
-  useEffect(() => {
-    localStorage.setItem('helados_store_name', storeName);
-    document.title = `${storeName} - Heladería Online Interactiva`;
-    if (!isSyncLoaded || !allowCloudWrite.current) return;
-    if (isRemoteUpdate.current['store_name']) {
-      isRemoteUpdate.current['store_name'] = false;
-    } else if (isLoggedIn) {
-      updateSyncedData('store_name', storeName);
-    }
-  }, [storeName, isSyncLoaded, isLoggedIn]);
+  // --- Hook de Sincronización Consolidado y Seguro ---
+  const useSyncEffect = (key, value, isJSON = false) => {
+    const prevValueRef = useRef(value);
 
-  useEffect(() => {
-    localStorage.setItem('helados_catalog_order', JSON.stringify(catalogOrder));
-    if (!isSyncLoaded || !allowCloudWrite.current) return;
-    if (isRemoteUpdate.current['catalog_order']) {
-      isRemoteUpdate.current['catalog_order'] = false;
-    } else if (isLoggedIn) {
-      updateSyncedData('catalog_order', catalogOrder);
-    }
-  }, [catalogOrder, isSyncLoaded, isLoggedIn]);
+    useEffect(() => {
+      // 1. Guardar en localStorage
+      const valueStr = isJSON ? JSON.stringify(value) : String(value);
+      localStorage.setItem(`helados_${key}`, valueStr);
 
-  useEffect(() => {
-    localStorage.setItem('helados_store_logo', storeLogo);
-    if (!isSyncLoaded || !allowCloudWrite.current) return;
-    if (isRemoteUpdate.current['store_logo']) {
-      isRemoteUpdate.current['store_logo'] = false;
-    } else if (isLoggedIn) {
-      updateSyncedData('store_logo', storeLogo);
-    }
-  }, [storeLogo, isSyncLoaded, isLoggedIn]);
-
-  useEffect(() => {
-    localStorage.setItem('helados_flavors', JSON.stringify(flavors));
-    if (!isSyncLoaded || !allowCloudWrite.current) return;
-    if (isRemoteUpdate.current['flavors']) {
-      isRemoteUpdate.current['flavors'] = false;
-    } else if (isLoggedIn) {
-      updateSyncedData('flavors', flavors);
-    }
-  }, [flavors, isSyncLoaded, isLoggedIn]);
-
-  useEffect(() => {
-    localStorage.setItem('helados_toppings', JSON.stringify(toppings));
-    if (!isSyncLoaded || !allowCloudWrite.current) return;
-    if (isRemoteUpdate.current['toppings']) {
-      isRemoteUpdate.current['toppings'] = false;
-    } else if (isLoggedIn) {
-      updateSyncedData('toppings', toppings);
-    }
-  }, [toppings, isSyncLoaded, isLoggedIn]);
-
-  useEffect(() => {
-    localStorage.setItem('helados_bases', JSON.stringify(bases));
-    if (!isSyncLoaded || !allowCloudWrite.current) return;
-    if (isRemoteUpdate.current['bases']) {
-      isRemoteUpdate.current['bases'] = false;
-    } else if (isLoggedIn) {
-      updateSyncedData('bases', bases);
-    }
-  }, [bases, isSyncLoaded, isLoggedIn]);
-
-  useEffect(() => {
-    localStorage.setItem('helados_packs', JSON.stringify(packs));
-    if (!isSyncLoaded || !allowCloudWrite.current) return;
-    if (isRemoteUpdate.current['packs']) {
-      isRemoteUpdate.current['packs'] = false;
-    } else if (isLoggedIn) {
-      updateSyncedData('packs', packs);
-    }
-  }, [packs, isSyncLoaded, isLoggedIn]);
-
-  useEffect(() => {
-    localStorage.setItem('helados_orders', JSON.stringify(orders));
-    if (!isSyncLoaded || !allowCloudWrite.current) return;
-    if (isRemoteUpdate.current['orders']) {
-      isRemoteUpdate.current['orders'] = false;
-    } else if (isLoggedIn) {
-      updateSyncedData('orders', orders);
-    }
-  }, [orders, isSyncLoaded, isLoggedIn]);
-
-  // --- NUEVO: Polling automático del panel administrativo cada 60 segundos ---
-  useEffect(() => {
-    if (view !== 'admin' || !isLoggedIn || !supabase) return;
-
-    const intervalId = setInterval(async () => {
-      console.log("🔄 Actualizando datos del panel administrativo de forma automática (60s)...");
-      try {
-        const updatedServerData = await fetchSyncedData(true);
-        if (updatedServerData) {
-          // Desactivar temporalmente escrituras mientras cargamos
-          Object.keys(updatedServerData).forEach(k => {
-            isRemoteUpdate.current[k] = true;
-          });
-          applyLoadedData(updatedServerData);
-        }
-      } catch (err) {
-        console.warn("⚠️ Error en auto-actualización del panel administrativo:", err);
+      // 2. Si los datos no se han cargado de la nube o no está permitido escribir, salir
+      if (!isSyncLoaded || !allowCloudWrite.current) {
+        prevValueRef.current = value;
+        return;
       }
-    }, 60000);
 
-    return () => clearInterval(intervalId);
-  }, [view, isLoggedIn]);
+      // 3. Comprobar si el valor realmente cambió localmente
+      const hasChanged = isJSON 
+        ? JSON.stringify(prevValueRef.current) !== valueStr
+        : prevValueRef.current !== value;
 
-  // --- NUEVO: Suscripción en tiempo real reactiva al estado de autenticación ---
+      if (!hasChanged) return;
+
+      prevValueRef.current = value;
+
+      // 4. Si es una actualización remota, limpiar bandera y no re-escribir
+      if (isRemoteUpdate.current[key]) {
+        isRemoteUpdate.current[key] = false;
+        return;
+      }
+
+      // 5. Si está logueado, subir a la nube de forma segura
+      if (isLoggedIn) {
+        updateSyncedData(key, value);
+      }
+    }, [value, isLoggedIn, isSyncLoaded]);
+  };
+
+  // --- Invocaciones de Sincronización de Estados ---
+  useSyncEffect('store_name', storeName, false);
+  useSyncEffect('catalog_order', catalogOrder, true);
+  useSyncEffect('store_logo', storeLogo, false);
+  useSyncEffect('flavors', flavors, true);
+  useSyncEffect('toppings', toppings, true);
+  useSyncEffect('bases', bases, true);
+  useSyncEffect('packs', packs, true);
+  useSyncEffect('orders', orders, true);
+  useSyncEffect('delivery_fee', deliveryFee, false);
+  useSyncEffect('shop_open', shopOpen, true);
+  useSyncEffect('free_delivery_threshold', freeDeliveryThreshold, false);
+  useSyncEffect('delivery_campaign_text', deliveryCampaignText, false);
+  useSyncEffect('store_phone', storePhone, false);
+  useSyncEffect('staff_permissions', staffPermissions, true);
+  useSyncEffect('sound_enabled', soundEnabled, true);
+  useSyncEffect('telegram_token', telegramToken, false);
+  useSyncEffect('telegram_chat_id', telegramChatId, false);
+  useSyncEffect('coupons', coupons, true);
+  useSyncEffect('sales_goal', salesGoal, false);
+  useSyncEffect('whatsapp_greeting', whatsappGreeting, false);
+  useSyncEffect('whatsapp_footer', whatsappFooter, false);
+  useSyncEffect('qr_custom_url', qrCustomUrl, false);
+  useSyncEffect('recommendations', recommendations, true);
+  useSyncEffect('cart_recommended_pack', cartRecommendedPack, true);
+  useSyncEffect('expenses', expenses, true);
+  useSyncEffect('r2_config', r2Config, true);
+  useSyncEffect('liter_config', literConfig, true);
+  useSyncEffect('ticket_custom_message', ticketCustomMessage, false);
+
+  // --- Efectos Locales Adicionales ---
+  useEffect(() => {
+    document.title = `${storeName} - Heladería Online Interactiva`;
+  }, [storeName]);
+
+  useEffect(() => {
+    localStorage.setItem('helados_staff_users', JSON.stringify(staffUsers));
+  }, [staffUsers]);
+
+  // --- Suscripción Reactiva en Tiempo Real (Supabase Realtime) ---
   useEffect(() => {
     if (!supabase || !isSyncLoaded) return;
     
     console.log(`🔌 Suscribiendo canal en tiempo real. ¿Es Admin?: ${isLoggedIn}`);
-    const activeChannel = subscribeToSync((key, value) => {
-      const valueStr = JSON.stringify(value);
-      
-      // Marcar que es un cambio remoto para evitar re-escribir a la nube
-      isRemoteUpdate.current[key] = true;
 
+    const updateStateIfChanged = (setter, key, newValue) => {
+      setter(prev => {
+        if (JSON.stringify(prev) !== JSON.stringify(newValue)) {
+          isRemoteUpdate.current[key] = true;
+          return newValue;
+        }
+        return prev;
+      });
+    };
+
+    const activeChannel = subscribeToSync((key, value) => {
       if (key.startsWith('order_') && value) {
         setOrders(prev => {
           const exists = prev.some(o => o.id === value.id);
           if (exists) {
-            return prev.map(o => o.id === value.id ? value : o);
+            const hasChanged = JSON.stringify(prev.find(o => o.id === value.id)) !== JSON.stringify(value);
+            if (hasChanged) {
+              isRemoteUpdate.current[key] = true;
+              return prev.map(o => o.id === value.id ? value : o);
+            }
+            return prev;
           } else {
+            isRemoteUpdate.current[key] = true;
             return [value, ...prev];
           }
         });
@@ -838,91 +821,91 @@ export default function App() {
 
       switch (key) {
         case 'store_name':
-          setStoreName(prev => JSON.stringify(prev) !== valueStr ? value : prev);
+          updateStateIfChanged(setStoreName, 'store_name', value);
           break;
         case 'catalog_order':
-          setCatalogOrder(prev => JSON.stringify(prev) !== valueStr ? value : prev);
+          updateStateIfChanged(setCatalogOrder, 'catalog_order', value);
           break;
         case 'store_logo':
-          setStoreLogo(prev => JSON.stringify(prev) !== valueStr ? value : prev);
+          updateStateIfChanged(setStoreLogo, 'store_logo', value);
           break;
         case 'flavors':
-          setFlavors(prev => JSON.stringify(prev) !== valueStr ? value : prev);
+          updateStateIfChanged(setFlavors, 'flavors', value);
           break;
         case 'toppings':
-          setToppings(prev => JSON.stringify(prev) !== valueStr ? value : prev);
+          updateStateIfChanged(setToppings, 'toppings', value);
           break;
         case 'bases':
-          setBases(prev => JSON.stringify(prev) !== valueStr ? value : prev);
+          updateStateIfChanged(setBases, 'bases', value);
           break;
         case 'packs':
-          setPacks(prev => JSON.stringify(prev) !== valueStr ? value : prev);
+          updateStateIfChanged(setPacks, 'packs', value);
           break;
         case 'orders':
-          setOrders(prev => JSON.stringify(prev) !== valueStr ? value : prev);
+          updateStateIfChanged(setOrders, 'orders', value);
           break;
         case 'delivery_fee':
-          setDeliveryFee(prev => JSON.stringify(prev) !== valueStr ? value : prev);
+          updateStateIfChanged(setDeliveryFee, 'delivery_fee', value);
           break;
         case 'shop_open':
-          setShopOpen(prev => JSON.stringify(prev) !== valueStr ? value : prev);
+          updateStateIfChanged(setShopOpen, 'shop_open', value);
           break;
         case 'free_delivery_threshold':
-          setFreeDeliveryThreshold(prev => JSON.stringify(prev) !== valueStr ? value : prev);
+          updateStateIfChanged(setFreeDeliveryThreshold, 'free_delivery_threshold', value);
           break;
         case 'delivery_campaign_text':
-          setDeliveryCampaignText(prev => prev !== value ? value : prev);
+          updateStateIfChanged(setDeliveryCampaignText, 'delivery_campaign_text', value);
           break;
         case 'store_phone':
-          setStorePhone(prev => JSON.stringify(prev) !== valueStr ? value : prev);
+          updateStateIfChanged(setStorePhone, 'store_phone', value);
           break;
         case 'staff_users':
-          setStaffUsers(prev => JSON.stringify(prev) !== valueStr ? value : prev);
+          updateStateIfChanged(setStaffUsers, 'staff_users', value);
           break;
         case 'sound_enabled':
-          setSoundEnabled(prev => JSON.stringify(prev) !== valueStr ? value : prev);
+          updateStateIfChanged(setSoundEnabled, 'sound_enabled', value);
           break;
         case 'coupons':
-          setCoupons(prev => JSON.stringify(prev) !== valueStr ? value : prev);
+          updateStateIfChanged(setCoupons, 'coupons', value);
           break;
         case 'telegram_token':
-          setTelegramToken(prev => JSON.stringify(prev) !== valueStr ? value : prev);
+          updateStateIfChanged(setTelegramToken, 'telegram_token', value);
           break;
         case 'telegram_chat_id':
-          setTelegramChatId(prev => JSON.stringify(prev) !== valueStr ? value : prev);
+          updateStateIfChanged(setTelegramChatId, 'telegram_chat_id', value);
           break;
         case 'sales_goal':
-          setSalesGoal(prev => JSON.stringify(prev) !== valueStr ? value : prev);
+          updateStateIfChanged(setSalesGoal, 'sales_goal', value);
           break;
         case 'whatsapp_greeting':
-          setWhatsappGreeting(prev => JSON.stringify(prev) !== valueStr ? value : prev);
+          updateStateIfChanged(setWhatsappGreeting, 'whatsapp_greeting', value);
           break;
         case 'whatsapp_footer':
-          setWhatsappFooter(prev => JSON.stringify(prev) !== valueStr ? value : prev);
+          updateStateIfChanged(setWhatsappFooter, 'whatsapp_footer', value);
           break;
         case 'qr_custom_url':
-          setQrCustomUrl(prev => prev !== value ? value : prev);
+          updateStateIfChanged(setQrCustomUrl, 'qr_custom_url', value);
           break;
         case 'recommendations':
-          setRecommendations(prev => JSON.stringify(prev) !== valueStr ? value : prev);
+          updateStateIfChanged(setRecommendations, 'recommendations', value);
           break;
         case 'cart_recommended_pack':
-          setCartRecommendedPack(prev => JSON.stringify(prev) !== valueStr ? value : prev);
+          updateStateIfChanged(setCartRecommendedPack, 'cart_recommended_pack', value);
           break;
         case 'expenses':
-          setExpenses(prev => JSON.stringify(prev) !== valueStr ? value : prev);
+          updateStateIfChanged(setExpenses, 'expenses', value);
           break;
         case 'staff_permissions':
-          setStaffPermissions(prev => JSON.stringify(prev) !== valueStr ? value : prev);
+          updateStateIfChanged(setStaffPermissions, 'staff_permissions', value);
           break;
         case 'r2_config':
-          setR2Config(prev => JSON.stringify(prev) !== valueStr ? value : prev);
+          updateStateIfChanged(setR2Config, 'r2_config', value);
           break;
         case 'liter_config':
-          setLiterConfig(prev => JSON.stringify(prev) !== valueStr ? value : prev);
+          updateStateIfChanged(setLiterConfig, 'liter_config', value);
           break;
         case 'ticket_custom_message':
-          setTicketCustomMessage(prev => prev !== value ? value : prev);
+          updateStateIfChanged(setTicketCustomMessage, 'ticket_custom_message', value);
           break;
         default:
           break;
@@ -935,211 +918,6 @@ export default function App() {
       }
     };
   }, [isLoggedIn, isSyncLoaded]);
-
-  useEffect(() => {
-    localStorage.setItem('helados_delivery_fee', deliveryFee.toString());
-    if (!isSyncLoaded || !allowCloudWrite.current) return;
-    if (isRemoteUpdate.current['delivery_fee']) {
-      isRemoteUpdate.current['delivery_fee'] = false;
-    } else if (isLoggedIn) {
-      updateSyncedData('delivery_fee', deliveryFee);
-    }
-  }, [deliveryFee, isSyncLoaded, isLoggedIn]);
-
-  useEffect(() => {
-    localStorage.setItem('helados_shop_open', JSON.stringify(shopOpen));
-    if (!isSyncLoaded || !allowCloudWrite.current) return;
-    if (isRemoteUpdate.current['shop_open']) {
-      isRemoteUpdate.current['shop_open'] = false;
-    } else if (isLoggedIn) {
-      updateSyncedData('shop_open', shopOpen);
-    }
-  }, [shopOpen, isSyncLoaded, isLoggedIn]);
-
-  useEffect(() => {
-    localStorage.setItem('helados_free_delivery_threshold', freeDeliveryThreshold.toString());
-    if (!isSyncLoaded || !allowCloudWrite.current) return;
-    if (isRemoteUpdate.current['free_delivery_threshold']) {
-      isRemoteUpdate.current['free_delivery_threshold'] = false;
-    } else if (isLoggedIn) {
-      updateSyncedData('free_delivery_threshold', freeDeliveryThreshold);
-    }
-  }, [freeDeliveryThreshold, isSyncLoaded, isLoggedIn]);
-
-  useEffect(() => {
-    localStorage.setItem('helados_delivery_campaign_text', deliveryCampaignText);
-    if (!isSyncLoaded || !allowCloudWrite.current) return;
-    if (isRemoteUpdate.current['delivery_campaign_text']) {
-      isRemoteUpdate.current['delivery_campaign_text'] = false;
-    } else if (isLoggedIn) {
-      updateSyncedData('delivery_campaign_text', deliveryCampaignText);
-    }
-  }, [deliveryCampaignText, isSyncLoaded, isLoggedIn]);
-
-  useEffect(() => {
-    localStorage.setItem('helados_store_phone', storePhone);
-    if (!isSyncLoaded || !allowCloudWrite.current) return;
-    if (isRemoteUpdate.current['store_phone']) {
-      isRemoteUpdate.current['store_phone'] = false;
-    } else if (isLoggedIn) {
-      updateSyncedData('store_phone', storePhone);
-    }
-  }, [storePhone, isSyncLoaded, isLoggedIn]);
-
-  useEffect(() => {
-    localStorage.setItem('helados_staff_users', JSON.stringify(staffUsers));
-    // El personal ahora se administra de forma segura multidispositivo con RPCs
-  }, [staffUsers]);
-
-  useEffect(() => {
-    localStorage.setItem('helados_staff_permissions', JSON.stringify(staffPermissions));
-    if (!isSyncLoaded || !allowCloudWrite.current) return;
-    if (isRemoteUpdate.current['staff_permissions']) {
-      isRemoteUpdate.current['staff_permissions'] = false;
-    } else if (isLoggedIn) {
-      updateSyncedData('staff_permissions', staffPermissions);
-    }
-  }, [staffPermissions, isSyncLoaded, isLoggedIn]);
-
-  useEffect(() => {
-    localStorage.setItem('helados_sound_enabled', JSON.stringify(soundEnabled));
-    if (!isSyncLoaded || !allowCloudWrite.current) return;
-    if (isRemoteUpdate.current['sound_enabled']) {
-      isRemoteUpdate.current['sound_enabled'] = false;
-    } else if (isLoggedIn) {
-      updateSyncedData('sound_enabled', soundEnabled);
-    }
-  }, [soundEnabled, isSyncLoaded, isLoggedIn]);
-
-  useEffect(() => {
-    localStorage.setItem('helados_telegram_token', telegramToken);
-    if (!isSyncLoaded || !allowCloudWrite.current) return;
-    if (isRemoteUpdate.current['telegram_token']) {
-      isRemoteUpdate.current['telegram_token'] = false;
-    } else if (isLoggedIn) {
-      updateSyncedData('telegram_token', telegramToken);
-    }
-  }, [telegramToken, isSyncLoaded, isLoggedIn]);
-
-  useEffect(() => {
-    localStorage.setItem('helados_telegram_chat_id', telegramChatId);
-    if (!isSyncLoaded || !allowCloudWrite.current) return;
-    if (isRemoteUpdate.current['telegram_chat_id']) {
-      isRemoteUpdate.current['telegram_chat_id'] = false;
-    } else if (isLoggedIn) {
-      updateSyncedData('telegram_chat_id', telegramChatId);
-    }
-  }, [telegramChatId, isSyncLoaded, isLoggedIn]);
-
-  useEffect(() => {
-    localStorage.setItem('helados_coupons', JSON.stringify(coupons));
-    if (!isSyncLoaded || !allowCloudWrite.current) return;
-    if (isRemoteUpdate.current['coupons']) {
-      isRemoteUpdate.current['coupons'] = false;
-    } else if (isLoggedIn) {
-      updateSyncedData('coupons', coupons);
-    }
-  }, [coupons, isSyncLoaded, isLoggedIn]);
-
-  useEffect(() => {
-    localStorage.setItem('helados_sales_goal', salesGoal.toString());
-    if (!isSyncLoaded || !allowCloudWrite.current) return;
-    if (isRemoteUpdate.current['sales_goal']) {
-      isRemoteUpdate.current['sales_goal'] = false;
-    } else if (isLoggedIn) {
-      updateSyncedData('sales_goal', salesGoal);
-    }
-  }, [salesGoal, isSyncLoaded, isLoggedIn]);
-
-  useEffect(() => {
-    localStorage.setItem('helados_whatsapp_greeting', whatsappGreeting);
-    if (!isSyncLoaded || !allowCloudWrite.current) return;
-    if (isRemoteUpdate.current['whatsapp_greeting']) {
-      isRemoteUpdate.current['whatsapp_greeting'] = false;
-    } else if (isLoggedIn) {
-      updateSyncedData('whatsapp_greeting', whatsappGreeting);
-    }
-  }, [whatsappGreeting, isSyncLoaded, isLoggedIn]);
-
-  useEffect(() => {
-    localStorage.setItem('helados_whatsapp_footer', whatsappFooter);
-    if (!isSyncLoaded || !allowCloudWrite.current) return;
-    if (isRemoteUpdate.current['whatsapp_footer']) {
-      isRemoteUpdate.current['whatsapp_footer'] = false;
-    } else if (isLoggedIn) {
-      updateSyncedData('whatsapp_footer', whatsappFooter);
-    }
-  }, [whatsappFooter, isSyncLoaded, isLoggedIn]);
-
-  useEffect(() => {
-    localStorage.setItem('helados_qr_custom_url', qrCustomUrl);
-    if (!isSyncLoaded || !allowCloudWrite.current) return;
-    if (isRemoteUpdate.current['qr_custom_url']) {
-      isRemoteUpdate.current['qr_custom_url'] = false;
-    } else if (isLoggedIn) {
-      updateSyncedData('qr_custom_url', qrCustomUrl);
-    }
-  }, [qrCustomUrl, isSyncLoaded, isLoggedIn]);
-
-  useEffect(() => {
-    localStorage.setItem('helados_recommendations', JSON.stringify(recommendations));
-    if (!isSyncLoaded || !allowCloudWrite.current) return;
-    if (isRemoteUpdate.current['recommendations']) {
-      isRemoteUpdate.current['recommendations'] = false;
-    } else if (isLoggedIn) {
-      updateSyncedData('recommendations', recommendations);
-    }
-  }, [recommendations, isSyncLoaded, isLoggedIn]);
-
-  useEffect(() => {
-    localStorage.setItem('helados_cart_recommended_pack', JSON.stringify(cartRecommendedPack));
-    if (!isSyncLoaded || !allowCloudWrite.current) return;
-    if (isRemoteUpdate.current['cart_recommended_pack']) {
-      isRemoteUpdate.current['cart_recommended_pack'] = false;
-    } else if (isLoggedIn) {
-      updateSyncedData('cart_recommended_pack', cartRecommendedPack);
-    }
-  }, [cartRecommendedPack, isSyncLoaded, isLoggedIn]);
-
-  useEffect(() => {
-    localStorage.setItem('helados_expenses', JSON.stringify(expenses));
-    if (!isSyncLoaded || !allowCloudWrite.current) return;
-    if (isRemoteUpdate.current['expenses']) {
-      isRemoteUpdate.current['expenses'] = false;
-    } else if (isLoggedIn) {
-      updateSyncedData('expenses', expenses);
-    }
-  }, [expenses, isSyncLoaded, isLoggedIn]);
-
-  useEffect(() => {
-    localStorage.setItem('helados_r2_config', JSON.stringify(r2Config));
-    if (!isSyncLoaded || !allowCloudWrite.current) return;
-    if (isRemoteUpdate.current['r2_config']) {
-      isRemoteUpdate.current['r2_config'] = false;
-    } else if (isLoggedIn) {
-      updateSyncedData('r2_config', r2Config);
-    }
-  }, [r2Config, isSyncLoaded, isLoggedIn]);
-
-  useEffect(() => {
-    localStorage.setItem('helados_liter_config', JSON.stringify(literConfig));
-    if (!isSyncLoaded || !allowCloudWrite.current) return;
-    if (isRemoteUpdate.current['liter_config']) {
-      isRemoteUpdate.current['liter_config'] = false;
-    } else if (isLoggedIn) {
-      updateSyncedData('liter_config', literConfig);
-    }
-  }, [literConfig, isSyncLoaded, isLoggedIn]);
-
-  useEffect(() => {
-    localStorage.setItem('helados_ticket_custom_message', ticketCustomMessage);
-    if (!isSyncLoaded || !allowCloudWrite.current) return;
-    if (isRemoteUpdate.current['ticket_custom_message']) {
-      isRemoteUpdate.current['ticket_custom_message'] = false;
-    } else if (isLoggedIn) {
-      updateSyncedData('ticket_custom_message', ticketCustomMessage);
-    }
-  }, [ticketCustomMessage, isSyncLoaded, isLoggedIn]);
 
   // Persistir Estados de Sesión de Admin
   useEffect(() => {

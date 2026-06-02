@@ -35,8 +35,8 @@ const getAdminCredentials = () => {
 
 /**
  * Obtiene todos los datos sincronizados desde Supabase de forma segura.
- * Si es administrador, utiliza un canal seguro RPC en la base de datos para saltarse
- * las restricciones de RLS y recuperar toda la información de forma íntegra.
+ * Si es administrador y tiene sesión activa, utiliza consultas directas protegidas por RLS.
+ * Si es administrador mediante credenciales locales heredadas, usa RPC como fallback.
  * Si es cliente, descarga únicamente las configuraciones públicas de la tienda.
  */
 export const fetchSyncedData = async (isAdmin = false) => {
@@ -50,21 +50,40 @@ export const fetchSyncedData = async (isAdmin = false) => {
   }
 
   try {
-    const creds = getAdminCredentials();
     let syncData = {};
+    let isSessionAdmin = false;
 
-    // 1. Caso de uso administrativo: solicitar datos completos de forma segura vía RPC
-    if (isAdmin && creds) {
-      console.log("🔌 Solicitando datos administrativos seguros mediante RPC...");
-      const { data, error } = await supabase.rpc('get_all_sensitive_keys', {
-        p_admin_email: creds.email,
-        p_admin_password: creds.password
-      });
+    // Verificar si hay una sesión activa de Supabase Auth
+    const { data: { session } } = await supabase.auth.getSession();
+    if (session) {
+      isSessionAdmin = true;
+    }
 
-      if (error) throw error;
+    const creds = getAdminCredentials();
 
-      if (data && typeof data === 'object') {
-        syncData = data;
+    // 1. Caso de uso administrativo
+    if (isAdmin && (isSessionAdmin || creds)) {
+      if (isSessionAdmin) {
+        console.log("🔌 Solicitando datos administrativos seguros mediante consulta directa (Supabase Auth activa)...");
+        const { data, error } = await supabase.from('helados_sync').select('*');
+        if (error) throw error;
+        if (data && data.length > 0) {
+          data.forEach(row => {
+            syncData[row.key] = row.value;
+          });
+        }
+      } else {
+        console.log("🔌 Solicitando datos administrativos seguros mediante RPC de fallback...");
+        const { data, error } = await supabase.rpc('get_all_sensitive_keys', {
+          p_admin_email: creds.email,
+          p_admin_password: creds.password
+        });
+
+        if (error) throw error;
+
+        if (data && typeof data === 'object') {
+          syncData = data;
+        }
       }
     } else {
       // 2. Caso de uso público (Clientes): cargar únicamente la configuración general no sensible
@@ -105,16 +124,33 @@ export const fetchSyncedData = async (isAdmin = false) => {
 
 /**
  * Guarda o actualiza un registro clave-valor de forma segura.
- * Si el usuario es administrador, utiliza un canal seguro RPC cifrado para guardar
- * la clave en Supabase. Si no está logueado (ej: un cliente registrando un pedido),
- * realiza un upsert directo que será validado en la base de datos por RLS.
+ * Si el usuario es administrador autenticado mediante JWT, hace un upsert directo.
+ * Si es administrador mediante credenciales heredadas, usa RPC cifrado.
+ * Si es una acción pública (ej: un cliente registrando un pedido), realiza un upsert directo validado por RLS.
  */
 export const updateSyncedData = async (key, value) => {
   if (!supabase) return false;
   try {
-    const creds = getAdminCredentials();
+    const { data: { session } } = await supabase.auth.getSession();
 
-    // 1. Si tenemos sesión administrativa, guardamos de forma segura mediante RPC
+    // 1. Si hay una sesión activa de Supabase Auth, hacemos upsert directo
+    if (session) {
+      const { error } = await supabase
+        .from('helados_sync')
+        .upsert(
+          { 
+            key, 
+            value, 
+            updated_at: new Date().toISOString() 
+          }, 
+          { onConflict: 'key' }
+        );
+      if (error) throw error;
+      return true;
+    }
+
+    // 2. Si no hay sesión de Supabase Auth pero hay credenciales guardadas de RPC
+    const creds = getAdminCredentials();
     if (creds) {
       const { data, error } = await supabase.rpc('update_sensitive_key', {
         p_admin_email: creds.email,
@@ -126,7 +162,7 @@ export const updateSyncedData = async (key, value) => {
       return true;
     }
 
-    // 2. Si es una acción pública (ej: un cliente registrando su pedido o encuesta)
+    // 3. Si es una acción pública (ej: un cliente registrando su pedido o encuesta)
     // El RLS de Supabase solo permitirá la operación si la clave empieza por 'order_'
     const { error } = await supabase
       .from('helados_sync')
@@ -148,15 +184,29 @@ export const updateSyncedData = async (key, value) => {
 
 /**
  * Guarda o actualiza múltiples registros clave-valor de forma atómica.
- * Si el usuario es administrador, los actualiza secuencialmente mediante nuestro canal RPC.
  */
 export const updateMultipleSyncedData = async (keyValuePairs) => {
   if (!supabase || !keyValuePairs || keyValuePairs.length === 0) return false;
   try {
-    const creds = getAdminCredentials();
+    const { data: { session } } = await supabase.auth.getSession();
 
+    // 1. Si hay una sesión activa de Supabase Auth, hacemos upsert en lote directo
+    if (session) {
+      const rows = keyValuePairs.map(item => ({
+        key: item.key,
+        value: item.value,
+        updated_at: new Date().toISOString()
+      }));
+      const { error } = await supabase
+        .from('helados_sync')
+        .upsert(rows, { onConflict: 'key' });
+      if (error) throw error;
+      return true;
+    }
+
+    // 2. Si hay sesión administrativa por credenciales de RPC
+    const creds = getAdminCredentials();
     if (creds) {
-      // Escritura atómica administrativa segura vía RPC
       const promises = keyValuePairs.map(item => 
         supabase.rpc('update_sensitive_key', {
           p_admin_email: creds.email,
@@ -171,7 +221,7 @@ export const updateMultipleSyncedData = async (keyValuePairs) => {
       return true;
     }
 
-    // Fallback público compatible con operaciones de cliente en lote (si las hubiera)
+    // 3. Fallback público compatible con operaciones de cliente en lote (si las hubiera)
     const rows = keyValuePairs.map(item => ({
       key: item.key,
       value: item.value,
