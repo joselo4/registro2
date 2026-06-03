@@ -50,6 +50,7 @@ export default function Cart({
     return tableNumber ? 'Mesa' : 'Delivery';
   });
   const [localTableNumber, setLocalTableNumber] = useState(tableNumber || '');
+  const needsTable = orderType === 'Mesa' || orderType === 'Mesa_Llevar';
 
   // Estados para Cupones de Descuento
   const [couponInput, setCouponInput] = useState('');
@@ -183,13 +184,33 @@ export default function Cart({
     }
 
     const needsTable = orderType === 'Mesa' || orderType === 'Mesa_Llevar';
-    if (!name.trim() || !phone.trim() || (orderType === 'Delivery' && !finalAddress.trim()) || (needsTable && !localTableNumber)) {
-      alert("Por favor, completa todos los campos requeridos.");
-      return;
+    
+    // Obtener valores finales con fallback si el cliente está en mesa y dejó los campos vacíos
+    const finalName = (needsTable && !name.trim()) ? `Cliente Mesa ${localTableNumber || tableNumber}` : name.trim();
+    const finalPhone = (needsTable && !phone.trim()) ? `Mesa` : phone.trim();
+
+    // Validar según tipo de pedido
+    if (orderType === 'Delivery') {
+      if (!finalName || !finalPhone || !finalAddress.trim()) {
+        alert("Por favor, completa todos los campos requeridos.");
+        return;
+      }
+    } else if (needsTable) {
+      if (!localTableNumber && !tableNumber) {
+        alert("Por favor, selecciona o vincula un número de mesa.");
+        return;
+      }
+    } else {
+      // Retiro en Barra o Llevar
+      if (!finalName || !finalPhone) {
+        alert("Por favor, completa todos los campos requeridos.");
+        return;
+      }
     }
 
-    if (needsTable && occupiedTables.includes(String(localTableNumber))) {
-      alert(`La Mesa ${localTableNumber} ya cuenta con un pedido activo. Debe ser liberada por el personal antes de realizar un nuevo pedido.`);
+    const activeMesaNumber = needsTable ? (localTableNumber || tableNumber) : null;
+    if (needsTable && activeMesaNumber && occupiedTables.includes(String(activeMesaNumber))) {
+      alert(`La Mesa ${activeMesaNumber} ya cuenta con un pedido activo. Debe ser liberada por el personal antes de realizar un nuevo pedido.`);
       return;
     }
 
@@ -199,12 +220,12 @@ export default function Cart({
       const newOrder = {
         id: orderId,
         customer: { 
-          name: name.trim(), 
-          phone: phone.trim(), 
+          name: finalName, 
+          phone: finalPhone, 
           address: finalAddress, 
           paymentMethod,
           orderType,
-          tableNumber: needsTable ? localTableNumber : null
+          tableNumber: activeMesaNumber
         },
         items: [...cart],
         total: cartSubtotal,
@@ -237,16 +258,16 @@ export default function Cart({
       const couponLine = appliedCoupon ? `\n*Cupón:* ${appliedCoupon.code} (-S/. ${discount.toFixed(2)})` : '';
       let destLine = `*Dirección:* ${address}`;
       if (orderType === 'Mesa') {
-        destLine = `*Mesa:* ${localTableNumber} (Consumo Local)`;
+        destLine = `*Mesa:* ${activeMesaNumber} (Consumo Local)`;
       } else if (orderType === 'Mesa_Llevar') {
-        destLine = `*Mesa:* ${localTableNumber} (Para Llevar)`;
+        destLine = `*Mesa:* ${activeMesaNumber} (Para Llevar)`;
       } else if (orderType === 'Barra') {
         destLine = `*Pedido:* Directo en Barra`;
       } else if (orderType === 'Llevar') {
         destLine = `*Pedido:* Recojo en Tienda / Llevar`;
       }
       const trackerLink = `\n\n*Sigue tu pedido en vivo aquí:*\n${window.location.origin}${window.location.pathname}?track=${orderId}`;
-      const whatsappMessage = `${whatsappGreeting}\n\n*Código:* ${orderId}\n*Cliente:* ${name}\n${destLine}\n*WhatsApp:* ${phone}\n*Pago:* ${paymentMethod}\n\n*Pedido:*\n${itemsText}\n\n*Subtotal:* S/. ${cartSubtotal.toFixed(2)}${couponLine}\n*Delivery:* S/. ${activeDeliveryFee.toFixed(2)}\n*Total:* S/. ${total.toFixed(2)}${trackerLink}\n\n${whatsappFooter}`;
+      const whatsappMessage = `${whatsappGreeting}\n\n*Código:* ${orderId}\n*Cliente:* ${finalName}\n${destLine}\n*WhatsApp:* ${finalPhone}\n*Pago:* ${paymentMethod}\n\n*Pedido:*\n${itemsText}\n\n*Subtotal:* S/. ${cartSubtotal.toFixed(2)}${couponLine}\n*Delivery:* S/. ${activeDeliveryFee.toFixed(2)}\n*Total:* S/. ${total.toFixed(2)}${trackerLink}\n\n${whatsappFooter}`;
       
       const encodedText = encodeURIComponent(whatsappMessage);
       const cleanPhone = String(storePhone || '').replace(/\D/g, ''); // Limpiar caracteres no numéricos
@@ -345,7 +366,7 @@ export default function Cart({
       </div>
 
       {/* 💰 BARRA DE PROGRESO DE ENVÍO GRATIS DINÁMICA */}
-      {freeDeliveryThreshold > 0 && (
+      {freeDeliveryThreshold > 0 && !tableNumber && (
         <div className="glass" style={{ padding: '12px', marginBottom: '15px', borderLeft: `5px solid ${isFreeDelivery ? 'var(--success)' : 'var(--warning)'}` }}>
           {isFreeDelivery ? (
             <div>
@@ -538,63 +559,83 @@ export default function Cart({
               </div>
             )}
 
-            <div className="form-group">
-              <label style={{ fontSize: '0.8rem' }}>¿Tu Nombre?</label>
-              <input
-                type="text"
-                className="form-control"
-                placeholder="Ej. Carlos Mendoza"
-                value={name}
-                onChange={(e) => setName(e.target.value)}
-                style={{ padding: '8px 10px', fontSize: '0.85rem' }}
-                required
-                disabled={!shopOpen}
-              />
-            </div>
+            {!needsTable && (
+              <>
+                <div className="form-group">
+                  <label style={{ fontSize: '0.8rem' }}>¿Tu Nombre?</label>
+                  <input
+                    type="text"
+                    className="form-control"
+                    placeholder="Ej. Carlos Mendoza"
+                    value={name}
+                    onChange={(e) => setName(e.target.value)}
+                    style={{ padding: '8px 10px', fontSize: '0.85rem' }}
+                    required
+                    disabled={!shopOpen}
+                  />
+                </div>
 
-            <div className="form-group">
-              <label style={{ fontSize: '0.8rem' }}>WhatsApp / Teléfono</label>
-              <input
-                type="tel"
-                className="form-control"
-                placeholder="Ej. 987654321"
-                value={phone}
-                onChange={(e) => setPhone(e.target.value)}
-                style={{ padding: '8px 10px', fontSize: '0.85rem' }}
-                required
-                disabled={!shopOpen}
-              />
-            </div>
+                <div className="form-group">
+                  <label style={{ fontSize: '0.8rem' }}>WhatsApp / Teléfono</label>
+                  <input
+                    type="tel"
+                    className="form-control"
+                    placeholder="Ej. 987654321"
+                    value={phone}
+                    onChange={(e) => setPhone(e.target.value)}
+                    style={{ padding: '8px 10px', fontSize: '0.85rem' }}
+                    required
+                    disabled={!shopOpen}
+                  />
+                </div>
+              </>
+            )}
 
-            {(orderType === 'Mesa' || orderType === 'Mesa_Llevar') && (
+            {needsTable && (
               <div className="form-group">
                 <label style={{ fontSize: '0.8rem', fontWeight: 'bold' }}>Número de Mesa</label>
-                <select
-                  className="form-control"
-                  value={localTableNumber || ''}
-                  onChange={(e) => {
-                    setLocalTableNumber(e.target.value);
-                    if (setTableNumber) setTableNumber(e.target.value);
-                  }}
-                  style={{ 
-                    padding: '8px 10px', 
-                    fontSize: '0.85rem', 
-                    borderColor: occupiedTables.includes(String(localTableNumber)) ? 'var(--danger)' : 'var(--border-color)' 
-                  }}
-                  required
-                  disabled={!shopOpen}
-                >
-                  <option value="">-- Seleccionar Mesa --</option>
-                  {Array.from({ length: shopConfig?.totalTables || 12 }, (_, i) => i + 1).map(num => {
-                    const isOccupied = occupiedTables.includes(String(num));
-                    return (
-                      <option key={num} value={num} disabled={isOccupied}>
-                        Mesa {num} {isOccupied ? '(Ocupada)' : ''}
-                      </option>
-                    );
-                  })}
-                </select>
-                {occupiedTables.includes(String(localTableNumber)) && (
+                {tableNumber ? (
+                  <div style={{
+                    padding: '10px 14px',
+                    background: 'rgba(255, 64, 129, 0.08)',
+                    border: '1px solid rgba(255, 64, 129, 0.2)',
+                    borderRadius: '8px',
+                    fontWeight: 'bold',
+                    color: 'var(--primary-color)',
+                    fontSize: '0.9rem',
+                    textAlign: 'center',
+                    marginTop: '4px'
+                  }}>
+                    🍽️ Mesa {localTableNumber || tableNumber}
+                  </div>
+                ) : (
+                  <select
+                    className="form-control"
+                    value={localTableNumber || ''}
+                    onChange={(e) => {
+                      setLocalTableNumber(e.target.value);
+                      if (setTableNumber) setTableNumber(e.target.value);
+                    }}
+                    style={{ 
+                      padding: '8px 10px', 
+                      fontSize: '0.85rem', 
+                      borderColor: occupiedTables.includes(String(localTableNumber)) ? 'var(--danger)' : 'var(--border-color)' 
+                    }}
+                    required
+                    disabled={!shopOpen}
+                  >
+                    <option value="">-- Seleccionar Mesa --</option>
+                    {Array.from({ length: shopConfig?.totalTables || 12 }, (_, i) => i + 1).map(num => {
+                      const isOccupied = occupiedTables.includes(String(num));
+                      return (
+                        <option key={num} value={num} disabled={isOccupied}>
+                          Mesa {num} {isOccupied ? '(Ocupada)' : ''}
+                        </option>
+                      );
+                    })}
+                  </select>
+                )}
+                {occupiedTables.includes(String(localTableNumber || tableNumber)) && (
                   <span style={{ color: 'var(--danger)', fontSize: '0.72rem', fontWeight: 'bold', display: 'block', marginTop: '4px' }}>
                     ⚠️ Esta mesa tiene un pedido activo. Debe ser liberada por el mesero antes de volver a pedir.
                   </span>

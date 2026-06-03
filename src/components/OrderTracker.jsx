@@ -470,8 +470,21 @@ export default function OrderTracker({ orderId, orders, setView, storePhone, tel
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', flexWrap: 'wrap', gap: '10px', marginBottom: '15px' }}>
         <div>
           <h2 style={{ fontSize: '1.6rem', margin: 0 }}>Seguimiento de Pedido</h2>
-          <p style={{ color: 'var(--text-light)', fontSize: '0.85rem', marginTop: '4px' }}>
+          <p style={{ color: 'var(--text-light)', fontSize: '0.85rem', marginTop: '4px', display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
             Código: <strong style={{ color: 'var(--primary-color)' }}>{currentOrder.id}</strong>
+            {currentOrder.customer.tableNumber && (
+              <span style={{
+                background: 'var(--primary-color)',
+                color: 'white',
+                fontSize: '0.7rem',
+                fontWeight: 'bold',
+                padding: '2px 8px',
+                borderRadius: '12px',
+                boxShadow: '0 2px 4px rgba(0,0,0,0.1)'
+              }}>
+                Mesa {currentOrder.customer.tableNumber}
+              </span>
+            )}
           </p>
         </div>
         <button 
@@ -806,7 +819,15 @@ export default function OrderTracker({ orderId, orders, setView, storePhone, tel
             <strong>Cliente:</strong> <span style={{ color: 'var(--text-dark)' }}>{currentOrder.customer.name}</span>
           </div>
           <div>
-            <strong>Dirección:</strong> <span style={{ color: 'var(--text-dark)' }}>{currentOrder.customer.address}</span>
+            {currentOrder.customer.tableNumber ? (
+              <>
+                <strong>Mesa:</strong> <span style={{ color: 'var(--text-dark)' }}>{currentOrder.customer.tableNumber}</span>
+              </>
+            ) : (
+              <>
+                <strong>Dirección:</strong> <span style={{ color: 'var(--text-dark)' }}>{currentOrder.customer.address}</span>
+              </>
+            )}
           </div>
           <div>
             <strong>WhatsApp:</strong> <span style={{ color: 'var(--text-dark)' }}>{currentOrder.customer.phone}</span>

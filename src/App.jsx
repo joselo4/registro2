@@ -389,12 +389,8 @@ export default function App() {
       setTableNumber(mesaParam);
       localStorage.setItem('helados_table_number', mesaParam);
     } else {
-      const savedMesa = localStorage.getItem('helados_table_number');
-      if (savedMesa) {
-        setTableNumber(savedMesa);
-      } else {
-        setTableNumber(null);
-      }
+      setTableNumber(null);
+      localStorage.removeItem('helados_table_number');
     }
   }, []);
 

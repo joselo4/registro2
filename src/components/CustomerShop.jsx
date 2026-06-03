@@ -1299,49 +1299,11 @@ export default function CustomerShop({
         <>
           <button
             onClick={() => setShowCallModal(true)}
-            style={{
-              position: 'fixed',
-              bottom: '20px',
-              right: '20px',
-              width: '56px',
-              height: '56px',
-              borderRadius: '50%',
-              background: myActiveCall ? 'linear-gradient(135deg, #ff4757, #ff6b81)' : 'linear-gradient(135deg, var(--primary-color), #ff6b8b)',
-              color: 'white',
-              border: 'none',
-              cursor: 'pointer',
-              boxShadow: '0 8px 24px rgba(255, 64, 129, 0.35)',
-              display: 'flex',
-              justifyContent: 'center',
-              alignItems: 'center',
-              fontSize: '1.6rem',
-              zIndex: 999,
-              animation: myActiveCall ? 'pulse-glowing 1.5s infinite' : 'none',
-              transition: 'all 0.2s ease',
-            }}
-            onMouseEnter={(e) => e.currentTarget.style.transform = 'scale(1.1)'}
-            onMouseLeave={(e) => e.currentTarget.style.transform = 'scale(1)'}
+            className={`waiter-call-btn ${myActiveCall ? 'active' : ''}`}
             title="Llamar al Mozo"
           >
             {myActiveCall ? '🔔' : '🛎️'}
           </button>
-
-          <style>{`
-            @keyframes pulse-glowing {
-              0% {
-                box-shadow: 0 0 0 0 rgba(255, 71, 87, 0.6);
-                transform: scale(1);
-              }
-              70% {
-                box-shadow: 0 0 0 12px rgba(255, 71, 87, 0);
-                transform: scale(1.06);
-              }
-              100% {
-                box-shadow: 0 0 0 0 rgba(255, 71, 87, 0);
-                transform: scale(1);
-              }
-            }
-          `}</style>
         </>
       )}
 
