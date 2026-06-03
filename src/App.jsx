@@ -340,10 +340,7 @@ export default function App() {
     ];
   });
 
-  const [tableNumber, setTableNumber] = useState(() => {
-    const saved = localStorage.getItem('helados_table_number');
-    return saved || null;
-  });
+  const [tableNumber, setTableNumber] = useState(null);
 
   // --- NUEVO: Estado del Combo Recomendado del Carrito (Sincronizado) ---
   const [cartRecommendedPack, setCartRecommendedPack] = useState(() => {
@@ -386,6 +383,9 @@ export default function App() {
     if (mesaParam) {
       setTableNumber(mesaParam);
       localStorage.setItem('helados_table_number', mesaParam);
+    } else {
+      setTableNumber(null);
+      localStorage.removeItem('helados_table_number');
     }
   }, []);
 
