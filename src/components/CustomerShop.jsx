@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useMemo, useCallback, useRef } from 'react';
+import { updateSyncedData } from '../utils/supabaseSync';
 
 export default function CustomerShop({ 
   flavors, 
@@ -18,7 +19,8 @@ export default function CustomerShop({
   trendsDisplayTime,
   tableOrdersEnabled = false,
   tableNumber = null,
-  setTableNumber
+  setTableNumber,
+  tableCalls = []
 }) {
   const [filter, setFilter] = useState('all'); // all, classic, packs, liter
 
@@ -31,6 +33,56 @@ export default function CustomerShop({
   const [wizardAnswers, setWizardAnswers] = useState({ antojo: null, premium: null, topping: null });
   const [wizardResult, setWizardResult] = useState(null);
   const [isWizardLoading, setIsWizardLoading] = useState(false);
+
+  // --- Estados y Lógica para Atención en Mesa (Llamar al Mozo) ---
+  const [showCallModal, setShowCallModal] = useState(false);
+  const [isCalling, setIsCalling] = useState(false);
+
+  const myActiveCall = useMemo(() => {
+    return tableCalls.find(c => String(c.table) === String(tableNumber) && !c.resolved);
+  }, [tableCalls, tableNumber]);
+
+  const handleCallWaiter = async (type) => {
+    if (!tableNumber) return;
+    setIsCalling(true);
+    const callData = {
+      table: tableNumber,
+      request: type,
+      timestamp: new Date().toISOString(),
+      resolved: false
+    };
+    const success = await updateSyncedData(`order_call_Mesa_${tableNumber}`, callData);
+    setIsCalling(false);
+    if (success) {
+      setShowCallModal(false);
+      if (showAlert) {
+        showAlert('🛎️ Solicitud Enviada', `Se ha avisado al personal: "${type}". En breve te atenderemos.`, 'success');
+      }
+    } else {
+      if (showAlert) {
+        showAlert('⚠️ Error', 'No se pudo enviar la solicitud de atención. Intenta de nuevo.', 'error');
+      }
+    }
+  };
+
+  const handleCancelCall = async () => {
+    if (!tableNumber) return;
+    setIsCalling(true);
+    const callData = {
+      table: tableNumber,
+      request: myActiveCall ? myActiveCall.request : '',
+      timestamp: myActiveCall ? myActiveCall.timestamp : new Date().toISOString(),
+      resolved: true
+    };
+    const success = await updateSyncedData(`order_call_Mesa_${tableNumber}`, callData);
+    setIsCalling(false);
+    if (success) {
+      setShowCallModal(false);
+      if (showAlert) {
+        showAlert('Cancelado', 'Se ha cancelado tu solicitud de atención.', 'success');
+      }
+    }
+  };
 
   // --- Estados y Lógica para Tendencias en Vivo (FOMO) ---
   const [currentTrend, setCurrentTrend] = useState(null);
@@ -1079,6 +1131,173 @@ export default function CustomerShop({
             </button>
           </div>
           <button className="tendencias-close" onClick={handleDismissToast}>&times;</button>
+        </div>
+      )}
+
+      {/* ATENCIÓN EN MESA - BOTÓN FLOTANTE Y DIÁLOGO */}
+      {tableOrdersEnabled && tableNumber && (
+        <>
+          <button
+            onClick={() => setShowCallModal(true)}
+            style={{
+              position: 'fixed',
+              bottom: '20px',
+              right: '20px',
+              width: '56px',
+              height: '56px',
+              borderRadius: '50%',
+              background: myActiveCall ? 'linear-gradient(135deg, #ff4757, #ff6b81)' : 'linear-gradient(135deg, var(--primary-color), #ff6b8b)',
+              color: 'white',
+              border: 'none',
+              cursor: 'pointer',
+              boxShadow: '0 8px 24px rgba(255, 64, 129, 0.35)',
+              display: 'flex',
+              justifyContent: 'center',
+              alignItems: 'center',
+              fontSize: '1.6rem',
+              zIndex: 999,
+              animation: myActiveCall ? 'pulse-glowing 1.5s infinite' : 'none',
+              transition: 'all 0.2s ease',
+            }}
+            onMouseEnter={(e) => e.currentTarget.style.transform = 'scale(1.1)'}
+            onMouseLeave={(e) => e.currentTarget.style.transform = 'scale(1)'}
+            title="Llamar al Mozo"
+          >
+            {myActiveCall ? '🔔' : '🛎️'}
+          </button>
+
+          <style>{`
+            @keyframes pulse-glowing {
+              0% {
+                box-shadow: 0 0 0 0 rgba(255, 71, 87, 0.6);
+                transform: scale(1);
+              }
+              70% {
+                box-shadow: 0 0 0 12px rgba(255, 71, 87, 0);
+                transform: scale(1.06);
+              }
+              100% {
+                box-shadow: 0 0 0 0 rgba(255, 71, 87, 0);
+                transform: scale(1);
+              }
+            }
+          `}</style>
+        </>
+      )}
+
+      {showCallModal && (
+        <div style={{
+          position: 'fixed',
+          top: 0,
+          left: 0,
+          width: '100%',
+          height: '100%',
+          background: 'rgba(0, 0, 0, 0.5)',
+          backdropFilter: 'blur(4px)',
+          display: 'flex',
+          justifyContent: 'center',
+          alignItems: 'center',
+          zIndex: 1000,
+          animation: 'fadeIn 0.25s ease'
+        }}>
+          <div className="glass" style={{
+            width: '90%',
+            maxWidth: '360px',
+            padding: '24px',
+            borderRadius: '16px',
+            border: '1px solid rgba(255, 255, 255, 0.2)',
+            background: 'var(--bg-secondary)',
+            textAlign: 'center',
+            boxShadow: '0 16px 36px rgba(0,0,0,0.25)',
+            transform: 'scale(1)',
+            transition: 'all 0.3s'
+          }}>
+            <h3 style={{ margin: '0 0 8px 0', fontSize: '1.25rem', color: 'var(--primary-color)' }}>🛎️ Atención en Mesa {tableNumber}</h3>
+            
+            {myActiveCall ? (
+              <div style={{ margin: '15px 0 0 0' }}>
+                <div style={{
+                  width: '56px',
+                  height: '56px',
+                  lineHeight: '56px',
+                  borderRadius: '50%',
+                  background: 'rgba(255, 71, 87, 0.1)',
+                  color: '#ff4757',
+                  fontSize: '1.8rem',
+                  margin: '0 auto 12px auto',
+                  animation: 'pulse-glowing 1.5s infinite'
+                }}>🛎️</div>
+                <p style={{ fontSize: '0.8rem', fontWeight: 'bold', margin: '0 0 4px 0', color: 'var(--text-light)' }}>Solicitud Activa:</p>
+                <p style={{ fontSize: '0.95rem', fontWeight: '600', margin: '0 0 12px 0', background: 'rgba(0,0,0,0.03)', padding: '8px', borderRadius: '8px' }}>
+                  {myActiveCall.request}
+                </p>
+                <p style={{ fontSize: '0.75rem', color: 'var(--text-light)', marginBottom: '15px' }}>
+                  El personal ya recibió tu solicitud y se dirige a atenderte.
+                </p>
+
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                  <button
+                    onClick={handleCancelCall}
+                    disabled={isCalling}
+                    className="btn btn-secondary"
+                    style={{ background: 'rgba(231, 76, 60, 0.08)', color: 'var(--danger)', border: '1px solid rgba(231, 76, 60, 0.15)', width: '100%', padding: '8px', fontSize: '0.8rem' }}
+                  >
+                    {isCalling ? 'Cancelando...' : '❌ Cancelar Solicitud'}
+                  </button>
+                  <button
+                    onClick={() => setShowCallModal(false)}
+                    className="btn btn-secondary"
+                    style={{ width: '100%', padding: '8px', fontSize: '0.8rem' }}
+                  >
+                    Cerrar Ventana
+                  </button>
+                </div>
+              </div>
+            ) : (
+              <div style={{ margin: '15px 0 0 0' }}>
+                <p style={{ fontSize: '0.8rem', color: 'var(--text-light)', marginBottom: '15px' }}>
+                  ¿Qué necesitas solicitar al personal de atención?
+                </p>
+
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                  <button
+                    onClick={() => handleCallWaiter('🙋 Solicitar asistencia de mozo')}
+                    disabled={isCalling}
+                    className="btn btn-primary"
+                    style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px', padding: '10px', fontSize: '0.85rem', width: '100%', background: 'linear-gradient(135deg, var(--primary-color), #ff6b8b)', border: 'none' }}
+                  >
+                    <span>🙋</span> Solicitar Mozo
+                  </button>
+
+                  <button
+                    onClick={() => handleCallWaiter('🥄 Solicitar vasos / cubiertos / servilletas')}
+                    disabled={isCalling}
+                    className="btn btn-secondary"
+                    style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px', padding: '10px', fontSize: '0.85rem', width: '100%' }}
+                  >
+                    <span>🥄</span> Vasos y Cubiertos
+                  </button>
+
+                  <button
+                    onClick={() => handleCallWaiter('💵 Solicitar la cuenta')}
+                    disabled={isCalling}
+                    className="btn btn-secondary"
+                    style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px', padding: '10px', fontSize: '0.85rem', width: '100%' }}
+                  >
+                    <span>💵</span> Pedir la Cuenta
+                  </button>
+
+                  <button
+                    onClick={() => setShowCallModal(false)}
+                    className="btn btn-secondary"
+                    style={{ width: '100%', padding: '8px', marginTop: '6px', border: 'none', background: 'transparent', color: 'var(--text-light)', fontSize: '0.8rem' }}
+                  >
+                    Cerrar
+                  </button>
+                </div>
+              </div>
+            )}
+          </div>
         </div>
       )}
     </div>

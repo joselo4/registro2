@@ -65,6 +65,8 @@ export default function AdminPanel({
   onChangeStoreFavicon,
   coupons,
   onUpdateCoupons,
+  tableCalls = [],
+  onUpdateTableCalls,
   salesGoal,
   onChangeSalesGoal,
   isCloudSynced,
@@ -705,6 +707,8 @@ export default function AdminPanel({
             addLog={addLog}
             currentUser={currentUser}
             showAlert={showAlert}
+            tableCalls={tableCalls}
+            onUpdateTableCalls={onUpdateTableCalls}
           />
         )}
 

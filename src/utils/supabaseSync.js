@@ -290,58 +290,77 @@ export const updateMultipleSyncedData = async (keyValuePairs) => {
  * Suscribe la aplicación a los cambios de la tabla `helados_sync` en tiempo real.
  * Ejecuta el callback onUpdateCallback(key, value) ante cada cambio remoto.
  */
-export const subscribeToSync = (onUpdateCallback, isAdmin = false) => {
+export const subscribeToSync = (onUpdateCallback, isAdmin = false, tableNumber = null) => {
   if (!supabase) return null;
   try {
     if (!isAdmin) {
-      // Para clientes estándar, solo suscribirse a 'shop_open', 'flavors' y 'toppings' para ahorrar un 99% de egress
-      const channel = supabase
-        .channel('helados-realtime-client-channel')
-        .on(
+      // Para clientes estándar, suscribirse a todos los cambios de llaves públicas de configuración
+      const publicKeys = [
+        'store_name', 
+        'store_logo', 
+        'store_title',
+        'store_favicon',
+        'store_phone', 
+        'store_instagram',
+        'store_facebook',
+        'whatsapp_contact_message',
+        'shop_open',
+        'catalog_order', 
+        'flavors', 
+        'toppings', 
+        'bases', 
+        'packs', 
+        'coupons',
+        'delivery_fee', 
+        'free_delivery_threshold', 
+        'delivery_campaign_text',
+        'sound_enabled', 
+        'whatsapp_greeting', 
+        'whatsapp_footer', 
+        'qr_custom_url', 
+        'recommendations', 
+        'cart_recommended_pack', 
+        'liter_config', 
+        'ticket_custom_message'
+      ];
+
+      let channel = supabase.channel('helados-realtime-client-channel');
+      publicKeys.forEach((k) => {
+        channel = channel.on(
           'postgres_changes',
-          { event: 'UPDATE', schema: 'public', table: 'helados_sync', filter: 'key=eq.shop_open' },
+          { event: 'UPDATE', schema: 'public', table: 'helados_sync', filter: `key=eq.${k}` },
           (payload) => {
-            if (payload.new && payload.new.key) {
+            const key = payload.new?.key || payload.old?.key;
+            const val = payload.new?.value || null;
+            if (key) {
               invalidateSyncCache();
-              onUpdateCallback(payload.new.key, payload.new.value);
+              onUpdateCallback(key, val);
             }
           }
-        )
-        .on(
+        );
+      });
+
+      // Suscribirse también al llamado de esta mesa en específico
+      if (tableNumber) {
+        channel = channel.on(
           'postgres_changes',
-          { event: 'UPDATE', schema: 'public', table: 'helados_sync', filter: 'key=eq.flavors' },
+          { event: '*', schema: 'public', table: 'helados_sync', filter: `key=eq.order_call_Mesa_${tableNumber}` },
           (payload) => {
-            if (payload.new && payload.new.key) {
+            const key = payload.new?.key || payload.old?.key;
+            const val = payload.new?.value || null;
+            if (key) {
               invalidateSyncCache();
-              onUpdateCallback(payload.new.key, payload.new.value);
+              onUpdateCallback(key, val);
             }
           }
-        )
-        .on(
-          'postgres_changes',
-          { event: 'UPDATE', schema: 'public', table: 'helados_sync', filter: 'key=eq.toppings' },
-          (payload) => {
-            if (payload.new && payload.new.key) {
-              invalidateSyncCache();
-              onUpdateCallback(payload.new.key, payload.new.value);
-            }
-          }
-        )
-        .on(
-          'postgres_changes',
-          { event: 'UPDATE', schema: 'public', table: 'helados_sync', filter: 'key=eq.catalog_order' },
-          (payload) => {
-            if (payload.new && payload.new.key) {
-              invalidateSyncCache();
-              onUpdateCallback(payload.new.key, payload.new.value);
-            }
-          }
-        )
-        .subscribe((status) => {
-          if (status === 'SUBSCRIBED') {
-            console.log("🔌 Canal Supabase Realtime (Cliente) suscrito con éxito.");
-          }
-        });
+        );
+      }
+
+      channel.subscribe((status) => {
+        if (status === 'SUBSCRIBED') {
+          console.log(`🔌 Canal Supabase Realtime (Cliente) con llaves públicas${tableNumber ? ` y Mesa ${tableNumber}` : ''} suscrito con éxito.`);
+        }
+      });
       return channel;
     } else {
       // Para administradores, suscribirse a todos los cambios
@@ -351,9 +370,11 @@ export const subscribeToSync = (onUpdateCallback, isAdmin = false) => {
           'postgres_changes',
           { event: '*', schema: 'public', table: 'helados_sync' },
           (payload) => {
-            if (payload.new && payload.new.key) {
+            const key = payload.new?.key || payload.old?.key;
+            const val = payload.new?.value || null;
+            if (key) {
               invalidateSyncCache(); // Invalidar caché cuando llegue cambio remoto
-              onUpdateCallback(payload.new.key, payload.new.value);
+              onUpdateCallback(key, val);
             }
           }
         )

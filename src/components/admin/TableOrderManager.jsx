@@ -1,4 +1,5 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
+import { updateSyncedData } from '../../utils/supabaseSync';
 
 export default function TableOrderManager({
   orders,
@@ -11,7 +12,8 @@ export default function TableOrderManager({
   waiterTakerEnabled,
   addLog,
   currentUser,
-  showAlert
+  showAlert,
+  tableCalls = []
 }) {
   const [selectedTable, setSelectedTable] = useState(null);
   const [showNewOrderForm, setShowNewOrderForm] = useState(false);
@@ -48,6 +50,50 @@ export default function TableOrderManager({
     } else {
       window.alert(msg);
     }
+  };
+
+  const playCallSound = () => {
+    try {
+      const AudioContext = window.AudioContext || window.webkitAudioContext;
+      if (!AudioContext) return;
+      const ctx = new AudioContext();
+      const osc = ctx.createOscillator();
+      const gain = ctx.createGain();
+      
+      osc.type = 'sine';
+      osc.frequency.setValueAtTime(587.33, ctx.currentTime); // D5
+      osc.frequency.setValueAtTime(880.00, ctx.currentTime + 0.15); // A5
+      
+      gain.gain.setValueAtTime(0.15, ctx.currentTime);
+      gain.gain.exponentialRampToValueAtTime(0.01, ctx.currentTime + 0.4);
+      
+      osc.connect(gain);
+      gain.connect(ctx.destination);
+      
+      osc.start();
+      osc.stop(ctx.currentTime + 0.4);
+    } catch (e) {
+      console.warn("AudioContext failed to start.", e);
+    }
+  };
+
+  const activeCallsCount = useRef(tableCalls.filter(c => !c.resolved).length);
+
+  useEffect(() => {
+    const currentActive = tableCalls.filter(c => !c.resolved).length;
+    if (currentActive > activeCallsCount.current) {
+      playCallSound();
+    }
+    activeCallsCount.current = currentActive;
+  }, [tableCalls]);
+
+  const handleResolveCall = async (call) => {
+    const updatedCall = {
+      ...call,
+      resolved: true
+    };
+    await updateSyncedData(`order_call_Mesa_${call.table}`, updatedCall);
+    addLog(`Llamado de Mesa ${call.table} ("${call.request}") marcado como atendido por ${currentUser?.name || 'Personal'}.`);
   };
 
   // Encontrar el pedido activo de una mesa
@@ -431,6 +477,64 @@ export default function TableOrderManager({
             Total: {totalTables} Mesas comerciales
           </span>
         </div>
+
+        {/* Panel de Llamados Activos (🛎️) */}
+        {tableCalls.filter(c => !c.resolved).length > 0 && (
+          <div style={{
+            background: 'rgba(231, 76, 60, 0.08)',
+            border: '1px solid rgba(231, 76, 60, 0.25)',
+            borderRadius: '12px',
+            padding: '12px',
+            marginBottom: '15px',
+            animation: 'pulse-border 2s infinite'
+          }}>
+            <strong style={{ display: 'block', fontSize: '0.85rem', color: 'var(--danger)', marginBottom: '8px', textAlign: 'left' }}>
+              🛎️ Llamados de Mesa Activos ({tableCalls.filter(c => !c.resolved).length})
+            </strong>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+              {tableCalls.filter(c => !c.resolved).map((call, idx) => (
+                <div key={idx} style={{
+                  display: 'flex',
+                  justifyContent: 'space-between',
+                  alignItems: 'center',
+                  background: 'var(--bg-secondary)',
+                  padding: '8px 12px',
+                  borderRadius: '8px',
+                  border: '1px solid var(--border-color)',
+                  fontSize: '0.75rem'
+                }}>
+                  <div style={{ textAlign: 'left' }}>
+                    <strong style={{ color: 'var(--primary-color)' }}>Mesa {call.table}</strong>
+                    <span style={{ marginLeft: '10px', fontWeight: 600 }}>{call.request}</span>
+                    <small style={{ display: 'block', color: 'var(--text-light)', marginTop: '2px', fontSize: '0.65rem' }}>
+                      Hace: {new Date(call.timestamp).toLocaleTimeString('es-PE', { hour: '2-digit', minute: '2-digit' })}
+                    </small>
+                  </div>
+                  <button
+                    onClick={() => handleResolveCall(call)}
+                    className="btn btn-primary"
+                    style={{
+                      padding: '4px 10px',
+                      fontSize: '0.7rem',
+                      background: 'var(--success)',
+                      borderColor: 'var(--success)',
+                      borderRadius: '6px'
+                    }}
+                  >
+                    ✅ Atendido
+                  </button>
+                </div>
+              ))}
+            </div>
+            <style>{`
+              @keyframes pulse-border {
+                0% { border-color: rgba(231, 76, 60, 0.25); }
+                50% { border-color: rgba(231, 76, 60, 0.6); }
+                100% { border-color: rgba(231, 76, 60, 0.25); }
+              }
+            `}</style>
+          </div>
+        )}
 
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(110px, 1fr))', gap: '12px' }}>
           {renderTablesGrid()}

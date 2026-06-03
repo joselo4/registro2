@@ -195,6 +195,15 @@ export default function App() {
     return saved ? JSON.parse(saved) : INITIAL_ORDERS;
   });
 
+  const [tableCalls, setTableCalls] = useState(() => {
+    const saved = localStorage.getItem('helados_table_calls');
+    return saved ? JSON.parse(saved) : [];
+  });
+
+  useEffect(() => {
+    localStorage.setItem('helados_table_calls', JSON.stringify(tableCalls));
+  }, [tableCalls]);
+
   const [deliveryFee, setDeliveryFee] = useState(() => {
     const saved = localStorage.getItem('helados_delivery_fee');
     return saved ? parseFloat(saved) : 2.0;
@@ -388,11 +397,17 @@ export default function App() {
     // Combinar órdenes generales e individuales order_PED-XXXX de forma única por ID y ordenar desc
     let initialOrders = serverData.orders || [];
     const individualOrders = [];
+    const loadedTableCalls = [];
     Object.keys(serverData).forEach(k => {
-      if (k.startsWith('order_') && serverData[k]) {
+      if (k.startsWith('order_call_') && serverData[k]) {
+        if (!serverData[k].resolved) {
+          loadedTableCalls.push(serverData[k]);
+        }
+      } else if (k.startsWith('order_') && serverData[k]) {
         individualOrders.push(serverData[k]);
       }
     });
+    setTableCalls(loadedTableCalls);
 
     if (individualOrders.length > 0 || serverData.orders !== undefined) {
       const combinedMap = {};
@@ -687,6 +702,21 @@ export default function App() {
     };
 
     const activeChannel = subscribeToSync((key, value) => {
+      if (key.startsWith('order_call_')) {
+        setTableCalls(prev => {
+          if (!value || value.resolved) {
+            return prev.filter(c => String(c.table) !== String(key.replace('order_call_Mesa_', '')));
+          }
+          const exists = prev.some(c => String(c.table) === String(value.table));
+          if (exists) {
+            return prev.map(c => String(c.table) === String(value.table) ? value : c);
+          } else {
+            return [...prev, value];
+          }
+        });
+        return;
+      }
+
       if (key.startsWith('order_') && value) {
         setOrders(prev => {
           const exists = prev.some(o => o.id === value.id);
@@ -825,14 +855,14 @@ export default function App() {
         default:
           break;
       }
-    }, isLoggedIn);
+    }, isLoggedIn, tableNumber);
 
     return () => {
       if (supabase && activeChannel) {
         supabase.removeChannel(activeChannel);
       }
     };
-  }, [isLoggedIn, isSyncLoaded]);
+  }, [isLoggedIn, isSyncLoaded, tableNumber]);
 
   // Persistir Estados de Sesión de Admin
   useEffect(() => {
@@ -1169,6 +1199,7 @@ export default function App() {
             tableOrdersEnabled={shopConfig.tableOrdersEnabled !== false}
             tableNumber={tableNumber}
             setTableNumber={setTableNumber}
+            tableCalls={tableCalls}
           />
         )}
 
@@ -1288,6 +1319,8 @@ export default function App() {
               onChangeStoreFavicon={setStoreFavicon}
               coupons={coupons}
               onUpdateCoupons={setCoupons}
+              tableCalls={tableCalls}
+              onUpdateTableCalls={setTableCalls}
               salesGoal={salesGoal}
               onChangeSalesGoal={setSalesGoal}
               isCloudSynced={isCloudSynced}
