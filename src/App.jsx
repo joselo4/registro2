@@ -200,10 +200,57 @@ export default function App() {
     return saved ? parseFloat(saved) : 2.0;
   });
 
-  const [shopOpen, setShopOpen] = useState(() => {
+  const DEFAULT_SHOP_CONFIG = {
+    open: true,
+    useHours: false,
+    hours: {
+      monday: { enabled: true, open: '09:00', close: '22:00' },
+      tuesday: { enabled: true, open: '09:00', close: '22:00' },
+      wednesday: { enabled: true, open: '09:00', close: '22:00' },
+      thursday: { enabled: true, open: '09:00', close: '22:00' },
+      friday: { enabled: true, open: '09:00', close: '22:00' },
+      saturday: { enabled: true, open: '09:00', close: '22:00' },
+      sunday: { enabled: true, open: '09:00', close: '22:00' }
+    }
+  };
+
+  const [shopConfig, setShopConfig] = useState(() => {
     const saved = localStorage.getItem('helados_shop_open');
-    return saved ? JSON.parse(saved) : true;
+    if (saved) {
+      try {
+        const parsed = JSON.parse(saved);
+        if (parsed && typeof parsed === 'object') {
+          return { ...DEFAULT_SHOP_CONFIG, ...parsed };
+        } else if (typeof parsed === 'boolean') {
+          return { ...DEFAULT_SHOP_CONFIG, open: parsed };
+        }
+      } catch (e) {
+        console.warn("Error parsing local shop config:", e);
+      }
+    }
+    return DEFAULT_SHOP_CONFIG;
   });
+
+  const isShopOpenCurrently = (config) => {
+    if (!config) return false;
+    if (!config.open) return false;
+    if (!config.useHours) return true;
+
+    const now = new Date();
+    const dayNames = ['sunday', 'monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday'];
+    const currentDayName = dayNames[now.getDay()];
+    
+    const dayConfig = config.hours?.[currentDayName];
+    if (!dayConfig || !dayConfig.enabled) return false;
+
+    const currentHours = now.getHours().toString().padStart(2, '0');
+    const currentMinutes = now.getMinutes().toString().padStart(2, '0');
+    const currentTimeStr = `${currentHours}:${currentMinutes}`;
+
+    return currentTimeStr >= dayConfig.open && currentTimeStr <= dayConfig.close;
+  };
+
+  const effectiveShopOpen = isShopOpenCurrently(shopConfig);
 
   // --- Configuración Dinámica y Gestión de Usuarios ---
   const [freeDeliveryThreshold, setFreeDeliveryThreshold] = useState(() => {
@@ -358,7 +405,21 @@ export default function App() {
     }
 
     if (serverData.delivery_fee !== undefined) setDeliveryFee(parseFloat(serverData.delivery_fee) || 0);
-    if (serverData.shop_open !== undefined) setShopOpen(!!serverData.shop_open);
+    if (serverData.shop_open !== undefined) {
+      let parsed = serverData.shop_open;
+      if (typeof parsed === 'string') {
+        try {
+          parsed = JSON.parse(parsed);
+        } catch (e) {
+          console.warn("Error parsing server shop config:", e);
+        }
+      }
+      if (parsed && typeof parsed === 'object') {
+        setShopConfig(prev => ({ ...prev, ...parsed }));
+      } else {
+        setShopConfig(prev => ({ ...prev, open: !!parsed }));
+      }
+    }
     if (serverData.free_delivery_threshold !== undefined) setFreeDeliveryThreshold(parseFloat(serverData.free_delivery_threshold) || 0);
     if (serverData.delivery_campaign_text !== undefined) setDeliveryCampaignText(serverData.delivery_campaign_text);
     if (serverData.store_phone !== undefined) setStorePhone(serverData.store_phone);
@@ -552,7 +613,7 @@ export default function App() {
   useSyncEffect('packs', packs, true);
   useSyncEffect('orders', orders, true);
   useSyncEffect('delivery_fee', deliveryFee, false);
-  useSyncEffect('shop_open', shopOpen, true);
+  useSyncEffect('shop_open', shopConfig, true);
   useSyncEffect('free_delivery_threshold', freeDeliveryThreshold, false);
   useSyncEffect('delivery_campaign_text', deliveryCampaignText, false);
   useSyncEffect('store_phone', storePhone, false);
@@ -675,7 +736,21 @@ export default function App() {
           updateStateIfChanged(setDeliveryFee, 'delivery_fee', value);
           break;
         case 'shop_open':
-          updateStateIfChanged(setShopOpen, 'shop_open', value);
+          updateStateIfChanged((val) => {
+            let parsed = val;
+            if (typeof parsed === 'string') {
+              try {
+                parsed = JSON.parse(parsed);
+              } catch (e) {
+                console.warn("Error parsing synchronized shop config:", e);
+              }
+            }
+            if (parsed && typeof parsed === 'object') {
+              setShopConfig(prev => ({ ...prev, ...parsed }));
+            } else {
+              setShopConfig(prev => ({ ...prev, open: !!parsed }));
+            }
+          }, 'shop_open', value);
           break;
         case 'free_delivery_threshold':
           updateStateIfChanged(setFreeDeliveryThreshold, 'free_delivery_threshold', value);
@@ -806,7 +881,7 @@ export default function App() {
 
   // --- Funciones del Carrito ---
   const handleAddToCart = (item) => {
-    if (!shopOpen) {
+    if (!effectiveShopOpen) {
       alert(`Lo sentimos, ${storeName} se encuentra CERRADO temporalmente en este momento.`);
       return;
     }
@@ -1042,7 +1117,7 @@ export default function App() {
 
       {/* Contenido Principal */}
       <main className="container" style={{ paddingBottom: '80px', flex: 1 }}>
-        {!shopOpen && view !== 'admin' && (
+        {!effectiveShopOpen && view !== 'admin' && (
           <div className="glass" style={{
             background: 'rgba(231, 76, 60, 0.15)',
             border: '1px solid rgba(231, 76, 60, 0.3)',
@@ -1123,6 +1198,7 @@ export default function App() {
             cartRecommendedPack={cartRecommendedPack}
             literConfig={literConfig}
             showAlert={showAlert}
+            shopOpen={effectiveShopOpen}
           />
         )}
 
@@ -1158,8 +1234,9 @@ export default function App() {
               onUpdatePacks={setPacks}
               deliveryFee={deliveryFee}
               onChangeDeliveryFee={setDeliveryFee}
-              shopOpen={shopOpen}
-              onToggleShopOpen={(val) => setShopOpen(typeof val === 'boolean' ? val : !shopOpen)}
+              shopOpen={effectiveShopOpen}
+              shopConfig={shopConfig}
+              onChangeShopConfig={setShopConfig}
               telegramToken={telegramToken}
               onChangeTelegramToken={setTelegramToken}
               telegramChatId={telegramChatId}

@@ -55,7 +55,8 @@ export default function SettingsManager({
   storeFacebook, onChangeStoreFacebook,
   whatsappContactMessage, onChangeWhatsappContactMessage,
   trendsInterval, onChangeTrendsInterval,
-  trendsDisplayTime, onChangeTrendsDisplayTime
+  trendsDisplayTime, onChangeTrendsDisplayTime,
+  shopConfig, onChangeShopConfig
 }) {
   // --- Estados Locales para Ajustes (Evita lags en el dashboard completo al escribir) ---
   const [localStoreName, setLocalStoreName] = useState(storeName);
@@ -78,6 +79,19 @@ export default function SettingsManager({
   const [localCatalogOrder, setLocalCatalogOrder] = useState(() => catalogOrder || ['liter', 'classic', 'packs']);
   const [localTrendsInterval, setLocalTrendsInterval] = useState(trendsInterval || 25);
   const [localTrendsDisplayTime, setLocalTrendsDisplayTime] = useState(trendsDisplayTime || 6);
+  const [localShopConfig, setLocalShopConfig] = useState(() => shopConfig || {
+    open: true,
+    useHours: false,
+    hours: {
+      monday: { enabled: true, open: '09:00', close: '22:00' },
+      tuesday: { enabled: true, open: '09:00', close: '22:00' },
+      wednesday: { enabled: true, open: '09:00', close: '22:00' },
+      thursday: { enabled: true, open: '09:00', close: '22:00' },
+      friday: { enabled: true, open: '09:00', close: '22:00' },
+      saturday: { enabled: true, open: '09:00', close: '22:00' },
+      sunday: { enabled: true, open: '09:00', close: '22:00' }
+    }
+  });
 
   const [localR2AccountId, setLocalR2AccountId] = useState(r2Config?.accountId || '');
   const [localR2AccessKeyId, setLocalR2AccessKeyId] = useState(r2Config?.accessKeyId || '');
@@ -123,6 +137,11 @@ export default function SettingsManager({
   useEffect(() => { setLocalCatalogOrder(catalogOrder || ['liter', 'classic', 'packs']); }, [catalogOrder]);
   useEffect(() => { setLocalTrendsInterval(trendsInterval || 25); }, [trendsInterval]);
   useEffect(() => { setLocalTrendsDisplayTime(trendsDisplayTime || 6); }, [trendsDisplayTime]);
+  useEffect(() => {
+    if (shopConfig) {
+      setLocalShopConfig(shopConfig);
+    }
+  }, [shopConfig]);
 
   useEffect(() => {
     if (r2Config) {
@@ -191,6 +210,7 @@ export default function SettingsManager({
     }
     if (onChangeTrendsInterval) onChangeTrendsInterval(parseInt(localTrendsInterval, 10) || 25);
     if (onChangeTrendsDisplayTime) onChangeTrendsDisplayTime(parseInt(localTrendsDisplayTime, 10) || 6);
+    if (onChangeShopConfig) onChangeShopConfig(localShopConfig);
     
     addLog(`Ajustes de heladería guardados en la nube por ${currentUser?.name || 'Administrador'}.`);
     alert("¡Ajustes de heladería guardados y sincronizados correctamente en la nube!");
@@ -767,18 +787,130 @@ export default function SettingsManager({
           </label>
         </div>
 
-        {/* Estado de Heladería */}
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderBottom: '1px solid var(--border-color)', paddingBottom: '10px' }}>
+        {/* Estado de Heladería Manual */}
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderBottom: '1px solid var(--border-color)', paddingBottom: '12px' }}>
           <div>
-            <label htmlFor="shop-open-input" style={{ display: 'block', cursor: 'pointer' }}>
-              <strong>Estado de Heladería</strong>
+            <label htmlFor="shop-open-manual-input" style={{ display: 'block', cursor: 'pointer', fontWeight: 'bold' }}>
+              🟢 Estado Manual de la Heladería
             </label>
-            <span style={{ fontSize: '0.75rem', color: 'var(--text-light)', display: 'block' }}>Si está cerrado, se bloquea el carrito.</span>
+            <span style={{ fontSize: '0.75rem', color: 'var(--text-light)', display: 'block' }}>
+              Permite forzar el cierre o la apertura de la tienda de forma inmediata, ignorando los horarios.
+            </span>
           </div>
-          <label className="toggle-switch" htmlFor="shop-open-input">
-            <input id="shop-open-input" name="shop-open" type="checkbox" checked={shopOpen} onChange={onToggleShopOpenProp} />
+          <label className="toggle-switch" htmlFor="shop-open-manual-input">
+            <input 
+              id="shop-open-manual-input" 
+              type="checkbox" 
+              checked={localShopConfig.open} 
+              onChange={(e) => setLocalShopConfig(prev => ({ ...prev, open: e.target.checked }))} 
+            />
             <span className="slider"></span>
           </label>
+        </div>
+
+        {/* Horarios de Atención Automáticos */}
+        <div style={{ display: 'flex', flexDirection: 'column', gap: '10px', borderBottom: '1px solid var(--border-color)', paddingBottom: '15px' }}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+            <div>
+              <strong style={{ display: 'block' }}>🕒 Horario de Atención Automático</strong>
+              <span style={{ fontSize: '0.75rem', color: 'var(--text-light)', display: 'block', marginTop: '2px' }}>
+                Desactiva el carrito y bloquea pedidos fuera del rango de hora establecido.
+              </span>
+            </div>
+            <label className="toggle-switch" htmlFor="shop-hours-enabled-input">
+              <input 
+                id="shop-hours-enabled-input" 
+                type="checkbox" 
+                checked={localShopConfig.useHours} 
+                onChange={(e) => setLocalShopConfig(prev => ({ ...prev, useHours: e.target.checked }))} 
+              />
+              <span className="slider"></span>
+            </label>
+          </div>
+
+          {localShopConfig.useHours && (
+            <div style={{ 
+              background: 'var(--bg-secondary)', 
+              padding: '12px', 
+              borderRadius: '8px', 
+              border: '1px solid var(--border-color)',
+              marginTop: '5px',
+              display: 'flex',
+              flexDirection: 'column',
+              gap: '10px'
+            }}>
+              <span style={{ fontSize: '0.75rem', fontWeight: 'bold', color: 'var(--primary-color)' }}>
+                Configuración por día:
+              </span>
+              
+              {['monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday', 'sunday'].map(day => {
+                const dayLabels = {
+                  monday: 'Lunes',
+                  tuesday: 'Martes',
+                  wednesday: 'Miércoles',
+                  thursday: 'Jueves',
+                  friday: 'Viernes',
+                  saturday: 'Sábado',
+                  sunday: 'Domingo'
+                };
+                const dayConfig = localShopConfig.hours?.[day] || { enabled: true, open: '09:00', close: '22:00' };
+
+                return (
+                  <div key={day} style={{ 
+                    display: 'flex', 
+                    alignItems: 'center', 
+                    justifyContent: 'space-between', 
+                    gap: '10px',
+                    paddingBottom: '8px',
+                    borderBottom: day !== 'sunday' ? '1px dashed var(--border-color)' : 'none'
+                  }}>
+                    <label style={{ display: 'flex', alignItems: 'center', gap: '8px', margin: 0, cursor: 'pointer', fontSize: '0.8rem', fontWeight: 'bold', width: '90px' }}>
+                      <input 
+                        type="checkbox" 
+                        checked={dayConfig.enabled} 
+                        onChange={(e) => {
+                          const updatedHours = { ...localShopConfig.hours };
+                          updatedHours[day] = { ...dayConfig, enabled: e.target.checked };
+                          setLocalShopConfig(prev => ({ ...prev, hours: updatedHours }));
+                        }}
+                      />
+                      {dayLabels[day]}
+                    </label>
+
+                    {dayConfig.enabled ? (
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                        <input 
+                          type="time" 
+                          className="form-control" 
+                          style={{ padding: '2px 6px', fontSize: '0.75rem', width: '90px' }}
+                          value={dayConfig.open}
+                          onChange={(e) => {
+                            const updatedHours = { ...localShopConfig.hours };
+                            updatedHours[day] = { ...dayConfig, open: e.target.value };
+                            setLocalShopConfig(prev => ({ ...prev, hours: updatedHours }));
+                          }}
+                        />
+                        <span style={{ fontSize: '0.75rem', color: 'var(--text-light)' }}>a</span>
+                        <input 
+                          type="time" 
+                          className="form-control" 
+                          style={{ padding: '2px 6px', fontSize: '0.75rem', width: '90px' }}
+                          value={dayConfig.close}
+                          onChange={(e) => {
+                            const updatedHours = { ...localShopConfig.hours };
+                            updatedHours[day] = { ...dayConfig, close: e.target.value };
+                            setLocalShopConfig(prev => ({ ...prev, hours: updatedHours }));
+                          }}
+                        />
+                      </div>
+                    ) : (
+                      <span style={{ fontSize: '0.75rem', color: 'var(--danger)', fontWeight: 'bold' }}> Cerrado todo el día</span>
+                    )}
+                  </div>
+                );
+              })}
+            </div>
+          )}
         </div>
 
         {/* Ajustes de Tendencias en Vivo (Prueba Social FOMO) */}

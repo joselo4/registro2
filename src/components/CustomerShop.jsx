@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useMemo, useCallback } from 'react';
+import React, { useState, useEffect, useMemo, useCallback, useRef } from 'react';
 
 export default function CustomerShop({ 
   flavors, 
@@ -126,11 +126,18 @@ export default function CustomerShop({
     }, 1200);
   };
 
+  // Ref para estabilizar las dependencias del catálogo en el simulador de tendencias y evitar reinicios constantes
+  const trendDataRef = useRef({ activeFlavors, activePacks, literConfig });
+  useEffect(() => {
+    trendDataRef.current = { activeFlavors, activePacks, literConfig };
+  }, [activeFlavors, activePacks, literConfig]);
+
   // Simular tendencias en vivo sin locación geográfica (Seguridad y Privacidad)
   useEffect(() => {
     if (dismissedTrend) return;
 
     const generateRandomTrend = () => {
+      const { activeFlavors, activePacks, literConfig } = trendDataRef.current;
       const eventTypes = ['custom', 'pack', 'liter'];
       const randomType = eventTypes[Math.floor(Math.random() * eventTypes.length)];
       const names = ['Sofía', 'Mateo', 'Valentina', 'Santiago', 'Camila', 'Sebastián', 'Isabella', 'Alejandro', 'Valeria', 'Diego', 'Mariana', 'Lucas', 'Gabriela', 'Nicolás', 'Lucía', 'Samuel', 'Daniela', 'Joaquín', 'Andrea', 'Matías'];
@@ -217,6 +224,8 @@ export default function CustomerShop({
     let transitionTimer = null;
 
     const showNewTrend = () => {
+      if (dismissTimer) clearTimeout(dismissTimer);
+      if (transitionTimer) clearTimeout(transitionTimer);
       const trend = generateRandomTrend();
       if (trend) {
         setCurrentTrend(trend);
@@ -246,7 +255,7 @@ export default function CustomerShop({
       if (dismissTimer) clearTimeout(dismissTimer);
       if (transitionTimer) clearTimeout(transitionTimer);
     };
-  }, [activeFlavors, activePacks, literConfig, dismissedTrend, trendsInterval, trendsDisplayTime]);
+  }, [dismissedTrend, trendsInterval, trendsDisplayTime]);
 
   const handleTryTrend = (item) => {
     onAddToCart(item);

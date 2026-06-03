@@ -18,7 +18,8 @@ export default function Cart({
   whatsappFooter,
   cartRecommendedPack,
   literConfig,
-  showAlert
+  showAlert,
+  shopOpen = true
 }) {
   const alert = (msg) => {
     if (showAlert) {
@@ -351,13 +352,13 @@ export default function Cart({
 
               <div className="cart-item-actions" style={{ flexDirection: 'column', alignItems: 'flex-end', gap: '4px' }}>
                 <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-                  <button className="qty-btn" onClick={() => onUpdateQuantity(index, item.quantity - 1)} style={{ width: '24px', height: '24px', fontSize: '0.8rem' }}>-</button>
+                  <button className="qty-btn" disabled={!shopOpen} onClick={() => shopOpen && onUpdateQuantity(index, item.quantity - 1)} style={{ width: '24px', height: '24px', fontSize: '0.8rem', opacity: !shopOpen ? 0.5 : 1, cursor: !shopOpen ? 'not-allowed' : 'pointer' }}>-</button>
                   <span style={{ fontWeight: 700, minWidth: '15px', textAlign: 'center', fontSize: '0.85rem' }}>{item.quantity}</span>
-                  <button className="qty-btn" onClick={() => onUpdateQuantity(index, item.quantity + 1)} style={{ width: '24px', height: '24px', fontSize: '0.8rem' }}>+</button>
+                  <button className="qty-btn" disabled={!shopOpen} onClick={() => shopOpen && onUpdateQuantity(index, item.quantity + 1)} style={{ width: '24px', height: '24px', fontSize: '0.8rem', opacity: !shopOpen ? 0.5 : 1, cursor: !shopOpen ? 'not-allowed' : 'pointer' }}>+</button>
                 </div>
                 <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
                   <span style={{ fontWeight: 600, fontSize: '0.9rem' }}>S/. {(item.price * item.quantity).toFixed(2)}</span>
-                  <button className="remove-btn" onClick={() => onRemoveFromCart(index)} style={{ padding: '2px', fontSize: '0.9rem' }}>🗑️</button>
+                  <button className="remove-btn" disabled={!shopOpen} onClick={() => shopOpen && onRemoveFromCart(index)} style={{ padding: '2px', fontSize: '0.9rem', opacity: !shopOpen ? 0.5 : 1, cursor: !shopOpen ? 'not-allowed' : 'pointer' }}>🗑️</button>
                 </div>
               </div>
             </div>
@@ -416,6 +417,22 @@ export default function Cart({
             <span>¿Dudas con tu pedido? Escríbenos por WhatsApp</span>
           </button>
           
+          {!shopOpen && (
+            <div style={{
+              background: 'rgba(231, 76, 60, 0.15)',
+              border: '1px solid rgba(231, 76, 60, 0.3)',
+              color: 'var(--danger)',
+              padding: '10px',
+              borderRadius: '6px',
+              fontSize: '0.75rem',
+              fontWeight: 'bold',
+              textAlign: 'center',
+              marginBottom: '10px'
+            }}>
+              🔒 Lo sentimos, estamos fuera del horario de atención. El carrito se encuentra bloqueado y no se pueden enviar pedidos en este momento.
+            </div>
+          )}
+          
           <form className="checkout-form" onSubmit={handleSubmit} style={{ gap: '10px', marginTop: '10px' }}>
             <div className="form-group">
               <label style={{ fontSize: '0.8rem' }}>¿Tu Nombre?</label>
@@ -427,6 +444,7 @@ export default function Cart({
                 onChange={(e) => setName(e.target.value)}
                 style={{ padding: '8px 10px', fontSize: '0.85rem' }}
                 required
+                disabled={!shopOpen}
               />
             </div>
 
@@ -440,6 +458,7 @@ export default function Cart({
                 onChange={(e) => setPhone(e.target.value)}
                 style={{ padding: '8px 10px', fontSize: '0.85rem' }}
                 required
+                disabled={!shopOpen}
               />
             </div>
 
@@ -453,6 +472,7 @@ export default function Cart({
                 onChange={(e) => setAddress(e.target.value)}
                 style={{ padding: '8px 10px', fontSize: '0.85rem' }}
                 required
+                disabled={!shopOpen}
               />
             </div>
 
@@ -462,24 +482,27 @@ export default function Cart({
                 <button
                   type="button"
                   className={`payment-btn ${paymentMethod === 'Yape' ? 'selected' : ''}`}
-                  onClick={() => setPaymentMethod('Yape')}
-                  style={{ fontSize: '0.75rem', padding: '6px' }}
+                  onClick={() => shopOpen && setPaymentMethod('Yape')}
+                  style={{ fontSize: '0.75rem', padding: '6px', opacity: !shopOpen ? 0.5 : 1, cursor: !shopOpen ? 'not-allowed' : 'pointer' }}
+                  disabled={!shopOpen}
                 >
                   📱 Yape
                 </button>
                 <button
                   type="button"
                   className={`payment-btn ${paymentMethod === 'Plin' ? 'selected' : ''}`}
-                  onClick={() => setPaymentMethod('Plin')}
-                  style={{ fontSize: '0.75rem', padding: '6px' }}
+                  onClick={() => shopOpen && setPaymentMethod('Plin')}
+                  style={{ fontSize: '0.75rem', padding: '6px', opacity: !shopOpen ? 0.5 : 1, cursor: !shopOpen ? 'not-allowed' : 'pointer' }}
+                  disabled={!shopOpen}
                 >
                   💸 Plin
                 </button>
                 <button
                   type="button"
                   className={`payment-btn ${paymentMethod === 'Efectivo' ? 'selected' : ''}`}
-                  onClick={() => setPaymentMethod('Efectivo')}
-                  style={{ fontSize: '0.75rem', padding: '6px' }}
+                  onClick={() => shopOpen && setPaymentMethod('Efectivo')}
+                  style={{ fontSize: '0.75rem', padding: '6px', opacity: !shopOpen ? 0.5 : 1, cursor: !shopOpen ? 'not-allowed' : 'pointer' }}
+                  disabled={!shopOpen}
                 >
                   💵 Efectivo
                 </button>
@@ -498,12 +521,14 @@ export default function Cart({
                     value={couponInput}
                     onChange={(e) => { setCouponInput(e.target.value); setCouponError(''); }}
                     style={{ textTransform: 'uppercase', padding: '6px 10px', fontSize: '0.8rem', flex: 1 }}
+                    disabled={!shopOpen}
                   />
                   <button
                     type="button"
                     className="btn btn-secondary"
                     onClick={handleApplyCoupon}
                     style={{ padding: '6px 12px', fontSize: '0.75rem' }}
+                    disabled={!shopOpen}
                   >
                     Aplicar
                   </button>
@@ -516,7 +541,8 @@ export default function Cart({
                   <button
                     type="button"
                     onClick={handleRemoveCoupon}
-                    style={{ background: 'none', border: 'none', color: 'var(--danger)', cursor: 'pointer', fontSize: '0.75rem', fontWeight: 'bold' }}
+                    style={{ background: 'none', border: 'none', color: 'var(--danger)', cursor: shopOpen ? 'pointer' : 'not-allowed', fontSize: '0.75rem', fontWeight: 'bold' }}
+                    disabled={!shopOpen}
                   >
                     Remover
                   </button>
@@ -554,10 +580,10 @@ export default function Cart({
             <button 
               type="submit" 
               className="btn btn-primary" 
-              style={{ width: '100%', marginTop: '10px', padding: '10px', fontSize: '0.9rem', opacity: isSubmitting ? 0.6 : 1, cursor: isSubmitting ? 'not-allowed' : 'pointer' }}
-              disabled={isSubmitting}
+              style={{ width: '100%', marginTop: '10px', padding: '10px', fontSize: '0.9rem', opacity: (isSubmitting || !shopOpen) ? 0.6 : 1, cursor: (isSubmitting || !shopOpen) ? 'not-allowed' : 'pointer' }}
+              disabled={isSubmitting || !shopOpen}
             >
-              {isSubmitting ? '⏳ Procesando Pedido...' : '🚀 Confirmar y Enviar Pedido'}
+              {!shopOpen ? '🔒 Tienda Cerrada (Fuera de Horario)' : isSubmitting ? '⏳ Procesando Pedido...' : '🚀 Confirmar y Enviar Pedido'}
             </button>
           </form>
         </div>

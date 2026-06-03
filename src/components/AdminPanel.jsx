@@ -100,7 +100,9 @@ export default function AdminPanel({
   trendsInterval,
   onChangeTrendsInterval,
   trendsDisplayTime,
-  onChangeTrendsDisplayTime
+  onChangeTrendsDisplayTime,
+  shopConfig,
+  onChangeShopConfig
 }) {
   const alert = (msg) => {
     if (showAlert) {
@@ -519,7 +521,7 @@ export default function AdminPanel({
     <div className="admin-layout">
       {/* Sidebar */}
       <div className="glass admin-sidebar">
-        <h4 style={{ marginBottom: '5px', color: 'var(--primary-color)', fontSize: '1.1rem' }}>🔧 {storeName} Admin</h4>
+        <h4 style={{ marginBottom: '5px', color: 'var(--primary-color)', fontSize: '1.1rem' }}>{storeName}</h4>
         <div style={{ 
           display: 'flex', 
           alignItems: 'center', 
@@ -536,36 +538,7 @@ export default function AdminPanel({
           <span>{isCloudSynced ? '🟢 Sincronizado (Supabase)' : '🟡 Modo Local (Offline)'}</span>
         </div>
 
-        {/* Quick Shop Open/Close Toggle */}
-        <div style={{
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'space-between',
-          padding: '8px 12px',
-          background: 'var(--bg-secondary)',
-          border: '1px solid var(--border-color)',
-          borderRadius: '12px',
-          marginBottom: '15px',
-          gap: '8px'
-        }}>
-          <div style={{ display: 'flex', flexDirection: 'column' }}>
-            <span style={{ fontSize: '0.75rem', fontWeight: 'bold', color: 'var(--text-dark)' }}>Estado Tienda</span>
-            <span style={{ fontSize: '0.65rem', color: shopOpen ? 'var(--success)' : 'var(--danger)', fontWeight: 'bold' }}>
-              {shopOpen ? '🟢 ABIERTO' : '🔴 CERRADO'}
-            </span>
-          </div>
-          <label className="toggle-switch" style={{ margin: 0 }}>
-            <input 
-              type="checkbox" 
-              checked={shopOpen} 
-              onChange={() => {
-                onToggleShopOpen();
-                addLog(`Estado de la tienda cambiado a ${!shopOpen ? 'ABIERTO' : 'CERRADO'} vía control rápido por ${currentUser?.name || 'Staff'}.`);
-              }} 
-            />
-            <span className="slider"></span>
-          </label>
-        </div>
+
         {currentUser && (
           <div style={{
             background: 'var(--bg-secondary, rgba(0, 0, 0, 0.02))',
@@ -627,11 +600,6 @@ export default function AdminPanel({
               💵 Caja y Finanzas
             </button>
           )}
-          {isTabAllowed('settings') && (
-            <button className={`sidebar-btn ${activeTab === 'settings' ? 'active' : ''}`} onClick={() => setActiveTab('settings')}>
-              ⚙️ Ajustes Tienda
-            </button>
-          )}
           {isTabAllowed('stats') && (
             <button className={`sidebar-btn ${activeTab === 'stats' ? 'active' : ''}`} onClick={() => setActiveTab('stats')}>
               📈 Meta e Ingresos
@@ -640,6 +608,11 @@ export default function AdminPanel({
           {isTabAllowed('surveys') && (
             <button className={`sidebar-btn ${activeTab === 'surveys' ? 'active' : ''}`} onClick={() => setActiveTab('surveys')}>
               ⭐ Encuestas ({orders.filter(o => o.survey).length})
+            </button>
+          )}
+          {isTabAllowed('settings') && (
+            <button className={`sidebar-btn ${activeTab === 'settings' ? 'active' : ''}`} onClick={() => setActiveTab('settings')}>
+              ⚙️ Ajustes Tienda
             </button>
           )}
         </div>
@@ -758,6 +731,8 @@ export default function AdminPanel({
             onChangeTrendsInterval={onChangeTrendsInterval}
             trendsDisplayTime={trendsDisplayTime}
             onChangeTrendsDisplayTime={onChangeTrendsDisplayTime}
+            shopConfig={shopConfig}
+            onChangeShopConfig={onChangeShopConfig}
             r2Config={r2Config}
             onUpdateR2Config={onUpdateR2Config}
             literConfig={literConfig}
