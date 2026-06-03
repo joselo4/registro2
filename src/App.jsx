@@ -1097,10 +1097,23 @@ export default function App() {
             onClick={(e) => { e.preventDefault(); setView('shop'); }}
             onDoubleClick={handleLogoDoubleClick}
             title="Doble clic para administrar"
-            style={{ cursor: 'pointer' }}
+            style={{ cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '8px' }}
           >
             {renderLogo(storeLogo)}
             <span>{storeName}</span>
+            {tableNumber && (
+              <span style={{
+                background: 'var(--primary-color)',
+                color: 'white',
+                fontSize: '0.7rem',
+                fontWeight: 'bold',
+                padding: '2px 8px',
+                borderRadius: '12px',
+                boxShadow: '0 2px 4px rgba(0,0,0,0.1)'
+              }}>
+                Mesa {tableNumber}
+              </span>
+            )}
           </a>
 
           {/* Menú de Navegación para Escritorio */}
@@ -1232,6 +1245,9 @@ export default function App() {
             setTableNumber={setTableNumber}
             tableCalls={tableCalls}
             occupiedTables={shopConfig.occupiedTables || []}
+            cart={cart}
+            telegramToken={telegramToken}
+            telegramChatId={telegramChatId}
           />
         )}
 
@@ -1285,6 +1301,7 @@ export default function App() {
             tableNumber={tableNumber}
             setTableNumber={setTableNumber}
             occupiedTables={shopConfig.occupiedTables || []}
+            shopConfig={shopConfig}
           />
         )}
 

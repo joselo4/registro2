@@ -13,7 +13,8 @@ export default function TableOrderManager({
   addLog,
   currentUser,
   showAlert,
-  tableCalls = []
+  tableCalls = [],
+  shopConfig
 }) {
   const [selectedTable, setSelectedTable] = useState(null);
   const [showNewOrderForm, setShowNewOrderForm] = useState(false);
@@ -44,7 +45,7 @@ export default function TableOrderManager({
   const [checkoutPaymentMethod, setCheckoutPaymentMethod] = useState('Yape');
   const [showCheckoutSection, setShowCheckoutSection] = useState(false);
 
-  const totalTables = 12;
+  const totalTables = shopConfig?.totalTables || 12;
 
   const alert = (msg, type = 'info') => {
     if (showAlert) {

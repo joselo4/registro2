@@ -23,7 +23,8 @@ export default function Cart({
   tableOrdersEnabled = false,
   tableNumber = null,
   setTableNumber,
-  occupiedTables = []
+  occupiedTables = [],
+  shopConfig
 }) {
   const alert = (msg) => {
     if (showAlert) {
@@ -46,7 +47,7 @@ export default function Cart({
 
   // Módulo de Mesas
   const [orderType, setOrderType] = useState(() => {
-    return tableNumber ? 'Mesa' : 'Llevar';
+    return tableNumber ? 'Mesa' : 'Delivery';
   });
   const [localTableNumber, setLocalTableNumber] = useState(tableNumber || '');
 
@@ -517,34 +518,21 @@ export default function Cart({
                     </button>
                   </div>
                 ) : (
-                  <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: '6px', marginBottom: '4px' }}>
-                    <button
-                      type="button"
-                      className={`payment-btn ${orderType === 'Barra' ? 'selected' : ''}`}
-                      onClick={() => setOrderType('Barra')}
-                      style={{ padding: '8px 4px', fontSize: '0.7rem', opacity: !shopOpen ? 0.5 : 1, cursor: !shopOpen ? 'not-allowed' : 'pointer' }}
-                      disabled={!shopOpen}
-                    >
-                      💵 Pedido en Barra
-                    </button>
-                    <button
-                      type="button"
-                      className={`payment-btn ${orderType === 'Llevar' ? 'selected' : ''}`}
-                      onClick={() => setOrderType('Llevar')}
-                      style={{ padding: '8px 4px', fontSize: '0.7rem', opacity: !shopOpen ? 0.5 : 1, cursor: !shopOpen ? 'not-allowed' : 'pointer' }}
-                      disabled={!shopOpen}
-                    >
-                      🛍️ Recojo en Tienda
-                    </button>
-                    <button
-                      type="button"
-                      className={`payment-btn ${orderType === 'Delivery' ? 'selected' : ''}`}
-                      onClick={() => setOrderType('Delivery')}
-                      style={{ padding: '8px 4px', fontSize: '0.7rem', opacity: !shopOpen ? 0.5 : 1, cursor: !shopOpen ? 'not-allowed' : 'pointer' }}
-                      disabled={!shopOpen}
-                    >
-                      🛵 Envío Delivery
-                    </button>
+                  <div style={{ 
+                    background: 'rgba(255, 64, 129, 0.08)', 
+                    border: '1px solid rgba(255, 64, 129, 0.2)', 
+                    color: 'var(--primary-color)', 
+                    padding: '10px 14px', 
+                    borderRadius: '10px', 
+                    fontSize: '0.85rem', 
+                    fontWeight: 'bold',
+                    textAlign: 'center',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    gap: '6px'
+                  }}>
+                    🛵 Envío a Domicilio (Delivery)
                   </div>
                 )}
               </div>
@@ -580,13 +568,9 @@ export default function Cart({
 
             {(orderType === 'Mesa' || orderType === 'Mesa_Llevar') && (
               <div className="form-group">
-                <label style={{ fontSize: '0.8rem' }}>Número de Mesa</label>
-                <input
-                  type="number"
+                <label style={{ fontSize: '0.8rem', fontWeight: 'bold' }}>Número de Mesa</label>
+                <select
                   className="form-control"
-                  placeholder="Ej. 5"
-                  min="1"
-                  max="100"
                   value={localTableNumber || ''}
                   onChange={(e) => {
                     setLocalTableNumber(e.target.value);
@@ -599,7 +583,17 @@ export default function Cart({
                   }}
                   required
                   disabled={!shopOpen}
-                />
+                >
+                  <option value="">-- Seleccionar Mesa --</option>
+                  {Array.from({ length: shopConfig?.totalTables || 12 }, (_, i) => i + 1).map(num => {
+                    const isOccupied = occupiedTables.includes(String(num));
+                    return (
+                      <option key={num} value={num} disabled={isOccupied}>
+                        Mesa {num} {isOccupied ? '(Ocupada)' : ''}
+                      </option>
+                    );
+                  })}
+                </select>
                 {occupiedTables.includes(String(localTableNumber)) && (
                   <span style={{ color: 'var(--danger)', fontSize: '0.72rem', fontWeight: 'bold', display: 'block', marginTop: '4px' }}>
                     ⚠️ Esta mesa tiene un pedido activo. Debe ser liberada por el mesero antes de volver a pedir.

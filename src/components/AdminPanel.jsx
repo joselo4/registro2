@@ -1,6 +1,7 @@
 /* eslint-disable react-hooks/set-state-in-effect */
 import { useState, useEffect, useRef } from 'react';
 import { supabase } from '../utils/supabaseClient';
+import { updateSyncedData } from '../utils/supabaseSync';
 import SettingsManager from './admin/SettingsManager';
 import InventoryManager from './admin/InventoryManager';
 import FinanceManager from './admin/FinanceManager';
@@ -709,6 +710,7 @@ export default function AdminPanel({
             showAlert={showAlert}
             tableCalls={tableCalls}
             onUpdateTableCalls={onUpdateTableCalls}
+            shopConfig={shopConfig}
           />
         )}
 
@@ -806,6 +808,89 @@ export default function AdminPanel({
           />
         )}
       </div>
+
+      {/* Panel Flotante Persistente para Llamados de Atención en Mesa */}
+      {tableOrdersEnabled && tableCalls.filter(c => !c.resolved).length > 0 && (
+        <div style={{
+          position: 'fixed',
+          bottom: '20px',
+          right: '20px',
+          zIndex: 999999,
+          maxWidth: '380px',
+          width: 'calc(100% - 40px)',
+          background: 'var(--glass-bg, rgba(255, 255, 255, 0.95))',
+          backdropFilter: 'blur(10px)',
+          WebkitBackdropFilter: 'blur(10px)',
+          border: '2px solid var(--danger)',
+          borderRadius: '16px',
+          boxShadow: '0 12px 36px rgba(231, 76, 60, 0.35)',
+          padding: '16px',
+          animation: 'slideUpBounceAdmin 0.4s ease',
+          display: 'flex',
+          flexDirection: 'column',
+          gap: '10px'
+        }}>
+          <style dangerouslySetInnerHTML={{ __html: `
+            @keyframes slideUpBounceAdmin {
+              from { transform: translateY(50px); opacity: 0; }
+              to { transform: translateY(0); opacity: 1; }
+            }
+          ` }} />
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderBottom: '1px solid var(--border-color)', paddingBottom: '6px' }}>
+            <span style={{ fontWeight: 'bold', color: 'var(--danger)', fontSize: '0.85rem', display: 'flex', alignItems: 'center', gap: '6px' }}>
+              🛎️ LLAMADOS DE MESA ACTIVAS ({tableCalls.filter(c => !c.resolved).length})
+            </span>
+            <span style={{ background: 'var(--danger)', color: 'white', fontSize: '0.65rem', fontWeight: 'bold', padding: '2px 8px', borderRadius: '12px' }}>PENDIENTE</span>
+          </div>
+          <div style={{ maxHeight: '180px', overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: '8px' }}>
+            {tableCalls.filter(c => !c.resolved).map((call, idx) => (
+              <div key={idx} style={{
+                background: 'var(--bg-secondary)',
+                padding: '8px 10px',
+                borderRadius: '8px',
+                fontSize: '0.72rem',
+                borderLeft: '4px solid var(--primary-color)',
+                border: '1px solid var(--border-color)',
+                display: 'flex',
+                justifyContent: 'space-between',
+                alignItems: 'center',
+                gap: '10px'
+              }}>
+                <div style={{ textAlign: 'left', flex: 1 }}>
+                  <strong style={{ color: 'var(--primary-color)' }}>Mesa {call.table}</strong>
+                  <div style={{ fontWeight: '600', marginTop: '2px', wordBreak: 'break-word', color: 'var(--text-dark)' }}>{call.request}</div>
+                  <small style={{ color: 'var(--text-light)', display: 'block', marginTop: '2px', fontSize: '0.65rem' }}>
+                    Hace: {new Date(call.timestamp).toLocaleTimeString('es-PE', { hour: '2-digit', minute: '2-digit' })}
+                  </small>
+                </div>
+                <button
+                  onClick={async () => {
+                    const updatedCall = { ...call, resolved: true };
+                    const success = await updateSyncedData(`order_call_Mesa_${call.table}`, updatedCall);
+                    if (success) {
+                      addLog(`Llamado de Mesa ${call.table} ("${call.request}") marcado como atendido.`);
+                    }
+                  }}
+                  className="btn btn-primary"
+                  style={{
+                    padding: '4px 8px',
+                    fontSize: '0.7rem',
+                    background: 'var(--success)',
+                    borderColor: 'var(--success)',
+                    borderRadius: '6px',
+                    color: 'white',
+                    cursor: 'pointer',
+                    whiteSpace: 'nowrap',
+                    margin: 0
+                  }}
+                >
+                  Atendido
+                </button>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
     </div>
   );
 }

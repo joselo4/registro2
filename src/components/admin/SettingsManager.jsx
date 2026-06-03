@@ -108,6 +108,23 @@ export default function SettingsManager({
   const [editingCouponCode, setEditingCouponCode] = useState(null);
   const [editCouponData, setEditCouponData] = useState(null);
   const [qrTableNumber, setQrTableNumber] = useState('1');
+
+  const getBaseQrUrl = () => {
+    if (qrCustomUrl && qrCustomUrl.trim()) {
+      let base = qrCustomUrl.trim();
+      if (!/^https?:\/\//i.test(base)) {
+        base = `https://${base}`;
+      }
+      return base;
+    }
+    return `${window.location.origin}${window.location.pathname}`;
+  };
+
+  const getTableQrUrl = (tableNum) => {
+    const base = getBaseQrUrl();
+    const separator = base.includes('?') ? '&' : '?';
+    return `${base}${separator}mesa=${tableNum}`;
+  };
   const [logSearchQuery, setLogSearchQuery] = useState('');
   const [logsLimit, setLogsLimit] = useState(20);
   const [showSQLScript, setShowSQLScript] = useState(false);
@@ -309,7 +326,7 @@ export default function SettingsManager({
   };
 
   const handlePrintQR = () => {
-    const qrLink = `${window.location.origin}${window.location.pathname}?mesa=${qrTableNumber}`;
+    const qrLink = getTableQrUrl(qrTableNumber);
     const qrImageUrl = `https://api.qrserver.com/v1/create-qr-code/?size=300x300&data=${encodeURIComponent(qrLink)}`;
     const printWindow = window.open('', '_blank', 'width=600,height=600');
     if (!printWindow) return;
@@ -1065,6 +1082,29 @@ export default function SettingsManager({
             </label>
           </div>
 
+          {localShopConfig.tableOrdersEnabled !== false && (
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: '8px', paddingLeft: '15px', borderLeft: '3px solid var(--primary-color)' }}>
+              <div>
+                <strong style={{ display: 'block', fontSize: '0.85rem' }}>Cantidad de Mesas Activas</strong>
+                <span style={{ fontSize: '0.7rem', color: 'var(--text-light)' }}>
+                  Define el número total de mesas habilitadas en tu negocio.
+                </span>
+              </div>
+              <input 
+                type="number"
+                className="form-control"
+                style={{ fontSize: '0.8rem', padding: '6px', maxWidth: '80px', textAlign: 'center' }}
+                value={localShopConfig.totalTables || 12}
+                onChange={(e) => {
+                  const val = Math.max(1, Math.min(100, parseInt(e.target.value, 10) || 1));
+                  setLocalShopConfig(prev => ({ ...prev, totalTables: val }));
+                }}
+                min="1"
+                max="100"
+              />
+            </div>
+          )}
+
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
             <div>
               <strong style={{ display: 'block' }}>🤵 Tomador de Pedidos de Mesa (Mozo)</strong>
@@ -1669,7 +1709,7 @@ alter table public.helados_sync enable row level security;`}
               <div style={{ flex: '2 1 200px' }}>
                 <span style={{ fontSize: '0.7rem', display: 'block', color: 'var(--text-light)' }}>Enlace que se generará:</span>
                 <code style={{ fontSize: '0.75rem', wordBreak: 'break-all', display: 'block', padding: '6px', background: 'var(--bg-secondary)', borderRadius: '4px', border: '1px solid var(--border-color)', marginTop: '4px' }}>
-                  {`${window.location.origin}${window.location.pathname}?mesa=${qrTableNumber}`}
+                  {getTableQrUrl(qrTableNumber)}
                 </code>
               </div>
             </div>
@@ -1677,7 +1717,7 @@ alter table public.helados_sync enable row level security;`}
             <div style={{ display: 'flex', gap: '15px', marginTop: '15px', alignItems: 'center', flexWrap: 'wrap' }}>
               <div style={{ background: 'white', padding: '8px', borderRadius: '8px', border: '1px solid #ddd', display: 'flex', justifyContent: 'center', alignItems: 'center' }}>
                 <img 
-                  src={`https://api.qrserver.com/v1/create-qr-code/?size=150x150&data=${encodeURIComponent(`${window.location.origin}${window.location.pathname}?mesa=${qrTableNumber}`)}`} 
+                  src={`https://api.qrserver.com/v1/create-qr-code/?size=150x150&data=${encodeURIComponent(getTableQrUrl(qrTableNumber))}`} 
                   alt={`QR Mesa ${qrTableNumber}`}
                   style={{ width: '120px', height: '120px', display: 'block' }}
                 />
