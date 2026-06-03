@@ -477,7 +477,9 @@ export default function SettingsManager({
         cartRecommendedPack,
         literConfig,
         ticketCustomMessage,
-        catalogOrder
+        catalogOrder,
+        coupons,
+        shopConfig
       };
 
       const dataStr = "data:text/json;charset=utf-8," + encodeURIComponent(JSON.stringify(backupData, null, 2));
@@ -538,6 +540,8 @@ export default function SettingsManager({
           if (data.catalogOrder && onUpdateCatalogOrder) onUpdateCatalogOrder(data.catalogOrder);
           if (data.recommendations && onUpdateRecommendations) onUpdateRecommendations(data.recommendations);
           if (data.cartRecommendedPack && onUpdateCartRecommendedPack) onUpdateCartRecommendedPack(data.cartRecommendedPack);
+          if (data.coupons && onUpdateCoupons) onUpdateCoupons(data.coupons);
+          if (data.shopConfig && onChangeShopConfig) onChangeShopConfig(data.shopConfig);
 
           if (supabase) {
             const keysToSync = [];
@@ -559,7 +563,12 @@ export default function SettingsManager({
             addKey('orders', data.orders);
             addKey('expenses', data.expenses);
             addKey('delivery_fee', data.deliveryFee);
-            addKey('shop_open', data.shopOpen);
+            if (data.shopConfig) {
+              addKey('shop_open', data.shopConfig);
+            } else {
+              addKey('shop_open', data.shopOpen);
+            }
+            addKey('coupons', data.coupons);
             addKey('free_delivery_threshold', data.freeDeliveryThreshold);
             addKey('delivery_campaign_text', data.deliveryCampaignText);
             addKey('store_phone', data.storePhone);

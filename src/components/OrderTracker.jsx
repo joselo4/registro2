@@ -230,6 +230,7 @@ export default function OrderTracker({ orderId, orders, setView, storePhone, tel
 
   const getStatusNumber = (status) => {
     switch (status) {
+      case 'Por Corroborar': return 0.5;
       case 'Pendiente': return 1;
       case 'Preparando': return 2;
       case 'En camino': return 3;
@@ -240,6 +241,7 @@ export default function OrderTracker({ orderId, orders, setView, storePhone, tel
 
   const getProgressWidth = (status) => {
     switch (status) {
+      case 'Por Corroborar': return '0%';
       case 'Pendiente': return '0%';
       case 'Preparando': return '33.33%';
       case 'En camino': return '66.66%';
@@ -272,6 +274,7 @@ export default function OrderTracker({ orderId, orders, setView, storePhone, tel
   };
 
   const formatStatusText = (status) => {
+    if (status === 'Por Corroborar') return '⏳ Por Corroborar';
     if (status === 'En camino') return '🛵 En Camino';
     if (status === 'Preparando') return '👨‍🍳 Preparando';
     if (status === 'Entregado') return '🎉 Entregado';
@@ -414,9 +417,9 @@ export default function OrderTracker({ orderId, orders, setView, storePhone, tel
   }
 
   // Render del estado de seguimiento de un pedido ENCONTRADO
-  const orderDate = new Date(currentOrder.date);
+  const orderDate = currentOrder.date ? new Date(currentOrder.date) : null;
   const now = new Date();
-  const diffHours = (now - orderDate) / (1000 * 60 * 60);
+  const diffHours = (orderDate && !isNaN(orderDate.getTime())) ? (now - orderDate) / (1000 * 60 * 60) : 0;
   const isExpired = diffHours > 72;
 
   if (isExpired) {
@@ -655,6 +658,7 @@ export default function OrderTracker({ orderId, orders, setView, storePhone, tel
         };
 
         const statusMeta = {
+          'Por Corroborar': { emoji: '⏳', label: 'Esperando Confirmación de Mozo', color: '#e67e22', bg: 'rgba(230,126,34,0.10)' },
           'Pendiente':  { emoji: '⏳', label: 'Pedido Recibido',         color: '#f39c12', bg: 'rgba(243,156,18,0.10)' },
           'Preparando': { emoji: '👨‍🍳', label: 'En Cocina / Preparando', color: '#3498db', bg: 'rgba(52,152,219,0.10)' },
           'En camino':  { emoji: '🛵', label: 'En Ruta de Entrega',      color: '#9b59b6', bg: 'rgba(155,89,182,0.10)' },
@@ -787,6 +791,7 @@ export default function OrderTracker({ orderId, orders, setView, storePhone, tel
 
       {/* Mensaje Informativo */}
       <p style={{ fontSize: '0.85rem', color: 'var(--text-light)', textAlign: 'center', marginBottom: '25px', lineHeight: '1.4' }}>
+        {currentOrder.status === 'Por Corroborar' && "El mesero está corroborando tu pedido. En breve se enviará a preparación."}
         {currentOrder.status === 'Pendiente' && "Estamos validando tu pedido. En breve coordinaremos la entrega."}
         {currentOrder.status === 'Preparando' && "¡Nuestros maestros heladeros están sirviendo tu combinación favorita!"}
         {currentOrder.status === 'En camino' && "¡El motorizado va en ruta rápida hacia tu dirección!"}

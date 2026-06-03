@@ -381,6 +381,12 @@ export default function App() {
       setActiveOrderId(trackId);
       setView('tracker');
     }
+
+    const mesaParam = params.get('mesa') || params.get('table');
+    if (mesaParam) {
+      setTableNumber(mesaParam);
+      localStorage.setItem('helados_table_number', mesaParam);
+    }
   }, []);
 
   // --- Función auxiliar para aplicar los datos sincronizados y combinar las órdenes ---
@@ -869,6 +875,23 @@ export default function App() {
     localStorage.setItem('helados_admin_logged_in', isLoggedIn.toString());
   }, [isLoggedIn]);
 
+  // Calcular automáticamente la lista de mesas ocupadas a partir de pedidos activos
+  useEffect(() => {
+    if (!isLoggedIn) return;
+    
+    const activeTableNumbers = Array.from(new Set(orders
+      .filter(o => (o.customer?.orderType === 'Mesa' || o.customer?.orderType === 'Mesa_Llevar') && o.status !== 'Cancelado' && !o.tablePaid)
+      .map(o => String(o.customer?.tableNumber))
+    )).filter(Boolean);
+    
+    if (JSON.stringify(shopConfig.occupiedTables || []) !== JSON.stringify(activeTableNumbers)) {
+      setShopConfig(prev => ({
+        ...prev,
+        occupiedTables: activeTableNumbers
+      }));
+    }
+  }, [orders, isLoggedIn, shopConfig.occupiedTables]);
+
   // Control de Expiración de Sesión de Admin (10 Días)
   useEffect(() => {
     if (isLoggedIn) {
@@ -992,6 +1015,14 @@ export default function App() {
     setCart([]);
     setActiveOrderId(newOrder.id);
     setView('tracker');
+    
+    // Guardar pedido activo en localStorage para rastreo y control de mesa ocupada
+    localStorage.setItem('helados_active_order_id', newOrder.id);
+    if (newOrder.customer?.orderType === 'Mesa' || newOrder.customer?.orderType === 'Mesa_Llevar') {
+      localStorage.setItem('helados_active_order_table', String(newOrder.customer?.tableNumber));
+    } else {
+      localStorage.removeItem('helados_active_order_table');
+    }
     
     if (newOrder.couponCode) {
       setCoupons(prevCoupons => {
@@ -1200,6 +1231,7 @@ export default function App() {
             tableNumber={tableNumber}
             setTableNumber={setTableNumber}
             tableCalls={tableCalls}
+            occupiedTables={shopConfig.occupiedTables || []}
           />
         )}
 
@@ -1252,6 +1284,7 @@ export default function App() {
             tableOrdersEnabled={shopConfig.tableOrdersEnabled !== false}
             tableNumber={tableNumber}
             setTableNumber={setTableNumber}
+            occupiedTables={shopConfig.occupiedTables || []}
           />
         )}
 

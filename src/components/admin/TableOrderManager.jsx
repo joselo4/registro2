@@ -17,6 +17,8 @@ export default function TableOrderManager({
 }) {
   const [selectedTable, setSelectedTable] = useState(null);
   const [showNewOrderForm, setShowNewOrderForm] = useState(false);
+  const [selectedBarraOrderId, setSelectedBarraOrderId] = useState(null);
+  const [newOrderType, setNewOrderType] = useState('Mesa'); // Mesa, Mesa_Llevar, Barra
 
   // Campos para nuevo pedido
   const [newOrderClient, setNewOrderClient] = useState('');
@@ -99,7 +101,7 @@ export default function TableOrderManager({
   // Encontrar el pedido activo de una mesa
   const getActiveTableOrder = (tableNum) => {
     return orders.find(
-      o => o.customer?.orderType === 'Mesa' && 
+      o => (o.customer?.orderType === 'Mesa' || o.customer?.orderType === 'Mesa_Llevar') && 
            String(o.customer?.tableNumber) === String(tableNum) && 
            o.status !== 'Cancelado' && 
            !o.tablePaid
@@ -109,7 +111,10 @@ export default function TableOrderManager({
   // Agregar item al pedido local temporal (para nueva mesa) o directo a la mesa activa
   const handleAddItemToOrder = (item) => {
     if (selectedTable) {
-      const activeOrder = getActiveTableOrder(selectedTable);
+      const activeOrder = selectedTable === 'Barra'
+        ? orders.find(o => o.id === selectedBarraOrderId && o.customer?.orderType === 'Barra' && o.status !== 'Cancelado' && !o.tablePaid)
+        : getActiveTableOrder(selectedTable);
+
       if (activeOrder) {
         // Añadir a pedido existente en la base de datos
         const updatedItems = [...activeOrder.items];
@@ -125,27 +130,29 @@ export default function TableOrderManager({
         // Mantener descuento si se usó cupón
         let discount = 0;
         if (activeOrder.couponCode) {
-          // Buscamos cupón en la orden si hay discount previo, recalculamos según tipo
           const discountPct = activeOrder.total > 0 ? (activeOrder.discount / activeOrder.total) : 0;
           discount = newSubtotal * discountPct;
         }
 
         const updatedOrders = orders.map(o => {
           if (o.id === activeOrder.id) {
-            return {
+            const orderVal = {
               ...o,
               items: updatedItems,
               total: newSubtotal,
               discount: discount,
               grandTotal: Math.max(0, newSubtotal - discount)
             };
+            updateSyncedData(`order_${o.id}`, orderVal);
+            return orderVal;
           }
           return o;
         });
 
         onUpdateOrders(updatedOrders);
-        addLog(`Mozo ${currentUser?.name || ''} agregó ${item.name} a la Mesa ${selectedTable}.`);
-        alert(`Se agregó ${item.name} a la Mesa ${selectedTable}.`);
+        const nameType = selectedTable === 'Barra' ? 'Barra' : `Mesa ${selectedTable}`;
+        addLog(`Mozo ${currentUser?.name || ''} agregó ${item.name} a ${nameType}.`);
+        alert(`Se agregó ${item.name} a ${nameType}.`);
       } else {
         // Agregar a la cola temporal de nueva mesa
         setNewOrderItems(prev => {
@@ -161,6 +168,96 @@ export default function TableOrderManager({
     }
   };
 
+  const handleUpdateActiveOrderItemQty = (activeOrder, itemIndex, delta) => {
+    let updatedItems = activeOrder.items.map((item, idx) => {
+      if (idx === itemIndex) {
+        const newQty = item.quantity + delta;
+        return { ...item, quantity: Math.max(1, newQty) };
+      }
+      return item;
+    });
+
+    const subtotal = updatedItems.reduce((sum, i) => sum + (i.price * i.quantity), 0);
+    
+    let discount = 0;
+    if (activeOrder.couponCode) {
+      const discountPct = activeOrder.total > 0 ? (activeOrder.discount / activeOrder.total) : 0;
+      discount = subtotal * discountPct;
+    }
+
+    const updatedOrders = orders.map(o => {
+      if (o.id === activeOrder.id) {
+        const orderVal = {
+          ...o,
+          items: updatedItems,
+          total: subtotal,
+          discount: discount,
+          grandTotal: Math.max(0, subtotal - discount)
+        };
+        // También subirlo individualmente si es en la nube
+        updateSyncedData(`order_${o.id}`, orderVal);
+        return orderVal;
+      }
+      return o;
+    });
+
+    onUpdateOrders(updatedOrders);
+  };
+
+  const handleRemoveActiveOrderItem = (activeOrder, itemIndex) => {
+    const updatedItems = activeOrder.items.filter((_, idx) => idx !== itemIndex);
+    
+    if (updatedItems.length === 0) {
+      alert("El pedido no puede quedar vacío. Si deseas cancelarlo, usa el botón Cancelar.", 'error');
+      return;
+    }
+
+    const subtotal = updatedItems.reduce((sum, i) => sum + (i.price * i.quantity), 0);
+    
+    let discount = 0;
+    if (activeOrder.couponCode) {
+      const discountPct = activeOrder.total > 0 ? (activeOrder.discount / activeOrder.total) : 0;
+      discount = subtotal * discountPct;
+    }
+
+    const updatedOrders = orders.map(o => {
+      if (o.id === activeOrder.id) {
+        const orderVal = {
+          ...o,
+          items: updatedItems,
+          total: subtotal,
+          discount: discount,
+          grandTotal: Math.max(0, subtotal - discount)
+        };
+        updateSyncedData(`order_${o.id}`, orderVal);
+        return orderVal;
+      }
+      return o;
+    });
+
+    onUpdateOrders(updatedOrders);
+  };
+
+  const handleCorroborarOrder = (activeOrder) => {
+    const updatedOrders = orders.map(o => {
+      if (o.id === activeOrder.id) {
+        const history = o.statusHistory || [];
+        const orderVal = {
+          ...o,
+          status: 'Pendiente',
+          statusHistory: [...history, { status: 'Pendiente', timestamp: new Date().toISOString() }]
+        };
+        updateSyncedData(`order_${o.id}`, orderVal);
+        return orderVal;
+      }
+      return o;
+    });
+
+    onUpdateOrders(updatedOrders);
+    addLog(`Pedido ${activeOrder.id} de Mesa ${selectedTable} corroborado por ${currentUser?.name || 'Personal'}.`);
+    alert(`Pedido ${activeOrder.id} corroborado y enviado a preparación.`);
+  };
+
   // Crear nuevo pedido de mesa
   const handleCreateOrderSubmit = (e) => {
     e.preventDefault();
@@ -171,18 +268,31 @@ export default function TableOrderManager({
     }
 
     const orderId = `PED-${Math.floor(1000 + Math.random() * 9000)}`;
-    const finalClient = newOrderClient.trim() || `Mesa ${selectedTable}`;
+    const isBarra = selectedTable === 'Barra';
+    const finalClient = newOrderClient.trim() || (isBarra ? `Barra` : `Mesa ${selectedTable}`);
     const subtotal = newOrderItems.reduce((sum, i) => sum + (i.price * i.quantity), 0);
+
+    let finalAddress = `Mesa ${selectedTable}`;
+    let finalOrderType = newOrderType;
+    let finalTableNumber = String(selectedTable);
+
+    if (isBarra) {
+      finalAddress = 'Recojo en Barra';
+      finalOrderType = 'Barra';
+      finalTableNumber = null;
+    } else if (newOrderType === 'Mesa_Llevar') {
+      finalAddress = `Mesa ${selectedTable} (Para Llevar)`;
+    }
 
     const newOrder = {
       id: orderId,
       customer: {
         name: finalClient,
         phone: newOrderPhone.trim() || 'Sin teléfono',
-        address: `Mesa ${selectedTable}`,
+        address: finalAddress,
         paymentMethod: 'Efectivo',
-        orderType: 'Mesa',
-        tableNumber: String(selectedTable)
+        orderType: finalOrderType,
+        tableNumber: finalTableNumber
       },
       items: [...newOrderItems],
       total: subtotal,
@@ -198,8 +308,23 @@ export default function TableOrderManager({
     };
 
     onUpdateOrders([newOrder, ...orders]);
-    addLog(`Nuevo pedido de mesa registrado por mozo ${currentUser?.name || ''}: Mesa ${selectedTable} - Código ${orderId}.`);
-    alert(`Mesa ${selectedTable} abierta correctamente con el pedido.`);
+    // Sincronizar de inmediato
+    updateSyncedData(`order_${newOrder.id}`, newOrder);
+    if (isBarra) {
+      setSelectedBarraOrderId(newOrder.id);
+    }
+
+    const logMsg = isBarra 
+      ? `Nuevo pedido de Barra registrado por ${currentUser?.name || ''}: Código ${orderId}.`
+      : `Nuevo pedido de mesa registrado por mozo ${currentUser?.name || ''}: Mesa ${selectedTable} (${newOrderType === 'Mesa_Llevar' ? 'Para Llevar' : 'Local'}) - Código ${orderId}.`;
+    
+    addLog(logMsg);
+    
+    const alertMsg = isBarra
+      ? `Pedido en Barra abierto correctamente.`
+      : `Mesa ${selectedTable} abierta correctamente con el pedido.`;
+      
+    alert(alertMsg);
     
     // Resetear formulario
     setNewOrderClient('');
@@ -304,7 +429,12 @@ export default function TableOrderManager({
       let statusLabel = 'Libre';
 
       if (activeOrder) {
-        if (activeOrder.status === 'Pendiente') {
+        if (activeOrder.status === 'Por Corroborar') {
+          cardBg = 'rgba(230, 126, 34, 0.12)';
+          cardBorder = '1px solid rgba(230, 126, 34, 0.4)';
+          cardTextColor = '#e67e22';
+          statusLabel = 'Por corroborar';
+        } else if (activeOrder.status === 'Pendiente') {
           cardBg = 'rgba(241, 196, 15, 0.12)';
           cardBorder = '1px solid rgba(241, 196, 15, 0.4)';
           cardTextColor = '#d98811';
@@ -362,6 +492,75 @@ export default function TableOrderManager({
         </div>
       );
     }
+
+    // Agregar Barra (Llevar)
+    const activeBarraOrders = orders.filter(
+      o => o.customer?.orderType === 'Barra' && 
+           o.status !== 'Cancelado' && 
+           !o.tablePaid
+    );
+    const barraCount = activeBarraOrders.length;
+    let barraBg = 'rgba(52, 152, 219, 0.1)';
+    let barraBorder = '1px solid rgba(52, 152, 219, 0.3)';
+    let barraTextColor = 'var(--primary-color)';
+    let barraStatus = 'Sin pedidos';
+
+    if (barraCount > 0) {
+      const hasPorCorroborar = activeBarraOrders.some(o => o.status === 'Por Corroborar');
+      if (hasPorCorroborar) {
+        barraBg = 'rgba(230, 126, 34, 0.12)';
+        barraBorder = '1px solid rgba(230, 126, 34, 0.4)';
+        barraTextColor = '#e67e22';
+        barraStatus = `${barraCount} pedido(s) (Por corroborar)`;
+      } else {
+        barraBg = 'rgba(155, 89, 182, 0.12)';
+        barraBorder = '1px solid rgba(155, 89, 182, 0.4)';
+        barraTextColor = '#9b59b6';
+        barraStatus = `${barraCount} pedido(s) activo(s)`;
+      }
+    }
+
+    const isBarraSelected = selectedTable === 'Barra';
+
+    tableCards.push(
+      <div
+        key="barra"
+        onClick={() => {
+          setSelectedTable('Barra');
+          setShowNewOrderForm(false);
+          setShowCheckoutSection(false);
+          setNewOrderItems([]);
+          
+          if (activeBarraOrders.length > 0) {
+            setSelectedBarraOrderId(activeBarraOrders[0].id);
+          } else {
+            setSelectedBarraOrderId(null);
+          }
+        }}
+        style={{
+          background: isBarraSelected ? 'var(--primary-color)' : barraBg,
+          border: isBarraSelected ? '1px solid var(--primary-color)' : barraBorder,
+          color: isBarraSelected ? 'white' : barraTextColor,
+          padding: '15px',
+          borderRadius: '12px',
+          cursor: 'pointer',
+          textAlign: 'center',
+          boxShadow: isBarraSelected ? '0 8px 16px rgba(255, 64, 129, 0.25)' : 'none',
+          transform: isBarraSelected ? 'translateY(-2px)' : 'none',
+          transition: 'all 0.2s ease',
+          display: 'flex',
+          flexDirection: 'column',
+          justifyContent: 'center',
+          alignItems: 'center',
+          minHeight: '100px'
+        }}
+      >
+        <span style={{ fontSize: '1.6rem', marginBottom: '4px' }}>🛍️</span>
+        <strong style={{ fontSize: '1.05rem', display: 'block', color: isBarraSelected ? 'white' : 'inherit' }}>Barra (Llevar)</strong>
+        <span style={{ fontSize: '0.65rem', marginTop: '4px', opacity: 0.85, fontWeight: 'bold' }}>{barraStatus}</span>
+      </div>
+    );
+
     return tableCards;
   };
 
@@ -464,7 +663,13 @@ export default function TableOrderManager({
     setShowLiterCustomizer(false);
   };
 
-  const activeOrder = selectedTable ? getActiveTableOrder(selectedTable) : null;
+  const activeBarraOrders = orders.filter(
+    o => o.customer?.orderType === 'Barra' && o.status !== 'Cancelado' && !o.tablePaid
+  );
+
+  const activeOrder = selectedTable === 'Barra'
+    ? orders.find(o => o.id === selectedBarraOrderId && o.customer?.orderType === 'Barra' && o.status !== 'Cancelado' && !o.tablePaid)
+    : (selectedTable ? getActiveTableOrder(selectedTable) : null);
 
   return (
     <div style={{ display: 'grid', gridTemplateColumns: '1.2fr 1fr', gap: '20px', alignItems: 'start' }}>
@@ -550,13 +755,19 @@ export default function TableOrderManager({
             {/* Cabecera de Mesa Seleccionada */}
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', borderBottom: '1px solid var(--border-color)', paddingBottom: '10px', marginBottom: '12px' }}>
               <div>
-                <h4 style={{ margin: 0, fontSize: '1.2rem', color: 'var(--primary-color)' }}>🍽️ Mesa Seleccionada: {selectedTable}</h4>
+                {selectedTable === 'Barra' ? (
+                  <h4 style={{ margin: 0, fontSize: '1.2rem', color: 'var(--primary-color)' }}>🛍️ Pedidos en Barra (Llevar)</h4>
+                ) : (
+                  <h4 style={{ margin: 0, fontSize: '1.2rem', color: 'var(--primary-color)' }}>🍽️ Mesa Seleccionada: {selectedTable}</h4>
+                )}
                 {activeOrder ? (
                   <span style={{ fontSize: '0.7rem', color: 'var(--text-light)' }}>
                     Código Pedido: <strong>{activeOrder.id}</strong> ({new Date(activeOrder.date).toLocaleTimeString('es-PE', { hour: '2-digit', minute: '2-digit' })})
                   </span>
                 ) : (
-                  <span style={{ fontSize: '0.75rem', color: 'var(--text-light)', fontWeight: 600 }}>Mesa vacía y libre.</span>
+                  <span style={{ fontSize: '0.75rem', color: 'var(--text-light)', fontWeight: 600 }}>
+                    {selectedTable === 'Barra' ? 'Sin pedido seleccionado.' : 'Mesa vacía y libre.'}
+                  </span>
                 )}
               </div>
               <button 
@@ -568,9 +779,114 @@ export default function TableOrderManager({
               </button>
             </div>
 
+            {/* Selector de pedidos activos en Barra */}
+            {selectedTable === 'Barra' && (
+              <div style={{ marginBottom: '15px', borderBottom: '1px solid var(--border-color)', paddingBottom: '10px' }}>
+                <span style={{ fontSize: '0.75rem', fontWeight: 'bold', display: 'block', marginBottom: '6px', color: 'var(--text-light)' }}>
+                  Pedidos Activos ({activeBarraOrders.length}):
+                </span>
+                <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
+                  {activeBarraOrders.map(o => {
+                    const isSelected = o.id === selectedBarraOrderId;
+                    const isPorCorroborar = o.status === 'Por Corroborar';
+                    return (
+                      <button
+                        key={o.id}
+                        type="button"
+                        onClick={() => {
+                          setSelectedBarraOrderId(o.id);
+                          setShowNewOrderForm(false);
+                          setShowCheckoutSection(false);
+                        }}
+                        style={{
+                          padding: '6px 12px',
+                          fontSize: '0.75rem',
+                          borderRadius: '20px',
+                          border: isSelected 
+                            ? '2px solid var(--primary-color)' 
+                            : '1px solid var(--border-color)',
+                          background: isSelected 
+                            ? 'rgba(255, 64, 129, 0.15)' 
+                            : (isPorCorroborar ? 'rgba(230, 126, 34, 0.1)' : 'var(--bg-secondary)'),
+                          color: isSelected 
+                            ? 'var(--primary-color)' 
+                            : (isPorCorroborar ? '#e67e22' : 'var(--text-color)'),
+                          fontWeight: isSelected ? 'bold' : 'normal',
+                          cursor: 'pointer',
+                          display: 'flex',
+                          alignItems: 'center',
+                          gap: '5px'
+                        }}
+                      >
+                        {isPorCorroborar && '⏳'}
+                        <span>{o.customer?.name || o.id}</span>
+                      </button>
+                    );
+                  })}
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setSelectedBarraOrderId(null);
+                      setShowNewOrderForm(true);
+                      setNewOrderItems([]);
+                    }}
+                    style={{
+                      padding: '6px 12px',
+                      fontSize: '0.75rem',
+                      borderRadius: '20px',
+                      border: '1px dashed var(--primary-color)',
+                      background: 'transparent',
+                      color: 'var(--primary-color)',
+                      fontWeight: 'bold',
+                      cursor: 'pointer',
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: '4px'
+                    }}
+                  >
+                    ➕ Nuevo Pedido
+                  </button>
+                </div>
+              </div>
+            )}
+
             {/* Si la mesa está Ocupada (Tiene pedido activo) */}
             {activeOrder ? (
               <div>
+                {/* Alerta de Pedido por Corroborar */}
+                {activeOrder.status === 'Por Corroborar' && (
+                  <div style={{
+                    background: 'rgba(230, 126, 34, 0.12)',
+                    border: '1px solid rgba(230, 126, 34, 0.3)',
+                    color: '#e67e22',
+                    padding: '10px',
+                    borderRadius: '8px',
+                    fontSize: '0.8rem',
+                    marginBottom: '12px',
+                    textAlign: 'left'
+                  }}>
+                    <strong style={{ display: 'block', marginBottom: '4px' }}>⏳ Pedido por Corroborar</strong>
+                    <span style={{ fontSize: '0.75rem', lineHeight: '1.3', display: 'block' }}>Este pedido fue enviado por el cliente. Corrobora los productos y presiona el botón para enviarlo a la cocina.</span>
+                    <button
+                      type="button"
+                      className="btn btn-primary"
+                      onClick={() => handleCorroborarOrder(activeOrder)}
+                      style={{
+                        width: '100%',
+                        marginTop: '8px',
+                        padding: '6px',
+                        fontSize: '0.75rem',
+                        background: '#e67e22',
+                        borderColor: '#e67e22',
+                        color: 'white',
+                        fontWeight: 'bold'
+                      }}
+                    >
+                      ✅ Corroborar y Enviar a Cocina
+                    </button>
+                  </div>
+                )}
+
                 {/* Info Cliente */}
                 <div style={{ display: 'flex', gap: '10px', flexWrap: 'wrap', background: 'var(--bg-secondary)', padding: '10px', borderRadius: '8px', border: '1px solid var(--border-color)', marginBottom: '12px', fontSize: '0.75rem' }}>
                   <div style={{ flex: '1 1 120px' }}>
@@ -583,7 +899,7 @@ export default function TableOrderManager({
                     <strong>Estado Cocina:</strong> 
                     <span style={{
                       fontWeight: 'bold',
-                      color: activeOrder.status === 'Pendiente' ? '#d98811' : (activeOrder.status === 'Preparando' ? 'var(--primary-color)' : '#9b59b6'),
+                      color: activeOrder.status === 'Por Corroborar' ? '#e67e22' : (activeOrder.status === 'Pendiente' ? '#d98811' : (activeOrder.status === 'Preparando' ? 'var(--primary-color)' : '#9b59b6')),
                       background: 'rgba(0,0,0,0.03)',
                       padding: '2px 8px',
                       borderRadius: '6px'
@@ -604,12 +920,35 @@ export default function TableOrderManager({
                       itemDetails = item.scoops.map(s => s.name).join(', ');
                     }
                     return (
-                      <div key={index} style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.75rem', borderBottom: '1px dashed var(--border-color)', paddingBottom: '4px' }}>
-                        <span>
-                          <strong>{item.quantity}x</strong> {item.name}
-                          {itemDetails && <small style={{ color: 'var(--text-light)', display: 'block' }}>{itemDetails}</small>}
+                      <div key={index} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', fontSize: '0.75rem', borderBottom: '1px dashed var(--border-color)', paddingBottom: '6px', paddingTop: '4px' }}>
+                        <span style={{ flex: 1, paddingRight: '8px' }}>
+                          <strong style={{ color: 'var(--primary-color)' }}>{item.quantity}x</strong> {item.name}
+                          {itemDetails && <small style={{ color: 'var(--text-light)', display: 'block', fontSize: '0.7rem', marginTop: '2px' }}>{itemDetails}</small>}
                         </span>
-                        <strong>S/. {(item.price * item.quantity).toFixed(2)}</strong>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '5px' }}>
+                          <button
+                            type="button"
+                            onClick={() => handleUpdateActiveOrderItemQty(activeOrder, index, -1)}
+                            style={{ padding: '2px 6px', fontSize: '0.65rem', border: '1px solid var(--border-color)', background: 'white', borderRadius: '4px', cursor: 'pointer' }}
+                          >
+                            -
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => handleUpdateActiveOrderItemQty(activeOrder, index, 1)}
+                            style={{ padding: '2px 6px', fontSize: '0.65rem', border: '1px solid var(--border-color)', background: 'white', borderRadius: '4px', cursor: 'pointer' }}
+                          >
+                            +
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => handleRemoveActiveOrderItem(activeOrder, index)}
+                            style={{ padding: '2px 6px', fontSize: '0.65rem', border: 'none', background: 'transparent', color: 'var(--danger)', cursor: 'pointer' }}
+                          >
+                            🗑️
+                          </button>
+                          <strong style={{ marginLeft: '5px', minWidth: '55px', textAlign: 'right' }}>S/. {(item.price * item.quantity).toFixed(2)}</strong>
+                        </div>
                       </div>
                     );
                   })}
@@ -671,7 +1010,7 @@ export default function TableOrderManager({
                   </div>
                 ) : (
                   /* Botonera de Acciones */
-                  <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', marginBottom: '15px' }}>
+                  <>
                     <div style={{ display: 'flex', gap: '8px' }}>
                       <button
                         type="button"
@@ -687,10 +1026,22 @@ export default function TableOrderManager({
                         style={{ padding: '8px 12px', fontSize: '0.75rem' }}
                         onClick={() => handleConvertToTakeout(activeOrder)}
                       >
-                        🛍️ Llevar (Llevar)
+                        🛍️ Llevar
+                      </button>
+                      <button
+                        type="button"
+                        className="btn btn-secondary"
+                        style={{ padding: '8px 12px', fontSize: '0.75rem', background: 'rgba(230, 126, 34, 0.08)', color: '#e67e22', border: '1px solid rgba(230,126,34,0.15)' }}
+                        onClick={() => {
+                          if (window.confirm("¿Seguro que deseas liberar la mesa? Se marcará el pedido como cobrado para vaciar la mesa.")) {
+                            handleCheckoutTable(activeOrder);
+                          }
+                        }}
+                      >
+                        🔓 Liberar
                       </button>
                     </div>
-
+ 
                     <div style={{ display: 'flex', gap: '8px' }}>
                       <select
                         className="form-control"
@@ -698,6 +1049,7 @@ export default function TableOrderManager({
                         onChange={(e) => handleUpdateTableOrderStatus(activeOrder, e.target.value)}
                         style={{ flex: 1, fontSize: '0.75rem', padding: '6px' }}
                       >
+                        <option value="Por Corroborar">⏳ Cocina: Por Corroborar</option>
                         <option value="Pendiente">⏳ Cocina: Pendiente</option>
                         <option value="Preparando">🍦 Cocina: Preparando</option>
                         <option value="Entregado">🍽️ Cocina: Servido a Mesa</option>
@@ -712,7 +1064,7 @@ export default function TableOrderManager({
                         🚫 Cancelar
                       </button>
                     </div>
-                  </div>
+                  </>
                 )}
 
                 {/* Módulo Mozo: Agregar Productos a la mesa activa */}
@@ -802,10 +1154,21 @@ export default function TableOrderManager({
               <div>
                 {!showNewOrderForm ? (
                   <div style={{ textAlign: 'center', padding: '20px 0' }}>
-                    <span style={{ fontSize: '2.5rem', display: 'block', marginBottom: '8px' }}>🟢</span>
-                    <p style={{ fontSize: '0.8rem', color: 'var(--text-light)', marginBottom: '15px' }}>
-                      La mesa está libre y lista para recibir comensales.
-                    </p>
+                    {selectedTable === 'Barra' ? (
+                      <>
+                        <span style={{ fontSize: '2.5rem', display: 'block', marginBottom: '8px' }}>🛍️</span>
+                        <p style={{ fontSize: '0.8rem', color: 'var(--text-light)', marginBottom: '15px' }}>
+                          No hay pedidos activos en Barra. Puedes iniciar uno nuevo para llevar.
+                        </p>
+                      </>
+                    ) : (
+                      <>
+                        <span style={{ fontSize: '2.5rem', display: 'block', marginBottom: '8px' }}>🟢</span>
+                        <p style={{ fontSize: '0.8rem', color: 'var(--text-light)', marginBottom: '15px' }}>
+                          La mesa está libre y lista para recibir comensales.
+                        </p>
+                      </>
+                    )}
                     
                     {waiterTakerEnabled ? (
                       <button
@@ -814,7 +1177,7 @@ export default function TableOrderManager({
                         style={{ padding: '8px 20px', fontSize: '0.8rem' }}
                         onClick={() => setShowNewOrderForm(true)}
                       >
-                        ➕ Registrar Nuevo Pedido (Abrir Mesa)
+                        {selectedTable === 'Barra' ? '➕ Registrar Nuevo Pedido en Barra' : '➕ Registrar Nuevo Pedido (Abrir Mesa)'}
                       </button>
                     ) : (
                       <span style={{ fontSize: '0.75rem', fontStyle: 'italic', color: 'var(--text-light)' }}>
@@ -826,7 +1189,7 @@ export default function TableOrderManager({
                   /* Formulario de Apertura / Nuevo Pedido de Mesa */
                   <form onSubmit={handleCreateOrderSubmit} style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
                     <strong style={{ fontSize: '0.8rem', display: 'block', color: 'var(--primary-color)' }}>
-                      📝 Abrir Mesa {selectedTable}
+                      {selectedTable === 'Barra' ? '📝 Nuevo Pedido en Barra (Llevar)' : `📝 Abrir Mesa ${selectedTable}`}
                     </strong>
                     
                     <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '10px' }}>
@@ -834,7 +1197,7 @@ export default function TableOrderManager({
                         <label style={{ fontSize: '0.75rem', fontWeight: 600 }}>Nombre Cliente:</label>
                         <input
                           type="text"
-                          placeholder="Ej: Mesa ${selectedTable} o Carlos"
+                          placeholder={selectedTable === 'Barra' ? "Ej: Carlos o Barra" : `Ej: Mesa ${selectedTable} o Carlos`}
                           className="form-control"
                           style={{ fontSize: '0.8rem', padding: '6px' }}
                           value={newOrderClient}
@@ -852,6 +1215,21 @@ export default function TableOrderManager({
                           onChange={(e) => setNewOrderPhone(e.target.value)}
                         />
                       </div>
+                      
+                      {selectedTable !== 'Barra' && (
+                        <div className="form-group" style={{ gridColumn: 'span 2' }}>
+                          <label style={{ fontSize: '0.75rem', fontWeight: 600 }}>Tipo de Servicio:</label>
+                          <select
+                            className="form-control"
+                            style={{ fontSize: '0.8rem', padding: '6px' }}
+                            value={newOrderType}
+                            onChange={(e) => setNewOrderType(e.target.value)}
+                          >
+                            <option value="Mesa">🍽️ Consumo Local (Mesa)</option>
+                            <option value="Mesa_Llevar">🛍️ Para Llevar (Mesa)</option>
+                          </select>
+                        </div>
+                      )}
                     </div>
 
                     {/* Previa de Ítems agregados a la nueva mesa */}

@@ -20,12 +20,71 @@ export default function CustomerShop({
   tableOrdersEnabled = false,
   tableNumber = null,
   setTableNumber,
-  tableCalls = []
+  tableCalls = [],
+  occupiedTables = []
 }) {
   const [filter, setFilter] = useState('all'); // all, classic, packs, liter
 
   const activeFlavors = flavors.filter(f => f.active);
   const activePacks = packs.filter(p => p.active);
+
+  const isTableOccupiedByOther = tableOrdersEnabled && tableNumber && 
+    occupiedTables.includes(String(tableNumber));
+
+  if (isTableOccupiedByOther) {
+    return (
+      <div className="customer-shop" style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', minHeight: '80vh', padding: '20px' }}>
+        <div className="glass" style={{
+          maxWidth: '450px',
+          width: '100%',
+          padding: '40px 25px',
+          borderRadius: '20px',
+          textAlign: 'center',
+          border: '1px solid rgba(255, 64, 129, 0.25)',
+          boxShadow: '0 15px 35px rgba(0,0,0,0.1)'
+        }}>
+          <span style={{ fontSize: '3.5rem', display: 'block', marginBottom: '15px' }}>🍽️</span>
+          <h2 style={{ fontSize: '1.5rem', color: 'var(--primary-color)', marginBottom: '10px' }}>Mesa Ocupada</h2>
+          <p style={{ fontSize: '0.9rem', color: 'var(--text-light)', lineHeight: '1.5', marginBottom: '20px' }}>
+            La <strong>Mesa {tableNumber}</strong> ya cuenta con un pedido activo en preparación o consumo.
+          </p>
+          <p style={{ fontSize: '0.8rem', color: 'var(--text-light)', lineHeight: '1.5', marginBottom: '20px' }}>
+            Para realizar un nuevo pedido de autogestión, la mesa debe ser liberada (cobrada o cancelada) por el mesero o caja.
+          </p>
+          
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
+            <button 
+              type="button"
+              className="btn btn-primary" 
+              style={{ width: '100%', padding: '12px', fontSize: '0.85rem' }}
+              onClick={() => {
+                const activeId = localStorage.getItem('helados_active_order_id');
+                if (activeId && setView) {
+                  setView('tracker');
+                } else {
+                  window.alert("No tienes un pedido registrado en este dispositivo para esta mesa.");
+                }
+              }}
+            >
+              🔍 Rastrear mi pedido activo
+            </button>
+            
+            <button 
+              type="button"
+              className="btn btn-secondary" 
+              style={{ width: '100%', padding: '12px', fontSize: '0.85rem' }}
+              onClick={() => {
+                if (setTableNumber) setTableNumber(null);
+                localStorage.removeItem('helados_table_number');
+              }}
+            >
+              🛍️ Ver carta para llevar / Recojo en barra
+            </button>
+          </div>
+        </div>
+      </div>
+    );
+  }
 
   // --- Estados y Lógica para Sabor-O-Matic ---
   const [showWizard, setShowWizard] = useState(false);
@@ -464,6 +523,30 @@ export default function CustomerShop({
       {/* Hero Section */}
       <section className="hero">
         <div className="hero-text">
+          {tableOrdersEnabled && tableNumber && occupiedTables.includes(String(tableNumber)) && localStorage.getItem('helados_active_order_table') === String(tableNumber) && (
+            <div 
+              style={{
+                background: 'linear-gradient(135deg, rgba(46, 204, 113, 0.15), rgba(46, 204, 113, 0.05))',
+                border: '1px solid rgba(46, 204, 113, 0.3)',
+                color: '#27ae60',
+                padding: '10px 15px',
+                borderRadius: '8px',
+                fontSize: '0.82rem',
+                fontWeight: 'bold',
+                marginBottom: '15px',
+                textAlign: 'center',
+                cursor: 'pointer',
+                display: 'block'
+              }}
+              onClick={() => {
+                const activeId = localStorage.getItem('helados_active_order_id');
+                if (activeId && setView) setView('tracker');
+              }}
+            >
+              🍦 Tienes un pedido activo para esta mesa. ¡Toca aquí para ver el seguimiento en tiempo real!
+            </div>
+          )}
+
           {tableOrdersEnabled && tableNumber && (
             <div style={{
               background: 'rgba(255, 64, 129, 0.12)',

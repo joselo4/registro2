@@ -471,6 +471,7 @@ export default function OrderManager({
 
   const todayStr = new Date().toDateString();
   const kpis = {
+    toCorroborate: orders.filter(o => o.status === 'Por Corroborar').length,
     pending: orders.filter(o => o.status === 'Pendiente').length,
     preparing: orders.filter(o => o.status === 'Preparando').length,
     delivery: orders.filter(o => o.status === 'En camino').length,
@@ -513,8 +514,13 @@ export default function OrderManager({
 
           {/* Tarjetas KPI */}
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(130px, 1fr))', gap: '12px', marginBottom: '20px' }}>
-            <div className="glass" style={{ padding: '12px 15px', borderRadius: '12px', borderLeft: '4px solid var(--secondary-color)', display: 'flex', flexDirection: 'column', gap: '4px' }}>
+            <div className="glass" style={{ padding: '12px 15px', borderRadius: '12px', borderLeft: '4px solid #e67e22', display: 'flex', flexDirection: 'column', gap: '4px' }}>
               <span style={{ fontSize: '1.2rem' }}>⏳</span>
+              <span style={{ fontSize: '0.7rem', color: 'var(--text-light)', fontWeight: 'bold', textTransform: 'uppercase' }}>Por Corroborar</span>
+              <strong style={{ fontSize: '1.3rem', color: '#e67e22' }}>{kpis.toCorroborate}</strong>
+            </div>
+            <div className="glass" style={{ padding: '12px 15px', borderRadius: '12px', borderLeft: '4px solid var(--secondary-color)', display: 'flex', flexDirection: 'column', gap: '4px' }}>
+              <span style={{ fontSize: '1.2rem' }}>📋</span>
               <span style={{ fontSize: '0.7rem', color: 'var(--text-light)', fontWeight: 'bold', textTransform: 'uppercase' }}>Pendientes</span>
               <strong style={{ fontSize: '1.3rem', color: 'var(--text-dark)' }}>{kpis.pending}</strong>
             </div>
@@ -634,7 +640,7 @@ export default function OrderManager({
           </div>
 
           <div style={{ display: 'flex', gap: '5px', overflowX: 'auto', paddingBottom: '6px', marginBottom: '15px' }}>
-            {['all', 'Pendiente', 'Preparando', 'En camino', 'Entregado', 'Cancelado'].map(f => (
+            {['all', 'Por Corroborar', 'Pendiente', 'Preparando', 'En camino', 'Entregado', 'Cancelado'].map(f => (
               <button
                 key={f}
                 className={`filter-btn ${orderFilter === f ? 'active' : ''}`}
@@ -681,6 +687,11 @@ export default function OrderManager({
                       </td>
                       <td>
                         <div style={{ display: 'flex', gap: '4px', flexWrap: 'wrap' }}>
+                          {order.status === 'Por Corroborar' && (
+                            <button className="admin-action-btn" style={{ color: '#e67e22', fontWeight: 'bold' }} onClick={() => { onUpdateOrderStatus(order.id, 'Pendiente'); addLog(`Pedido ${order.id} corroborado por ${currentUser?.name}`); }}>
+                              ✅ Corroborar
+                            </button>
+                          )}
                           {order.status === 'Pendiente' && (
                             <button className="admin-action-btn" style={{ color: 'var(--info)' }} onClick={() => { onUpdateOrderStatus(order.id, 'Preparando'); addLog(`Pedido ${order.id} marcado como 'Preparando' por ${currentUser?.name}`); }}>
                               🍳 Servir

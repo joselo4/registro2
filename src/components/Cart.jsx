@@ -22,7 +22,8 @@ export default function Cart({
   shopOpen = true,
   tableOrdersEnabled = false,
   tableNumber = null,
-  setTableNumber
+  setTableNumber,
+  occupiedTables = []
 }) {
   const alert = (msg) => {
     if (showAlert) {
@@ -56,8 +57,14 @@ export default function Cart({
 
   const cartSubtotal = cart.reduce((sum, item) => sum + (item.price * item.quantity), 0);
   
-  // Utilizar el umbral de Delivery Gratis dinámico y verificar si hay cupón de envío gratis o consumo en mesa
-  const isFreeDelivery = orderType === 'Mesa' || cartSubtotal >= freeDeliveryThreshold || (appliedCoupon && appliedCoupon.type === 'free_delivery');
+  // Utilizar el umbral de Delivery Gratis dinámico y verificar si hay cupón de envío gratis o consumo en mesa/barra
+  const isFreeDelivery = 
+    orderType === 'Mesa' || 
+    orderType === 'Mesa_Llevar' || 
+    orderType === 'Barra' || 
+    orderType === 'Llevar' || 
+    cartSubtotal >= freeDeliveryThreshold || 
+    (appliedCoupon && appliedCoupon.type === 'free_delivery');
   const activeDeliveryFee = isFreeDelivery ? 0 : deliveryFee;
   
   const discount = appliedCoupon 
@@ -163,9 +170,25 @@ export default function Cart({
       alert("El carrito está vacío.");
       return;
     }
-    const finalAddress = orderType === 'Mesa' ? `Mesa ${localTableNumber}` : address;
-    if (!name.trim() || !phone.trim() || (orderType !== 'Mesa' && !finalAddress.trim()) || (orderType === 'Mesa' && !localTableNumber)) {
-      alert("Por favor, completa todos los campos.");
+    let finalAddress = address;
+    if (orderType === 'Mesa') {
+      finalAddress = `Mesa ${localTableNumber}`;
+    } else if (orderType === 'Mesa_Llevar') {
+      finalAddress = `Mesa ${localTableNumber} (Para Llevar)`;
+    } else if (orderType === 'Barra') {
+      finalAddress = `Recojo en Barra`;
+    } else if (orderType === 'Llevar') {
+      finalAddress = `Recojo en Tienda / Llevar`;
+    }
+
+    const needsTable = orderType === 'Mesa' || orderType === 'Mesa_Llevar';
+    if (!name.trim() || !phone.trim() || (orderType === 'Delivery' && !finalAddress.trim()) || (needsTable && !localTableNumber)) {
+      alert("Por favor, completa todos los campos requeridos.");
+      return;
+    }
+
+    if (needsTable && occupiedTables.includes(String(localTableNumber))) {
+      alert(`La Mesa ${localTableNumber} ya cuenta con un pedido activo. Debe ser liberada por el personal antes de realizar un nuevo pedido.`);
       return;
     }
 
@@ -175,12 +198,12 @@ export default function Cart({
       const newOrder = {
         id: orderId,
         customer: { 
-          name, 
-          phone, 
+          name: name.trim(), 
+          phone: phone.trim(), 
           address: finalAddress, 
           paymentMethod,
           orderType,
-          tableNumber: orderType === 'Mesa' ? localTableNumber : null
+          tableNumber: needsTable ? localTableNumber : null
         },
         items: [...cart],
         total: cartSubtotal,
@@ -188,9 +211,9 @@ export default function Cart({
         discount: discount,
         couponCode: appliedCoupon ? appliedCoupon.code : null,
         grandTotal: total,
-        status: 'Pendiente',
+        status: 'Por Corroborar',
         statusHistory: [
-          { status: 'Pendiente', timestamp: new Date().toISOString() }
+          { status: 'Por Corroborar', timestamp: new Date().toISOString() }
         ],
         date: new Date().toISOString()
       };
@@ -211,7 +234,16 @@ export default function Cart({
       }).join('\n');
 
       const couponLine = appliedCoupon ? `\n*Cupón:* ${appliedCoupon.code} (-S/. ${discount.toFixed(2)})` : '';
-      const destLine = orderType === 'Mesa' ? `*Mesa:* ${localTableNumber}` : `*Dirección:* ${address}`;
+      let destLine = `*Dirección:* ${address}`;
+      if (orderType === 'Mesa') {
+        destLine = `*Mesa:* ${localTableNumber} (Consumo Local)`;
+      } else if (orderType === 'Mesa_Llevar') {
+        destLine = `*Mesa:* ${localTableNumber} (Para Llevar)`;
+      } else if (orderType === 'Barra') {
+        destLine = `*Pedido:* Directo en Barra`;
+      } else if (orderType === 'Llevar') {
+        destLine = `*Pedido:* Recojo en Tienda / Llevar`;
+      }
       const trackerLink = `\n\n*Sigue tu pedido en vivo aquí:*\n${window.location.origin}${window.location.pathname}?track=${orderId}`;
       const whatsappMessage = `${whatsappGreeting}\n\n*Código:* ${orderId}\n*Cliente:* ${name}\n${destLine}\n*WhatsApp:* ${phone}\n*Pago:* ${paymentMethod}\n\n*Pedido:*\n${itemsText}\n\n*Subtotal:* S/. ${cartSubtotal.toFixed(2)}${couponLine}\n*Delivery:* S/. ${activeDeliveryFee.toFixed(2)}\n*Total:* S/. ${total.toFixed(2)}${trackerLink}\n\n${whatsappFooter}`;
       
@@ -463,30 +495,58 @@ export default function Cart({
             {tableOrdersEnabled && (
               <div className="form-group">
                 <label style={{ fontSize: '0.8rem', fontWeight: 'bold' }}>Tipo de Servicio</label>
-                <div style={{ display: 'flex', gap: '8px', marginBottom: '4px' }}>
-                  <button
-                    type="button"
-                    className={`payment-btn ${orderType === 'Mesa' ? 'selected' : ''}`}
-                    onClick={() => {
-                      setOrderType('Mesa');
-                    }}
-                    style={{ flex: 1, padding: '8px', fontSize: '0.8rem', opacity: !shopOpen ? 0.5 : 1, cursor: !shopOpen ? 'not-allowed' : 'pointer' }}
-                    disabled={!shopOpen}
-                  >
-                    🍽️ Consumo en Mesa
-                  </button>
-                  <button
-                    type="button"
-                    className={`payment-btn ${orderType === 'Llevar' ? 'selected' : ''}`}
-                    onClick={() => {
-                      setOrderType('Llevar');
-                    }}
-                    style={{ flex: 1, padding: '8px', fontSize: '0.8rem', opacity: !shopOpen ? 0.5 : 1, cursor: !shopOpen ? 'not-allowed' : 'pointer' }}
-                    disabled={!shopOpen}
-                  >
-                    🛍️ Llevar / Delivery
-                  </button>
-                </div>
+                {tableNumber ? (
+                  <div style={{ display: 'flex', gap: '8px', marginBottom: '4px' }}>
+                    <button
+                      type="button"
+                      className={`payment-btn ${orderType === 'Mesa' ? 'selected' : ''}`}
+                      onClick={() => setOrderType('Mesa')}
+                      style={{ flex: 1, padding: '8px', fontSize: '0.75rem', opacity: !shopOpen ? 0.5 : 1, cursor: !shopOpen ? 'not-allowed' : 'pointer' }}
+                      disabled={!shopOpen}
+                    >
+                      🍽️ Consumo en Mesa {tableNumber}
+                    </button>
+                    <button
+                      type="button"
+                      className={`payment-btn ${orderType === 'Mesa_Llevar' ? 'selected' : ''}`}
+                      onClick={() => setOrderType('Mesa_Llevar')}
+                      style={{ flex: 1, padding: '8px', fontSize: '0.75rem', opacity: !shopOpen ? 0.5 : 1, cursor: !shopOpen ? 'not-allowed' : 'pointer' }}
+                      disabled={!shopOpen}
+                    >
+                      🛍️ Mesa {tableNumber}: Para Llevar
+                    </button>
+                  </div>
+                ) : (
+                  <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: '6px', marginBottom: '4px' }}>
+                    <button
+                      type="button"
+                      className={`payment-btn ${orderType === 'Barra' ? 'selected' : ''}`}
+                      onClick={() => setOrderType('Barra')}
+                      style={{ padding: '8px 4px', fontSize: '0.7rem', opacity: !shopOpen ? 0.5 : 1, cursor: !shopOpen ? 'not-allowed' : 'pointer' }}
+                      disabled={!shopOpen}
+                    >
+                      💵 Pedido en Barra
+                    </button>
+                    <button
+                      type="button"
+                      className={`payment-btn ${orderType === 'Llevar' ? 'selected' : ''}`}
+                      onClick={() => setOrderType('Llevar')}
+                      style={{ padding: '8px 4px', fontSize: '0.7rem', opacity: !shopOpen ? 0.5 : 1, cursor: !shopOpen ? 'not-allowed' : 'pointer' }}
+                      disabled={!shopOpen}
+                    >
+                      🛍️ Recojo en Tienda
+                    </button>
+                    <button
+                      type="button"
+                      className={`payment-btn ${orderType === 'Delivery' ? 'selected' : ''}`}
+                      onClick={() => setOrderType('Delivery')}
+                      style={{ padding: '8px 4px', fontSize: '0.7rem', opacity: !shopOpen ? 0.5 : 1, cursor: !shopOpen ? 'not-allowed' : 'pointer' }}
+                      disabled={!shopOpen}
+                    >
+                      🛵 Envío Delivery
+                    </button>
+                  </div>
+                )}
               </div>
             )}
 
@@ -518,7 +578,7 @@ export default function Cart({
               />
             </div>
 
-            {orderType === 'Mesa' ? (
+            {(orderType === 'Mesa' || orderType === 'Mesa_Llevar') && (
               <div className="form-group">
                 <label style={{ fontSize: '0.8rem' }}>Número de Mesa</label>
                 <input
@@ -532,12 +592,23 @@ export default function Cart({
                     setLocalTableNumber(e.target.value);
                     if (setTableNumber) setTableNumber(e.target.value);
                   }}
-                  style={{ padding: '8px 10px', fontSize: '0.85rem' }}
+                  style={{ 
+                    padding: '8px 10px', 
+                    fontSize: '0.85rem', 
+                    borderColor: occupiedTables.includes(String(localTableNumber)) ? 'var(--danger)' : 'var(--border-color)' 
+                  }}
                   required
                   disabled={!shopOpen}
                 />
+                {occupiedTables.includes(String(localTableNumber)) && (
+                  <span style={{ color: 'var(--danger)', fontSize: '0.72rem', fontWeight: 'bold', display: 'block', marginTop: '4px' }}>
+                    ⚠️ Esta mesa tiene un pedido activo. Debe ser liberada por el mesero antes de volver a pedir.
+                  </span>
+                )}
               </div>
-            ) : (
+            )}
+
+            {orderType === 'Delivery' && (
               <div className="form-group">
                 <label style={{ fontSize: '0.8rem' }}>Dirección de Entrega</label>
                 <input
@@ -550,6 +621,21 @@ export default function Cart({
                   required
                   disabled={!shopOpen}
                 />
+              </div>
+            )}
+
+            {(orderType === 'Barra' || orderType === 'Llevar') && (
+              <div style={{
+                background: 'rgba(52, 152, 219, 0.1)',
+                border: '1px solid rgba(52, 152, 219, 0.25)',
+                color: 'var(--primary-color)',
+                padding: '10px',
+                borderRadius: '8px',
+                fontSize: '0.8rem',
+                margin: '10px 0',
+                textAlign: 'left'
+              }}>
+                📍 Recogerás tu pedido directamente en barra/caja una vez que esté listo.
               </div>
             )}
 
