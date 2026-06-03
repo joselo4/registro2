@@ -1,4 +1,5 @@
-import React, { useState, useEffect } from 'react';
+/* eslint-disable react-hooks/set-state-in-effect */
+import { useState, useEffect } from 'react';
 import { uploadToR2 } from '../../utils/r2Client';
 
 // --- FUNCIONES DE SANITIZACIÓN ---
@@ -80,17 +81,17 @@ export default function InventoryManager({
   // --- Estados CRUD Sabores ---
   const [showAddFlavor, setShowAddFlavor] = useState(false);
   const [editingFlavor, setEditingFlavor] = useState(null);
-  const [newFlavor, setNewFlavor] = useState({ name: '', price: 1.0, color: '#ff6b81', isPremium: false, isPopular: false, description: '', image: '' });
+  const [newFlavor, setNewFlavor] = useState({ name: '', price: 1.0, cost: 0.35, color: '#ff6b81', isPremium: false, isPopular: false, description: '', image: '' });
 
   // --- Estados CRUD Toppings ---
   const [showAddTopping, setShowAddTopping] = useState(false);
   const [editingTopping, setEditingTopping] = useState(null);
-  const [newTopping, setNewTopping] = useState({ name: '', price: 0.5, category: 'solido', image: '' });
+  const [newTopping, setNewTopping] = useState({ name: '', price: 0.5, cost: 0.15, category: 'solido', image: '' });
 
   // --- Estados CRUD Envases ---
   const [showAddBase, setShowAddBase] = useState(false);
   const [editingBase, setEditingBase] = useState(null);
-  const [newBase, setNewBase] = useState({ name: '', price: 0.0, icon: '🍨', description: '', image: '' });
+  const [newBase, setNewBase] = useState({ name: '', price: 0.0, cost: 0.15, icon: '🍨', description: '', image: '' });
 
   // --- Estados CRUD Combinaciones ---
   const [showAddRecommendation, setShowAddRecommendation] = useState(false);
@@ -101,7 +102,7 @@ export default function InventoryManager({
   // --- Estados CRUD Packs ---
   const [showAddPack, setShowAddPack] = useState(false);
   const [editingPack, setEditingPack] = useState(null);
-  const [newPack, setNewPack] = useState({ name: '', description: '', price: 10.0, items: '', discountText: '', badge: '', image: '' });
+  const [newPack, setNewPack] = useState({ name: '', description: '', price: 10.0, cost: 4.00, items: '', discountText: '', badge: '', image: '' });
 
   // --- CRUD Handlers Sabores ---
   const handleAddFlavorSubmit = (e) => {
@@ -109,6 +110,7 @@ export default function InventoryManager({
     const sanitizedName = sanitizeHTML(newFlavor.name);
     const sanitizedDesc = sanitizeHTML(newFlavor.description);
     const priceVal = parseFloat(newFlavor.price);
+    const costVal = parseFloat(newFlavor.cost) || 0;
     
     if (!sanitizedName) {
       alert("El nombre del sabor no puede estar vacío.");
@@ -124,6 +126,7 @@ export default function InventoryManager({
       id, 
       name: sanitizedName, 
       price: priceVal, 
+      cost: costVal,
       color: newFlavor.color, 
       isPremium: newFlavor.isPremium, 
       isPopular: newFlavor.isPopular || false,
@@ -134,7 +137,7 @@ export default function InventoryManager({
     onUpdateFlavors([...flavors, added]);
     setShowAddFlavor(false);
     addLog(`Sabor creado: ${sanitizedName} por ${currentUser?.name}.`);
-    setNewFlavor({ name: '', price: 1.0, color: '#ff6b81', isPremium: false, isPopular: false, description: '', image: '' });
+    setNewFlavor({ name: '', price: 1.0, cost: 0.35, color: '#ff6b81', isPremium: false, isPopular: false, description: '', image: '' });
   };
 
   const handleEditFlavorSubmit = (e) => {
@@ -142,6 +145,7 @@ export default function InventoryManager({
     const sanitizedName = sanitizeHTML(editingFlavor.name);
     const sanitizedDesc = sanitizeHTML(editingFlavor.description);
     const priceVal = parseFloat(editingFlavor.price);
+    const costVal = parseFloat(editingFlavor.cost) || 0;
     
     if (!sanitizedName) {
       alert("El nombre del sabor no puede estar vacío.");
@@ -156,6 +160,7 @@ export default function InventoryManager({
       ...f, 
       name: sanitizedName, 
       price: priceVal, 
+      cost: costVal,
       color: editingFlavor.color, 
       isPremium: editingFlavor.isPremium, 
       isPopular: editingFlavor.isPopular || false,
@@ -181,6 +186,7 @@ export default function InventoryManager({
     e.preventDefault();
     const sanitizedName = sanitizeHTML(newTopping.name);
     const priceVal = parseFloat(newTopping.price);
+    const costVal = parseFloat(newTopping.cost) || 0;
 
     if (!sanitizedName) {
       alert("El nombre del topping no puede estar vacío.");
@@ -192,17 +198,18 @@ export default function InventoryManager({
     }
 
     const id = sanitizedName.toLowerCase().replace(/[^a-z0-9_]/g, '_').replace(/_+/g, '_');
-    const added = { id, name: sanitizedName, price: priceVal, category: newTopping.category || 'solido', image: newTopping.image || '', active: true };
+    const added = { id, name: sanitizedName, price: priceVal, cost: costVal, category: newTopping.category || 'solido', image: newTopping.image || '', active: true };
     onUpdateToppings([...toppings, added]);
     setShowAddTopping(false);
     addLog(`Topping creado: ${sanitizedName} por ${currentUser?.name}.`);
-    setNewTopping({ name: '', price: 0.5, category: 'solido', image: '' });
+    setNewTopping({ name: '', price: 0.5, cost: 0.15, category: 'solido', image: '' });
   };
 
   const handleEditToppingSubmit = (e) => {
     e.preventDefault();
     const sanitizedName = sanitizeHTML(editingTopping.name);
     const priceVal = parseFloat(editingTopping.price);
+    const costVal = parseFloat(editingTopping.cost) || 0;
 
     if (!sanitizedName) {
       alert("El nombre del topping no puede estar vacío.");
@@ -217,6 +224,7 @@ export default function InventoryManager({
       ...t, 
       name: sanitizedName, 
       price: priceVal,
+      cost: costVal,
       category: editingTopping.category || 'solido',
       image: editingTopping.image || '',
       active: editingTopping.active !== false
@@ -241,6 +249,7 @@ export default function InventoryManager({
     const descSanitized = sanitizeHTML(newBase.description);
     const iconSanitized = sanitizeHTML(newBase.icon) || '🍨';
     const priceVal = parseFloat(newBase.price) || 0;
+    const costVal = parseFloat(newBase.cost) || 0;
 
     if (!nameSanitized) {
       alert("El nombre de la base/envase no puede estar vacío.");
@@ -252,11 +261,11 @@ export default function InventoryManager({
     }
 
     const id = nameSanitized.toLowerCase().replace(/[^a-z0-9_]/g, '_').replace(/_+/g, '_');
-    const added = { id, name: nameSanitized, price: priceVal, icon: iconSanitized, description: descSanitized, image: newBase.image || '', active: true };
+    const added = { id, name: nameSanitized, price: priceVal, cost: costVal, icon: iconSanitized, description: descSanitized, image: newBase.image || '', active: true };
     onUpdateBases([...bases, added]);
     setShowAddBase(false);
     addLog(`Base/Envase creado: ${nameSanitized} por ${currentUser?.name}.`);
-    setNewBase({ name: '', price: 0.0, icon: '🍨', description: '', image: '' });
+    setNewBase({ name: '', price: 0.0, cost: 0.15, icon: '🍨', description: '', image: '' });
   };
 
   const handleEditBaseSubmit = (e) => {
@@ -265,6 +274,7 @@ export default function InventoryManager({
     const descSanitized = sanitizeHTML(editingBase.description);
     const iconSanitized = sanitizeHTML(editingBase.icon) || '🍨';
     const priceVal = parseFloat(editingBase.price) || 0;
+    const costVal = parseFloat(editingBase.cost) || 0;
 
     if (!nameSanitized) {
       alert("El nombre no puede estar vacío.");
@@ -279,6 +289,7 @@ export default function InventoryManager({
       ...b, 
       name: nameSanitized, 
       price: priceVal,
+      cost: costVal,
       icon: iconSanitized,
       description: descSanitized,
       image: editingBase.image || '',
@@ -386,6 +397,7 @@ export default function InventoryManager({
     const sanitizedDiscount = sanitizeHTML(newPack.discountText);
     const sanitizedBadge = sanitizeHTML(newPack.badge);
     const priceVal = parseFloat(newPack.price);
+    const costVal = parseFloat(newPack.cost) || 0;
 
     if (!sanitizedName) {
       alert("El nombre del pack no puede estar vacío.");
@@ -405,13 +417,14 @@ export default function InventoryManager({
       discountText: sanitizedDiscount,
       badge: sanitizedBadge,
       price: priceVal, 
+      cost: costVal,
       image: newPack.image || '',
       active: true 
     };
     onUpdatePacks([...packs, added]);
     setShowAddPack(false);
     addLog(`Combo creado: ${sanitizedName} por ${currentUser?.name}.`);
-    setNewPack({ name: '', description: '', price: 10.0, items: '', discountText: '', badge: '', image: '' });
+    setNewPack({ name: '', description: '', price: 10.0, cost: 4.00, items: '', discountText: '', badge: '', image: '' });
   };
 
   const handleEditPackSubmit = (e) => {
@@ -422,6 +435,7 @@ export default function InventoryManager({
     const sanitizedDiscount = sanitizeHTML(editingPack.discountText);
     const sanitizedBadge = sanitizeHTML(editingPack.badge);
     const priceVal = parseFloat(editingPack.price);
+    const costVal = parseFloat(editingPack.cost) || 0;
 
     if (!sanitizedName) {
       alert("El nombre del pack no puede estar vacío.");
@@ -440,6 +454,7 @@ export default function InventoryManager({
       discountText: sanitizedDiscount,
       badge: sanitizedBadge,
       price: priceVal,
+      cost: costVal,
       image: editingPack.image || '',
       active: editingPack.active !== false
     } : p);
@@ -480,7 +495,8 @@ export default function InventoryManager({
           {showAddFlavor && (
             <form onSubmit={handleAddFlavorSubmit} style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '10px', marginBottom: '15px', background: 'rgba(0,0,0,0.02)', padding: '12px', borderRadius: '8px' }}>
               <div className="form-group"><label>Nombre Sabor</label><input type="text" className="form-control" value={newFlavor.name} onChange={(e) => setNewFlavor({ ...newFlavor, name: e.target.value })} required /></div>
-              <div className="form-group"><label>Precio S/.</label><input type="number" step="0.10" className="form-control" value={newFlavor.price} onChange={(e) => setNewFlavor({ ...newFlavor, price: e.target.value })} required /></div>
+              <div className="form-group"><label>Precio Venta S/.</label><input type="number" step="0.10" className="form-control" value={newFlavor.price} onChange={(e) => setNewFlavor({ ...newFlavor, price: e.target.value })} required /></div>
+              <div className="form-group"><label>Costo Insumo S/.</label><input type="number" step="0.05" className="form-control" value={newFlavor.cost} onChange={(e) => setNewFlavor({ ...newFlavor, cost: e.target.value })} required /></div>
               <div className="form-group"><label>Color Hex</label><input type="color" className="form-control" value={newFlavor.color} onChange={(e) => setNewFlavor({ ...newFlavor, color: e.target.value })} /></div>
               <div className="form-group">
                 <label>Categoría</label>
@@ -525,7 +541,8 @@ export default function InventoryManager({
             <form onSubmit={handleEditFlavorSubmit} style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '10px', marginBottom: '15px', background: 'rgba(229, 142, 38, 0.05)', padding: '12px', borderRadius: '8px', border: '1px solid var(--secondary-color)' }}>
               <div className="form-group" style={{ gridColumn: 'span 2' }}><strong>Editar Sabor: {editingFlavor.name}</strong></div>
               <div className="form-group"><label>Nombre</label><input type="text" className="form-control" value={editingFlavor.name} onChange={(e) => setEditingFlavor({ ...editingFlavor, name: e.target.value })} required /></div>
-              <div className="form-group"><label>Precio S/.</label><input type="number" step="0.10" className="form-control" value={editingFlavor.price} onChange={(e) => setEditingFlavor({ ...editingFlavor, price: e.target.value })} required /></div>
+              <div className="form-group"><label>Precio Venta S/.</label><input type="number" step="0.10" className="form-control" value={editingFlavor.price} onChange={(e) => setEditingFlavor({ ...editingFlavor, price: e.target.value })} required /></div>
+              <div className="form-group"><label>Costo Insumo S/.</label><input type="number" step="0.05" className="form-control" value={editingFlavor.cost || ''} onChange={(e) => setEditingFlavor({ ...editingFlavor, cost: e.target.value })} required /></div>
               <div className="form-group"><label>Color</label><input type="color" className="form-control" value={editingFlavor.color} onChange={(e) => setEditingFlavor({ ...editingFlavor, color: e.target.value })} /></div>
               <div className="form-group">
                 <label>Categoría</label>
@@ -574,7 +591,8 @@ export default function InventoryManager({
               <thead>
                 <tr>
                   <th>Sabor</th>
-                  <th>Precio</th>
+                  <th>Precio Venta</th>
+                  <th>Costo Insumo</th>
                   <th>Estado</th>
                   <th style={{ textAlign: 'center' }}>Orden</th>
                   <th>Acción</th>
@@ -593,6 +611,7 @@ export default function InventoryManager({
                       </div>
                     </td>
                     <td>S/. {parseFloat(f.price || 0).toFixed(2)}</td>
+                    <td>S/. {parseFloat(f.cost !== undefined ? f.cost : 0.35).toFixed(2)}</td>
                     <td>
                       <button 
                         className="admin-action-btn"
@@ -649,7 +668,8 @@ export default function InventoryManager({
           {showAddTopping && (
             <form onSubmit={handleAddToppingSubmit} style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '10px', marginBottom: '15px', background: 'rgba(0,0,0,0.02)', padding: '12px', borderRadius: '8px' }}>
               <div className="form-group"><label>Nombre Topping</label><input type="text" className="form-control" value={newTopping.name} onChange={(e) => setNewTopping({ ...newTopping, name: e.target.value })} required /></div>
-              <div className="form-group"><label>Precio Adicional S/.</label><input type="number" step="0.10" className="form-control" value={newTopping.price} onChange={(e) => setNewTopping({ ...newTopping, price: e.target.value })} required /></div>
+              <div className="form-group"><label>Precio Venta S/.</label><input type="number" step="0.10" className="form-control" value={newTopping.price} onChange={(e) => setNewTopping({ ...newTopping, price: e.target.value })} required /></div>
+              <div className="form-group"><label>Costo Insumo S/.</label><input type="number" step="0.05" className="form-control" value={newTopping.cost} onChange={(e) => setNewTopping({ ...newTopping, cost: e.target.value })} required /></div>
               <div className="form-group" style={{ gridColumn: 'span 2' }}>
                 <label>Categoría Topping</label>
                 <select className="form-control" value={newTopping.category} onChange={(e) => setNewTopping({ ...newTopping, category: e.target.value })}>
@@ -684,7 +704,8 @@ export default function InventoryManager({
             <form onSubmit={handleEditToppingSubmit} style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '10px', marginBottom: '15px', background: 'rgba(229, 142, 38, 0.05)', padding: '12px', borderRadius: '8px', border: '1px solid var(--secondary-color)' }}>
               <div className="form-group" style={{ gridColumn: 'span 2' }}><strong>Editar Topping: {editingTopping.name}</strong></div>
               <div className="form-group"><label>Nombre</label><input type="text" className="form-control" value={editingTopping.name} onChange={(e) => setEditingTopping({ ...editingTopping, name: e.target.value })} required /></div>
-              <div className="form-group"><label>Precio S/.</label><input type="number" step="0.10" className="form-control" value={editingTopping.price} onChange={(e) => setEditingTopping({ ...editingTopping, price: e.target.value })} required /></div>
+              <div className="form-group"><label>Precio Venta S/.</label><input type="number" step="0.10" className="form-control" value={editingTopping.price} onChange={(e) => setEditingTopping({ ...editingTopping, price: e.target.value })} required /></div>
+              <div className="form-group"><label>Costo Insumo S/.</label><input type="number" step="0.05" className="form-control" value={editingTopping.cost || ''} onChange={(e) => setEditingTopping({ ...editingTopping, cost: e.target.value })} required /></div>
               <div className="form-group" style={{ gridColumn: 'span 2' }}>
                 <label>Categoría</label>
                 <select className="form-control" value={editingTopping.category} onChange={(e) => setEditingTopping({ ...editingTopping, category: e.target.value })}>
@@ -725,6 +746,7 @@ export default function InventoryManager({
                   <th>Nombre</th>
                   <th>Categoría</th>
                   <th>Precio Adic.</th>
+                  <th>Costo Insumo</th>
                   <th>Estado</th>
                   <th style={{ textAlign: 'center' }}>Orden</th>
                   <th>Acciones</th>
@@ -741,6 +763,7 @@ export default function InventoryManager({
                     </td>
                     <td><span style={{ textTransform: 'capitalize', fontSize: '0.75rem', backgroundColor: 'rgba(0,0,0,0.05)', padding: '2px 6px', borderRadius: '4px' }}>{t.category}</span></td>
                     <td>S/. {parseFloat(t.price || 0).toFixed(2)}</td>
+                    <td>S/. {parseFloat(t.cost !== undefined ? t.cost : 0.15).toFixed(2)}</td>
                     <td>
                       <button 
                         className="admin-action-btn"
@@ -797,7 +820,8 @@ export default function InventoryManager({
           {showAddBase && (
             <form onSubmit={handleAddBaseSubmit} style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '10px', marginBottom: '15px', background: 'rgba(0,0,0,0.02)', padding: '12px', borderRadius: '8px' }}>
               <div className="form-group"><label>Nombre del Envase</label><input type="text" className="form-control" value={newBase.name} onChange={(e) => setNewBase({ ...newBase, name: e.target.value })} required /></div>
-              <div className="form-group"><label>Precio Base S/.</label><input type="number" step="0.10" className="form-control" value={newBase.price} onChange={(e) => setNewBase({ ...newBase, price: e.target.value })} required /></div>
+              <div className="form-group"><label>Precio Venta S/.</label><input type="number" step="0.10" className="form-control" value={newBase.price} onChange={(e) => setNewBase({ ...newBase, price: e.target.value })} required /></div>
+              <div className="form-group"><label>Costo Insumo S/.</label><input type="number" step="0.05" className="form-control" value={newBase.cost} onChange={(e) => setNewBase({ ...newBase, cost: e.target.value })} required /></div>
               <div className="form-group"><label>Icono (Emoji)</label><input type="text" className="form-control" value={newBase.icon} onChange={(e) => setNewBase({ ...newBase, icon: e.target.value })} /></div>
               <div className="form-group"><label>Descripción</label><input type="text" className="form-control" value={newBase.description} onChange={(e) => setNewBase({ ...newBase, description: e.target.value })} /></div>
               
@@ -826,7 +850,8 @@ export default function InventoryManager({
             <form onSubmit={handleEditBaseSubmit} style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '10px', marginBottom: '15px', background: 'rgba(229, 142, 38, 0.05)', padding: '12px', borderRadius: '8px', border: '1px solid var(--secondary-color)' }}>
               <div className="form-group" style={{ gridColumn: 'span 2' }}><strong>Editar Envase: {editingBase.name}</strong></div>
               <div className="form-group"><label>Nombre</label><input type="text" className="form-control" value={editingBase.name} onChange={(e) => setEditingBase({ ...editingBase, name: e.target.value })} required /></div>
-              <div className="form-group"><label>Precio S/.</label><input type="number" step="0.10" className="form-control" value={editingBase.price} onChange={(e) => setEditingBase({ ...editingBase, price: e.target.value })} required /></div>
+              <div className="form-group"><label>Precio Venta S/.</label><input type="number" step="0.10" className="form-control" value={editingBase.price} onChange={(e) => setEditingBase({ ...editingBase, price: e.target.value })} required /></div>
+              <div className="form-group"><label>Costo Insumo S/.</label><input type="number" step="0.05" className="form-control" value={editingBase.cost || ''} onChange={(e) => setEditingBase({ ...editingBase, cost: e.target.value })} required /></div>
               <div className="form-group"><label>Icono (Emoji)</label><input type="text" className="form-control" value={editingBase.icon} onChange={(e) => setEditingBase({ ...editingBase, icon: e.target.value })} /></div>
               <div className="form-group"><label>Descripción</label><input type="text" className="form-control" value={editingBase.description} onChange={(e) => setEditingBase({ ...editingBase, description: e.target.value })} /></div>
 
@@ -860,6 +885,7 @@ export default function InventoryManager({
                 <tr>
                   <th>Envase</th>
                   <th>Precio</th>
+                  <th>Costo Insumo</th>
                   <th>Estado</th>
                   <th style={{ textAlign: 'center' }}>Orden</th>
                   <th>Acciones</th>
@@ -876,6 +902,7 @@ export default function InventoryManager({
                       </div>
                     </td>
                     <td>S/. {parseFloat(b.price || 0).toFixed(2)}</td>
+                    <td>S/. {parseFloat(b.cost !== undefined ? b.cost : 0.15).toFixed(2)}</td>
                     <td>
                       <button 
                         className="admin-action-btn"
@@ -1109,7 +1136,8 @@ export default function InventoryManager({
           {showAddPack && (
             <form onSubmit={handleAddPackSubmit} style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '10px', marginBottom: '15px', background: 'rgba(0,0,0,0.02)', padding: '12px', borderRadius: '8px' }}>
               <div className="form-group"><label>Nombre del Combo</label><input type="text" className="form-control" value={newPack.name} onChange={(e) => setNewPack({ ...newPack, name: e.target.value })} required /></div>
-              <div className="form-group"><label>Precio S/.</label><input type="number" step="0.10" className="form-control" value={newPack.price} onChange={(e) => setNewPack({ ...newPack, price: e.target.value })} required /></div>
+              <div className="form-group"><label>Precio Venta S/.</label><input type="number" step="0.10" className="form-control" value={newPack.price} onChange={(e) => setNewPack({ ...newPack, price: e.target.value })} required /></div>
+              <div className="form-group"><label>Costo Insumo S/.</label><input type="number" step="0.10" className="form-control" value={newPack.cost} onChange={(e) => setNewPack({ ...newPack, cost: e.target.value })} required /></div>
               <div className="form-group" style={{ gridColumn: 'span 2' }}><label>Descripción Detallada</label><textarea className="form-control" rows={2} value={newPack.description} onChange={(e) => setNewPack({ ...newPack, description: e.target.value })} /></div>
               <div className="form-group" style={{ gridColumn: 'span 2' }}><label>Productos Incluidos (Ej: 2 Litros de helado, 4 Toppings)</label><input type="text" className="form-control" value={newPack.items} onChange={(e) => setNewPack({ ...newPack, items: e.target.value })} placeholder="Ej: 3 clásicos, 1 premium" /></div>
               <div className="form-group"><label>Texto Descuento (Ej: 20% OFF)</label><input type="text" className="form-control" value={newPack.discountText} onChange={(e) => setNewPack({ ...newPack, discountText: e.target.value })} /></div>
@@ -1140,7 +1168,8 @@ export default function InventoryManager({
             <form onSubmit={handleEditPackSubmit} style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '10px', marginBottom: '15px', background: 'rgba(229, 142, 38, 0.05)', padding: '12px', borderRadius: '8px', border: '1px solid var(--secondary-color)' }}>
               <div className="form-group" style={{ gridColumn: 'span 2' }}><strong>Editar Combo: {editingPack.name}</strong></div>
               <div className="form-group"><label>Nombre</label><input type="text" className="form-control" value={editingPack.name} onChange={(e) => setEditingPack({ ...editingPack, name: e.target.value })} required /></div>
-              <div className="form-group"><label>Precio S/.</label><input type="number" step="0.10" className="form-control" value={editingPack.price} onChange={(e) => setEditingPack({ ...editingPack, price: e.target.value })} required /></div>
+              <div className="form-group"><label>Precio Venta S/.</label><input type="number" step="0.10" className="form-control" value={editingPack.price} onChange={(e) => setEditingPack({ ...editingPack, price: e.target.value })} required /></div>
+              <div className="form-group"><label>Costo Insumo S/.</label><input type="number" step="0.10" className="form-control" value={editingPack.cost || ''} onChange={(e) => setEditingPack({ ...editingPack, cost: e.target.value })} required /></div>
               <div className="form-group" style={{ gridColumn: 'span 2' }}><label>Descripción</label><textarea className="form-control" rows={2} value={editingPack.description} onChange={(e) => setEditingPack({ ...editingPack, description: e.target.value })} /></div>
               <div className="form-group" style={{ gridColumn: 'span 2' }}><label>Productos Incluidos</label><input type="text" className="form-control" value={editingPack.items} onChange={(e) => setEditingPack({ ...editingPack, items: e.target.value })} /></div>
               <div className="form-group"><label>Texto Descuento</label><input type="text" className="form-control" value={editingPack.discountText} onChange={(e) => setEditingPack({ ...editingPack, discountText: e.target.value })} /></div>
@@ -1175,7 +1204,8 @@ export default function InventoryManager({
               <thead>
                 <tr>
                   <th>Nombre del Combo</th>
-                  <th>Precio</th>
+                  <th>Precio Venta</th>
+                  <th>Costo Insumo</th>
                   <th>Contenido</th>
                   <th>Estado</th>
                   <th style={{ textAlign: 'center' }}>Orden</th>
@@ -1196,6 +1226,7 @@ export default function InventoryManager({
                       </div>
                     </td>
                     <td>S/. {parseFloat(p.price || 0).toFixed(2)}</td>
+                    <td>S/. {parseFloat(p.cost !== undefined ? p.cost : 4.00).toFixed(2)}</td>
                     <td><span style={{ fontSize: '0.75rem', color: 'var(--text-light)' }}>{p.items || 'No especificado'}</span></td>
                     <td>
                       <button 

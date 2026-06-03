@@ -5,7 +5,10 @@ export default function DashboardView({
   salesGoal,
   handleExportFinancialsCSV,
   handleExportSalesReport,
-  currentUser
+  flavors = [],
+  toppings = [],
+  bases = [],
+  packs = []
 }) {
   // --- Estados Locales del Filtro y UI ---
   const [statsRange, setStatsRange] = useState('today'); // today, yesterday, 7days, 30days, thismonth, all, custom
@@ -95,26 +98,48 @@ export default function DashboardView({
       if (item.type === 'custom') {
         // Envase cost (cono/vaso = S/. 0.15, waffle = S/. 0.50)
         if (item.base) {
-          estimatedCOGS += (item.base.id === 'waffle' ? 0.50 : 0.15) * qty;
+          const dbBase = bases.find(b => b.id === item.base.id);
+          const baseCost = (dbBase && dbBase.cost !== undefined) ? parseFloat(dbBase.cost) : (item.base.id === 'waffle' ? 0.50 : 0.15);
+          estimatedCOGS += baseCost * qty;
         }
         // Scoops cost
         if (item.scoops) {
           item.scoops.forEach(scoop => {
-            const isPremium = ['lucuma', 'chocolate', 'coco'].includes(scoop.id);
-            estimatedCOGS += (isPremium ? 0.50 : 0.35) * qty;
+            const dbFlavor = flavors.find(f => f.id === scoop.id);
+            let scoopCost;
+            if (dbFlavor && dbFlavor.cost !== undefined) {
+              scoopCost = parseFloat(dbFlavor.cost);
+            } else {
+              const isPremium = ['lucuma', 'chocolate', 'coco'].includes(scoop.id);
+              scoopCost = isPremium ? 0.50 : 0.35;
+            }
+            estimatedCOGS += scoopCost * qty;
           });
         }
         // Toppings cost
         if (item.toppings) {
-          estimatedCOGS += (item.toppings.length * 0.15) * qty;
+          item.toppings.forEach(topping => {
+            const dbTopping = toppings.find(t => t.id === topping.id || t.name === topping.name);
+            const toppingCost = (dbTopping && dbTopping.cost !== undefined) ? parseFloat(dbTopping.cost) : 0.15;
+            estimatedCOGS += toppingCost * qty;
+          });
         }
         if (item.syrup) {
-          estimatedCOGS += 0.10 * qty;
+          const dbSyrup = toppings.find(t => t.id === item.syrup.id || t.name === item.syrup.name);
+          const syrupCost = (dbSyrup && dbSyrup.cost !== undefined) ? parseFloat(dbSyrup.cost) : 0.10;
+          estimatedCOGS += syrupCost * qty;
         }
       } else if (item.type === 'pack') {
-        if (item.id === 'pack_ahorro') estimatedCOGS += 2.20 * qty;
-        else if (item.id === 'pack_pareja') estimatedCOGS += 4.00 * qty;
-        else estimatedCOGS += 6.50 * qty; // pack_mega_fiesta
+        const dbPack = packs.find(p => p.id === item.id || p.name === item.name);
+        let packCost;
+        if (dbPack && dbPack.cost !== undefined) {
+          packCost = parseFloat(dbPack.cost);
+        } else {
+          if (item.id === 'pack_ahorro') packCost = 2.20;
+          else if (item.id === 'pack_pareja') packCost = 4.00;
+          else packCost = 6.50; // pack_mega_fiesta
+        }
+        estimatedCOGS += packCost * qty;
       }
     });
   });

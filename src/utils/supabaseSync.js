@@ -26,8 +26,9 @@ const getAdminCredentials = () => {
     const saved = localStorage.getItem('helados_admin_current_user');
     if (saved) {
       const user = JSON.parse(saved);
-      if (user && user.email && user.password) {
-        return { email: user.email, password: user.password };
+      const password = sessionStorage.getItem('helados_admin_password');
+      if (user && user.email && password) {
+        return { email: user.email, password: password };
       }
     }
   } catch (e) {
@@ -197,7 +198,7 @@ const _executeUpsert = async (key, value) => {
     // 2. Si no hay sesión de Supabase Auth pero hay credenciales guardadas de RPC
     const creds = getAdminCredentials();
     if (creds) {
-      const { data, error } = await supabase.rpc('update_sensitive_key', {
+      const { error } = await supabase.rpc('update_sensitive_key', {
         p_admin_email: creds.email,
         p_admin_password: creds.password,
         p_key: key,

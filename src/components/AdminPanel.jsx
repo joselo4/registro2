@@ -1,4 +1,5 @@
-import React, { useState, useEffect, useRef } from 'react';
+/* eslint-disable react-hooks/set-state-in-effect */
+import { useState, useEffect, useRef } from 'react';
 import { supabase } from '../utils/supabaseClient';
 import SettingsManager from './admin/SettingsManager';
 import InventoryManager from './admin/InventoryManager';
@@ -13,6 +14,7 @@ const sanitizeHTML = (text) => {
   return text.replace(/<[^>]*>/g, '').trim();
 };
 
+// eslint-disable-next-line no-unused-vars
 const isValidEmail = (email) => {
   const re = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
   return re.test(String(email).toLowerCase().trim());
@@ -184,7 +186,7 @@ export default function AdminPanel({
       osc2.start();
       osc1.stop(ctx.currentTime + 0.8);
       osc2.stop(ctx.currentTime + 0.8);
-    } catch (e) {
+    } catch {
       console.warn("Audio chime blocked by autoplay policies.");
     }
   };
@@ -755,6 +757,10 @@ export default function AdminPanel({
             handleExportFinancialsCSV={handleExportFinancialsCSV}
             handleExportSalesReport={handleExportSalesReport}
             currentUser={currentUser}
+            flavors={flavors}
+            toppings={toppings}
+            bases={bases}
+            packs={packs}
           />
         )}
       </div>
