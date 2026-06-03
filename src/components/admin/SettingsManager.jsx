@@ -385,7 +385,7 @@ export default function SettingsManager({
 
   const handleToggleTableCategory = (category, checked) => {
     setLocalShopConfig(prev => {
-      const currentCategories = prev.tableCatalogCategories || ['classic'];
+      const currentCategories = prev.tableCatalogCategories || ['classic', 'liter', 'packs'];
       let updatedCategories;
       if (checked) {
         if (!currentCategories.includes(category)) {
@@ -1574,7 +1574,7 @@ alter table public.helados_sync enable row level security;`}
                 <label style={{ display: 'flex', alignItems: 'center', gap: '8px', fontSize: '0.75rem', cursor: 'pointer', fontWeight: 500 }}>
                   <input
                     type="checkbox"
-                    checked={(localShopConfig.tableCatalogCategories || ['classic']).includes('classic')}
+                    checked={(localShopConfig.tableCatalogCategories || ['classic', 'liter', 'packs']).includes('classic')}
                     onChange={(e) => handleToggleTableCategory('classic', e.target.checked)}
                     style={{ width: '15px', height: '15px' }}
                   />
@@ -1584,7 +1584,7 @@ alter table public.helados_sync enable row level security;`}
                 <label style={{ display: 'flex', alignItems: 'center', gap: '8px', fontSize: '0.75rem', cursor: 'pointer', fontWeight: 500 }}>
                   <input
                     type="checkbox"
-                    checked={(localShopConfig.tableCatalogCategories || ['classic']).includes('liter')}
+                    checked={(localShopConfig.tableCatalogCategories || ['classic', 'liter', 'packs']).includes('liter')}
                     onChange={(e) => handleToggleTableCategory('liter', e.target.checked)}
                     style={{ width: '15px', height: '15px' }}
                   />
@@ -1594,7 +1594,7 @@ alter table public.helados_sync enable row level security;`}
                 <label style={{ display: 'flex', alignItems: 'center', gap: '8px', fontSize: '0.75rem', cursor: 'pointer', fontWeight: 500 }}>
                   <input
                     type="checkbox"
-                    checked={(localShopConfig.tableCatalogCategories || ['classic']).includes('packs')}
+                    checked={(localShopConfig.tableCatalogCategories || ['classic', 'liter', 'packs']).includes('packs')}
                     onChange={(e) => handleToggleTableCategory('packs', e.target.checked)}
                     style={{ width: '15px', height: '15px' }}
                   />

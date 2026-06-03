@@ -701,6 +701,15 @@ export default function TableOrderManager({
           grid-template-columns: 1fr 1fr;
           gap: 10px;
         }
+        .table-actions-row {
+          display: flex;
+          gap: 8px;
+          flex-wrap: wrap;
+        }
+        .table-actions-row > button, .table-actions-row > select {
+          flex: 1 1 auto;
+          min-width: 80px;
+        }
         @media (max-width: 768px) {
           .table-order-manager-layout {
             grid-template-columns: 1fr;
@@ -709,6 +718,12 @@ export default function TableOrderManager({
         @media (max-width: 480px) {
           .new-order-form-grid {
             grid-template-columns: 1fr;
+          }
+          .table-actions-row {
+            flex-direction: column;
+          }
+          .table-actions-row > button, .table-actions-row > select {
+            width: 100%;
           }
         }
       `}</style>
@@ -1028,7 +1043,7 @@ export default function TableOrderManager({
                         <option value="Efectivo">💵 Efectivo / Tarjeta</option>
                       </select>
                     </div>
-                    <div style={{ display: 'flex', gap: '8px' }}>
+                    <div className="table-actions-row">
                       <button 
                         type="button" 
                         className="btn btn-primary" 
@@ -1050,7 +1065,7 @@ export default function TableOrderManager({
                 ) : (
                   /* Botonera de Acciones */
                   <>
-                    <div style={{ display: 'flex', gap: '8px' }}>
+                    <div className="table-actions-row">
                       <button
                         type="button"
                         className="btn btn-primary"
@@ -1081,7 +1096,7 @@ export default function TableOrderManager({
                       </button>
                     </div>
  
-                    <div style={{ display: 'flex', gap: '8px' }}>
+                    <div className="table-actions-row">
                       <select
                         className="form-control"
                         value={activeOrder.status}
@@ -1286,7 +1301,7 @@ export default function TableOrderManager({
                       )}
                     </div>
 
-                    <div style={{ display: 'flex', gap: '8px', borderBottom: '1px solid var(--border-color)', paddingBottom: '12px' }}>
+                    <div className="table-actions-row" style={{ borderBottom: '1px solid var(--border-color)', paddingBottom: '12px' }}>
                       <button type="submit" className="btn btn-primary" style={{ flex: 1, padding: '8px', fontSize: '0.75rem', background: 'var(--success)', border: 'none' }}>
                         🚀 Confirmar y Abrir Mesa (S/. {newOrderItems.reduce((sum, i) => sum + (i.price * i.quantity), 0).toFixed(2)})
                       </button>
@@ -1476,7 +1491,7 @@ export default function TableOrderManager({
               </div>
             </div>
 
-            <div style={{ display: 'flex', gap: '8px' }}>
+            <div className="table-actions-row">
               <button 
                 type="button" 
                 className="btn btn-primary" 
@@ -1535,7 +1550,7 @@ export default function TableOrderManager({
               </div>
             </div>
 
-            <div style={{ display: 'flex', gap: '8px' }}>
+            <div className="table-actions-row">
               <button 
                 type="button" 
                 className="btn btn-primary" 

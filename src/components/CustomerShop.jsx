@@ -28,7 +28,7 @@ export default function CustomerShop({
   shopConfig = {}
 }) {
   const tableCategories = useMemo(() => {
-    return shopConfig?.tableCatalogCategories || ['classic'];
+    return shopConfig?.tableCatalogCategories || ['classic', 'liter', 'packs'];
   }, [shopConfig?.tableCatalogCategories]);
 
   const [filter, setFilter] = useState(() => {
@@ -525,7 +525,7 @@ export default function CustomerShop({
 
   const renderedCatalog = useMemo(() => {
     const activeOrder = tableNumber 
-      ? (shopConfig?.tableCatalogCategories || ['classic']) 
+      ? (shopConfig?.tableCatalogCategories || ['classic', 'liter', 'packs']) 
       : (catalogOrder || ['liter', 'classic', 'packs']);
     return (
       <div className="catalog-grid">
