@@ -24,9 +24,19 @@ export default function CustomerShop({
   occupiedTables = [],
   cart = [],
   telegramToken = '',
-  telegramChatId = ''
+  telegramChatId = '',
+  shopConfig = {}
 }) {
-  const [filter, setFilter] = useState(tableNumber ? 'classic' : 'all'); // all, classic, packs, liter
+  const tableCategories = useMemo(() => {
+    return shopConfig?.tableCatalogCategories || ['classic'];
+  }, [shopConfig?.tableCatalogCategories]);
+
+  const [filter, setFilter] = useState(() => {
+    if (tableNumber) {
+      return tableCategories.length > 1 ? 'all' : (tableCategories[0] || 'classic');
+    }
+    return 'all';
+  });
 
   const activeFlavors = flavors.filter(f => f.active);
   const activePacks = packs.filter(p => p.active);
@@ -36,9 +46,9 @@ export default function CustomerShop({
 
   useEffect(() => {
     if (tableNumber) {
-      setFilter('classic');
+      setFilter(tableCategories.length > 1 ? 'all' : (tableCategories[0] || 'classic'));
     }
-  }, [tableNumber]);
+  }, [tableNumber, tableCategories]);
 
   const getCartSummary = () => {
     if (!cart || cart.length === 0) return 'Carrito vacío';
@@ -514,7 +524,9 @@ export default function CustomerShop({
   }, [onAddToCart]);
 
   const renderedCatalog = useMemo(() => {
-    const activeOrder = tableNumber ? ['classic'] : (catalogOrder || ['liter', 'classic', 'packs']);
+    const activeOrder = tableNumber 
+      ? (shopConfig?.tableCatalogCategories || ['classic']) 
+      : (catalogOrder || ['liter', 'classic', 'packs']);
     return (
       <div className="catalog-grid">
         {activeOrder.map(section => {
@@ -789,7 +801,7 @@ export default function CustomerShop({
         })}
       </div>
     );
-  }, [tableNumber, catalogOrder, filter, literConfig, activeFlavors, activePacks, setView, handleAddClassicToCart, handleAddPackToCart]);
+  }, [tableNumber, catalogOrder, filter, literConfig, activeFlavors, activePacks, setView, handleAddClassicToCart, handleAddPackToCart, shopConfig]);
 
   return (
     <div className="customer-shop">
@@ -1010,32 +1022,40 @@ export default function CustomerShop({
         <p className="section-subtitle">Frescura garantizada y entrega súper rápida hasta tu casa</p>
 
         {/* Filtros */}
-        {!tableNumber && (
+        {(!tableNumber || tableCategories.length > 1) && (
           <div className="catalog-filters">
-            <button 
-              className={`filter-btn ${filter === 'all' ? 'active' : ''}`}
-              onClick={() => setFilter('all')}
-            >
-              🍨 Todo
-            </button>
-            <button 
-              className={`filter-btn ${filter === 'classic' ? 'active' : ''}`}
-              onClick={() => setFilter('classic')}
-            >
-              🍦 Helados Simples
-            </button>
-            <button 
-              className={`filter-btn ${filter === 'liter' ? 'active' : ''}`}
-              onClick={() => setFilter('liter')}
-            >
-              🏺 Potes de Litro
-            </button>
-            <button 
-              className={`filter-btn ${filter === 'packs' ? 'active' : ''}`}
-              onClick={() => setFilter('packs')}
-            >
-              🎁 Packs Combos
-            </button>
+            {(!tableNumber || tableCategories.length > 1) && (
+              <button 
+                className={`filter-btn ${filter === 'all' ? 'active' : ''}`}
+                onClick={() => setFilter('all')}
+              >
+                🍨 Todo
+              </button>
+            )}
+            {(!tableNumber || tableCategories.includes('classic')) && (
+              <button 
+                className={`filter-btn ${filter === 'classic' ? 'active' : ''}`}
+                onClick={() => setFilter('classic')}
+              >
+                🍦 Helados Simples
+              </button>
+            )}
+            {(!tableNumber || tableCategories.includes('liter')) && (
+              <button 
+                className={`filter-btn ${filter === 'liter' ? 'active' : ''}`}
+                onClick={() => setFilter('liter')}
+              >
+                🏺 Potes de Litro
+              </button>
+            )}
+            {(!tableNumber || tableCategories.includes('packs')) && (
+              <button 
+                className={`filter-btn ${filter === 'packs' ? 'active' : ''}`}
+                onClick={() => setFilter('packs')}
+              >
+                🎁 Packs Combos
+              </button>
+            )}
           </div>
         )}
 

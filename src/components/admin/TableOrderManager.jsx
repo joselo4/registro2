@@ -341,9 +341,10 @@ export default function TableOrderManager({
 
     const deliveryFeeVal = addressPrompt.toLowerCase().includes('recojo') ? 0 : 4.0; // Cargo estándar
 
+    let orderVal = null;
     const updatedOrders = orders.map(o => {
       if (o.id === activeOrder.id) {
-        return {
+        orderVal = {
           ...o,
           customer: {
             ...o.customer,
@@ -354,10 +355,14 @@ export default function TableOrderManager({
           deliveryFee: deliveryFeeVal,
           grandTotal: Math.max(0, o.total + deliveryFeeVal - o.discount)
         };
+        return orderVal;
       }
       return o;
     });
 
+    if (orderVal) {
+      updateSyncedData(`order_${orderVal.id}`, orderVal);
+    }
     onUpdateOrders(updatedOrders);
     addLog(`Pedido ${activeOrder.id} de Mesa ${selectedTable} cambiado a Para Llevar por ${currentUser?.name}.`);
     alert("Pedido cambiado a Para Llevar con éxito.");
@@ -366,17 +371,22 @@ export default function TableOrderManager({
 
   // Cambiar estado de orden de mesa
   const handleUpdateTableOrderStatus = (activeOrder, newStatus) => {
+    let orderVal = null;
     const updatedOrders = orders.map(o => {
       if (o.id === activeOrder.id) {
         const history = o.statusHistory || [];
-        return {
+        orderVal = {
           ...o,
           status: newStatus,
           statusHistory: [...history, { status: newStatus, timestamp: new Date().toISOString() }]
         };
+        return orderVal;
       }
       return o;
     });
+    if (orderVal) {
+      updateSyncedData(`order_${orderVal.id}`, orderVal);
+    }
     onUpdateOrders(updatedOrders);
     addLog(`Estado de pedido ${activeOrder.id} (Mesa ${selectedTable}) cambiado a ${newStatus} por ${currentUser?.name}.`);
     alert(`Estado de la Mesa ${selectedTable} cambiado a ${newStatus}.`);
@@ -384,9 +394,10 @@ export default function TableOrderManager({
 
   // Cierre y Cobro de Mesa
   const handleCheckoutTable = (activeOrder) => {
+    let orderVal = null;
     const updatedOrders = orders.map(o => {
       if (o.id === activeOrder.id) {
-        return {
+        orderVal = {
           ...o,
           tablePaid: true,
           status: 'Entregado',
@@ -395,10 +406,14 @@ export default function TableOrderManager({
             paymentMethod: checkoutPaymentMethod
           }
         };
+        return orderVal;
       }
       return o;
     });
 
+    if (orderVal) {
+      updateSyncedData(`order_${orderVal.id}`, orderVal);
+    }
     onUpdateOrders(updatedOrders);
     addLog(`Mesa ${selectedTable} pagada y cerrada vía ${checkoutPaymentMethod}. Pedido ${activeOrder.id} cobrado.`);
     alert(`Mesa ${selectedTable} cerrada y liberada exitosamente.`);
@@ -673,7 +688,30 @@ export default function TableOrderManager({
     : (selectedTable ? getActiveTableOrder(selectedTable) : null);
 
   return (
-    <div style={{ display: 'grid', gridTemplateColumns: '1.2fr 1fr', gap: '20px', alignItems: 'start' }}>
+    <div className="table-order-manager-layout">
+      <style>{`
+        .table-order-manager-layout {
+          display: grid;
+          grid-template-columns: 1.2fr 1fr;
+          gap: 20px;
+          align-items: start;
+        }
+        .new-order-form-grid {
+          display: grid;
+          grid-template-columns: 1fr 1fr;
+          gap: 10px;
+        }
+        @media (max-width: 768px) {
+          .table-order-manager-layout {
+            grid-template-columns: 1fr;
+          }
+        }
+        @media (max-width: 480px) {
+          .new-order-form-grid {
+            grid-template-columns: 1fr;
+          }
+        }
+      `}</style>
       
       {/* Columna Izquierda: Monitoreo de Mesas */}
       <div className="glass" style={{ padding: '20px', borderRadius: 'var(--radius-lg)' }}>
@@ -1193,7 +1231,7 @@ export default function TableOrderManager({
                       {selectedTable === 'Barra' ? '📝 Nuevo Pedido en Barra (Llevar)' : `📝 Abrir Mesa ${selectedTable}`}
                     </strong>
                     
-                    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '10px' }}>
+                    <div className="new-order-form-grid">
                       <div className="form-group">
                         <label style={{ fontSize: '0.75rem', fontWeight: 600 }}>Nombre Cliente:</label>
                         <input

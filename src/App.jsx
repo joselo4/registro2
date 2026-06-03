@@ -1248,6 +1248,7 @@ export default function App() {
             cart={cart}
             telegramToken={telegramToken}
             telegramChatId={telegramChatId}
+            shopConfig={shopConfig}
           />
         )}
 

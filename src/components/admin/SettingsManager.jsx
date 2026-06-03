@@ -383,6 +383,30 @@ export default function SettingsManager({
     printWindow.document.close();
   };
 
+  const handleToggleTableCategory = (category, checked) => {
+    setLocalShopConfig(prev => {
+      const currentCategories = prev.tableCatalogCategories || ['classic'];
+      let updatedCategories;
+      if (checked) {
+        if (!currentCategories.includes(category)) {
+          updatedCategories = [...currentCategories, category];
+        } else {
+          updatedCategories = currentCategories;
+        }
+      } else {
+        updatedCategories = currentCategories.filter(c => c !== category);
+        if (updatedCategories.length === 0) {
+          alert("Debes seleccionar al menos una categoría visible.");
+          return prev;
+        }
+      }
+      return {
+        ...prev,
+        tableCatalogCategories: updatedCategories
+      };
+    });
+  };
+
   const handleImageUpload = async (file, type, targetSetter) => {
     if (!file) return;
     const configToUse = {
@@ -1337,18 +1361,19 @@ alter table public.helados_sync enable row level security;`}
           )}
         </div>
 
-        {/* QR Tables */}
-        <div className="glass" style={{ borderLeft: '4px solid var(--secondary-color)', padding: '15px', background: 'rgba(229, 142, 38, 0.02)', borderRadius: '8px', marginBottom: '15px' }}>
-          <strong style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '0.9rem' }}>
-            📱 Código QR para Clientes en Tienda
+        {/* QR Tables Consolidated */}
+        <div className="glass" style={{ borderLeft: '4px solid var(--secondary-color)', padding: '20px', background: 'rgba(229, 142, 38, 0.02)', borderRadius: '8px', marginBottom: '15px' }}>
+          <strong style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '0.95rem', marginBottom: '4px' }}>
+            📱 Códigos QR para Clientes en Tienda
           </strong>
-          <p style={{ fontSize: '0.75rem', color: 'var(--text-light)', marginTop: '4px', marginBottom: '10px' }}>
-            Genera e imprime un código QR para las mesas del local. Tus clientes podrán escanearlo y realizar pedidos directamente desde sus móviles.
+          <p style={{ fontSize: '0.75rem', color: 'var(--text-light)', marginBottom: '15px' }}>
+            Genera, imprime y personaliza los códigos QR para que los clientes escaneen desde sus mesas y accedan al catálogo digital.
           </p>
 
-          <div style={{ marginBottom: '15px', borderBottom: '1px dashed var(--border-color)', paddingBottom: '15px' }}>
+          {/* Enlace Base Personalizado */}
+          <div style={{ marginBottom: '20px', borderBottom: '1px dashed var(--border-color)', paddingBottom: '15px' }}>
             <label style={{ fontSize: '0.8rem', fontWeight: 'bold', display: 'block', marginBottom: '5px' }}>
-              🔗 Enlace personalizado para el Código QR
+              🔗 Enlace base personalizado para el Código QR
             </label>
             <input 
               type="text" 
@@ -1356,86 +1381,228 @@ alter table public.helados_sync enable row level security;`}
               placeholder={`Por defecto: ${window.location.origin + window.location.pathname}`}
               value={localQrCustomUrl || ''} 
               onChange={(e) => setLocalQrCustomUrl(e.target.value)} 
+              style={{ fontSize: '0.8rem', padding: '8px' }}
             />
+            <small style={{ color: 'var(--text-light)', fontSize: '0.65rem', marginTop: '4px', display: 'block' }}>
+              Se utiliza para generar tanto el QR general del local como los códigos QR específicos de cada mesa.
+            </small>
           </div>
 
-          <div style={{ display: 'flex', alignItems: 'center', gap: '15px', flexWrap: 'wrap' }}>
-            <div style={{
-              background: 'white',
-              padding: '8px',
-              borderRadius: '8px',
-              border: '1px solid var(--border-color)',
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center',
-              boxShadow: 'var(--shadow-sm)'
-            }}>
-              <img
-                src={`https://api.qrserver.com/v1/create-qr-code/?size=130x130&data=${encodeURIComponent(qrCustomUrl || (window.location.origin + window.location.pathname))}`}
-                alt="Código QR"
-                width="130"
-                height="130"
-                style={{ width: '130px', height: '130px', display: 'block' }}
-              />
+          {/* Cuadrícula de Generadores: QR General y QR por Mesas */}
+          <div className="qr-consolidated-grid" style={{ marginBottom: '20px' }}>
+            <style>{`
+              .qr-consolidated-grid {
+                display: grid;
+                grid-template-columns: 1fr 1.2fr;
+                gap: 20px;
+              }
+              @media (max-width: 600px) {
+                .qr-consolidated-grid {
+                  grid-template-columns: 1fr;
+                }
+                .qr-col-general {
+                  border-right: none !important;
+                  border-bottom: 1px solid var(--border-color);
+                  padding-right: 0 !important;
+                  padding-bottom: 20px;
+                }
+              }
+            `}</style>
+
+            {/* Columna A: Código QR General */}
+            <div style={{ borderRight: '1px solid var(--border-color)', paddingRight: '15px' }} className="qr-col-general">
+              <strong style={{ fontSize: '0.85rem', display: 'block', marginBottom: '8px', color: 'var(--primary-color)' }}>
+                📍 Código QR General (Sin Mesa)
+              </strong>
+              <p style={{ fontSize: '0.7rem', color: 'var(--text-light)', marginBottom: '12px' }}>
+                Ideal para volantes, mostradores o publicidad general. Carga el catálogo vacío para llevar o delivery.
+              </p>
+              
+              <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '10px' }}>
+                <div style={{ background: 'white', padding: '8px', borderRadius: '8px', border: '1px solid var(--border-color)', display: 'inline-flex' }}>
+                  <img
+                    src={`https://api.qrserver.com/v1/create-qr-code/?size=130x130&data=${encodeURIComponent(qrCustomUrl || (window.location.origin + window.location.pathname))}`}
+                    alt="Código QR General"
+                    width="120"
+                    height="120"
+                    style={{ width: '120px', height: '120px', display: 'block' }}
+                  />
+                </div>
+                <div style={{ width: '100%', textAlign: 'center' }}>
+                  <code style={{ fontSize: '0.7rem', color: 'var(--text-light)', display: 'block', wordBreak: 'break-all', marginBottom: '8px' }}>
+                    {qrCustomUrl || (window.location.origin + window.location.pathname)}
+                  </code>
+                  <button
+                    type="button"
+                    className="btn btn-secondary"
+                    style={{ padding: '6px 12px', fontSize: '0.75rem', width: '100%' }}
+                    onClick={() => {
+                      const targetQr = qrCustomUrl || (window.location.origin + window.location.pathname);
+                      const printFrame = document.createElement('iframe');
+                      printFrame.style.position = 'fixed';
+                      printFrame.style.left = '-9999px';
+                      printFrame.style.width = '0px';
+                      printFrame.style.height = '0px';
+                      printFrame.style.border = 'none';
+                      document.body.appendChild(printFrame);
+
+                      const doc = printFrame.contentWindow.document;
+                      doc.open();
+                      doc.write(`
+                        <html>
+                          <head>
+                            <title>Imprimir QR de Heladería</title>
+                            <style>
+                              body { font-family: 'Outfit', sans-serif; text-align: center; padding: 40px; }
+                              .card { border: 3px solid #ff6b81; border-radius: 20px; padding: 30px; display: inline-block; max-width: 400px; }
+                              h1 { color: #ff6b81; margin-bottom: 5px; }
+                              p { color: #666; margin-bottom: 20px; }
+                            </style>
+                          </head>
+                          <body>
+                            <div class="card">
+                              <h1>🍦 ¡Pide desde tu Celular!</h1>
+                              <p>Escanea este código QR para ver la carta digital, armar tu helado personalizado y pedir al instante.</p>
+                              <img id="qr-img" src="https://api.qrserver.com/v1/create-qr-code/?size=250x250&data=${encodeURIComponent(targetQr)}" width="250" height="250" />
+                              <h2 style="color: #e58e26; margin-top: 20px;">${storeName}</h2>
+                            </div>
+                          </body>
+                        </html>
+                      `);
+                      doc.close();
+
+                      const img = doc.getElementById('qr-img');
+                      if (img) {
+                        img.onload = () => {
+                          printFrame.contentWindow.focus();
+                          printFrame.contentWindow.print();
+                          setTimeout(() => { document.body.removeChild(printFrame); }, 1000);
+                        };
+                      }
+                    }}
+                  >
+                    🖨️ Imprimir QR General
+                  </button>
+                </div>
+              </div>
             </div>
-            <div style={{ flex: 1, minWidth: '200px' }}>
-              <span style={{ fontSize: '0.8rem', fontWeight: 'bold', display: 'block', color: 'var(--text-dark)' }}>Enlace del local:</span>
-              <code style={{ fontSize: '0.75rem', color: 'var(--primary-color)', display: 'block', margin: '4px 0 10px', wordBreak: 'break-all' }}>
-                {qrCustomUrl || (window.location.origin + window.location.pathname)}
-              </code>
-              <button
-                type="button"
-                className="btn btn-secondary"
-                style={{ padding: '6px 12px', fontSize: '0.75rem', cursor: 'pointer' }}
-                onClick={() => {
-                  const targetQr = qrCustomUrl || (window.location.origin + window.location.pathname);
-                  const printFrame = document.createElement('iframe');
-                  printFrame.style.position = 'fixed';
-                  printFrame.style.left = '-9999px';
-                  printFrame.style.width = '0px';
-                  printFrame.style.height = '0px';
-                  printFrame.style.border = 'none';
-                  document.body.appendChild(printFrame);
 
-                  const doc = printFrame.contentWindow.document;
-                  doc.open();
-                  doc.write(`
-                    <html>
-                      <head>
-                        <title>Imprimir QR de Heladería</title>
-                        <style>
-                          body { font-family: 'Outfit', sans-serif; text-align: center; padding: 40px; }
-                          .card { border: 3px solid #ff6b81; border-radius: 20px; padding: 30px; display: inline-block; max-width: 400px; }
-                          h1 { color: #ff6b81; margin-bottom: 5px; }
-                          p { color: #666; margin-bottom: 20px; }
-                        </style>
-                      </head>
-                      <body>
-                        <div class="card">
-                          <h1>🍦 ¡Pide desde tu Celular!</h1>
-                          <p>Escanea este código QR para ver la carta digital, armar tu helado personalizado y pedir al instante.</p>
-                          <img id="qr-img" src="https://api.qrserver.com/v1/create-qr-code/?size=250x250&data=${encodeURIComponent(targetQr)}" width="250" height="250" />
-                          <h2 style="color: #e58e26; margin-top: 20px;">${storeName}</h2>
-                        </div>
-                      </body>
-                    </html>
-                  `);
-                  doc.close();
+            {/* Columna B: Generador de QR por Mesas (Habilitado solo si tableOrdersEnabled !== false) */}
+            <div className="qr-col-mesas">
+              {localShopConfig.tableOrdersEnabled !== false ? (
+                <>
+                  <strong style={{ fontSize: '0.85rem', display: 'block', marginBottom: '8px', color: 'var(--primary-color)' }}>
+                    🍽️ Generador de Código QR para Mesas
+                  </strong>
+                  <p style={{ fontSize: '0.7rem', color: 'var(--text-light)', marginBottom: '12px' }}>
+                    Introduce un número de mesa para generar su enlace y código QR específico.
+                  </p>
+                  
+                  <div style={{ display: 'flex', gap: '10px', alignItems: 'flex-end', marginBottom: '10px' }}>
+                    <div className="form-group" style={{ flex: '0 0 90px' }}>
+                      <label style={{ fontSize: '0.7rem', fontWeight: 'bold' }}>N° Mesa:</label>
+                      <input
+                        type="number"
+                        min="1"
+                        max="100"
+                        className="form-control"
+                        style={{ fontSize: '0.8rem', padding: '5px 8px', marginTop: '2px' }}
+                        value={qrTableNumber}
+                        onChange={(e) => setQrTableNumber(e.target.value)}
+                      />
+                    </div>
+                    <div style={{ flex: 1 }}>
+                      <span style={{ fontSize: '0.65rem', display: 'block', color: 'var(--text-light)' }}>Enlace generado:</span>
+                      <code style={{ fontSize: '0.65rem', wordBreak: 'break-all', display: 'block', padding: '4px 6px', background: 'var(--bg-secondary)', borderRadius: '4px', border: '1px solid var(--border-color)', marginTop: '2px', maxHeight: '35px', overflowY: 'auto' }}>
+                        {getTableQrUrl(qrTableNumber)}
+                      </code>
+                    </div>
+                  </div>
 
-                  const img = doc.getElementById('qr-img');
-                  if (img) {
-                    img.onload = () => {
-                      printFrame.contentWindow.focus();
-                      printFrame.contentWindow.print();
-                      setTimeout(() => { document.body.removeChild(printFrame); }, 1000);
-                    };
-                  }
-                }}
-              >
-                🖨️ Imprimir QR de Mesas
-              </button>
+                  <div style={{ display: 'flex', gap: '15px', alignItems: 'center', flexWrap: 'wrap', justifyContent: 'center' }}>
+                    <div style={{ background: 'white', padding: '6px', borderRadius: '8px', border: '1px solid #ddd', display: 'inline-flex' }}>
+                      <img 
+                        src={`https://api.qrserver.com/v1/create-qr-code/?size=150x150&data=${encodeURIComponent(getTableQrUrl(qrTableNumber))}`} 
+                        alt={`QR Mesa ${qrTableNumber}`}
+                        style={{ width: '120px', height: '120px', display: 'block' }}
+                      />
+                    </div>
+                    
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: '6px', flex: 1, minWidth: '150px' }}>
+                      <button 
+                        type="button" 
+                        className="btn btn-primary" 
+                        style={{ padding: '8px 12px', fontSize: '0.75rem', display: 'flex', gap: '4px', justifyContent: 'center', alignItems: 'center' }}
+                        onClick={handlePrintQR}
+                      >
+                        🖨️ Imprimir Tarjeta Mesa {qrTableNumber}
+                      </button>
+                      <a 
+                        href={`https://api.qrserver.com/v1/create-qr-code/?size=500x500&data=${encodeURIComponent(getTableQrUrl(qrTableNumber))}`}
+                        target="_blank"
+                        rel="noreferrer"
+                        download={`qr_mesa_${qrTableNumber}.png`}
+                        className="btn btn-secondary"
+                        style={{ padding: '8px 12px', fontSize: '0.75rem', textAlign: 'center', textDecoration: 'none', display: 'block' }}
+                      >
+                        📥 Descargar QR Mesa {qrTableNumber}
+                      </a>
+                    </div>
+                  </div>
+                </>
+              ) : (
+                <div style={{ display: 'flex', height: '100%', alignItems: 'center', justifyContent: 'center', background: 'var(--bg-secondary)', borderRadius: '8px', padding: '20px', border: '1px dashed var(--border-color)', textAlign: 'center' }}>
+                  <span style={{ fontSize: '0.75rem', color: 'var(--text-light)', fontStyle: 'italic' }}>
+                    Activa el Módulo de Pedidos en Mesa arriba para habilitar el generador de códigos QR por mesa.
+                  </span>
+                </div>
+              )}
             </div>
           </div>
+
+          {/* Categorías Visibles al Escanear QR en Mesa */}
+          {localShopConfig.tableOrdersEnabled !== false && (
+            <div style={{ borderTop: '1px solid var(--border-color)', paddingTop: '15px', marginTop: '10px' }}>
+              <strong style={{ display: 'block', fontSize: '0.85rem', marginBottom: '8px', color: 'var(--primary-color)' }}>
+                📋 Productos/Secciones en la Carta QR de Mesas
+              </strong>
+              <p style={{ fontSize: '0.7rem', color: 'var(--text-light)', marginBottom: '10px' }}>
+                Selecciona qué categorías del menú estarán visibles cuando los clientes escaneen los códigos QR de las mesas:
+              </p>
+              
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', paddingLeft: '10px' }}>
+                <label style={{ display: 'flex', alignItems: 'center', gap: '8px', fontSize: '0.75rem', cursor: 'pointer', fontWeight: 500 }}>
+                  <input
+                    type="checkbox"
+                    checked={(localShopConfig.tableCatalogCategories || ['classic']).includes('classic')}
+                    onChange={(e) => handleToggleTableCategory('classic', e.target.checked)}
+                    style={{ width: '15px', height: '15px' }}
+                  />
+                  <span>🍦 Helados Simples / Sabores (Clásicos)</span>
+                </label>
+                
+                <label style={{ display: 'flex', alignItems: 'center', gap: '8px', fontSize: '0.75rem', cursor: 'pointer', fontWeight: 500 }}>
+                  <input
+                    type="checkbox"
+                    checked={(localShopConfig.tableCatalogCategories || ['classic']).includes('liter')}
+                    onChange={(e) => handleToggleTableCategory('liter', e.target.checked)}
+                    style={{ width: '15px', height: '15px' }}
+                  />
+                  <span>🏺 Potes de Litro (Helado Familiar de 1L)</span>
+                </label>
+                
+                <label style={{ display: 'flex', alignItems: 'center', gap: '8px', fontSize: '0.75rem', cursor: 'pointer', fontWeight: 500 }}>
+                  <input
+                    type="checkbox"
+                    checked={(localShopConfig.tableCatalogCategories || ['classic']).includes('packs')}
+                    onChange={(e) => handleToggleTableCategory('packs', e.target.checked)}
+                    style={{ width: '15px', height: '15px' }}
+                  />
+                  <span>🎁 Packs & Combos Promocionales</span>
+                </label>
+              </div>
+            </div>
+          )}
         </div>
 
         {/* WhatsApp Customization */}
@@ -1684,68 +1851,7 @@ alter table public.helados_sync enable row level security;`}
           </div>
         </div>
 
-        {/* Generador de Código QR para Mesas */}
-        {localShopConfig.tableOrdersEnabled !== false && (
-          <div className="glass" style={{ padding: '15px', borderRadius: '8px', marginBottom: '15px', borderLeft: '4px solid var(--primary-color)', background: 'rgba(255, 64, 129, 0.01)' }}>
-            <strong style={{ display: 'block', fontSize: '0.95rem', marginBottom: '4px' }}>🍽️ Generador de Código QR para Mesas</strong>
-            <p style={{ fontSize: '0.75rem', color: 'var(--text-light)', marginBottom: '12px' }}>
-              Genera e imprime códigos QR para que los clientes escaneen desde sus mesas y carguen el catálogo directamente con su número de mesa pre-seleccionado.
-            </p>
-            
-            <div style={{ display: 'flex', gap: '15px', flexWrap: 'wrap', alignItems: 'center' }}>
-              <div className="form-group" style={{ flex: '1 1 150px' }}>
-                <label style={{ fontSize: '0.75rem', fontWeight: 'bold' }}>Número de Mesa:</label>
-                <input
-                  type="number"
-                  min="1"
-                  max="100"
-                  className="form-control"
-                  style={{ fontSize: '0.85rem', padding: '6px 10px', marginTop: '4px' }}
-                  value={qrTableNumber}
-                  onChange={(e) => setQrTableNumber(e.target.value)}
-                />
-              </div>
 
-              <div style={{ flex: '2 1 200px' }}>
-                <span style={{ fontSize: '0.7rem', display: 'block', color: 'var(--text-light)' }}>Enlace que se generará:</span>
-                <code style={{ fontSize: '0.75rem', wordBreak: 'break-all', display: 'block', padding: '6px', background: 'var(--bg-secondary)', borderRadius: '4px', border: '1px solid var(--border-color)', marginTop: '4px' }}>
-                  {getTableQrUrl(qrTableNumber)}
-                </code>
-              </div>
-            </div>
-
-            <div style={{ display: 'flex', gap: '15px', marginTop: '15px', alignItems: 'center', flexWrap: 'wrap' }}>
-              <div style={{ background: 'white', padding: '8px', borderRadius: '8px', border: '1px solid #ddd', display: 'flex', justifyContent: 'center', alignItems: 'center' }}>
-                <img 
-                  src={`https://api.qrserver.com/v1/create-qr-code/?size=150x150&data=${encodeURIComponent(getTableQrUrl(qrTableNumber))}`} 
-                  alt={`QR Mesa ${qrTableNumber}`}
-                  style={{ width: '120px', height: '120px', display: 'block' }}
-                />
-              </div>
-              
-              <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
-                <button 
-                  type="button" 
-                  className="btn btn-primary" 
-                  style={{ padding: '8px 15px', fontSize: '0.8rem' }}
-                  onClick={handlePrintQR}
-                >
-                  🖨️ Imprimir Tarjeta de Mesa
-                </button>
-                <a 
-                  href={`https://api.qrserver.com/v1/create-qr-code/?size=500x500&data=${encodeURIComponent(`${window.location.origin}${window.location.pathname}?mesa=${qrTableNumber}`)}`}
-                  target="_blank"
-                  rel="noreferrer"
-                  download={`qr_mesa_${qrTableNumber}.png`}
-                  className="btn btn-secondary"
-                  style={{ padding: '8px 15px', fontSize: '0.8rem', textAlign: 'center', textDecoration: 'none' }}
-                >
-                  📥 Descargar QR (Alta Calidad)
-                </a>
-              </div>
-            </div>
-          </div>
-        )}
 
         {/* Cloudflare R2 Credentials */}
         <div className="glass" style={{ padding: '15px', borderRadius: '8px', marginBottom: '15px' }}>
