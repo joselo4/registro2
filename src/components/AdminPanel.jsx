@@ -7,6 +7,7 @@ import FinanceManager from './admin/FinanceManager';
 import OrderManager from './admin/OrderManager';
 import DashboardView from './admin/DashboardView';
 import UserManager from './admin/UserManager';
+import TableOrderManager from './admin/TableOrderManager';
 
 // --- FUNCIONES DE SANITIZACIÓN Y SEGURIDAD ---
 const sanitizeHTML = (text) => {
@@ -102,7 +103,9 @@ export default function AdminPanel({
   trendsDisplayTime,
   onChangeTrendsDisplayTime,
   shopConfig,
-  onChangeShopConfig
+  onChangeShopConfig,
+  tableOrdersEnabled,
+  waiterTakerEnabled
 }) {
   const alert = (msg) => {
     if (showAlert) {
@@ -230,14 +233,14 @@ export default function AdminPanel({
     }
     
     if (currentUser.role === 'Administrador') return true;
-    if (currentUser.role === 'Vendedor') return ['orders', 'inventory', 'surveys'].includes(tabId);
+    if (currentUser.role === 'Vendedor') return ['orders', 'inventory', 'surveys', 'table_orders'].includes(tabId);
     if (currentUser.role === 'Cocina') return ['orders'].includes(tabId);
     return false;
   };
 
   useEffect(() => {
     if (currentUser && !isTabAllowed(activeTab)) {
-      const tabs = ['orders', 'inventory', 'packs', 'users', 'finance', 'settings', 'stats', 'surveys'];
+      const tabs = ['orders', 'inventory', 'packs', 'users', 'finance', 'settings', 'stats', 'surveys', 'table_orders'];
       const allowed = tabs.find(t => isTabAllowed(t));
       if (allowed) {
         setActiveTab(allowed);
@@ -610,6 +613,11 @@ export default function AdminPanel({
               ⭐ Encuestas ({orders.filter(o => o.survey).length})
             </button>
           )}
+          {tableOrdersEnabled && isTabAllowed('table_orders') && (
+            <button className={`sidebar-btn ${activeTab === 'table_orders' ? 'active' : ''}`} onClick={() => setActiveTab('table_orders')}>
+              🍽️ Pedidos en Mesa
+            </button>
+          )}
           {isTabAllowed('settings') && (
             <button className={`sidebar-btn ${activeTab === 'settings' ? 'active' : ''}`} onClick={() => setActiveTab('settings')}>
               ⚙️ Ajustes Tienda
@@ -678,6 +686,22 @@ export default function AdminPanel({
             expenses={expenses}
             onUpdateExpenses={onUpdateExpenses}
             packs={packs}
+            addLog={addLog}
+            currentUser={currentUser}
+            showAlert={showAlert}
+          />
+        )}
+
+        {tableOrdersEnabled && activeTab === 'table_orders' && (
+          <TableOrderManager
+            orders={orders}
+            onUpdateOrders={onUpdateOrders}
+            flavors={flavors}
+            toppings={toppings}
+            bases={bases}
+            packs={packs}
+            literConfig={literConfig}
+            waiterTakerEnabled={waiterTakerEnabled}
             addLog={addLog}
             currentUser={currentUser}
             showAlert={showAlert}

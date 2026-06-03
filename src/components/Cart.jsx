@@ -19,7 +19,10 @@ export default function Cart({
   cartRecommendedPack,
   literConfig,
   showAlert,
-  shopOpen = true
+  shopOpen = true,
+  tableOrdersEnabled = false,
+  tableNumber = null,
+  setTableNumber
 }) {
   const alert = (msg) => {
     if (showAlert) {
@@ -40,6 +43,12 @@ export default function Cart({
   const [paymentMethod, setPaymentMethod] = useState('Yape'); // Yape, Plin, Efectivo
   const [isSubmitting, setIsSubmitting] = useState(false);
 
+  // Módulo de Mesas
+  const [orderType, setOrderType] = useState(() => {
+    return tableNumber ? 'Mesa' : 'Llevar';
+  });
+  const [localTableNumber, setLocalTableNumber] = useState(tableNumber || '');
+
   // Estados para Cupones de Descuento
   const [couponInput, setCouponInput] = useState('');
   const [appliedCoupon, setAppliedCoupon] = useState(null);
@@ -47,9 +56,9 @@ export default function Cart({
 
   const cartSubtotal = cart.reduce((sum, item) => sum + (item.price * item.quantity), 0);
   
-  // Utilizar el umbral de Delivery Gratis dinámico y verificar si hay cupón de envío gratis
-  const isFreeDelivery = cartSubtotal >= freeDeliveryThreshold || (appliedCoupon && appliedCoupon.type === 'free_delivery');
-  const activeDeliveryFee = isFreeDelivery ? 0.0 : deliveryFee;
+  // Utilizar el umbral de Delivery Gratis dinámico y verificar si hay cupón de envío gratis o consumo en mesa
+  const isFreeDelivery = orderType === 'Mesa' || cartSubtotal >= freeDeliveryThreshold || (appliedCoupon && appliedCoupon.type === 'free_delivery');
+  const activeDeliveryFee = isFreeDelivery ? 0 : deliveryFee;
   
   const discount = appliedCoupon 
     ? (appliedCoupon.type === 'percentage' 
@@ -70,8 +79,16 @@ export default function Cart({
     const found = coupons ? coupons.find(c => c.code === code) : null;
 
     if (found) {
-      setAppliedCoupon(found);
-      setCouponInput('');
+      if (found.active === false) {
+        setCouponError('Este cupón se encuentra inactivo.');
+        setAppliedCoupon(null);
+      } else if (found.limit > 0 && (found.usedCount || 0) >= found.limit) {
+        setCouponError('Este cupón ha alcanzado el límite de usos.');
+        setAppliedCoupon(null);
+      } else {
+        setAppliedCoupon(found);
+        setCouponInput('');
+      }
     } else {
       setCouponError('Cupón inválido o expirado.');
       setAppliedCoupon(null);
@@ -146,7 +163,8 @@ export default function Cart({
       alert("El carrito está vacío.");
       return;
     }
-    if (!name.trim() || !phone.trim() || !address.trim()) {
+    const finalAddress = orderType === 'Mesa' ? `Mesa ${localTableNumber}` : address;
+    if (!name.trim() || !phone.trim() || (orderType !== 'Mesa' && !finalAddress.trim()) || (orderType === 'Mesa' && !localTableNumber)) {
       alert("Por favor, completa todos los campos.");
       return;
     }
@@ -156,7 +174,14 @@ export default function Cart({
       const orderId = `PED-${Math.floor(1000 + Math.random() * 9000)}`;
       const newOrder = {
         id: orderId,
-        customer: { name, phone, address, paymentMethod },
+        customer: { 
+          name, 
+          phone, 
+          address: finalAddress, 
+          paymentMethod,
+          orderType,
+          tableNumber: orderType === 'Mesa' ? localTableNumber : null
+        },
         items: [...cart],
         total: cartSubtotal,
         deliveryFee: activeDeliveryFee,
@@ -186,8 +211,9 @@ export default function Cart({
       }).join('\n');
 
       const couponLine = appliedCoupon ? `\n*Cupón:* ${appliedCoupon.code} (-S/. ${discount.toFixed(2)})` : '';
+      const destLine = orderType === 'Mesa' ? `*Mesa:* ${localTableNumber}` : `*Dirección:* ${address}`;
       const trackerLink = `\n\n*Sigue tu pedido en vivo aquí:*\n${window.location.origin}${window.location.pathname}?track=${orderId}`;
-      const whatsappMessage = `${whatsappGreeting}\n\n*Código:* ${orderId}\n*Cliente:* ${name}\n*Dirección:* ${address}\n*WhatsApp:* ${phone}\n*Pago:* ${paymentMethod}\n\n*Pedido:*\n${itemsText}\n\n*Subtotal:* S/. ${cartSubtotal.toFixed(2)}${couponLine}\n*Delivery:* S/. ${activeDeliveryFee.toFixed(2)}\n*Total:* S/. ${total.toFixed(2)}${trackerLink}\n\n${whatsappFooter}`;
+      const whatsappMessage = `${whatsappGreeting}\n\n*Código:* ${orderId}\n*Cliente:* ${name}\n${destLine}\n*WhatsApp:* ${phone}\n*Pago:* ${paymentMethod}\n\n*Pedido:*\n${itemsText}\n\n*Subtotal:* S/. ${cartSubtotal.toFixed(2)}${couponLine}\n*Delivery:* S/. ${activeDeliveryFee.toFixed(2)}\n*Total:* S/. ${total.toFixed(2)}${trackerLink}\n\n${whatsappFooter}`;
       
       const encodedText = encodeURIComponent(whatsappMessage);
       const cleanPhone = String(storePhone || '').replace(/\D/g, ''); // Limpiar caracteres no numéricos
@@ -434,6 +460,36 @@ export default function Cart({
           )}
           
           <form className="checkout-form" onSubmit={handleSubmit} style={{ gap: '10px', marginTop: '10px' }}>
+            {tableOrdersEnabled && (
+              <div className="form-group">
+                <label style={{ fontSize: '0.8rem', fontWeight: 'bold' }}>Tipo de Servicio</label>
+                <div style={{ display: 'flex', gap: '8px', marginBottom: '4px' }}>
+                  <button
+                    type="button"
+                    className={`payment-btn ${orderType === 'Mesa' ? 'selected' : ''}`}
+                    onClick={() => {
+                      setOrderType('Mesa');
+                    }}
+                    style={{ flex: 1, padding: '8px', fontSize: '0.8rem', opacity: !shopOpen ? 0.5 : 1, cursor: !shopOpen ? 'not-allowed' : 'pointer' }}
+                    disabled={!shopOpen}
+                  >
+                    🍽️ Consumo en Mesa
+                  </button>
+                  <button
+                    type="button"
+                    className={`payment-btn ${orderType === 'Llevar' ? 'selected' : ''}`}
+                    onClick={() => {
+                      setOrderType('Llevar');
+                    }}
+                    style={{ flex: 1, padding: '8px', fontSize: '0.8rem', opacity: !shopOpen ? 0.5 : 1, cursor: !shopOpen ? 'not-allowed' : 'pointer' }}
+                    disabled={!shopOpen}
+                  >
+                    🛍️ Llevar / Delivery
+                  </button>
+                </div>
+              </div>
+            )}
+
             <div className="form-group">
               <label style={{ fontSize: '0.8rem' }}>¿Tu Nombre?</label>
               <input
@@ -462,19 +518,40 @@ export default function Cart({
               />
             </div>
 
-            <div className="form-group">
-              <label style={{ fontSize: '0.8rem' }}>Dirección de Entrega</label>
-              <input
-                type="text"
-                className="form-control"
-                placeholder="Ej. Jr. Tarapacá 489, Magdalena"
-                value={address}
-                onChange={(e) => setAddress(e.target.value)}
-                style={{ padding: '8px 10px', fontSize: '0.85rem' }}
-                required
-                disabled={!shopOpen}
-              />
-            </div>
+            {orderType === 'Mesa' ? (
+              <div className="form-group">
+                <label style={{ fontSize: '0.8rem' }}>Número de Mesa</label>
+                <input
+                  type="number"
+                  className="form-control"
+                  placeholder="Ej. 5"
+                  min="1"
+                  max="100"
+                  value={localTableNumber || ''}
+                  onChange={(e) => {
+                    setLocalTableNumber(e.target.value);
+                    if (setTableNumber) setTableNumber(e.target.value);
+                  }}
+                  style={{ padding: '8px 10px', fontSize: '0.85rem' }}
+                  required
+                  disabled={!shopOpen}
+                />
+              </div>
+            ) : (
+              <div className="form-group">
+                <label style={{ fontSize: '0.8rem' }}>Dirección de Entrega</label>
+                <input
+                  type="text"
+                  className="form-control"
+                  placeholder="Ej. Jr. Tarapacá 489, Magdalena"
+                  value={address}
+                  onChange={(e) => setAddress(e.target.value)}
+                  style={{ padding: '8px 10px', fontSize: '0.85rem' }}
+                  required
+                  disabled={!shopOpen}
+                />
+              </div>
+            )}
 
             <div className="form-group">
               <label style={{ fontSize: '0.8rem' }}>Forma de Pago</label>

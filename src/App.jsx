@@ -211,7 +211,9 @@ export default function App() {
       friday: { enabled: true, open: '09:00', close: '22:00' },
       saturday: { enabled: true, open: '09:00', close: '22:00' },
       sunday: { enabled: true, open: '09:00', close: '22:00' }
-    }
+    },
+    tableOrdersEnabled: true,
+    waiterTakerEnabled: true
   };
 
   const [shopConfig, setShopConfig] = useState(() => {
@@ -323,21 +325,23 @@ export default function App() {
   const [coupons, setCoupons] = useState(() => {
     const saved = localStorage.getItem('helados_coupons');
     return saved ? JSON.parse(saved) : [
-      { code: 'HELADO10', type: 'percentage', value: 10, description: '10% de descuento' },
-      { code: 'ENVIOFREE', type: 'free_delivery', value: 0, description: 'Envío gratis' },
-      { code: 'AHORRO5', type: 'flat', value: 5, description: 'S/. 5.00 de descuento' }
+      { code: 'HELADO10', type: 'percentage', value: 10, limit: 100, usedCount: 0, active: true, description: '10% de descuento' },
+      { code: 'ENVIOFREE', type: 'free_delivery', value: 0, limit: 100, usedCount: 0, active: true, description: 'Envío gratis' },
+      { code: 'AHORRO5', type: 'flat', value: 5, limit: 100, usedCount: 0, active: true, description: 'S/. 5.00 de descuento' }
     ];
+  });
+
+  const [tableNumber, setTableNumber] = useState(() => {
+    const saved = localStorage.getItem('helados_table_number');
+    return saved || null;
   });
 
   // --- NUEVO: Estado del Combo Recomendado del Carrito (Sincronizado) ---
   const [cartRecommendedPack, setCartRecommendedPack] = useState(() => {
     const saved = localStorage.getItem('helados_cart_recommended_pack');
     return saved ? JSON.parse(saved) : {
-      active: true,
-      name: 'Pack Dúo Romántico',
-      price: 10.0,
-      description: '2 Copas Waffle de 3 bolas + Fudge de chocolate gratis',
-      id: 'pack_pareja'
+      packId: null,
+      message: '¡Te recomendamos llevar nuestro Pack Familiar!'
     };
   });
 
@@ -959,6 +963,18 @@ export default function App() {
     setActiveOrderId(newOrder.id);
     setView('tracker');
     
+    if (newOrder.couponCode) {
+      setCoupons(prevCoupons => {
+        const updated = prevCoupons.map(c => {
+          if (c.code === newOrder.couponCode) {
+            return { ...c, usedCount: (c.usedCount || 0) + 1 };
+          }
+          return c;
+        });
+        return updated;
+      });
+    }
+
     // Subir el pedido individual bajo su propia clave para evitar descargar toda la lista de otros clientes
     await updateSyncedData(`order_${newOrder.id}`, newOrder);
   };
@@ -1150,6 +1166,9 @@ export default function App() {
             showAlert={showAlert}
             trendsInterval={trendsInterval}
             trendsDisplayTime={trendsDisplayTime}
+            tableOrdersEnabled={shopConfig.tableOrdersEnabled !== false}
+            tableNumber={tableNumber}
+            setTableNumber={setTableNumber}
           />
         )}
 
@@ -1199,6 +1218,9 @@ export default function App() {
             literConfig={literConfig}
             showAlert={showAlert}
             shopOpen={effectiveShopOpen}
+            tableOrdersEnabled={shopConfig.tableOrdersEnabled !== false}
+            tableNumber={tableNumber}
+            setTableNumber={setTableNumber}
           />
         )}
 
@@ -1298,11 +1320,12 @@ export default function App() {
               onChangeStoreFacebook={setStoreFacebook}
               whatsappContactMessage={whatsappContactMessage}
               onChangeWhatsappContactMessage={setWhatsappContactMessage}
-              showAlert={showAlert}
               trendsInterval={trendsInterval}
               onChangeTrendsInterval={setTrendsInterval}
               trendsDisplayTime={trendsDisplayTime}
               onChangeTrendsDisplayTime={setTrendsDisplayTime}
+              tableOrdersEnabled={shopConfig.tableOrdersEnabled !== false}
+              waiterTakerEnabled={shopConfig.waiterTakerEnabled !== false}
             />
           </React.Suspense>
         )}

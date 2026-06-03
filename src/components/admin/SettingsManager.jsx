@@ -104,7 +104,10 @@ export default function SettingsManager({
   const [localLiterMaxFlavors, setLocalLiterMaxFlavors] = useState(literConfig?.maxFlavors || 3);
   const [localLiterImage, setLocalLiterImage] = useState(literConfig?.image || '');
 
-  const [newCoupon, setNewCoupon] = useState({ code: '', type: 'percentage', value: 10 });
+  const [newCoupon, setNewCoupon] = useState({ code: '', type: 'percentage', value: 10, limit: 100, active: true });
+  const [editingCouponCode, setEditingCouponCode] = useState(null);
+  const [editCouponData, setEditCouponData] = useState(null);
+  const [qrTableNumber, setQrTableNumber] = useState('1');
   const [logSearchQuery, setLogSearchQuery] = useState('');
   const [logsLimit, setLogsLimit] = useState(20);
   const [showSQLScript, setShowSQLScript] = useState(false);
@@ -231,6 +234,9 @@ export default function SettingsManager({
       code: formattedCode,
       type: newCoupon.type,
       value: newCoupon.type === 'free_delivery' ? 0 : parseFloat(newCoupon.value) || 0,
+      limit: parseInt(newCoupon.limit, 10) || 0,
+      usedCount: 0,
+      active: newCoupon.active !== false,
       description: newCoupon.type === 'free_delivery' 
         ? 'Envío gratis' 
         : (newCoupon.type === 'percentage' 
@@ -239,8 +245,125 @@ export default function SettingsManager({
     };
 
     onUpdateCoupons([...coupons, added]);
-    setNewCoupon({ code: '', type: 'percentage', value: 10 });
+    setNewCoupon({ code: '', type: 'percentage', value: 10, limit: 100, active: true });
     addLog(`Cupón creado: ${added.code} (${added.description}) por ${currentUser?.name}.`);
+  };
+
+  const handleEditCouponClick = (coupon) => {
+    setEditingCouponCode(coupon.code);
+    setEditCouponData({ 
+      ...coupon,
+      limit: coupon.limit || 0
+    });
+  };
+
+  const handleSaveCouponEdit = (e) => {
+    e.preventDefault();
+    if (!editCouponData.code.trim()) return;
+
+    const formattedCode = editCouponData.code.toUpperCase().trim();
+
+    if (formattedCode !== editingCouponCode && coupons.some(c => c.code === formattedCode)) {
+      alert("Ya existe otro cupón con este código.");
+      return;
+    }
+
+    const updatedValue = editCouponData.type === 'free_delivery' ? 0 : parseFloat(editCouponData.value) || 0;
+    const updatedDescription = editCouponData.type === 'free_delivery' 
+      ? 'Envío gratis' 
+      : (editCouponData.type === 'percentage' 
+          ? `${updatedValue}% de descuento` 
+          : `S/. ${updatedValue.toFixed(2)} de descuento`);
+
+    const updatedCoupons = coupons.map(c => {
+      if (c.code === editingCouponCode) {
+        return {
+          ...c,
+          code: formattedCode,
+          type: editCouponData.type,
+          value: updatedValue,
+          limit: parseInt(editCouponData.limit, 10) || 0,
+          active: editCouponData.active !== false,
+          description: updatedDescription
+        };
+      }
+      return c;
+    });
+
+    onUpdateCoupons(updatedCoupons);
+    setEditingCouponCode(null);
+    setEditCouponData(null);
+    addLog(`Cupón editado: ${editingCouponCode} -> ${formattedCode} por ${currentUser?.name}.`);
+  };
+
+  const handleToggleCouponActive = (couponCode) => {
+    const updatedCoupons = coupons.map(c => {
+      if (c.code === couponCode) {
+        const nextState = !c.active;
+        addLog(`Cupón ${couponCode} ${nextState ? 'activado' : 'desactivado'} por ${currentUser?.name || 'Administrador'}.`);
+        return { ...c, active: nextState };
+      }
+      return c;
+    });
+    onUpdateCoupons(updatedCoupons);
+  };
+
+  const handlePrintQR = () => {
+    const qrLink = `${window.location.origin}${window.location.pathname}?mesa=${qrTableNumber}`;
+    const qrImageUrl = `https://api.qrserver.com/v1/create-qr-code/?size=300x300&data=${encodeURIComponent(qrLink)}`;
+    const printWindow = window.open('', '_blank', 'width=600,height=600');
+    if (!printWindow) return;
+    printWindow.document.write(`
+      <html>
+        <head>
+          <title>MESA ${qrTableNumber} - ${storeName}</title>
+          <style>
+            body {
+              font-family: Arial, sans-serif;
+              text-align: center;
+              padding: 40px;
+              color: #222;
+            }
+            .container {
+              border: 4px dashed #ff4081;
+              padding: 30px;
+              border-radius: 20px;
+              max-width: 400px;
+              margin: 0 auto;
+            }
+            h1 {
+              font-size: 2.5rem;
+              margin-bottom: 5px;
+              color: #ff4081;
+            }
+            h2 {
+              font-size: 1.5rem;
+              margin-top: 0;
+              color: #555;
+            }
+            img {
+              margin: 20px 0;
+              width: 250px;
+              height: 250px;
+            }
+            p {
+              font-size: 1rem;
+              font-weight: bold;
+              color: #666;
+            }
+          </style>
+        </head>
+        <body onload="window.print(); window.close();">
+          <div class="container">
+            <h1>${storeName}</h1>
+            <h2>🍽️ MESA ${qrTableNumber}</h2>
+            <img src="${qrImageUrl}" alt="Código QR Mesa ${qrTableNumber}" />
+            <p>Escanea este código para ver nuestra carta digital y realizar tu pedido desde tu celular 📱</p>
+          </div>
+        </body>
+      </html>
+    `);
+    printWindow.document.close();
   };
 
   const handleImageUpload = async (file, type, targetSetter) => {
@@ -913,6 +1036,45 @@ export default function SettingsManager({
           )}
         </div>
 
+        {/* Pedidos en Mesa y Tomador de Pedidos */}
+        <div style={{ display: 'flex', flexDirection: 'column', gap: '12px', borderBottom: '1px solid var(--border-color)', paddingBottom: '15px' }}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+            <div>
+              <strong style={{ display: 'block' }}>🍽️ Módulo de Pedidos en Mesa / Códigos QR</strong>
+              <span style={{ fontSize: '0.75rem', color: 'var(--text-light)', display: 'block', marginTop: '2px' }}>
+                Permite a los clientes enviar pedidos directamente desde su mesa escaneando un código QR.
+              </span>
+            </div>
+            <label className="toggle-switch" htmlFor="shop-table-orders-enabled-input">
+              <input 
+                id="shop-table-orders-enabled-input" 
+                type="checkbox" 
+                checked={localShopConfig.tableOrdersEnabled !== false} 
+                onChange={(e) => setLocalShopConfig(prev => ({ ...prev, tableOrdersEnabled: e.target.checked }))} 
+              />
+              <span className="slider"></span>
+            </label>
+          </div>
+
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+            <div>
+              <strong style={{ display: 'block' }}>🤵 Tomador de Pedidos de Mesa (Mozo)</strong>
+              <span style={{ fontSize: '0.75rem', color: 'var(--text-light)', display: 'block', marginTop: '2px' }}>
+                Habilita una pestaña dedicada en el panel administrativo para que los mozos registren pedidos de mesa directamente.
+              </span>
+            </div>
+            <label className="toggle-switch" htmlFor="shop-waiter-taker-enabled-input">
+              <input 
+                id="shop-waiter-taker-enabled-input" 
+                type="checkbox" 
+                checked={localShopConfig.waiterTakerEnabled !== false} 
+                onChange={(e) => setLocalShopConfig(prev => ({ ...prev, waiterTakerEnabled: e.target.checked }))} 
+              />
+              <span className="slider"></span>
+            </label>
+          </div>
+        </div>
+
         {/* Ajustes de Tendencias en Vivo (Prueba Social FOMO) */}
         <div style={{ display: 'flex', flexDirection: 'column', gap: '10px', borderBottom: '1px solid var(--border-color)', paddingBottom: '12px' }}>
           <div>
@@ -1281,10 +1443,11 @@ alter table public.helados_sync enable row level security;`}
         </div>
 
         {/* Coupons */}
+        {/* Coupons */}
         <div className="glass" style={{ padding: '15px', borderRadius: '8px', marginBottom: '15px' }}>
           <strong style={{ display: 'block', fontSize: '0.95rem', marginBottom: '8px' }}>🎫 Gestión de Cupones de Descuento</strong>
           
-          <form onSubmit={handleAddCouponSubmit} style={{ display: 'flex', gap: '8px', flexWrap: 'wrap', marginBottom: '15px', background: 'rgba(0,0,0,0.02)', padding: '10px', borderRadius: '6px' }}>
+          <form onSubmit={handleAddCouponSubmit} style={{ display: 'flex', gap: '8px', flexWrap: 'wrap', marginBottom: '15px', background: 'rgba(0,0,0,0.02)', padding: '10px', borderRadius: '6px', alignItems: 'center' }}>
             <input
               type="text"
               placeholder="CÓDIGO"
@@ -1315,40 +1478,225 @@ alter table public.helados_sync enable row level security;`}
                 required
               />
             )}
-            <button type="submit" className="btn btn-primary" style={{ padding: '4px 10px', fontSize: '0.75rem' }}>
+            <input
+              type="number"
+              placeholder="Límite canjes (0 = ilimitado)"
+              className="form-control"
+              style={{ width: '130px', fontSize: '0.8rem', padding: '6px' }}
+              value={newCoupon.limit || ''}
+              onChange={(e) => setNewCoupon({ ...newCoupon, limit: parseInt(e.target.value, 10) || 0 })}
+            />
+            <label style={{ display: 'flex', alignItems: 'center', gap: '4px', fontSize: '0.75rem', margin: 0 }}>
+              <input
+                type="checkbox"
+                checked={newCoupon.active !== false}
+                onChange={(e) => setNewCoupon({ ...newCoupon, active: e.target.checked })}
+              />
+              Activo
+            </label>
+            <button type="submit" className="btn btn-primary" style={{ padding: '6px 12px', fontSize: '0.75rem' }}>
               ➕ Añadir
             </button>
           </form>
 
-          <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
             {!coupons || coupons.length === 0 ? (
-              <span style={{ fontSize: '0.8rem', color: 'var(--text-light)' }}>No hay cupones activos.</span>
+              <span style={{ fontSize: '0.8rem', color: 'var(--text-light)' }}>No hay cupones registrados.</span>
             ) : (
-              coupons.map(coupon => (
-                <div key={coupon.code} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderBottom: '1px dashed var(--border-color)', paddingBottom: '6px', fontSize: '0.8rem' }}>
-                  <div>
-                    <strong style={{ color: 'var(--primary-color)' }}>{coupon.code}</strong>
-                    <span style={{ color: 'var(--text-light)', marginLeft: '10px' }}>
-                      {coupon.type === 'percentage' && `${coupon.value}% de desc.`}
-                      {coupon.type === 'flat' && `S/. ${coupon.value.toFixed(2)} de desc.`}
-                      {coupon.type === 'free_delivery' && 'Envío Gratis'}
-                    </span>
+              coupons.map(coupon => {
+                const isEditing = editingCouponCode === coupon.code;
+                return (
+                  <div key={coupon.code} style={{ 
+                    borderBottom: '1px dashed var(--border-color)', 
+                    paddingBottom: '8px', 
+                    fontSize: '0.8rem',
+                    background: isEditing ? 'rgba(0,0,0,0.01)' : 'transparent',
+                    padding: isEditing ? '8px' : '0 0 8px 0',
+                    borderRadius: isEditing ? '4px' : '0'
+                  }}>
+                    {isEditing ? (
+                      <form onSubmit={handleSaveCouponEdit} style={{ display: 'flex', gap: '6px', flexWrap: 'wrap', alignItems: 'center' }}>
+                        <input
+                          type="text"
+                          className="form-control"
+                          style={{ width: '110px', fontSize: '0.75rem', padding: '4px', textTransform: 'uppercase' }}
+                          value={editCouponData.code}
+                          onChange={(e) => setEditCouponData({ ...editCouponData, code: e.target.value.toUpperCase() })}
+                          required
+                        />
+                        <select
+                          className="form-control"
+                          style={{ width: '110px', fontSize: '0.75rem', padding: '4px' }}
+                          value={editCouponData.type}
+                          onChange={(e) => setEditCouponData({ ...editCouponData, type: e.target.value })}
+                        >
+                          <option value="percentage">Porcentaje (%)</option>
+                          <option value="flat">Monto Fijo (S/.)</option>
+                          <option value="free_delivery">Envío Gratis</option>
+                        </select>
+                        {editCouponData.type !== 'free_delivery' && (
+                          <input
+                            type="number"
+                            className="form-control"
+                            style={{ width: '65px', fontSize: '0.75rem', padding: '4px' }}
+                            value={editCouponData.value}
+                            onChange={(e) => setEditCouponData({ ...editCouponData, value: parseFloat(e.target.value) || 0 })}
+                            required
+                          />
+                        )}
+                        <input
+                          type="number"
+                          placeholder="Límite"
+                          className="form-control"
+                          style={{ width: '75px', fontSize: '0.75rem', padding: '4px' }}
+                          value={editCouponData.limit || ''}
+                          onChange={(e) => setEditCouponData({ ...editCouponData, limit: parseInt(e.target.value, 10) || 0 })}
+                        />
+                        <label style={{ display: 'flex', alignItems: 'center', gap: '3px', fontSize: '0.75rem', margin: 0 }}>
+                          <input
+                            type="checkbox"
+                            checked={editCouponData.active !== false}
+                            onChange={(e) => setEditCouponData({ ...editCouponData, active: e.target.checked })}
+                          />
+                          Activo
+                        </label>
+                        <div style={{ display: 'flex', gap: '4px' }}>
+                          <button type="submit" className="btn btn-primary" style={{ padding: '2px 6px', fontSize: '0.7rem' }} title="Guardar">💾</button>
+                          <button type="button" className="btn btn-secondary" style={{ padding: '2px 6px', fontSize: '0.7rem' }} onClick={() => { setEditingCouponCode(null); setEditCouponData(null); }} title="Cancelar">❌</button>
+                        </div>
+                      </form>
+                    ) : (
+                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                        <div>
+                          <strong style={{ color: coupon.active ? 'var(--primary-color)' : 'var(--text-light)', textDecoration: coupon.active ? 'none' : 'line-through' }}>
+                            {coupon.code}
+                          </strong>
+                          <span style={{ color: 'var(--text-light)', marginLeft: '10px' }}>
+                            {coupon.type === 'percentage' && `${coupon.value}% de desc.`}
+                            {coupon.type === 'flat' && `S/. ${coupon.value.toFixed(2)} de desc.`}
+                            {coupon.type === 'free_delivery' && 'Envío Gratis'}
+                          </span>
+                          <span style={{ 
+                            fontSize: '0.7rem', 
+                            marginLeft: '10px', 
+                            padding: '1px 5px', 
+                            borderRadius: '4px', 
+                            background: 'var(--bg-secondary)', 
+                            color: 'var(--text-light)',
+                            fontWeight: '600'
+                          }}>
+                            Canjes: {coupon.usedCount || 0} / {coupon.limit > 0 ? coupon.limit : '∞'}
+                          </span>
+                          <span 
+                            onClick={() => handleToggleCouponActive(coupon.code)}
+                            style={{ 
+                              fontSize: '0.68rem', 
+                              marginLeft: '10px', 
+                              padding: '1px 6px', 
+                              borderRadius: '12px', 
+                              background: coupon.active ? 'rgba(46,204,113,0.1)' : 'rgba(231,76,60,0.1)', 
+                              color: coupon.active ? 'var(--success)' : 'var(--danger)',
+                              cursor: 'pointer',
+                              fontWeight: 'bold',
+                              userSelect: 'none'
+                            }}
+                            title="Haz clic para activar/desactivar"
+                          >
+                            {coupon.active ? '🟢 Activo' : '🔴 Inactivo'}
+                          </span>
+                        </div>
+                        <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
+                          <button
+                            type="button"
+                            onClick={() => handleEditCouponClick(coupon)}
+                            style={{ background: 'none', border: 'none', color: 'var(--primary-color)', cursor: 'pointer', fontSize: '0.85rem' }}
+                            title="Editar cupón"
+                          >
+                            ✏️
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => {
+                              onUpdateCoupons(coupons.filter(c => c.code !== coupon.code));
+                              addLog(`Cupón eliminado: ${coupon.code}.`);
+                            }}
+                            style={{ background: 'none', border: 'none', color: 'var(--danger)', cursor: 'pointer', fontSize: '0.85rem' }}
+                            title="Eliminar cupón"
+                          >
+                            🗑️
+                          </button>
+                        </div>
+                      </div>
+                    )}
                   </div>
-                  <button
-                    type="button"
-                    onClick={() => {
-                      onUpdateCoupons(coupons.filter(c => c.code !== coupon.code));
-                      addLog(`Cupón eliminado: ${coupon.code}.`);
-                    }}
-                    style={{ background: 'none', border: 'none', color: 'var(--danger)', cursor: 'pointer', fontSize: '0.9rem' }}
-                  >
-                    🗑️
-                  </button>
-                </div>
-              ))
+                );
+              })
             )}
           </div>
         </div>
+
+        {/* Generador de Código QR para Mesas */}
+        {localShopConfig.tableOrdersEnabled !== false && (
+          <div className="glass" style={{ padding: '15px', borderRadius: '8px', marginBottom: '15px', borderLeft: '4px solid var(--primary-color)', background: 'rgba(255, 64, 129, 0.01)' }}>
+            <strong style={{ display: 'block', fontSize: '0.95rem', marginBottom: '4px' }}>🍽️ Generador de Código QR para Mesas</strong>
+            <p style={{ fontSize: '0.75rem', color: 'var(--text-light)', marginBottom: '12px' }}>
+              Genera e imprime códigos QR para que los clientes escaneen desde sus mesas y carguen el catálogo directamente con su número de mesa pre-seleccionado.
+            </p>
+            
+            <div style={{ display: 'flex', gap: '15px', flexWrap: 'wrap', alignItems: 'center' }}>
+              <div className="form-group" style={{ flex: '1 1 150px' }}>
+                <label style={{ fontSize: '0.75rem', fontWeight: 'bold' }}>Número de Mesa:</label>
+                <input
+                  type="number"
+                  min="1"
+                  max="100"
+                  className="form-control"
+                  style={{ fontSize: '0.85rem', padding: '6px 10px', marginTop: '4px' }}
+                  value={qrTableNumber}
+                  onChange={(e) => setQrTableNumber(e.target.value)}
+                />
+              </div>
+
+              <div style={{ flex: '2 1 200px' }}>
+                <span style={{ fontSize: '0.7rem', display: 'block', color: 'var(--text-light)' }}>Enlace que se generará:</span>
+                <code style={{ fontSize: '0.75rem', wordBreak: 'break-all', display: 'block', padding: '6px', background: 'var(--bg-secondary)', borderRadius: '4px', border: '1px solid var(--border-color)', marginTop: '4px' }}>
+                  {`${window.location.origin}${window.location.pathname}?mesa=${qrTableNumber}`}
+                </code>
+              </div>
+            </div>
+
+            <div style={{ display: 'flex', gap: '15px', marginTop: '15px', alignItems: 'center', flexWrap: 'wrap' }}>
+              <div style={{ background: 'white', padding: '8px', borderRadius: '8px', border: '1px solid #ddd', display: 'flex', justifyContent: 'center', alignItems: 'center' }}>
+                <img 
+                  src={`https://api.qrserver.com/v1/create-qr-code/?size=150x150&data=${encodeURIComponent(`${window.location.origin}${window.location.pathname}?mesa=${qrTableNumber}`)}`} 
+                  alt={`QR Mesa ${qrTableNumber}`}
+                  style={{ width: '120px', height: '120px', display: 'block' }}
+                />
+              </div>
+              
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                <button 
+                  type="button" 
+                  className="btn btn-primary" 
+                  style={{ padding: '8px 15px', fontSize: '0.8rem' }}
+                  onClick={handlePrintQR}
+                >
+                  🖨️ Imprimir Tarjeta de Mesa
+                </button>
+                <a 
+                  href={`https://api.qrserver.com/v1/create-qr-code/?size=500x500&data=${encodeURIComponent(`${window.location.origin}${window.location.pathname}?mesa=${qrTableNumber}`)}`}
+                  target="_blank"
+                  rel="noreferrer"
+                  download={`qr_mesa_${qrTableNumber}.png`}
+                  className="btn btn-secondary"
+                  style={{ padding: '8px 15px', fontSize: '0.8rem', textAlign: 'center', textDecoration: 'none' }}
+                >
+                  📥 Descargar QR (Alta Calidad)
+                </a>
+              </div>
+            </div>
+          </div>
+        )}
 
         {/* Cloudflare R2 Credentials */}
         <div className="glass" style={{ padding: '15px', borderRadius: '8px', marginBottom: '15px' }}>

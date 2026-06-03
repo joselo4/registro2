@@ -15,7 +15,10 @@ export default function CustomerShop({
   storePhone,
   showAlert,
   trendsInterval,
-  trendsDisplayTime
+  trendsDisplayTime,
+  tableOrdersEnabled = false,
+  tableNumber = null,
+  setTableNumber
 }) {
   const [filter, setFilter] = useState('all'); // all, classic, packs, liter
 
@@ -409,6 +412,41 @@ export default function CustomerShop({
       {/* Hero Section */}
       <section className="hero">
         <div className="hero-text">
+          {tableOrdersEnabled && tableNumber && (
+            <div style={{
+              background: 'rgba(255, 64, 129, 0.12)',
+              border: '1px solid rgba(255, 64, 129, 0.3)',
+              color: 'var(--primary-color)',
+              padding: '8px 12px',
+              borderRadius: '8px',
+              fontSize: '0.8rem',
+              fontWeight: 'bold',
+              display: 'inline-flex',
+              alignItems: 'center',
+              gap: '6px',
+              marginBottom: '15px'
+            }}>
+              🍽️ Pedido vinculado a la Mesa {tableNumber}
+              <button 
+                type="button" 
+                onClick={() => {
+                  if (setTableNumber) setTableNumber(null);
+                  localStorage.removeItem('helados_table_number');
+                }} 
+                style={{ 
+                  background: 'none', 
+                  border: 'none', 
+                  color: 'var(--danger)', 
+                  fontWeight: 'bold', 
+                  cursor: 'pointer',
+                  marginLeft: '10px',
+                  padding: 0
+                }}
+              >
+                (Cambiar a Llevar)
+              </button>
+            </div>
+          )}
           <h1>¡Helados Deliciosos desde S/. 1.00!</h1>
           <p>
             Bienvenido a <strong>{storeName}</strong>, la mejor heladería artesanal online. Diseña tu helado favorito bola por bola con tus sabores preferidos, toppings y salsas, o elige nuestros combos de descuento.
