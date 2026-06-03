@@ -26,7 +26,7 @@ const getAdminCredentials = () => {
     const saved = localStorage.getItem('helados_admin_current_user');
     if (saved) {
       const user = JSON.parse(saved);
-      const password = sessionStorage.getItem('helados_admin_password');
+      const password = localStorage.getItem('helados_admin_password');
       if (user && user.email && password) {
         return { email: user.email, password: password };
       }

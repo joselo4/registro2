@@ -56,7 +56,8 @@ export default function SettingsManager({
   whatsappContactMessage, onChangeWhatsappContactMessage,
   trendsInterval, onChangeTrendsInterval,
   trendsDisplayTime, onChangeTrendsDisplayTime,
-  shopConfig, onChangeShopConfig
+  shopConfig, onChangeShopConfig,
+  staffPermissions, onUpdateStaffPermissions
 }) {
   // --- Estados Locales para Ajustes (Evita lags en el dashboard completo al escribir) ---
   const [localStoreName, setLocalStoreName] = useState(storeName);
@@ -520,7 +521,11 @@ export default function SettingsManager({
         ticketCustomMessage,
         catalogOrder,
         coupons,
-        shopConfig
+        shopConfig,
+        staffPermissions,
+        r2Config,
+        trendsInterval,
+        trendsDisplayTime
       };
 
       const dataStr = "data:text/json;charset=utf-8," + encodeURIComponent(JSON.stringify(backupData, null, 2));
@@ -583,6 +588,10 @@ export default function SettingsManager({
           if (data.cartRecommendedPack && onUpdateCartRecommendedPack) onUpdateCartRecommendedPack(data.cartRecommendedPack);
           if (data.coupons && onUpdateCoupons) onUpdateCoupons(data.coupons);
           if (data.shopConfig && onChangeShopConfig) onChangeShopConfig(data.shopConfig);
+          if (data.staffPermissions && onUpdateStaffPermissions) onUpdateStaffPermissions(data.staffPermissions);
+          if (data.r2Config && onUpdateR2Config) onUpdateR2Config(data.r2Config);
+          if (data.trendsInterval !== undefined && onChangeTrendsInterval) onChangeTrendsInterval(parseInt(data.trendsInterval, 10));
+          if (data.trendsDisplayTime !== undefined && onChangeTrendsDisplayTime) onChangeTrendsDisplayTime(parseInt(data.trendsDisplayTime, 10));
 
           if (supabase) {
             const keysToSync = [];
@@ -625,6 +634,10 @@ export default function SettingsManager({
             addKey('catalog_order', data.catalogOrder);
             addKey('recommendations', data.recommendations);
             addKey('cart_recommended_pack', data.cartRecommendedPack);
+            addKey('staff_permissions', data.staffPermissions);
+            addKey('r2_config', data.r2Config);
+            addKey('trends_interval', data.trendsInterval);
+            addKey('trends_display_time', data.trendsDisplayTime);
 
             if (data.orders && Array.isArray(data.orders)) {
               data.orders.forEach(o => {

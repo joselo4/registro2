@@ -842,6 +842,8 @@ export default function AdminPanel({
             onUpdateRecommendations={onUpdateRecommendations}
             cartRecommendedPack={cartRecommendedPack}
             onUpdateCartRecommendedPack={onUpdateCartRecommendedPack}
+            staffPermissions={staffPermissions}
+            onUpdateStaffPermissions={onUpdateStaffPermissions}
           />
         )}
 

@@ -312,7 +312,7 @@ export default function App() {
     const saved = localStorage.getItem('helados_admin_current_user');
     if (saved) {
       const user = JSON.parse(saved);
-      const password = sessionStorage.getItem('helados_admin_password');
+      const password = localStorage.getItem('helados_admin_password');
       if (password) {
         user.password = password;
       }
@@ -739,11 +739,13 @@ export default function App() {
             const hasChanged = JSON.stringify(prev.find(o => o.id === value.id)) !== JSON.stringify(value);
             if (hasChanged) {
               isRemoteUpdate.current[key] = true;
+              isRemoteUpdate.current['orders'] = true;
               return prev.map(o => o.id === value.id ? value : o);
             }
             return prev;
           } else {
             isRemoteUpdate.current[key] = true;
+            isRemoteUpdate.current['orders'] = true;
             return [value, ...prev];
           }
         });
@@ -924,11 +926,11 @@ export default function App() {
       const { password, ...cleanUser } = currentUser;
       localStorage.setItem('helados_admin_current_user', JSON.stringify(cleanUser));
       if (password) {
-        sessionStorage.setItem('helados_admin_password', password);
+        localStorage.setItem('helados_admin_password', password);
       }
     } else {
       localStorage.removeItem('helados_admin_current_user');
-      sessionStorage.removeItem('helados_admin_password');
+      localStorage.removeItem('helados_admin_password');
     }
   }, [currentUser]);
 
