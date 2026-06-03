@@ -130,10 +130,6 @@ export const fetchSyncedData = async (isAdmin = false) => {
       }
     }
 
-    // Guardar en caché
-    _syncCache[cacheKey] = syncData;
-    _syncCacheTime[cacheKey] = Date.now();
-
     return syncData;
   } catch (err) {
     console.warn("⚠️ Supabase Sync: Fetch fallido. Usando datos locales.", err.message);
