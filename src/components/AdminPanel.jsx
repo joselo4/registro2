@@ -125,6 +125,10 @@ export default function AdminPanel({
   // --- Estados de UI ---
   const [activeTab, setActiveTab] = useState('orders'); // orders, inventory, packs, users, finance, settings, stats, surveys
 
+  useEffect(() => {
+    window.scrollTo(0, 0);
+  }, [activeTab]);
+
   // --- Estados de Autenticación y Seguridad ---
   const [emailInput, setEmailInput] = useState('');
   const [passwordInput, setPasswordInput] = useState('');
@@ -218,6 +222,53 @@ export default function AdminPanel({
     }
     prevOrdersCount.current = orders.length;
   }, [orders, soundEnabled]);
+
+  // --- Detector de Nuevos Llamados en Mesa (Alerta Sonora y Visual) ---
+  const prevCallsCount = useRef(tableCalls.filter(c => !c.resolved).length);
+
+  const playCallWaiterSound = () => {
+    if (!soundEnabled) return;
+    try {
+      const AudioContext = window.AudioContext || window.webkitAudioContext;
+      if (!AudioContext) return;
+      const ctx = new AudioContext();
+      
+      const osc1 = ctx.createOscillator();
+      const gain = ctx.createGain();
+      
+      osc1.type = 'sine';
+      osc1.frequency.setValueAtTime(587.33, ctx.currentTime); // D5
+      osc1.frequency.exponentialRampToValueAtTime(880.00, ctx.currentTime + 0.15); // A5
+      
+      gain.gain.setValueAtTime(0.3, ctx.currentTime);
+      gain.gain.exponentialRampToValueAtTime(0.01, ctx.currentTime + 0.6);
+      
+      osc1.connect(gain);
+      gain.connect(ctx.destination);
+      
+      osc1.start();
+      osc1.stop(ctx.currentTime + 0.6);
+    } catch {
+      console.warn("Audio chime blocked by autoplay policies.");
+    }
+  };
+
+  useEffect(() => {
+    const activeCalls = tableCalls.filter(c => !c.resolved);
+    if (activeCalls.length > prevCallsCount.current) {
+      playCallWaiterSound();
+      const latestCall = activeCalls[activeCalls.length - 1];
+      if (latestCall) {
+        addLog(`🛎️ Mesa ${latestCall.table} solicita atención: ${latestCall.request}`);
+        if (Notification.permission === 'granted') {
+          new Notification(`🛎️ ¡Mesa ${latestCall.table} solicita atención!`, {
+            body: `Solicitud: ${latestCall.request}`
+          });
+        }
+      }
+    }
+    prevCallsCount.current = activeCalls.length;
+  }, [tableCalls, soundEnabled]);
 
   useEffect(() => {
     if (isLoggedIn && Notification.permission === 'default') {

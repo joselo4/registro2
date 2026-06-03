@@ -724,10 +724,12 @@ export default function Cart({
                   <span>- S/. {discount.toFixed(2)}</span>
                 </div>
               )}
-              <div className="cart-summary-row" style={{ marginTop: '4px' }}>
-                <span>Envío:</span>
-                <span>{isFreeDelivery ? <strong style={{ color: 'var(--success)' }}>GRATIS</strong> : `S/. ${deliveryFee.toFixed(2)}`}</span>
-              </div>
+              {!tableNumber && (
+                <div className="cart-summary-row" style={{ marginTop: '4px' }}>
+                  <span>Envío:</span>
+                  <span>{isFreeDelivery ? <strong style={{ color: 'var(--success)' }}>GRATIS</strong> : `S/. ${deliveryFee.toFixed(2)}`}</span>
+                </div>
+              )}
               <div className="cart-summary-total" style={{ fontSize: '1.05rem', marginTop: '6px', paddingTop: '6px' }}>
                 <span>Total:</span>
                 <span style={{ color: 'var(--primary-color)' }}>S/. {total.toFixed(2)}</span>

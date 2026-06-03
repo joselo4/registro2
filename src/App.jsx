@@ -340,7 +340,7 @@ export default function App() {
     ];
   });
 
-  const [tableNumber, setTableNumber] = useState(null);
+  const [tableNumber, setTableNumber] = useState(() => localStorage.getItem('helados_table_number') || null);
 
   // --- NUEVO: Estado del Combo Recomendado del Carrito (Sincronizado) ---
   const [cartRecommendedPack, setCartRecommendedPack] = useState(() => {
@@ -359,6 +359,11 @@ export default function App() {
 
   // --- Estados de Flujo de Cliente ---
   const [view, setView] = useState('shop'); 
+  
+  useEffect(() => {
+    window.scrollTo(0, 0);
+  }, [view]);
+
   const [cart, setCart] = useState([]);
   const [activeOrderId, setActiveOrderId] = useState(() => {
     const saved = localStorage.getItem('helados_active_order_id');
@@ -384,8 +389,12 @@ export default function App() {
       setTableNumber(mesaParam);
       localStorage.setItem('helados_table_number', mesaParam);
     } else {
-      setTableNumber(null);
-      localStorage.removeItem('helados_table_number');
+      const savedMesa = localStorage.getItem('helados_table_number');
+      if (savedMesa) {
+        setTableNumber(savedMesa);
+      } else {
+        setTableNumber(null);
+      }
     }
   }, []);
 
