@@ -96,7 +96,11 @@ export default function AdminPanel({
   onChangeStoreFacebook,
   whatsappContactMessage,
   onChangeWhatsappContactMessage,
-  showAlert
+  showAlert,
+  trendsInterval,
+  onChangeTrendsInterval,
+  trendsDisplayTime,
+  onChangeTrendsDisplayTime
 }) {
   const alert = (msg) => {
     if (showAlert) {
@@ -531,6 +535,37 @@ export default function AdminPanel({
         }}>
           <span>{isCloudSynced ? '🟢 Sincronizado (Supabase)' : '🟡 Modo Local (Offline)'}</span>
         </div>
+
+        {/* Quick Shop Open/Close Toggle */}
+        <div style={{
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'space-between',
+          padding: '8px 12px',
+          background: 'var(--bg-secondary)',
+          border: '1px solid var(--border-color)',
+          borderRadius: '12px',
+          marginBottom: '15px',
+          gap: '8px'
+        }}>
+          <div style={{ display: 'flex', flexDirection: 'column' }}>
+            <span style={{ fontSize: '0.75rem', fontWeight: 'bold', color: 'var(--text-dark)' }}>Estado Tienda</span>
+            <span style={{ fontSize: '0.65rem', color: shopOpen ? 'var(--success)' : 'var(--danger)', fontWeight: 'bold' }}>
+              {shopOpen ? '🟢 ABIERTO' : '🔴 CERRADO'}
+            </span>
+          </div>
+          <label className="toggle-switch" style={{ margin: 0 }}>
+            <input 
+              type="checkbox" 
+              checked={shopOpen} 
+              onChange={() => {
+                onToggleShopOpen();
+                addLog(`Estado de la tienda cambiado a ${!shopOpen ? 'ABIERTO' : 'CERRADO'} vía control rápido por ${currentUser?.name || 'Staff'}.`);
+              }} 
+            />
+            <span className="slider"></span>
+          </label>
+        </div>
         {currentUser && (
           <div style={{
             background: 'var(--bg-secondary, rgba(0, 0, 0, 0.02))',
@@ -719,6 +754,10 @@ export default function AdminPanel({
             onChangeStoreFacebook={onChangeStoreFacebook}
             whatsappContactMessage={whatsappContactMessage}
             onChangeWhatsappContactMessage={onChangeWhatsappContactMessage}
+            trendsInterval={trendsInterval}
+            onChangeTrendsInterval={onChangeTrendsInterval}
+            trendsDisplayTime={trendsDisplayTime}
+            onChangeTrendsDisplayTime={onChangeTrendsDisplayTime}
             r2Config={r2Config}
             onUpdateR2Config={onUpdateR2Config}
             literConfig={literConfig}

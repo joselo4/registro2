@@ -53,7 +53,9 @@ export default function SettingsManager({
   storeFavicon, onChangeStoreFavicon,
   storeInstagram, onChangeStoreInstagram,
   storeFacebook, onChangeStoreFacebook,
-  whatsappContactMessage, onChangeWhatsappContactMessage
+  whatsappContactMessage, onChangeWhatsappContactMessage,
+  trendsInterval, onChangeTrendsInterval,
+  trendsDisplayTime, onChangeTrendsDisplayTime
 }) {
   // --- Estados Locales para Ajustes (Evita lags en el dashboard completo al escribir) ---
   const [localStoreName, setLocalStoreName] = useState(storeName);
@@ -74,6 +76,8 @@ export default function SettingsManager({
   const [localQrCustomUrl, setLocalQrCustomUrl] = useState(qrCustomUrl);
   const [localTicketCustomMessage, setLocalTicketCustomMessage] = useState(ticketCustomMessage || '');
   const [localCatalogOrder, setLocalCatalogOrder] = useState(() => catalogOrder || ['liter', 'classic', 'packs']);
+  const [localTrendsInterval, setLocalTrendsInterval] = useState(trendsInterval || 25);
+  const [localTrendsDisplayTime, setLocalTrendsDisplayTime] = useState(trendsDisplayTime || 6);
 
   const [localR2AccountId, setLocalR2AccountId] = useState(r2Config?.accountId || '');
   const [localR2AccessKeyId, setLocalR2AccessKeyId] = useState(r2Config?.accessKeyId || '');
@@ -117,6 +121,8 @@ export default function SettingsManager({
   useEffect(() => { setLocalQrCustomUrl(qrCustomUrl); }, [qrCustomUrl]);
   useEffect(() => { setLocalTicketCustomMessage(ticketCustomMessage || ''); }, [ticketCustomMessage]);
   useEffect(() => { setLocalCatalogOrder(catalogOrder || ['liter', 'classic', 'packs']); }, [catalogOrder]);
+  useEffect(() => { setLocalTrendsInterval(trendsInterval || 25); }, [trendsInterval]);
+  useEffect(() => { setLocalTrendsDisplayTime(trendsDisplayTime || 6); }, [trendsDisplayTime]);
 
   useEffect(() => {
     if (r2Config) {
@@ -183,6 +189,8 @@ export default function SettingsManager({
     if (onUpdateCatalogOrder) {
       onUpdateCatalogOrder(localCatalogOrder);
     }
+    if (onChangeTrendsInterval) onChangeTrendsInterval(parseInt(localTrendsInterval, 10) || 25);
+    if (onChangeTrendsDisplayTime) onChangeTrendsDisplayTime(parseInt(localTrendsDisplayTime, 10) || 6);
     
     addLog(`Ajustes de heladería guardados en la nube por ${currentUser?.name || 'Administrador'}.`);
     alert("¡Ajustes de heladería guardados y sincronizados correctamente en la nube!");
@@ -771,6 +779,46 @@ export default function SettingsManager({
             <input id="shop-open-input" name="shop-open" type="checkbox" checked={shopOpen} onChange={onToggleShopOpenProp} />
             <span className="slider"></span>
           </label>
+        </div>
+
+        {/* Ajustes de Tendencias en Vivo (Prueba Social FOMO) */}
+        <div style={{ display: 'flex', flexDirection: 'column', gap: '10px', borderBottom: '1px solid var(--border-color)', paddingBottom: '12px' }}>
+          <div>
+            <strong>🔥 Ajustes de Tendencias en Vivo (Prueba Social)</strong>
+            <span style={{ fontSize: '0.75rem', color: 'var(--text-light)', display: 'block', marginTop: '2px' }}>
+              Controla la frecuencia y el tiempo de exhibición de las alertas flotantes del catálogo.
+            </span>
+          </div>
+          <div style={{ display: 'grid', gridTemplateColumns: '1.2fr 0.8fr', gap: '15px' }}>
+            <div className="form-group">
+              <label htmlFor="trends-interval-input" style={{ fontSize: '0.75rem', fontWeight: 'bold' }}>Frecuencia de Actualización (segundos)</label>
+              <input
+                id="trends-interval-input"
+                type="number"
+                min="10"
+                max="120"
+                className="form-control"
+                style={{ fontSize: '0.8rem', padding: '6px' }}
+                value={localTrendsInterval}
+                onChange={(e) => setLocalTrendsInterval(parseInt(e.target.value, 10) || 25)}
+              />
+              <span style={{ fontSize: '0.65rem', color: 'var(--text-light)' }}>Cada cuántos segundos se busca un nuevo pedido.</span>
+            </div>
+            <div className="form-group">
+              <label htmlFor="trends-display-time-input" style={{ fontSize: '0.75rem', fontWeight: 'bold' }}>Duración Alerta (segundos)</label>
+              <input
+                id="trends-display-time-input"
+                type="number"
+                min="3"
+                max="20"
+                className="form-control"
+                style={{ fontSize: '0.8rem', padding: '6px' }}
+                value={localTrendsDisplayTime}
+                onChange={(e) => setLocalTrendsDisplayTime(parseInt(e.target.value, 10) || 6)}
+              />
+              <span style={{ fontSize: '0.65rem', color: 'var(--text-light)' }}>Duración visible de la alerta antes de ocultarse.</span>
+            </div>
+          </div>
         </div>
 
         {/* Telegram Bot */}

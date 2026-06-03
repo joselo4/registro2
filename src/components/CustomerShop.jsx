@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo, useCallback } from 'react';
 
 export default function CustomerShop({ 
   flavors, 
@@ -13,7 +13,9 @@ export default function CustomerShop({
   literConfig,
   catalogOrder = ['liter', 'classic', 'packs'],
   storePhone,
-  showAlert
+  showAlert,
+  trendsInterval,
+  trendsDisplayTime
 }) {
   const [filter, setFilter] = useState('all'); // all, classic, packs, liter
 
@@ -131,7 +133,7 @@ export default function CustomerShop({
     const generateRandomTrend = () => {
       const eventTypes = ['custom', 'pack', 'liter'];
       const randomType = eventTypes[Math.floor(Math.random() * eventTypes.length)];
-      const names = ['Un cliente', 'Alguien', 'Un heladero', 'Una heladera', 'Un usuario'];
+      const names = ['Sofía', 'Mateo', 'Valentina', 'Santiago', 'Camila', 'Sebastián', 'Isabella', 'Alejandro', 'Valeria', 'Diego', 'Mariana', 'Lucas', 'Gabriela', 'Nicolás', 'Lucía', 'Samuel', 'Daniela', 'Joaquín', 'Andrea', 'Matías'];
       const clientName = names[Math.floor(Math.random() * names.length)];
 
       if (randomType === 'custom' && activeFlavors.length > 0) {
@@ -179,7 +181,7 @@ export default function CustomerShop({
           id: Date.now(),
           icon: '🎁',
           title: 'Combo Vendido',
-          desc: `¡Se vendió un ${pack.name}! 🚀`,
+          desc: `¡${clientName} compró un ${pack.name}! 🚀`,
           item: {
             type: 'pack',
             id: pack.id,
@@ -211,29 +213,40 @@ export default function CustomerShop({
       return null;
     };
 
-    const initialTimer = setTimeout(() => {
+    let dismissTimer = null;
+    let transitionTimer = null;
+
+    const showNewTrend = () => {
       const trend = generateRandomTrend();
-      if (trend) setCurrentTrend(trend);
-    }, 6000);
+      if (trend) {
+        setCurrentTrend(trend);
+        setIsToastDismissing(false);
+
+        dismissTimer = setTimeout(() => {
+          setIsToastDismissing(true);
+          transitionTimer = setTimeout(() => {
+            setCurrentTrend(null);
+            setIsToastDismissing(false);
+          }, 350);
+        }, (trendsDisplayTime || 6) * 1000);
+      }
+    };
+
+    const initialTimer = setTimeout(() => {
+      showNewTrend();
+    }, 4000);
 
     const interval = setInterval(() => {
-      setIsToastDismissing(true);
-      setTimeout(() => {
-        setCurrentTrend(null);
-        setIsToastDismissing(false);
-        
-        setTimeout(() => {
-          const trend = generateRandomTrend();
-          if (trend) setCurrentTrend(trend);
-        }, 1000);
-      }, 350);
-    }, 28000);
+      showNewTrend();
+    }, (trendsInterval || 25) * 1000);
 
     return () => {
       clearTimeout(initialTimer);
       clearInterval(interval);
+      if (dismissTimer) clearTimeout(dismissTimer);
+      if (transitionTimer) clearTimeout(transitionTimer);
     };
-  }, [activeFlavors, activePacks, literConfig, dismissedTrend]);
+  }, [activeFlavors, activePacks, literConfig, dismissedTrend, trendsInterval, trendsDisplayTime]);
 
   const handleTryTrend = (item) => {
     onAddToCart(item);
@@ -356,7 +369,7 @@ export default function CustomerShop({
   };
 
   // Un helado clásico rápido es un helado simple de 1 bola en Cono
-  const handleAddClassicToCart = (flavor) => {
+  const handleAddClassicToCart = useCallback((flavor) => {
     const customItem = {
       type: 'custom',
       base: { id: 'cono', name: 'Cono de Galleta Crujiente', price: 0.0 },
@@ -367,9 +380,9 @@ export default function CustomerShop({
       name: `Helado Simple de ${flavor.name}`
     };
     onAddToCart(customItem);
-  };
+  }, [onAddToCart]);
 
-  const handleAddPackToCart = (pack) => {
+  const handleAddPackToCart = useCallback((pack) => {
     const packItem = {
       type: 'pack',
       id: pack.id,
@@ -380,7 +393,7 @@ export default function CustomerShop({
       quantity: 1
     };
     onAddToCart(packItem);
-  };
+  }, [onAddToCart]);
 
   return (
     <div className="customer-shop">
@@ -515,7 +528,8 @@ export default function CustomerShop({
         </div>
 
         {/* Grid de Productos */}
-        <div className="catalog-grid">
+        {useMemo(() => (
+          <div className="catalog-grid">
           {(catalogOrder || ['liter', 'classic', 'packs']).map(section => {
             if (section === 'liter') {
               return (
@@ -787,6 +801,7 @@ export default function CustomerShop({
             return null;
           })}
         </div>
+        ), [catalogOrder, filter, literConfig, activeFlavors, activePacks, setView, handleAddClassicToCart, handleAddPackToCart])}
       </section>
 
       {/* MODAL WIZARD SABOR-O-MATIC */}

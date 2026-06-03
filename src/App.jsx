@@ -220,6 +220,16 @@ export default function App() {
     return saved || '51987654321'; 
   });
 
+  const [trendsInterval, setTrendsInterval] = useState(() => {
+    const saved = localStorage.getItem('helados_trends_interval');
+    return saved ? parseInt(saved, 10) : 25;
+  });
+
+  const [trendsDisplayTime, setTrendsDisplayTime] = useState(() => {
+    const saved = localStorage.getItem('helados_trends_display_time');
+    return saved ? parseInt(saved, 10) : 6;
+  });
+
   const [staffUsers, setStaffUsers] = useState(() => {
     const saved = localStorage.getItem('helados_staff_users');
     return saved ? JSON.parse(saved) : DEFAULT_STAFF_USERS;
@@ -371,6 +381,8 @@ export default function App() {
     if (serverData.store_instagram !== undefined) setStoreInstagram(serverData.store_instagram);
     if (serverData.store_facebook !== undefined) setStoreFacebook(serverData.store_facebook);
     if (serverData.whatsapp_contact_message !== undefined) setWhatsappContactMessage(serverData.whatsapp_contact_message);
+    if (serverData.trends_interval !== undefined) setTrendsInterval(parseInt(serverData.trends_interval, 10) || 25);
+    if (serverData.trends_display_time !== undefined) setTrendsDisplayTime(parseInt(serverData.trends_display_time, 10) || 6);
   };
 
   // --- NUEVO: Efecto de Sincronización e Inicialización Supabase ---
@@ -562,6 +574,8 @@ export default function App() {
   useSyncEffect('store_instagram', storeInstagram, false);
   useSyncEffect('store_facebook', storeFacebook, false);
   useSyncEffect('whatsapp_contact_message', whatsappContactMessage, false);
+  useSyncEffect('trends_interval', trendsInterval, false);
+  useSyncEffect('trends_display_time', trendsDisplayTime, false);
 
   // --- Efectos para actualizar el título y favicon dinámicamente ---
   useEffect(() => {
@@ -1059,6 +1073,8 @@ export default function App() {
             catalogOrder={catalogOrder}
             storePhone={storePhone}
             showAlert={showAlert}
+            trendsInterval={trendsInterval}
+            trendsDisplayTime={trendsDisplayTime}
           />
         )}
 
@@ -1206,6 +1222,10 @@ export default function App() {
               whatsappContactMessage={whatsappContactMessage}
               onChangeWhatsappContactMessage={setWhatsappContactMessage}
               showAlert={showAlert}
+              trendsInterval={trendsInterval}
+              onChangeTrendsInterval={setTrendsInterval}
+              trendsDisplayTime={trendsDisplayTime}
+              onChangeTrendsDisplayTime={setTrendsDisplayTime}
             />
           </React.Suspense>
         )}
