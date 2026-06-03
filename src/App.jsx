@@ -7,15 +7,15 @@ import {
   INITIAL_PACKS, 
   INITIAL_ORDERS 
 } from './utils/mockData';
-import CustomerShop from './components/CustomerShop';
-import IceCreamCustomizer from './components/IceCreamCustomizer';
-import LiterCustomizer from './components/LiterCustomizer';
-import Cart from './components/Cart';
-import LiveChatTelegramBridge from './components/LiveChatTelegramBridge';
 import { fetchSyncedData, updateSyncedData, subscribeToSync } from './utils/supabaseSync';
 import { supabase } from './utils/supabaseClient';
 
 // Lazy loading components for better initial load performance (UX)
+const CustomerShop = React.lazy(() => import('./components/CustomerShop'));
+const IceCreamCustomizer = React.lazy(() => import('./components/IceCreamCustomizer'));
+const LiterCustomizer = React.lazy(() => import('./components/LiterCustomizer'));
+const Cart = React.lazy(() => import('./components/Cart'));
+const LiveChatTelegramBridge = React.lazy(() => import('./components/LiveChatTelegramBridge'));
 const OrderTracker = React.lazy(() => import('./components/OrderTracker'));
 const AdminPanel = React.lazy(() => import('./components/AdminPanel'));
 
@@ -396,6 +396,7 @@ export default function App() {
 
   // --- Función auxiliar para aplicar los datos sincronizados y combinar las órdenes ---
   const applyLoadedData = (serverData) => {
+    setIsCloudSynced(true);
     if (serverData.store_name !== undefined) setStoreName(serverData.store_name);
     if (serverData.store_logo !== undefined) setStoreLogo(serverData.store_logo);
     if (serverData.store_title !== undefined) setStoreTitle(serverData.store_title);
@@ -1230,7 +1231,8 @@ export default function App() {
           </div>
         )}
 
-        {view === 'shop' && (
+        <React.Suspense fallback={<div className="glass" style={{ padding: '40px', textAlign: 'center', fontFamily: 'var(--font-title)', color: 'var(--primary-color)', fontSize: '1.2rem', fontWeight: 'bold' }}>🍨 Cargando carta...</div>}>
+          {view === 'shop' && (
           <CustomerShop 
             flavors={flavors}
             toppings={toppings}
@@ -1314,8 +1316,7 @@ export default function App() {
         )}
 
         {view === 'tracker' && (
-          <React.Suspense fallback={<div className="glass" style={{ padding: '30px', textAlign: 'center' }}>Cargando rastreador...</div>}>
-            <OrderTracker 
+          <OrderTracker 
               orderId={activeOrderId}
               orders={orders}
               setView={setView}
@@ -1327,12 +1328,10 @@ export default function App() {
                 localStorage.removeItem('helados_active_order_id');
               }}
             />
-          </React.Suspense>
         )}
 
         {view === 'admin' && (
-          <React.Suspense fallback={<div className="glass" style={{ padding: '30px', textAlign: 'center' }}>Cargando panel de control...</div>}>
-            <AdminPanel 
+          <AdminPanel 
               orders={orders}
               onUpdateOrderStatus={handleUpdateOrderStatus}
               flavors={flavors}
@@ -1418,8 +1417,8 @@ export default function App() {
               tableOrdersEnabled={shopConfig.tableOrdersEnabled !== false}
               waiterTakerEnabled={shopConfig.waiterTakerEnabled !== false}
             />
-          </React.Suspense>
         )}
+        </React.Suspense>
       </main>
 
       {/* 🔑 PIE DE PÁGINA (Footer) CON ACCESO DISCRETO */}

@@ -46,14 +46,7 @@ const getAdminCredentials = () => {
 export const fetchSyncedData = async (isAdmin = false) => {
   if (!supabase) return null;
 
-  // Comprobar caché (para clientes únicamente; administradores siempre consultan datos frescos)
-  if (!isAdmin) {
-    const cacheKey = 'client';
-    const now = Date.now();
-    if (_syncCache[cacheKey] && (now - _syncCacheTime[cacheKey]) < CACHE_TTL_MS) {
-      return _syncCache[cacheKey];
-    }
-  }
+
 
   try {
     let syncData = {};
