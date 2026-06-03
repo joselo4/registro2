@@ -1047,6 +1047,8 @@ export default function App() {
         {view === 'shop' && (
           <CustomerShop 
             flavors={flavors}
+            toppings={toppings}
+            bases={bases}
             packs={packs}
             onAddToCart={handleAddToCart}
             setView={setView}
@@ -1056,6 +1058,7 @@ export default function App() {
             literConfig={literConfig}
             catalogOrder={catalogOrder}
             storePhone={storePhone}
+            showAlert={showAlert}
           />
         )}
 

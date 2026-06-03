@@ -1,7 +1,9 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 
 export default function CustomerShop({ 
   flavors, 
+  toppings = [],
+  bases = [],
   packs, 
   onAddToCart, 
   setView, 
@@ -10,12 +12,247 @@ export default function CustomerShop({
   deliveryCampaignText = '¡Arma tu helado con toppings o elige un pack promocional para no pagar envío!',
   literConfig,
   catalogOrder = ['liter', 'classic', 'packs'],
-  storePhone
+  storePhone,
+  showAlert
 }) {
   const [filter, setFilter] = useState('all'); // all, classic, packs, liter
 
   const activeFlavors = flavors.filter(f => f.active);
   const activePacks = packs.filter(p => p.active);
+
+  // --- Estados y Lógica para Sabor-O-Matic ---
+  const [showWizard, setShowWizard] = useState(false);
+  const [wizardStep, setWizardStep] = useState(1); // 1: antojo, 2: premium, 3: topping, 4: result
+  const [wizardAnswers, setWizardAnswers] = useState({ antojo: null, premium: null, topping: null });
+  const [wizardResult, setWizardResult] = useState(null);
+  const [isWizardLoading, setIsWizardLoading] = useState(false);
+
+  // --- Estados y Lógica para Tendencias en Vivo (FOMO) ---
+  const [currentTrend, setCurrentTrend] = useState(null);
+  const [dismissedTrend, setDismissedTrend] = useState(false);
+  const [isToastDismissing, setIsToastDismissing] = useState(false);
+
+  const generateSaborOMaticCombination = (answers) => {
+    setIsWizardLoading(true);
+    setWizardStep(4);
+
+    setTimeout(() => {
+      // 1. Base
+      const availableBases = bases.length > 0 ? bases.filter(b => b.active) : [];
+      const selectedBase = availableBases.length > 0 
+        ? availableBases[Math.floor(Math.random() * availableBases.length)]
+        : { id: 'cono', name: 'Cono de Galleta Crujiente', price: 0.0 };
+
+      // 2. Sabores
+      const availableFlavors = flavors.filter(f => f.active);
+      
+      // Filtrar por Antojo
+      const fruityKeys = ['fresa', 'mango', 'maracuya', 'coco'];
+      let matchingFlavors = availableFlavors;
+      if (answers.antojo === 'fruity') {
+        matchingFlavors = availableFlavors.filter(f => fruityKeys.includes(f.id) || f.name.toLowerCase().includes('fresa') || f.name.toLowerCase().includes('mango') || f.name.toLowerCase().includes('maracuy') || f.name.toLowerCase().includes('limon') || f.name.toLowerCase().includes('coco'));
+      } else if (answers.antojo === 'creamy') {
+        matchingFlavors = availableFlavors.filter(f => !fruityKeys.includes(f.id) && !f.name.toLowerCase().includes('limon'));
+      }
+
+      // Si nos quedamos sin sabores tras el filtro, volvemos a la lista completa
+      if (matchingFlavors.length === 0) matchingFlavors = availableFlavors;
+
+      // Filtrar por Premium
+      if (answers.premium === 'no') {
+        matchingFlavors = matchingFlavors.filter(f => !f.isPremium);
+      } else if (answers.premium === 'yes') {
+        const premiumOnly = matchingFlavors.filter(f => f.isPremium);
+        if (premiumOnly.length > 0) matchingFlavors = premiumOnly;
+      }
+      
+      if (matchingFlavors.length === 0) matchingFlavors = availableFlavors;
+
+      // Seleccionar 2 sabores para copa/cono doble
+      const selectedScoops = [];
+      const numScoops = 2;
+      const tempFlavors = [...matchingFlavors];
+      
+      for (let i = 0; i < numScoops; i++) {
+        if (tempFlavors.length > 0) {
+          const idx = Math.floor(Math.random() * tempFlavors.length);
+          const f = tempFlavors.splice(idx, 1)[0];
+          selectedScoops.push({ id: f.id, name: f.name, price: f.price, color: f.color });
+        } else if (availableFlavors.length > 0) {
+          const f = availableFlavors[Math.floor(Math.random() * availableFlavors.length)];
+          selectedScoops.push({ id: f.id, name: f.name, price: f.price, color: f.color });
+        }
+      }
+
+      // 3. Toppings
+      const availableToppings = toppings.length > 0 ? toppings.filter(t => t.active) : [];
+      let matchingToppings = availableToppings;
+      
+      if (answers.topping === 'sweet') {
+        matchingToppings = availableToppings.filter(t => {
+          const name = t.name.toLowerCase();
+          return name.includes('oreo') || name.includes('chispa') || name.includes('galleta') || name.includes('chocolate') || name.includes('crocante') || name.includes('lenteja') || name.includes('sublime');
+        });
+      } else if (answers.topping === 'fruit_sauce') {
+        matchingToppings = availableToppings.filter(t => {
+          const name = t.name.toLowerCase();
+          return name.includes('fresa') || name.includes('mango') || name.includes('maracuya') || name.includes('salsa') || name.includes('fudge') || name.includes('jalea') || name.includes('leche');
+        });
+      }
+
+      if (matchingToppings.length === 0) matchingToppings = availableToppings;
+
+      const selectedToppings = [];
+      if (matchingToppings.length > 0) {
+        const t = matchingToppings[Math.floor(Math.random() * matchingToppings.length)];
+        selectedToppings.push({ id: t.id, name: t.name, price: t.price });
+      }
+
+      // Calcular precio total
+      const basePrice = selectedBase.price || 0.0;
+      const scoopsPrice = selectedScoops.reduce((sum, s) => sum + (s.price || 0.0), 0);
+      const toppingsPrice = selectedToppings.reduce((sum, t) => sum + (t.price || 0.0), 0);
+      const totalPrice = basePrice + scoopsPrice + toppingsPrice;
+
+      setWizardResult({
+        base: selectedBase,
+        scoops: selectedScoops,
+        toppings: selectedToppings,
+        price: totalPrice
+      });
+      setIsWizardLoading(false);
+    }, 1200);
+  };
+
+  // Simular tendencias en vivo sin locación geográfica (Seguridad y Privacidad)
+  useEffect(() => {
+    if (dismissedTrend) return;
+
+    const generateRandomTrend = () => {
+      const eventTypes = ['custom', 'pack', 'liter'];
+      const randomType = eventTypes[Math.floor(Math.random() * eventTypes.length)];
+      const names = ['Un cliente', 'Alguien', 'Un heladero', 'Una heladera', 'Un usuario'];
+      const clientName = names[Math.floor(Math.random() * names.length)];
+
+      if (randomType === 'custom' && activeFlavors.length > 0) {
+        const flavor1 = activeFlavors[Math.floor(Math.random() * activeFlavors.length)];
+        const flavor2 = activeFlavors[Math.floor(Math.random() * activeFlavors.length)];
+        const hasDouble = Math.random() > 0.4;
+        
+        let desc = `${clientName} armó: Helado Simple de ${flavor1.name} 🍦`;
+        let itemToTry = {
+          type: 'custom',
+          base: { id: 'cono', name: 'Cono de Galleta Crujiente', price: 0.0 },
+          scoops: [{ id: flavor1.id, name: flavor1.name, price: flavor1.price, color: flavor1.color }],
+          toppings: [],
+          price: flavor1.price,
+          quantity: 1,
+          name: `Helado Simple de ${flavor1.name}`
+        };
+
+        if (hasDouble && flavor1.id !== flavor2.id) {
+          desc = `${clientName} armó: Helado Doble de ${flavor1.name} y ${flavor2.name} 🍦`;
+          itemToTry = {
+            type: 'custom',
+            base: { id: 'cono', name: 'Cono de Galleta Crujiente', price: 0.0 },
+            scoops: [
+              { id: flavor1.id, name: flavor1.name, price: flavor1.price, color: flavor1.color },
+              { id: flavor2.id, name: flavor2.name, price: flavor2.price, color: flavor2.color }
+            ],
+            toppings: [],
+            price: flavor1.price + flavor2.price,
+            quantity: 1,
+            name: `Helado Doble de ${flavor1.name} y ${flavor2.name}`
+          };
+        }
+
+        return {
+          id: Date.now(),
+          icon: '🍦',
+          title: 'Pedido Reciente',
+          desc,
+          item: itemToTry
+        };
+      } else if (randomType === 'pack' && activePacks.length > 0) {
+        const pack = activePacks[Math.floor(Math.random() * activePacks.length)];
+        return {
+          id: Date.now(),
+          icon: '🎁',
+          title: 'Combo Vendido',
+          desc: `¡Se vendió un ${pack.name}! 🚀`,
+          item: {
+            type: 'pack',
+            id: pack.id,
+            name: pack.name,
+            price: pack.price,
+            items: pack.items,
+            image: pack.image || '',
+            quantity: 1
+          }
+        };
+      } else if (randomType === 'liter' && literConfig?.active !== false && activeFlavors.length > 0) {
+        const flavor = activeFlavors[Math.floor(Math.random() * activeFlavors.length)];
+        return {
+          id: Date.now(),
+          icon: '🏺',
+          title: 'Familiar 1 Litro',
+          desc: `${clientName} ordenó: 1 Litro de Helado sabor ${flavor.name} 🏺`,
+          item: {
+            type: 'liter',
+            price: literConfig?.price || 15.0,
+            flavors: [flavor.name],
+            toppings: [],
+            quantity: 1,
+            name: `Helado de 1 Litro (${flavor.name})`,
+            image: literConfig?.image || ''
+          }
+        };
+      }
+      return null;
+    };
+
+    const initialTimer = setTimeout(() => {
+      const trend = generateRandomTrend();
+      if (trend) setCurrentTrend(trend);
+    }, 6000);
+
+    const interval = setInterval(() => {
+      setIsToastDismissing(true);
+      setTimeout(() => {
+        setCurrentTrend(null);
+        setIsToastDismissing(false);
+        
+        setTimeout(() => {
+          const trend = generateRandomTrend();
+          if (trend) setCurrentTrend(trend);
+        }, 1000);
+      }, 350);
+    }, 28000);
+
+    return () => {
+      clearTimeout(initialTimer);
+      clearInterval(interval);
+    };
+  }, [activeFlavors, activePacks, literConfig, dismissedTrend]);
+
+  const handleTryTrend = (item) => {
+    onAddToCart(item);
+    if (showAlert) {
+      showAlert('¡Añadido al Carrito!', `Se agregó a tu carrito: ${item.name}`, 'success');
+    } else {
+      alert(`🛒 ¡Se añadió al carrito: ${item.name}!`);
+    }
+    handleDismissToast();
+  };
+
+  const handleDismissToast = () => {
+    setIsToastDismissing(true);
+    setTimeout(() => {
+      setCurrentTrend(null);
+      setIsToastDismissing(false);
+      setDismissedTrend(true);
+    }, 350);
+  };
 
   // Helper for dynamic premium toppings per flavor in the shop catalog
   const renderDynamicToppings = (flavorId) => {
@@ -223,6 +460,26 @@ export default function CustomerShop({
           👉 Diseñar Helado Personalizado
         </button>
       </section>
+
+      {/* Banner Sabor-O-Matic */}
+      <div className="sabor-omatic-banner" onClick={() => {
+        setWizardStep(1);
+        setWizardAnswers({ antojo: null, premium: null, topping: null });
+        setWizardResult(null);
+        setShowWizard(true);
+      }}>
+        <div className="sabor-omatic-banner-content">
+          <div className="sabor-omatic-banner-title">
+            <span>🧠 ¿Indeciso hoy?</span>
+          </div>
+          <div className="sabor-omatic-banner-desc">
+            Prueba nuestro asistente inteligente <strong>Sabor-O-Matic</strong>. Él diseñará el helado perfecto para tu antojo en 3 preguntas rápidas.
+          </div>
+        </div>
+        <button className="btn btn-secondary" style={{ whiteSpace: 'nowrap', margin: 0, padding: '10px 16px' }}>
+          ✨ Iniciar
+        </button>
+      </div>
 
       {/* Catálogo */}
       <section id="catalog" style={{ scrollMarginTop: '100px' }}>
@@ -531,6 +788,237 @@ export default function CustomerShop({
           })}
         </div>
       </section>
+
+      {/* MODAL WIZARD SABOR-O-MATIC */}
+      {showWizard && (
+        <div className="sabor-omatic-overlay">
+          <div className="glass sabor-omatic-modal">
+            <div className="sabor-omatic-header">
+              <h3>🧠 Asistente Sabor-O-Matic</h3>
+              <button className="sabor-omatic-close" onClick={() => setShowWizard(false)}>&times;</button>
+            </div>
+            <div className="sabor-omatic-body">
+              {/* Progress bar */}
+              <div className="sabor-omatic-progress">
+                <div 
+                  className="sabor-omatic-progress-fill" 
+                  style={{ width: `${(wizardStep - 1) * 33.33}%` }}
+                ></div>
+              </div>
+
+              {/* Paso 1: Antojo */}
+              {wizardStep === 1 && (
+                <>
+                  <div className="sabor-omatic-question-title">¿Qué tipo de sabor te provoca hoy?</div>
+                  <div className="sabor-omatic-options">
+                    <button 
+                      className="sabor-omatic-option-btn"
+                      onClick={() => {
+                        setWizardAnswers(prev => ({ ...prev, antojo: 'creamy' }));
+                        setWizardStep(2);
+                      }}
+                    >
+                      <span className="sabor-omatic-option-emoji">🍫</span>
+                      <div className="sabor-omatic-option-text">
+                        <div>Dulce y Cremoso</div>
+                        <div style={{ fontSize: '0.75rem', fontWeight: 400, opacity: 0.8 }}>Chocolate, Vainilla, Lúcuma y más</div>
+                      </div>
+                    </button>
+                    <button 
+                      className="sabor-omatic-option-btn"
+                      onClick={() => {
+                        setWizardAnswers(prev => ({ ...prev, antojo: 'fruity' }));
+                        setWizardStep(2);
+                      }}
+                    >
+                      <span className="sabor-omatic-option-emoji">🍓</span>
+                      <div className="sabor-omatic-option-text">
+                        <div>Fresco y Frutal</div>
+                        <div style={{ fontSize: '0.75rem', fontWeight: 400, opacity: 0.8 }}>Fresa, Mango, Maracuyá, Limón...</div>
+                      </div>
+                    </button>
+                  </div>
+                </>
+              )}
+
+              {/* Paso 2: Premium */}
+              {wizardStep === 2 && (
+                <>
+                  <div className="sabor-omatic-question-title">¿Te gustaría incluir sabores Premium en la mezcla?</div>
+                  <div className="sabor-omatic-options">
+                    <button 
+                      className="sabor-omatic-option-btn"
+                      onClick={() => {
+                        setWizardAnswers(prev => ({ ...prev, premium: 'yes' }));
+                        setWizardStep(3);
+                      }}
+                    >
+                      <span className="sabor-omatic-option-emoji">🌟</span>
+                      <div className="sabor-omatic-option-text">
+                        <div>¡Sí! Sorpréndeme con algo especial</div>
+                        <div style={{ fontSize: '0.75rem', fontWeight: 400, opacity: 0.8 }}>Incluye nuestros sabores exclusivos</div>
+                      </div>
+                    </button>
+                    <button 
+                      className="sabor-omatic-option-btn"
+                      onClick={() => {
+                        setWizardAnswers(prev => ({ ...prev, premium: 'no' }));
+                        setWizardStep(3);
+                      }}
+                    >
+                      <span className="sabor-omatic-option-emoji">🍦</span>
+                      <div className="sabor-omatic-option-text">
+                        <div>Solo clásicos de siempre</div>
+                        <div style={{ fontSize: '0.75rem', fontWeight: 400, opacity: 0.8 }}>Los favoritos tradicionales</div>
+                      </div>
+                    </button>
+                  </div>
+                </>
+              )}
+
+              {/* Paso 3: Topping */}
+              {wizardStep === 3 && (
+                <>
+                  <div className="sabor-omatic-question-title">¿Cómo te gustaría decorar tu helado?</div>
+                  <div className="sabor-omatic-options">
+                    <button 
+                      className="sabor-omatic-option-btn"
+                      onClick={() => {
+                        const answers = { ...wizardAnswers, topping: 'sweet' };
+                        setWizardAnswers(answers);
+                        generateSaborOMaticCombination(answers);
+                      }}
+                    >
+                      <span className="sabor-omatic-option-emoji">🍪</span>
+                      <div className="sabor-omatic-option-text">
+                        <div>Galletas & Chocolates</div>
+                        <div style={{ fontSize: '0.75rem', fontWeight: 400, opacity: 0.8 }}>Chispas, Oreos y trozos crocantes</div>
+                      </div>
+                    </button>
+                    <button 
+                      className="sabor-omatic-option-btn"
+                      onClick={() => {
+                        const answers = { ...wizardAnswers, topping: 'fruit_sauce' };
+                        setWizardAnswers(answers);
+                        generateSaborOMaticCombination(answers);
+                      }}
+                    >
+                      <span className="sabor-omatic-option-emoji">🍒</span>
+                      <div className="sabor-omatic-option-text">
+                        <div>Salsas & Frutos</div>
+                        <div style={{ fontSize: '0.75rem', fontWeight: 400, opacity: 0.8 }}>Jarabes dulces y mermeladas</div>
+                      </div>
+                    </button>
+                    <button 
+                      className="sabor-omatic-option-btn"
+                      onClick={() => {
+                        const answers = { ...wizardAnswers, topping: 'surprise' };
+                        setWizardAnswers(answers);
+                        generateSaborOMaticCombination(answers);
+                      }}
+                    >
+                      <span className="sabor-omatic-option-emoji">🎉</span>
+                      <div className="sabor-omatic-option-text">
+                        <div>¡Sorpréndeme con lo que sea!</div>
+                        <div style={{ fontSize: '0.75rem', fontWeight: 400, opacity: 0.8 }}>Una combinación completamente aleatoria</div>
+                      </div>
+                    </button>
+                  </div>
+                </>
+              )}
+
+              {/* Paso 4: Cargando y Resultado */}
+              {wizardStep === 4 && (
+                <>
+                  {isWizardLoading ? (
+                    <div className="sabor-omatic-loading">
+                      <div className="som-spinner">🍦</div>
+                      <h4 style={{ fontFamily: 'var(--font-title)' }}>Cocinando tu helado ideal...</h4>
+                      <p style={{ fontSize: '0.85rem', color: 'var(--text-light)', marginTop: '5px' }}>
+                        Combinando bases, sabores y toppings seleccionados
+                      </p>
+                    </div>
+                  ) : (
+                    wizardResult && (
+                      <div className="sabor-omatic-result">
+                        <div className="sabor-omatic-result-card">
+                          <div className="sabor-omatic-result-title">✨ ¡Combinación Perfecta Lista! ✨</div>
+                          <div className="sabor-omatic-result-details">
+                            <p><strong>Base:</strong> {wizardResult.base.name}</p>
+                            <p><strong>Sabores:</strong> {wizardResult.scoops.map(s => s.name).join(' y ')}</p>
+                            {wizardResult.toppings.length > 0 ? (
+                              <p><strong>Topping:</strong> {wizardResult.toppings.map(t => t.name).join(', ')}</p>
+                            ) : (
+                              <p>Sin toppings adicionales</p>
+                            )}
+                          </div>
+                          <div className="sabor-omatic-result-price">
+                            Total: S/. {parseFloat(wizardResult.price).toFixed(2)}
+                          </div>
+                        </div>
+                        <div className="sabor-omatic-actions">
+                          <button 
+                            className="btn btn-primary" 
+                            style={{ flex: 1 }}
+                            onClick={() => {
+                              const customItem = {
+                                type: 'custom',
+                                base: wizardResult.base,
+                                scoops: wizardResult.scoops,
+                                toppings: wizardResult.toppings,
+                                price: wizardResult.price,
+                                quantity: 1,
+                                name: `Sabor-O-Matic: ${wizardResult.scoops.map(s => s.name).join(' + ')}`
+                              };
+                              onAddToCart(customItem);
+                              setShowWizard(false);
+                              if (showAlert) {
+                                showAlert('¡Carrito Actualizado!', 'Tu helado personalizado sugerido por Sabor-O-Matic ha sido añadido al carrito.', 'success');
+                              } else {
+                                alert('¡Añadido al carrito con éxito!');
+                              }
+                            }}
+                          >
+                            🛒 Comprar Helado
+                          </button>
+                          <button 
+                            className="btn btn-secondary" 
+                            onClick={() => {
+                              setWizardStep(1);
+                              setWizardAnswers({ antojo: null, premium: null, topping: null });
+                              setWizardResult(null);
+                            }}
+                          >
+                            🔁 Repetir
+                          </button>
+                        </div>
+                      </div>
+                    )
+                  )}
+                </>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* TENDENCIAS EN VIVO TOAST (Prueba Social y FOMO sin geolocalización) */}
+      {currentTrend && (
+        <div className={`glass tendencias-toast ${isToastDismissing ? 'dismissing' : ''}`}>
+          <div className="tendencias-icon">{currentTrend.icon}</div>
+          <div className="tendencias-content">
+            <div className="tendencias-title">{currentTrend.title}</div>
+            <div className="tendencias-desc">{currentTrend.desc}</div>
+            <button 
+              className="tendencias-action-btn"
+              onClick={() => handleTryTrend(currentTrend.item)}
+            >
+              Probar este 🍦
+            </button>
+          </div>
+          <button className="tendencias-close" onClick={handleDismissToast}>&times;</button>
+        </div>
+      )}
     </div>
   );
 }
