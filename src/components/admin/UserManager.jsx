@@ -76,6 +76,9 @@ export default function UserManager({
 
       const result = await response.json().catch(() => ({}));
       if (!response.ok) throw new Error(result.error || 'No se pudo sincronizar el personal en Supabase Auth.');
+      if (result.warning) {
+        alert(`Aviso: ${result.warning}`);
+      }
       return true;
     } catch (err) {
       console.warn(`No se pudo sincronizar ${label} en Supabase:`, err.message);

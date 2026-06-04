@@ -25,20 +25,46 @@ const normalizeStatus = (value) => {
   return status;
 };
 
+const fail = (status, step, error) =>
+  json({ ok: false, step, error }, status);
+
+const syncStaffUsers = async (adminClient, nextStaffValue) => {
+  const { error } = await adminClient
+    .from('helados_sync')
+    .upsert(
+      {
+        key: 'staff_users',
+        value: nextStaffValue,
+        updated_at: new Date().toISOString(),
+      },
+      { onConflict: 'key' }
+    );
+
+  if (error) {
+    return { ok: false, error: error.message || 'No se pudo actualizar el personal.' };
+  }
+
+  return { ok: true };
+};
+
 export async function onRequestPost({ request, env }) {
   try {
     const authHeader = request.headers.get('Authorization') || '';
     const accessToken = authHeader.startsWith('Bearer ') ? authHeader.slice(7).trim() : '';
 
-    const supabaseUrl = env.SUPABASE_URL;
-    const serviceRoleKey = env.SUPABASE_SERVICE_ROLE_KEY;
+    const supabaseUrl = String(env.SUPABASE_URL || env.VITE_SUPABASE_URL || '').trim();
+    const serviceRoleKey = String(env.SUPABASE_SERVICE_ROLE_KEY || '').trim();
 
     if (!supabaseUrl || !serviceRoleKey) {
-      return json({ error: 'Supabase Auth admin no está configurado en el servidor.' }, 503);
+      return fail(503, 'config', 'Supabase Auth admin no está configurado en el servidor.');
+    }
+
+    if (!/^https?:\/\/.+/i.test(supabaseUrl)) {
+      return fail(500, 'config', 'SUPABASE_URL debe empezar con http:// o https:// y no puede tener espacios ni comillas.');
     }
 
     if (!accessToken) {
-      return json({ error: 'Falta el token de sesión del administrador.' }, 401);
+      return fail(401, 'auth', 'Falta el token de sesión del administrador.');
     }
 
     const { createClient } = await import('@supabase/supabase-js');
@@ -52,14 +78,14 @@ export async function onRequestPost({ request, env }) {
 
     const { data: userResult, error: userError } = await adminClient.auth.getUser(accessToken);
     if (userError || !userResult?.user) {
-      return json({ error: 'No se pudo validar la sesión del administrador.' }, 401);
+      return fail(401, 'auth', userError?.message || 'No se pudo validar la sesión del administrador.');
     }
 
     const caller = userResult.user;
     const callerEmail = normalizeEmail(caller.email);
     const callerRole = normalizeRole(caller.user_metadata?.role || caller.app_metadata?.role || '');
     if (callerEmail !== 'admin@donhelado.com' && !callerRole.toLowerCase().includes('admin')) {
-      return json({ error: 'Solo un administrador puede cambiar usuarios de Auth.' }, 403);
+      return fail(403, 'authz', 'Solo un administrador puede cambiar usuarios de Auth.');
     }
 
     const body = await request.json();
@@ -71,7 +97,7 @@ export async function onRequestPost({ request, env }) {
     const status = normalizeStatus(body.status);
 
     if (!email) {
-      return json({ error: 'Falta el correo del usuario.' }, 400);
+      return fail(400, 'input', 'Falta el correo del usuario.');
     }
 
     const { data: listData, error: listError } = await adminClient.auth.admin.listUsers({
@@ -80,7 +106,7 @@ export async function onRequestPost({ request, env }) {
     });
 
     if (listError) {
-      return json({ error: listError.message || 'No se pudo listar usuarios Auth.' }, 502);
+      return fail(502, 'auth_list', listError.message || 'No se pudo listar usuarios Auth.');
     }
 
     const authUser = listData?.users?.find((u) => normalizeEmail(u.email) === email) || null;
@@ -91,7 +117,7 @@ export async function onRequestPost({ request, env }) {
       .maybeSingle();
 
     if (staffError) {
-      return json({ error: staffError.message || 'No se pudo leer el personal sincronizado.' }, 502);
+      return fail(502, 'staff_read', staffError.message || 'No se pudo leer el personal sincronizado.');
     }
 
     const currentStaff = Array.isArray(staffRow?.value) ? staffRow.value : [];
@@ -122,17 +148,11 @@ export async function onRequestPost({ request, env }) {
     if (action === 'delete') {
       if (authUser?.id) {
         const { error } = await adminClient.auth.admin.deleteUser(authUser.id);
-        if (error) return json({ error: error.message || 'No se pudo eliminar el usuario Auth.' }, 502);
+        if (error) return fail(502, 'auth_delete', error.message || 'No se pudo eliminar el usuario Auth.');
       }
-      const { error: saveError } = await adminClient
-        .from('helados_sync')
-        .upsert({
-          key: 'staff_users',
-          value: nextStaffValue,
-          updated_at: new Date().toISOString(),
-        }, { onConflict: 'key' });
-      if (saveError) {
-        return json({ error: saveError.message || 'No se pudo actualizar el personal.' }, 502);
+      const staffResult = await syncStaffUsers(adminClient, nextStaffValue);
+      if (!staffResult.ok) {
+        return json({ ok: true, action: 'delete', warning: staffResult.error });
       }
       return json({ ok: true, action: 'delete' });
     }
@@ -153,27 +173,21 @@ export async function onRequestPost({ request, env }) {
 
     if (authUser?.id) {
       const { error } = await adminClient.auth.admin.updateUserById(authUser.id, payload);
-      if (error) return json({ error: error.message || 'No se pudo actualizar el usuario Auth.' }, 502);
-      const { error: saveError } = await adminClient
-        .from('helados_sync')
-        .upsert({
-          key: 'staff_users',
-          value: nextStaffValue,
-          updated_at: new Date().toISOString(),
-        }, { onConflict: 'key' });
-      if (saveError) {
-        return json({ error: saveError.message || 'No se pudo actualizar el personal.' }, 502);
+      if (error) return fail(502, 'auth_update', error.message || 'No se pudo actualizar el usuario Auth.');
+      const staffResult = await syncStaffUsers(adminClient, nextStaffValue);
+      if (!staffResult.ok) {
+        return json({ ok: true, action: 'update', userId: authUser.id, warning: staffResult.error });
       }
       return json({ ok: true, action: 'update', userId: authUser.id });
     }
 
     if (!password) {
-      return json({ error: 'Se necesita contraseña para crear el usuario Auth.' }, 400);
+      return fail(400, 'input', 'Se necesita contraseña para crear el usuario Auth.');
     }
 
     const { data: created, error: createError } = await adminClient.auth.admin.createUser(payload);
     if (createError) {
-      return json({ error: createError.message || 'No se pudo crear el usuario Auth.' }, 502);
+      return fail(502, 'auth_create', createError.message || 'No se pudo crear el usuario Auth.');
     }
 
     const createdUser = created?.user || null;
@@ -187,15 +201,9 @@ export async function onRequestPost({ request, env }) {
       }
     }
 
-    const { error: saveError } = await adminClient
-      .from('helados_sync')
-      .upsert({
-        key: 'staff_users',
-        value: nextStaffValue,
-        updated_at: new Date().toISOString(),
-      }, { onConflict: 'key' });
-    if (saveError) {
-      return json({ error: saveError.message || 'No se pudo actualizar el personal.' }, 502);
+    const staffResult = await syncStaffUsers(adminClient, nextStaffValue);
+    if (!staffResult.ok) {
+      return json({ ok: true, action: 'create', userId: created?.user?.id || null, warning: staffResult.error });
     }
 
     return json({ ok: true, action: 'create', userId: created?.user?.id || null });
