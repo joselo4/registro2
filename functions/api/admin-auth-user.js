@@ -100,6 +100,10 @@ export async function onRequestPost({ request, env }) {
       return fail(400, 'input', 'Falta el correo del usuario.');
     }
 
+    if (action !== 'delete' && password && password.length < 6) {
+      return fail(400, 'input', 'La contraseña debe tener al menos 6 caracteres para Supabase Auth.');
+    }
+
     const { data: listData, error: listError } = await adminClient.auth.admin.listUsers({
       page: 1,
       perPage: 1000,

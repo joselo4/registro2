@@ -7,6 +7,7 @@ export default function OrderTracker({ orderId, orders, setView, storePhone, onC
   const showDetailedTracker = true;
   const [inputVal, setInputVal] = useState('');
   const [activeSearchId, setActiveSearchId] = useState(orderId || '');
+  const [searchNonce, setSearchNonce] = useState(0);
   const [hasSearched, setHasSearched] = useState(false);
   const [recentOrders, setRecentOrders] = useState([]);
   const [prevStatus, setPrevStatus] = useState(null);
@@ -143,10 +144,10 @@ export default function OrderTracker({ orderId, orders, setView, storePhone, onC
     return (Date.now() - orderDate.getTime()) > TRACKING_WINDOW_HOURS * 60 * 60 * 1000;
   };
 
-  // Buscar el pedido actual (local o recuperado por Supabase)
-  const currentOrder = fetchedOrder || orders.find(
+  const localOrder = orders.find(
     o => o.id.toLowerCase() === activeSearchId.trim().toLowerCase()
   );
+  const currentOrder = fetchedOrder || localOrder;
 
   // Efecto para buscar pedido en Supabase de forma segura e independiente (por privacidad de egress)
   useEffect(() => {
@@ -154,11 +155,12 @@ export default function OrderTracker({ orderId, orders, setView, storePhone, onC
 
     const searchUpper = activeSearchId.trim().toUpperCase();
     const local = orders.find(o => o.id.toUpperCase() === searchUpper);
-    if (local) {
-      setFetchedOrder(local);
-    } else {
-      setFetchedOrder(null);
-    }
+    setFetchedOrder(local || null);
+
+    let cancelled = false;
+    const failSafeTimer = setTimeout(() => {
+      if (!cancelled) setLoadingOrder(false);
+    }, 12000);
 
     const fetchFromSupabase = async () => {
       setLoadingOrder(true);
@@ -169,14 +171,20 @@ export default function OrderTracker({ orderId, orders, setView, storePhone, onC
           .eq('key', `order_${searchUpper}`)
           .maybeSingle();
 
+        if (cancelled) return;
+
         if (!error && data && data.value) {
           setFetchedOrder(data.value);
           saveToRecentOrders(searchUpper);
         }
       } catch (err) {
-        console.warn("Error fetching order from cloud tracker:", err);
+        if (!cancelled) {
+          console.warn("Error fetching order from cloud tracker:", err);
+        }
       } finally {
-        setLoadingOrder(false);
+        if (!cancelled) {
+          setLoadingOrder(false);
+        }
       }
     };
 
@@ -197,9 +205,11 @@ export default function OrderTracker({ orderId, orders, setView, storePhone, onC
       .subscribe();
 
     return () => {
+      cancelled = true;
+      clearTimeout(failSafeTimer);
       supabase.removeChannel(channel);
     };
-  }, [activeSearchId, orders]);
+  }, [activeSearchId, searchNonce]);
 
   // Efecto para animar y reproducir sonido cuando cambia el estado del pedido tracked
   useEffect(() => {
@@ -293,8 +303,11 @@ export default function OrderTracker({ orderId, orders, setView, storePhone, onC
   const handleSearchSubmit = (e) => {
     e.preventDefault();
     const cleanId = inputVal.trim();
+    if (!cleanId) return;
+    setLoadingOrder(false);
     setActiveSearchId(cleanId);
     setHasSearched(true);
+    setSearchNonce((value) => value + 1);
   };
 
   const cleanPhone = String(storePhone || '').replace(/\D/g, '');
@@ -371,6 +384,7 @@ export default function OrderTracker({ orderId, orders, setView, storePhone, onC
                       setActiveSearchId(id);
                       setInputVal(id);
                       setHasSearched(false);
+                      setSearchNonce((value) => value + 1);
                     }}
                     className="btn btn-secondary"
                     style={{

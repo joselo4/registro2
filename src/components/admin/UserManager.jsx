@@ -53,6 +53,11 @@ export default function UserManager({
   const syncAdminMutation = async (payload, label) => {
     if (!supabase?.auth) return true;
     try {
+      const password = String(payload.p_password || '').trim();
+      if (payload.p_action !== 'delete' && password && password.length < 6) {
+        throw new Error('La contraseña debe tener al menos 6 caracteres para Supabase Auth.');
+      }
+
       const { data: sessionData, error: sessionError } = await supabase.auth.getSession();
       if (sessionError) throw sessionError;
       const accessToken = sessionData?.session?.access_token;
@@ -118,6 +123,10 @@ export default function UserManager({
 
     if (!sanitizedName || !sanitizedEmail || !sanitizedPassword) {
       alert("Todos los campos son obligatorios.");
+      return;
+    }
+    if (sanitizedPassword.length < 6) {
+      alert("La contraseña debe tener al menos 6 caracteres para Supabase Auth.");
       return;
     }
     if (!isValidEmail(sanitizedEmail)) {
@@ -213,6 +222,10 @@ export default function UserManager({
     const sanitizedPassword = sanitizeHTML(newPasswordForUser);
     if (!sanitizedPassword) {
       alert("La contraseña no puede estar vacía.");
+      return;
+    }
+    if (sanitizedPassword.length < 6) {
+      alert("La contraseña debe tener al menos 6 caracteres para Supabase Auth.");
       return;
     }
 
