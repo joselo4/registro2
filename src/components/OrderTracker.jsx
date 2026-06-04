@@ -3,6 +3,8 @@ import { supabase } from '../utils/supabaseClient';
 import { updateSyncedData } from '../utils/supabaseSync';
 
 export default function OrderTracker({ orderId, orders, setView, storePhone, onClearActiveOrder }) {
+  const TRACKING_WINDOW_HOURS = 72;
+  const showDetailedTracker = true;
   const [inputVal, setInputVal] = useState('');
   const [activeSearchId, setActiveSearchId] = useState(orderId || '');
   const [hasSearched, setHasSearched] = useState(false);
@@ -132,6 +134,13 @@ export default function OrderTracker({ orderId, orders, setView, storePhone, onC
     const trimmedList = list.slice(0, 5);
     localStorage.setItem('helados_recent_order_ids', JSON.stringify(trimmedList));
     setRecentOrders(trimmedList);
+  };
+
+  const isOrderExpired = (order) => {
+    if (!order?.date) return false;
+    const orderDate = new Date(order.date);
+    if (Number.isNaN(orderDate.getTime())) return false;
+    return (Date.now() - orderDate.getTime()) > TRACKING_WINDOW_HOURS * 60 * 60 * 1000;
   };
 
   // Buscar el pedido actual (local o recuperado por Supabase)
@@ -308,7 +317,7 @@ export default function OrderTracker({ orderId, orders, setView, storePhone, onC
             <input
               type="text"
               className="form-control"
-              placeholder="Ej: helado-17800"
+              placeholder="Ej: PED-ABC123"
               value={inputVal}
               onChange={(e) => setInputVal(e.target.value)}
               style={{ textTransform: 'lowercase', padding: '12px', fontSize: '1rem' }}
@@ -342,11 +351,17 @@ export default function OrderTracker({ orderId, orders, setView, storePhone, onC
           </button>
         </form>
 
-        {recentOrders && recentOrders.length > 0 && (
+        {recentOrders && recentOrders.filter((id) => {
+          const matched = orders.find(o => o.id.toLowerCase() === id.toLowerCase());
+          return matched && !isOrderExpired(matched);
+        }).length > 0 && (
           <div style={{ marginTop: '25px', borderTop: '1px solid var(--border-color)', paddingTop: '15px' }}>
             <h4 style={{ fontSize: '0.85rem', marginBottom: '10px', color: 'var(--text-dark)', fontWeight: 'bold' }}>🕰️ Mis Pedidos Recientes:</h4>
             <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
-              {recentOrders.map((id) => {
+              {recentOrders.filter((id) => {
+                const matched = orders.find(o => o.id.toLowerCase() === id.toLowerCase());
+                return matched && !isOrderExpired(matched);
+              }).map((id) => {
                 const matched = orders.find(o => o.id.toLowerCase() === id.toLowerCase());
                 const statusTag = matched ? ` (${formatStatusText(matched.status)})` : '';
                 return (
@@ -652,7 +667,7 @@ export default function OrderTracker({ orderId, orders, setView, storePhone, onC
       )}
 
       {/* Historial de Cambios de Estado (Hora Peruana) */}
-      {(() => {
+      {showDetailedTracker && (() => {
         // Obtener todos los eventos del historial ordenados cronológicamente
         const allHistory = currentOrder.statusHistory
           ? [...currentOrder.statusHistory].sort((a, b) => new Date(a.timestamp) - new Date(b.timestamp))
@@ -801,15 +816,18 @@ export default function OrderTracker({ orderId, orders, setView, storePhone, onC
       })()}
 
       {/* Mensaje Informativo */}
-      <p style={{ fontSize: '0.85rem', color: 'var(--text-light)', textAlign: 'center', marginBottom: '25px', lineHeight: '1.4' }}>
+      {showDetailedTracker && (
+        <p style={{ fontSize: '0.85rem', color: 'var(--text-light)', textAlign: 'center', marginBottom: '25px', lineHeight: '1.4' }}>
         {currentOrder.status === 'Por Corroborar' && "El mesero está corroborando tu pedido. En breve se enviará a preparación."}
         {currentOrder.status === 'Pendiente' && "Estamos validando tu pedido. En breve coordinaremos la entrega."}
         {currentOrder.status === 'Preparando' && "¡Nuestros maestros heladeros están sirviendo tu combinación favorita!"}
         {currentOrder.status === 'En camino' && "¡El motorizado va en ruta rápida hacia tu dirección!"}
         {currentOrder.status === 'Entregado' && "¡Helados recibidos! Esperamos que disfrutes de tu deliciosa experiencia."}
-      </p>
+        </p>
+      )}
 
       {/* Resumen del Pedido */}
+      {showDetailedTracker && (
       <div style={{ textAlign: 'left', borderTop: '1px solid var(--border-color)', paddingTop: '20px', marginBottom: '25px' }}>
         <h4 style={{ marginBottom: '12px', fontSize: '1rem', fontWeight: 'bold' }}>Datos de la Entrega</h4>
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '12px', fontSize: '0.8rem', color: 'var(--text-light)' }}>
@@ -876,6 +894,7 @@ export default function OrderTracker({ orderId, orders, setView, storePhone, onC
           </div>
         </div>
       </div>
+      )}
 
       <div style={{ display: 'flex', gap: '12px', justifyContent: 'center', flexWrap: 'wrap' }}>
         <button className="btn btn-secondary" style={{ flex: '1 1 150px' }} onClick={() => setView('shop')}>

@@ -12,6 +12,15 @@ const isValidEmail = (email) => {
   return re.test(String(email).toLowerCase().trim());
 };
 
+const normalizeText = (value) => (typeof value === 'string' ? value.trim().toLowerCase() : '');
+
+const isAdminUser = (user) => {
+  if (!user) return false;
+  const email = normalizeText(user.email);
+  const role = normalizeText(user.role);
+  return email === 'admin@donhelado.com' || role.includes('admin');
+};
+
 export default function UserManager({
   currentUser,
   setCurrentUser,
@@ -40,6 +49,59 @@ export default function UserManager({
   const [editingUserPassword, setEditingUserPassword] = useState(null);
   const [newPasswordForUser, setNewPasswordForUser] = useState('');
   const [editingUser, setEditingUser] = useState(null);
+
+  const syncAdminMutation = async (payload, label) => {
+    if (!supabase?.auth) return true;
+    try {
+      const { data: sessionData, error: sessionError } = await supabase.auth.getSession();
+      if (sessionError) throw sessionError;
+      const accessToken = sessionData?.session?.access_token;
+      if (!accessToken) throw new Error('No hay una sesión activa para sincronizar el personal.');
+
+      const response = await fetch('/api/admin-auth-user', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${accessToken}`,
+        },
+        body: JSON.stringify({
+          action: payload.p_action || 'upsert',
+          email: payload.p_target_email,
+          password: payload.p_password || '',
+          name: payload.p_name || '',
+          role: payload.p_role || '',
+          status: payload.p_status || '',
+        }),
+      });
+
+      const result = await response.json().catch(() => ({}));
+      if (!response.ok) throw new Error(result.error || 'No se pudo sincronizar el personal en Supabase Auth.');
+      return true;
+    } catch (err) {
+      console.warn(`No se pudo sincronizar ${label} en Supabase:`, err.message);
+      return false;
+    }
+  };
+
+  const handleCopyStaffSummary = async () => {
+    const report = staffUsers.map(user => {
+      const tabs = staffPermissions[user.email] || [];
+      return [
+        `${user.name} <${user.email}>`,
+        `Rol: ${user.role}`,
+        `Estado: ${user.status || 'Activo'}`,
+        `Modulos: ${tabs.length > 0 ? tabs.join(', ') : 'Todos por defecto'}`
+      ].join(' | ');
+    }).join('\n');
+
+    const text = `RESUMEN DE PERSONAL\n${report || 'Sin colaboradores registrados.'}`;
+    try {
+      await navigator.clipboard.writeText(text);
+      alert('Resumen de personal copiado al portapapeles.');
+    } catch {
+      alert('No se pudo copiar el resumen, pero puedes usar el listado visible.');
+    }
+  };
 
   // --- CRUD Handlers ---
   const handleAddUserSubmit = async (e) => {
@@ -70,29 +132,25 @@ export default function UserManager({
       status: 'Activo' 
     };
 
-    if (supabase) {
-      try {
-        const { error } = await supabase.rpc('manage_admin_user', {
-          p_admin_email: currentUser.email,
-          p_target_email: sanitizedEmail,
-          p_username: sanitizedEmail.split('@')[0],
-          p_name: sanitizedName,
-          p_role: newUser.role,
-          p_password: sanitizedPassword,
-          p_status: 'Activo',
-          p_action: 'upsert'
-        });
-        if (error) throw error;
-      } catch (err) {
-        alert("Error al registrar personal en Supabase: " + err.message);
-        return;
-      }
-    }
-
     onUpdateStaffUsers([...staffUsers, added]);
     setShowAddUser(false);
     addLog(`Personal registrado: ${sanitizedName} (${newUser.role}) por ${currentUser?.name}.`);
     setNewUser({ name: '', email: '', role: 'Vendedor', password: '' });
+
+    const syncOk = await syncAdminMutation({
+      p_admin_email: currentUser.email,
+      p_admin_role: currentUser.role,
+      p_target_email: sanitizedEmail,
+      p_username: sanitizedEmail.split('@')[0],
+      p_name: sanitizedName,
+      p_role: newUser.role,
+      p_password: sanitizedPassword,
+      p_status: 'Activo',
+      p_action: 'upsert'
+    }, 'registro de personal');
+    if (!syncOk) {
+      alert("Aviso: el registro quedó guardado localmente, pero no se pudo sincronizar con Supabase Auth y personal.");
+    }
   };
 
   const handleToggleUserStatus = async (email) => {
@@ -104,27 +162,23 @@ export default function UserManager({
     if (!userToToggle) return;
     const nextStatus = userToToggle.status === 'Activo' ? 'Suspendido' : 'Activo';
 
-    if (supabase) {
-      try {
-        const { error } = await supabase.rpc('manage_admin_user', {
-          p_admin_email: currentUser.email,
-          p_target_email: email,
-          p_username: userToToggle.username || email.split('@')[0],
-          p_name: userToToggle.name,
-          p_role: userToToggle.role,
-          p_status: nextStatus,
-          p_action: 'upsert'
-        });
-        if (error) throw error;
-      } catch (err) {
-        alert("Error al actualizar estado en Supabase: " + err.message);
-        return;
-      }
-    }
-
     const updated = staffUsers.map(u => u.email === email ? { ...u, status: nextStatus } : u);
     onUpdateStaffUsers(updated);
     addLog(`Usuario ${userToToggle.name} cambiado a estado ${nextStatus} por ${currentUser?.name}.`);
+
+    const syncOk = await syncAdminMutation({
+      p_admin_email: currentUser.email,
+      p_admin_role: currentUser.role,
+      p_target_email: email,
+      p_username: userToToggle.username || email.split('@')[0],
+      p_name: userToToggle.name,
+      p_role: userToToggle.role,
+      p_status: nextStatus,
+      p_action: 'upsert'
+    }, 'cambio de estado');
+    if (!syncOk) {
+      alert("Aviso: el cambio quedó local, pero no se pudo sincronizar con Supabase.");
+    }
   };
 
   const handleDeleteUser = async (email) => {
@@ -133,21 +187,18 @@ export default function UserManager({
       return;
     }
     if (window.confirm("¿Seguro que deseas eliminar este usuario del personal?")) {
-      if (supabase) {
-        try {
-          const { error } = await supabase.rpc('manage_admin_user', {
-            p_admin_email: currentUser.email,
-            p_target_email: email,
-            p_action: 'delete'
-          });
-          if (error) throw error;
-        } catch (err) {
-          alert("Error al eliminar usuario en Supabase: " + err.message);
-          return;
-        }
-      }
       onUpdateStaffUsers(staffUsers.filter(u => u.email !== email));
       addLog(`Usuario con correo ${email} eliminado por ${currentUser?.name}.`);
+
+      const syncOk = await syncAdminMutation({
+        p_admin_email: currentUser.email,
+        p_admin_role: currentUser.role,
+        p_target_email: email,
+        p_action: 'delete'
+      }, 'eliminación de personal');
+      if (!syncOk) {
+        alert("Aviso: el usuario se eliminó localmente, pero no se pudo sincronizar con Supabase.");
+      }
     }
   };
 
@@ -160,23 +211,21 @@ export default function UserManager({
     }
 
     const userToToggle = staffUsers.find(u => u.email === editingUserPassword);
-    if (supabase) {
-      try {
-        const { error } = await supabase.rpc('manage_admin_user', {
-          p_admin_email: currentUser.email,
-          p_target_email: editingUserPassword,
-          p_username: userToToggle?.username || editingUserPassword.split('@')[0],
-          p_name: userToToggle?.name || editingUserPassword.split('@')[0],
-          p_role: userToToggle?.role || 'Vendedor',
-          p_status: userToToggle?.status || 'Activo',
-          p_password: sanitizedPassword,
-          p_action: 'upsert'
-        });
-        if (error) throw error;
-      } catch (err) {
-        alert("Error al actualizar contraseña en Supabase: " + err.message);
-        return;
-      }
+    const syncOk = await syncAdminMutation({
+      p_admin_email: currentUser.email,
+      p_admin_role: currentUser.role,
+      p_target_email: editingUserPassword,
+      p_username: userToToggle?.username || editingUserPassword.split('@')[0],
+      p_name: userToToggle?.name || editingUserPassword.split('@')[0],
+      p_role: userToToggle?.role || 'Vendedor',
+      p_status: userToToggle?.status || 'Activo',
+      p_password: sanitizedPassword,
+      p_action: 'upsert'
+    }, 'actualización de contraseña');
+    if (!syncOk) {
+      alert("Aviso: no se pudo actualizar la contraseña en Supabase.");
+    } else {
+      alert("¡Contraseña actualizada con éxito!");
     }
 
     const updated = staffUsers.map(u => u.email === editingUserPassword ? { ...u, password: sanitizedPassword } : u);
@@ -184,7 +233,6 @@ export default function UserManager({
     addLog(`Contraseña de usuario ${editingUserPassword} actualizada por ${currentUser?.name}.`);
     setEditingUserPassword(null);
     setNewPasswordForUser('');
-    alert("¡Contraseña actualizada con éxito!");
   };
 
   const handleEditUserSubmit = async (e) => {
@@ -197,10 +245,11 @@ export default function UserManager({
       return;
     }
 
+    const safeAllowedTabs = Array.isArray(editingUser.allowedTabs) ? editingUser.allowedTabs : [];
     const updatedStaff = staffUsers.map(u => u.email === editingUser.email ? { ...u, name: sanitizedName, role: editingUser.role } : u);
     onUpdateStaffUsers(updatedStaff);
 
-    const nextPermissions = { ...staffPermissions, [editingUser.email]: editingUser.allowedTabs };
+    const nextPermissions = { ...staffPermissions, [editingUser.email]: safeAllowedTabs };
     onUpdateStaffPermissions(nextPermissions);
 
     if (editingUser.email === currentUser.email) {
@@ -208,32 +257,30 @@ export default function UserManager({
         ...currentUser,
         name: sanitizedName,
         role: editingUser.role,
-        allowedTabs: editingUser.allowedTabs
+        allowedTabs: safeAllowedTabs
       });
-    }
-
-    if (supabase) {
-      try {
-        const targetUser = staffUsers.find(u => u.email === editingUser.email);
-        await supabase.rpc('manage_admin_user', {
-          p_admin_email: currentUser.email,
-          p_target_email: editingUser.email,
-          p_username: targetUser?.username || editingUser.email.split('@')[0],
-          p_name: sanitizedName,
-          p_role: editingUser.role,
-          p_status: targetUser?.status || 'Activo',
-          p_action: 'upsert'
-        });
-      } catch (err) {
-        console.warn("No se pudo sincronizar rol de personal en Supabase:", err.message);
-      }
     }
 
     addLog(`Colaborador ${editingUser.email} modificado (Rol: ${editingUser.role}, Permisos actualizados) por ${currentUser?.name}.`);
     setEditingUser(null);
+
+    const targetUser = staffUsers.find(u => u.email === editingUser.email);
+    const syncOk = await syncAdminMutation({
+      p_admin_email: currentUser.email,
+      p_admin_role: currentUser.role,
+      p_target_email: editingUser.email,
+      p_username: targetUser?.username || editingUser.email.split('@')[0],
+      p_name: sanitizedName,
+      p_role: editingUser.role,
+      p_status: targetUser?.status || 'Activo',
+      p_action: 'upsert'
+    }, 'edición de personal');
+    if (!syncOk) {
+      alert("Aviso: los cambios de perfil quedaron locales, pero no se pudieron sincronizar con Supabase.");
+    }
   };
 
-  if (currentUser && currentUser.role !== 'Administrador') {
+  if (currentUser && !isAdminUser(currentUser)) {
     return (
       <div className="glass" style={{ padding: '20px', color: 'var(--danger)' }}>
         ⚠️ Acceso Denegado. Solo el Administrador Principal puede gestionar el personal de trabajo.
@@ -245,9 +292,14 @@ export default function UserManager({
     <div>
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '15px' }}>
         <h3 style={{ margin: 0 }}>👥 Gestión de Personal (Colaboradores)</h3>
-        <button className="btn btn-primary" style={{ padding: '8px 14px', fontSize: '0.8rem' }} onClick={() => setShowAddUser(!showAddUser)}>
-          {showAddUser ? 'Ocultar Formulario' : '➕ Registrar Nuevo Colaborador'}
-        </button>
+        <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
+          <button type="button" className="btn btn-secondary" style={{ padding: '8px 14px', fontSize: '0.8rem' }} onClick={handleCopyStaffSummary}>
+            📋 Copiar Resumen
+          </button>
+          <button className="btn btn-primary" style={{ padding: '8px 14px', fontSize: '0.8rem' }} onClick={() => setShowAddUser(!showAddUser)}>
+            {showAddUser ? 'Ocultar Formulario' : '➕ Registrar Nuevo Colaborador'}
+          </button>
+        </div>
       </div>
 
       {/* Formulario Crear */}

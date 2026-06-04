@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { generateOrderId } from '../utils/orderId';
 
 export default function Cart({ 
   cart, 
@@ -215,7 +216,7 @@ export default function Cart({
 
     try {
       setIsSubmitting(true);
-      const orderId = `PED-${crypto.randomUUID()}`;
+      const orderId = generateOrderId();
       const newOrder = {
         id: orderId,
         customer: { 

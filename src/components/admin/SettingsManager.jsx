@@ -49,6 +49,7 @@ export default function SettingsManager({
   onToggleShopOpen: onToggleShopOpenProp,
   recommendations, onUpdateRecommendations,
   cartRecommendedPack, onUpdateCartRecommendedPack,
+  staffUsers, onUpdateStaffUsers,
   storeTitle, onChangeStoreTitle,
   storeFavicon, onChangeStoreFavicon,
   storeInstagram, onChangeStoreInstagram,
@@ -464,6 +465,7 @@ export default function SettingsManager({
         qrCustomUrl,
         recommendations,
         cartRecommendedPack,
+        staffUsers,
         literConfig,
         ticketCustomMessage,
         catalogOrder,
@@ -529,7 +531,8 @@ export default function SettingsManager({
           if (data.ticketCustomMessage && onUpdateTicketCustomMessage) onUpdateTicketCustomMessage(data.ticketCustomMessage);
           if (data.catalogOrder && onUpdateCatalogOrder) onUpdateCatalogOrder(data.catalogOrder);
           if (data.recommendations && onUpdateRecommendations) onUpdateRecommendations(data.recommendations);
-          if (data.cartRecommendedPack && onUpdateCartRecommendedPack) onUpdateCartRecommendedPack(data.cartRecommendedPack);
+        if (data.cartRecommendedPack && onUpdateCartRecommendedPack) onUpdateCartRecommendedPack(data.cartRecommendedPack);
+          if (data.staffUsers && onUpdateStaffUsers) onUpdateStaffUsers(data.staffUsers);
           if (data.coupons && onUpdateCoupons) onUpdateCoupons(data.coupons);
           if (data.shopConfig && onChangeShopConfig) onChangeShopConfig(data.shopConfig);
           if (data.staffPermissions && onUpdateStaffPermissions) onUpdateStaffPermissions(data.staffPermissions);
@@ -575,6 +578,7 @@ export default function SettingsManager({
             addKey('catalog_order', data.catalogOrder);
             addKey('recommendations', data.recommendations);
             addKey('cart_recommended_pack', data.cartRecommendedPack);
+            addKey('staff_users', data.staffUsers);
             addKey('staff_permissions', data.staffPermissions);
             addKey('trends_interval', data.trendsInterval);
             addKey('trends_display_time', data.trendsDisplayTime);
@@ -2016,7 +2020,7 @@ alter table public.helados_sync enable row level security;`}
 
         {/* Buttons */}
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: '10px', flexWrap: 'wrap' }}>
-          <button className="btn btn-secondary" onClick={onLogout} style={{ color: 'var(--danger)', borderColor: 'var(--danger)', fontSize: '0.8rem', padding: '6px 12px' }}>
+          <button type="button" className="btn btn-secondary" onClick={onLogout} style={{ color: 'var(--danger)', borderColor: 'var(--danger)', fontSize: '0.8rem', padding: '6px 12px' }}>
             🚪 Cerrar Sesión ({currentUser?.name})
           </button>
           <button className="btn btn-primary" onClick={handleSaveSettings} style={{ padding: '8px 20px', fontSize: '0.85rem', cursor: 'pointer' }}>

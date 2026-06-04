@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { updateSyncedData } from '../../utils/supabaseSync';
+import { generateOrderId } from '../../utils/orderId';
 
 export default function TableOrderManager({
   orders,
@@ -268,7 +269,7 @@ export default function TableOrderManager({
       return;
     }
 
-    const orderId = `PED-${crypto.randomUUID()}`;
+    const orderId = generateOrderId();
     const isBarra = selectedTable === 'Barra';
     const finalClient = newOrderClient.trim() || (isBarra ? `Barra` : `Mesa ${selectedTable}`);
     const subtotal = newOrderItems.reduce((sum, i) => sum + (i.price * i.quantity), 0);

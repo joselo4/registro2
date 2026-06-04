@@ -22,6 +22,27 @@ const isValidEmail = (email) => {
   return re.test(String(email).toLowerCase().trim());
 };
 
+const normalizeText = (value) => (typeof value === 'string' ? value.trim().toLowerCase() : '');
+
+const normalizeRoleLabel = (role, email = '') => {
+  const normalizedEmail = normalizeText(email);
+  const normalizedRole = typeof role === 'string' ? role.trim() : '';
+  const lowerRole = normalizedRole.toLowerCase();
+
+  if (normalizedEmail === 'admin@donhelado.com') return 'Administrador';
+  if (lowerRole.includes('admin')) return 'Administrador';
+  if (lowerRole.includes('vendedor')) return 'Vendedor';
+  if (lowerRole.includes('cocina')) return 'Cocina';
+  return normalizedRole || 'Administrador';
+};
+
+const isAdminUser = (user) => {
+  if (!user) return false;
+  const email = normalizeText(user.email);
+  const role = normalizeText(user.role);
+  return email === 'admin@donhelado.com' || role.includes('admin');
+};
+
 export default function AdminPanel({
   orders,
   onUpdateOrderStatus,
@@ -279,16 +300,20 @@ export default function AdminPanel({
   // --- Control de Acceso por Ventanas/Módulos ---
   const isTabAllowed = (tabId) => {
     if (!currentUser) return false;
-    if (currentUser.email === 'admin@donhelado.com' || (currentUser.role === 'Administrador' && tabId === 'users')) return true;
-    
-    const userPerms = staffPermissions[currentUser.email];
+    if (isAdminUser(currentUser)) return true;
+
+    const userPerms =
+      staffPermissions[currentUser.email] ||
+      staffPermissions[normalizeText(currentUser.email)] ||
+      Object.entries(staffPermissions).find(([email]) => normalizeText(email) === normalizeText(currentUser.email))?.[1];
+
     if (userPerms) {
       return userPerms.includes(tabId);
     }
-    
-    if (currentUser.role === 'Administrador') return true;
-    if (currentUser.role === 'Vendedor') return ['orders', 'inventory', 'surveys', 'table_orders'].includes(tabId);
-    if (currentUser.role === 'Cocina') return ['orders'].includes(tabId);
+
+    const role = normalizeText(currentUser.role);
+    if (role.includes('vendedor')) return ['orders', 'inventory', 'surveys', 'table_orders'].includes(tabId);
+    if (role.includes('cocina')) return ['orders'].includes(tabId);
     return false;
   };
 
@@ -362,18 +387,20 @@ export default function AdminPanel({
             username: user.email.split('@')[0],
             email: user.email,
             name: user.user_metadata?.name || 'Administrador Supabase',
-            role: user.user_metadata?.role || 'Administrador',
+            role: normalizeRoleLabel(user.user_metadata?.role, user.email),
             status: 'Activo',
             isSupabaseUser: true
           };
 
           handleLoginSuccess(userObj, true);
 
-          try {
-            const { data: adminList } = await supabase.rpc('get_all_admins');
-            if (adminList) onUpdateStaffUsers(adminList);
-          } catch (err) {
-            console.warn("No se pudo refrescar lista de personal", err);
+          if (isAdminUser(userObj)) {
+            try {
+              const { data: adminList } = await supabase.rpc('get_all_admins');
+              if (Array.isArray(adminList) && adminList.length > 0) onUpdateStaffUsers(adminList);
+            } catch (err) {
+              console.warn("No se pudo refrescar lista de personal", err);
+            }
           }
           return;
         }
@@ -403,18 +430,20 @@ export default function AdminPanel({
             username: data.username,
             email: data.email,
             name: data.name,
-            role: data.role,
+            role: normalizeRoleLabel(data.role, data.email),
             status: data.status,
             isSupabaseUser: true
           };
           
           handleLoginSuccess(userObj, true);
 
-          try {
-            const { data: adminList } = await supabase.rpc('get_all_admins');
-            if (adminList) onUpdateStaffUsers(adminList);
-          } catch (err) {
-            console.warn("No se pudo refrescar lista de personal", err);
+          if (isAdminUser(userObj)) {
+            try {
+              const { data: adminList } = await supabase.rpc('get_all_admins');
+              if (Array.isArray(adminList) && adminList.length > 0) onUpdateStaffUsers(adminList);
+            } catch (err) {
+              console.warn("No se pudo refrescar lista de personal", err);
+            }
           }
           return;
         }
@@ -426,9 +455,9 @@ export default function AdminPanel({
     setAuthError('🚨 No fue posible autenticar el acceso administrativo. Verifica la conexión con Supabase o vuelve a iniciar sesión.');
   };
 
-  const handleLogoutAction = () => {
+  const handleLogoutAction = async () => {
     addLog(`Cierre de sesión por el usuario ${currentUser?.name || ''}.`);
-    onLogout();
+    await onLogout();
   };
 
   const handleExportSalesReport = () => {
@@ -624,7 +653,7 @@ export default function AdminPanel({
               🎁 Packs Combos
             </button>
           )}
-          {currentUser && currentUser.role === 'Administrador' && isTabAllowed('users') && (
+          {currentUser && isAdminUser(currentUser) && isTabAllowed('users') && (
             <button className={`sidebar-btn ${activeTab === 'users' ? 'active' : ''}`} onClick={() => setActiveTab('users')}>
               👥 Personal / Staff
             </button>
@@ -644,7 +673,7 @@ export default function AdminPanel({
               ⭐ Encuestas ({orders.filter(o => o.survey).length})
             </button>
           )}
-          {tableOrdersEnabled && isTabAllowed('table_orders') && (
+          {(tableOrdersEnabled || isAdminUser(currentUser)) && isTabAllowed('table_orders') && (
             <button className={`sidebar-btn ${activeTab === 'table_orders' ? 'active' : ''}`} onClick={() => setActiveTab('table_orders')}>
               🍽️ Pedidos en Mesa
             </button>
@@ -723,7 +752,7 @@ export default function AdminPanel({
           />
         )}
 
-        {tableOrdersEnabled && activeTab === 'table_orders' && (
+        {(tableOrdersEnabled || isAdminUser(currentUser)) && activeTab === 'table_orders' && (
           <TableOrderManager
             orders={orders}
             onUpdateOrders={onUpdateOrders}
@@ -840,7 +869,7 @@ export default function AdminPanel({
       </div>
 
       {/* Panel Flotante Persistente para Llamados de Atención en Mesa */}
-      {tableOrdersEnabled && tableCalls.filter(c => !c.resolved).length > 0 && (
+      {(tableOrdersEnabled || isAdminUser(currentUser)) && tableCalls.filter(c => !c.resolved).length > 0 && (
         <div style={{
           position: 'fixed',
           bottom: '20px',

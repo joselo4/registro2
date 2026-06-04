@@ -64,9 +64,22 @@ const DEFAULT_STAFF_USERS = [
   { email: 'cocina@donhelado.com', name: 'Preparador de Cocina', role: 'Cocina', status: 'Activo' }
 ];
 
+const normalizeRoleLabel = (role, email = '') => {
+  const normalizedEmail = typeof email === 'string' ? email.trim().toLowerCase() : '';
+  const normalizedRole = typeof role === 'string' ? role.trim() : '';
+  const lowerRole = normalizedRole.toLowerCase();
+
+  if (normalizedEmail === 'admin@donhelado.com') return 'Administrador';
+  if (lowerRole.includes('admin')) return 'Administrador';
+  if (lowerRole.includes('vendedor')) return 'Vendedor';
+  if (lowerRole.includes('cocina')) return 'Cocina';
+  return normalizedRole || 'Administrador';
+};
+
 export default function App() {
   const isRemoteUpdate = useRef({});
   const allowCloudWrite = useRef(false);
+  const logoutInProgressRef = useRef(false);
   const [isCloudSynced, setIsCloudSynced] = useState(false);
   const [isSyncLoaded, setIsSyncLoaded] = useState(false);
 
@@ -437,6 +450,7 @@ export default function App() {
     if (serverData.recommendations !== undefined) setRecommendations(serverData.recommendations);
     if (serverData.cart_recommended_pack !== undefined) setCartRecommendedPack(serverData.cart_recommended_pack);
     if (serverData.expenses !== undefined) setExpenses(serverData.expenses);
+    if (serverData.staff_users !== undefined) setStaffUsers(serverData.staff_users);
     if (serverData.staff_permissions !== undefined) setStaffPermissions(serverData.staff_permissions);
     if (serverData.liter_config !== undefined) setLiterConfig(serverData.liter_config);
     if (serverData.ticket_custom_message !== undefined) setTicketCustomMessage(serverData.ticket_custom_message);
@@ -465,19 +479,24 @@ export default function App() {
       // 1. Verificar la sesión activa de Supabase al montar el componente
       let hasActiveSession = false;
       try {
-        const { data: { session } } = await supabase.auth.getSession();
-        if (session) {
-          console.log("🔑 Sesión activa de Supabase recuperada:", session.user.email);
-          hasActiveSession = true;
-          const userRole = session.user.user_metadata?.role || 'Administrador';
-          const userName = session.user.user_metadata?.name || 'Administrador Supabase';
-          setIsLoggedIn(true);
-          setCurrentUser({
-            email: session.user.email,
-            role: userRole,
-            name: userName,
-            isSupabaseUser: true
-          });
+        if (!logoutInProgressRef.current) {
+          const { data: { session } } = await supabase.auth.getSession();
+          if (session) {
+            console.log("🔑 Sesión activa de Supabase recuperada:", session.user.email);
+            hasActiveSession = true;
+            const userRole = normalizeRoleLabel(session.user.user_metadata?.role, session.user.email);
+            const userName = session.user.user_metadata?.name || 'Administrador Supabase';
+            setIsLoggedIn(true);
+            setCurrentUser({
+              email: session.user.email,
+              role: userRole,
+              name: userName,
+              isSupabaseUser: true
+            });
+          } else {
+            setIsLoggedIn(false);
+            setCurrentUser(null);
+          }
         } else {
           setIsLoggedIn(false);
           setCurrentUser(null);
@@ -510,7 +529,7 @@ export default function App() {
       // 2. Recuperar la lista de personal desde Supabase de forma segura (multidispositivo)
       try {
         const { data: adminList, error: adminListError } = await supabase.rpc('get_all_admins');
-        if (!adminListError && adminList) {
+        if (!adminListError && Array.isArray(adminList) && adminList.length > 0) {
           console.log("👥 Personal recuperado de Supabase:", adminList.length);
           setStaffUsers(adminList);
         }
@@ -525,7 +544,7 @@ export default function App() {
       const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event, session) => {
         console.log(`🔔 Supabase Auth Evento: ${event}`);
         if (session) {
-          const userRole = session.user.user_metadata?.role || 'Administrador';
+          const userRole = normalizeRoleLabel(session.user.user_metadata?.role, session.user.email);
           const userName = session.user.user_metadata?.name || 'Administrador Supabase';
           setIsLoggedIn(true);
           setCurrentUser({
@@ -1024,6 +1043,11 @@ export default function App() {
   };
 
   async function handleLogout() {
+    logoutInProgressRef.current = true;
+    window.setTimeout(() => {
+      logoutInProgressRef.current = false;
+    }, 1000);
+
     if (supabase) {
       try {
         await supabase.auth.signOut();
