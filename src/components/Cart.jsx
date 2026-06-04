@@ -9,8 +9,6 @@ export default function Cart({
   setView,
   onAddToCart,
   flavors,
-  telegramToken,
-  telegramChatId,
   freeDeliveryThreshold,
   storePhone,
   coupons,
@@ -118,8 +116,6 @@ export default function Cart({
 
   // Enviar notificación a Telegram (Canal Directo)
   const sendTelegramNotification = async (order) => {
-    if (!telegramToken || !telegramChatId) return;
-
     const message = `🚨 *¡NUEVO PEDIDO EN DON HELADO!* 🚨\n\n` +
       `*Código:* ${order.id}\n` +
       `*Cliente:* ${order.customer.name}\n` +
@@ -149,15 +145,18 @@ export default function Cart({
       `*TOTAL:* S/. ${order.grandTotal.toFixed(2)}`;
 
     try {
-      await fetch(`https://api.telegram.org/bot${telegramToken}/sendMessage`, {
+      const response = await fetch('/api/telegram', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          chat_id: telegramChatId,
           text: message,
-          parse_mode: 'Markdown'
+          parse_mode: 'Markdown',
+          kind: 'order'
         })
       });
+      if (!response.ok) {
+        throw new Error('No se pudo entregar la notificación centralizada.');
+      }
       console.log("Notificación por Telegram enviada con éxito.");
     } catch (err) {
       console.error("Error al enviar notificación de Telegram:", err);
@@ -216,7 +215,7 @@ export default function Cart({
 
     try {
       setIsSubmitting(true);
-      const orderId = `PED-${Math.floor(1000 + Math.random() * 9000)}`;
+      const orderId = `PED-${crypto.randomUUID()}`;
       const newOrder = {
         id: orderId,
         customer: { 
@@ -273,10 +272,8 @@ export default function Cart({
       const cleanPhone = String(storePhone || '').replace(/\D/g, ''); // Limpiar caracteres no numéricos
       const whatsappUrl = `https://wa.me/${cleanPhone}?text=${encodedText}`;
 
-      // Enviar notificación en segundo plano a Telegram si está configurado
-      if (telegramToken && telegramChatId) {
-        await sendTelegramNotification(newOrder);
-      }
+      // Enviar notificación en segundo plano a través de la función segura
+      await sendTelegramNotification(newOrder);
 
        // Registrar pedido en la base de datos
       onPlaceOrder(newOrder);

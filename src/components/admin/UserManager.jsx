@@ -74,7 +74,6 @@ export default function UserManager({
       try {
         const { error } = await supabase.rpc('manage_admin_user', {
           p_admin_email: currentUser.email,
-          p_admin_password: currentUser.password,
           p_target_email: sanitizedEmail,
           p_username: sanitizedEmail.split('@')[0],
           p_name: sanitizedName,
@@ -109,7 +108,6 @@ export default function UserManager({
       try {
         const { error } = await supabase.rpc('manage_admin_user', {
           p_admin_email: currentUser.email,
-          p_admin_password: currentUser.password,
           p_target_email: email,
           p_username: userToToggle.username || email.split('@')[0],
           p_name: userToToggle.name,
@@ -139,7 +137,6 @@ export default function UserManager({
         try {
           const { error } = await supabase.rpc('manage_admin_user', {
             p_admin_email: currentUser.email,
-            p_admin_password: currentUser.password,
             p_target_email: email,
             p_action: 'delete'
           });
@@ -167,7 +164,6 @@ export default function UserManager({
       try {
         const { error } = await supabase.rpc('manage_admin_user', {
           p_admin_email: currentUser.email,
-          p_admin_password: currentUser.password,
           p_target_email: editingUserPassword,
           p_username: userToToggle?.username || editingUserPassword.split('@')[0],
           p_name: userToToggle?.name || editingUserPassword.split('@')[0],
@@ -221,7 +217,6 @@ export default function UserManager({
         const targetUser = staffUsers.find(u => u.email === editingUser.email);
         await supabase.rpc('manage_admin_user', {
           p_admin_email: currentUser.email,
-          p_admin_password: currentUser.password,
           p_target_email: editingUser.email,
           p_username: targetUser?.username || editingUser.email.split('@')[0],
           p_name: sanitizedName,

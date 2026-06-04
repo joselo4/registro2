@@ -23,8 +23,6 @@ export default function CustomerShop({
   tableCalls = [],
   occupiedTables = [],
   cart = [],
-  telegramToken = '',
-  telegramChatId = '',
   shopConfig = {}
 }) {
   const tableCategories = useMemo(() => {
@@ -100,23 +98,21 @@ export default function CustomerShop({
     if (success) {
       setShowCallModal(false);
 
-      if (telegramToken && telegramChatId) {
-        try {
-          const messageText = `🛎️ *Llamado de Mesa ${tableNumber}*\n\n` +
-                              `*Solicitud:* ${type}\n` +
-                              `*Detalles del Pedido en Carrito:*\n${cartSummary}`;
-          await fetch(`https://api.telegram.org/bot${telegramToken}/sendMessage`, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-              chat_id: telegramChatId,
-              text: messageText,
-              parse_mode: 'Markdown'
-            })
-          });
-        } catch (err) {
-          console.error("Error al enviar llamado de mesa a Telegram:", err);
-        }
+      try {
+        const messageText = `🛎️ *Llamado de Mesa ${tableNumber}*\n\n` +
+                            `*Solicitud:* ${type}\n` +
+                            `*Detalles del Pedido en Carrito:*\n${cartSummary}`;
+        await fetch('/api/telegram', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            text: messageText,
+            parse_mode: 'Markdown',
+            kind: 'table_call'
+          })
+        });
+      } catch (err) {
+        console.error("Error al enviar llamado de mesa a Telegram:", err);
       }
 
       if (showAlert) {

@@ -19,7 +19,6 @@ export default function InventoryManager({
   onUpdateRecommendations,
   packs,
   onUpdatePacks,
-  r2Config,
   addLog,
   currentUser,
   showAlert,
@@ -47,14 +46,9 @@ export default function InventoryManager({
 
   const handleImageUpload = async (file, type, targetSetter, currentObj) => {
     if (!file) return;
-    if (!r2Config || !r2Config.accountId || !r2Config.accessKeyId || !r2Config.secretAccessKey || !r2Config.bucketName || !r2Config.publicUrl) {
-      alert("🚨 Cloudflare R2 no está configurado. Por favor, ingresa e inicializa las credenciales en la pestaña 'Ajustes' antes de subir imágenes.");
-      return;
-    }
-
     setUploadingState(prev => ({ ...prev, [type]: true }));
     try {
-      const url = await uploadToR2(file, r2Config, type);
+      const url = await uploadToR2(file, type);
       if (currentObj) {
         targetSetter({ ...currentObj, image: url });
       } else {

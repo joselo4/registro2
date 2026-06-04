@@ -1,5 +1,3 @@
-import { S3Client, PutObjectCommand } from '@aws-sdk/client-s3';
-
 /**
  * Convierte y comprime una imagen a formato WebP utilizando un Canvas HTML5.
  * Limita el ancho/alto máximo a 800px para que las imágenes carguen al instante en celulares.
@@ -55,55 +53,38 @@ export const compressToWebP = (file, maxDimension = 800, quality = 0.82) => {
 };
 
 /**
- * Sube un archivo a Cloudflare R2 optimizándolo primero en el navegador.
+ * Sube un archivo a Cloudflare R2 por medio de una Pages Function.
  * @param {File} file Archivo cargado desde el input file
- * @param {Object} config Credenciales de Cloudflare R2
  * @param {string} prefix Carpeta de destino (ej: 'sabores', 'toppings')
  * @returns {Promise<string>} URL pública de la imagen
  */
-export const uploadToR2 = async (file, config, prefix = 'productos') => {
-  const { accountId, accessKeyId, secretAccessKey, bucketName, publicUrl } = config;
-  
-  if (!accountId || !accessKeyId || !secretAccessKey || !bucketName || !publicUrl) {
-    throw new Error("Credenciales incompletas de Cloudflare R2. Configúralas en la sección de Ajustes.");
-  }
-
+export const uploadToR2 = async (file, prefix = 'productos') => {
   // 1. Convertir a WebP y redimensionar
   console.log("⚡ Optimizando imagen a formato WebP en el navegador del cliente...");
   const webpBlob = await compressToWebP(file, 800, 0.82);
-  
-  // 2. Inicializar cliente S3 compatible con R2
-  const s3Client = new S3Client({
-    region: 'auto',
-    endpoint: `https://${accountId}.r2.cloudflarestorage.com`,
-    credentials: {
-      accessKeyId: accessKeyId,
-      secretAccessKey: secretAccessKey,
-    },
-  });
 
-  // 3. Crear nombre de archivo único
+  // 2. Crear nombre de archivo único
   const cleanName = file.name
     .toLowerCase()
     .replace(/[^a-z0-9]/g, '_')
     .substring(0, 15);
   const fileName = `${prefix}/${Date.now()}_${cleanName}.webp`;
 
-  // 4. Convertir blob a array de bytes e iniciar upload
-  const arrayBuffer = await webpBlob.arrayBuffer();
-  const fileData = new Uint8Array(arrayBuffer);
+  // 3. Enviar el archivo optimizado a la función segura del servidor
+  const formData = new FormData();
+  formData.append('file', webpBlob, fileName);
+  formData.append('prefix', prefix);
 
-  const command = new PutObjectCommand({
-    Bucket: bucketName,
-    Key: fileName,
-    Body: fileData,
-    ContentType: 'image/webp',
+  const response = await fetch('/api/r2-upload', {
+    method: 'POST',
+    body: formData
   });
 
-  await s3Client.send(command);
-  console.log("✅ Imagen subida a Cloudflare R2 con éxito.");
+  const payload = await response.json().catch(() => ({}));
+  if (!response.ok) {
+    throw new Error(payload.error || 'No se pudo subir la imagen.');
+  }
 
-  // 5. Retornar la URL pública formateada
-  const baseDomain = publicUrl.replace(/\/+$/, "");
-  return `${baseDomain}/${fileName}`;
+  console.log("✅ Imagen subida a Cloudflare R2 con éxito.");
+  return payload.url;
 };

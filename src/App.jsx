@@ -60,8 +60,8 @@ const renderLogo = (logo, size = '32px') => {
 
 // Usuarios de personal por defecto para la administración
 const DEFAULT_STAFF_USERS = [
-  { email: 'vendedor@donhelado.com', name: 'Vendedor de Turno', role: 'Vendedor', status: 'Activo', password: '123' },
-  { email: 'cocina@donhelado.com', name: 'Preparador de Cocina', role: 'Cocina', status: 'Activo', password: '123' }
+  { email: 'vendedor@donhelado.com', name: 'Vendedor de Turno', role: 'Vendedor', status: 'Activo' },
+  { email: 'cocina@donhelado.com', name: 'Preparador de Cocina', role: 'Cocina', status: 'Activo' }
 ];
 
 export default function App() {
@@ -89,16 +89,7 @@ export default function App() {
     return localStorage.getItem('helados_qr_custom_url') || '';
   });
 
-  const [r2Config, setR2Config] = useState(() => {
-    const saved = localStorage.getItem('helados_r2_config');
-    return saved ? JSON.parse(saved) : {
-      accountId: '',
-      accessKeyId: '',
-      secretAccessKey: '',
-      bucketName: '',
-      publicUrl: ''
-    };
-  });
+  const [r2Config, setR2Config] = useState({});
 
   const [literConfig, setLiterConfig] = useState(() => {
     const saved = localStorage.getItem('helados_liter_config');
@@ -304,31 +295,14 @@ export default function App() {
   });
 
   // --- NUEVO: Estado de Seguridad Centralizado en App.jsx ---
-  const [isLoggedIn, setIsLoggedIn] = useState(() => {
-    return localStorage.getItem('helados_admin_logged_in') === 'true';
-  });
+  const [isLoggedIn, setIsLoggedIn] = useState(false);
 
-  const [currentUser, setCurrentUser] = useState(() => {
-    const saved = localStorage.getItem('helados_admin_current_user');
-    if (saved) {
-      const user = JSON.parse(saved);
-      const password = localStorage.getItem('helados_admin_password');
-      if (password) {
-        user.password = password;
-      }
-      return user;
-    }
-    return null;
-  });
+  const [currentUser, setCurrentUser] = useState(null);
 
   // --- Estados de Integración de Notificaciones (Telegram) ---
-  const [telegramToken, setTelegramToken] = useState(() => {
-    return localStorage.getItem('helados_telegram_token') || '';
-  });
+  const [telegramToken, setTelegramToken] = useState('');
 
-  const [telegramChatId, setTelegramChatId] = useState(() => {
-    return localStorage.getItem('helados_telegram_chat_id') || '';
-  });
+  const [telegramChatId, setTelegramChatId] = useState('');
 
   // --- Estados de Cupones de Descuento (Manejado por Admin) ---
   const [coupons, setCoupons] = useState(() => {
@@ -456,8 +430,6 @@ export default function App() {
     if (serverData.store_phone !== undefined) setStorePhone(serverData.store_phone);
     if (serverData.sound_enabled !== undefined) setSoundEnabled(!!serverData.sound_enabled);
     if (serverData.coupons !== undefined) setCoupons(serverData.coupons);
-    if (serverData.telegram_token !== undefined) setTelegramToken(serverData.telegram_token);
-    if (serverData.telegram_chat_id !== undefined) setTelegramChatId(serverData.telegram_chat_id);
     if (serverData.sales_goal !== undefined) setSalesGoal(parseFloat(serverData.sales_goal) || 100.0);
     if (serverData.whatsapp_greeting !== undefined) setWhatsappGreeting(serverData.whatsapp_greeting);
     if (serverData.whatsapp_footer !== undefined) setWhatsappFooter(serverData.whatsapp_footer);
@@ -466,7 +438,6 @@ export default function App() {
     if (serverData.cart_recommended_pack !== undefined) setCartRecommendedPack(serverData.cart_recommended_pack);
     if (serverData.expenses !== undefined) setExpenses(serverData.expenses);
     if (serverData.staff_permissions !== undefined) setStaffPermissions(serverData.staff_permissions);
-    if (serverData.r2_config !== undefined) setR2Config(serverData.r2_config);
     if (serverData.liter_config !== undefined) setLiterConfig(serverData.liter_config);
     if (serverData.ticket_custom_message !== undefined) setTicketCustomMessage(serverData.ticket_custom_message);
     if (serverData.catalog_order !== undefined) setCatalogOrder(serverData.catalog_order);
@@ -507,12 +478,15 @@ export default function App() {
             name: userName,
             isSupabaseUser: true
           });
+        } else {
+          setIsLoggedIn(false);
+          setCurrentUser(null);
         }
       } catch (err) {
         console.error("Error al obtener la sesión de Supabase:", err);
       }
       
-      const serverData = await fetchSyncedData(hasActiveSession || isLoggedIn);
+      const serverData = await fetchSyncedData(hasActiveSession);
       if (serverData) {
         console.log("🔌 Datos recuperados de Supabase:", Object.keys(serverData));
         setIsCloudSynced(true);
@@ -560,6 +534,7 @@ export default function App() {
             name: userName,
             isSupabaseUser: true
           });
+          sessionStorage.setItem('helados_admin_login_timestamp', Date.now().toString());
           
           // Re-sincronizar los datos una vez que tenemos la sesión activa de forma segura
           allowCloudWrite.current = false;
@@ -580,6 +555,10 @@ export default function App() {
             allowCloudWrite.current = false;
           }
           setIsSyncLoaded(true);
+        }
+        if (!session) {
+          setIsLoggedIn(false);
+          setCurrentUser(null);
         }
       });
       authSubscription = subscription;
@@ -650,8 +629,6 @@ export default function App() {
   useSyncEffect('store_phone', storePhone, false);
   useSyncEffect('staff_permissions', staffPermissions, true);
   useSyncEffect('sound_enabled', soundEnabled, true);
-  useSyncEffect('telegram_token', telegramToken, false);
-  useSyncEffect('telegram_chat_id', telegramChatId, false);
   useSyncEffect('coupons', coupons, true);
   useSyncEffect('sales_goal', salesGoal, false);
   useSyncEffect('whatsapp_greeting', whatsappGreeting, false);
@@ -660,7 +637,6 @@ export default function App() {
   useSyncEffect('recommendations', recommendations, true);
   useSyncEffect('cart_recommended_pack', cartRecommendedPack, true);
   useSyncEffect('expenses', expenses, true);
-  useSyncEffect('r2_config', r2Config, true);
   useSyncEffect('liter_config', literConfig, true);
   useSyncEffect('ticket_custom_message', ticketCustomMessage, false);
   useSyncEffect('store_instagram', storeInstagram, false);
@@ -818,12 +794,6 @@ export default function App() {
         case 'coupons':
           updateStateIfChanged(setCoupons, 'coupons', value);
           break;
-        case 'telegram_token':
-          updateStateIfChanged(setTelegramToken, 'telegram_token', value);
-          break;
-        case 'telegram_chat_id':
-          updateStateIfChanged(setTelegramChatId, 'telegram_chat_id', value);
-          break;
         case 'sales_goal':
           updateStateIfChanged(setSalesGoal, 'sales_goal', value);
           break;
@@ -847,9 +817,6 @@ export default function App() {
           break;
         case 'staff_permissions':
           updateStateIfChanged(setStaffPermissions, 'staff_permissions', value);
-          break;
-        case 'r2_config':
-          updateStateIfChanged(setR2Config, 'r2_config', value);
           break;
         case 'liter_config':
           updateStateIfChanged(setLiterConfig, 'liter_config', value);
@@ -878,11 +845,6 @@ export default function App() {
     };
   }, [isLoggedIn, isSyncLoaded, tableNumber]);
 
-  // Persistir Estados de Sesión de Admin
-  useEffect(() => {
-    localStorage.setItem('helados_admin_logged_in', isLoggedIn.toString());
-  }, [isLoggedIn]);
-
   // Calcular automáticamente la lista de mesas ocupadas a partir de pedidos activos
   useEffect(() => {
     if (!isLoggedIn) return;
@@ -903,33 +865,25 @@ export default function App() {
   // Control de Expiración de Sesión de Admin (10 Días)
   useEffect(() => {
     if (isLoggedIn) {
-      const loginTime = localStorage.getItem('helados_admin_login_timestamp');
-      if (loginTime) {
-        const elapsed = Date.now() - parseInt(loginTime, 10);
-        const tenDaysMs = 10 * 24 * 60 * 60 * 1000; // 10 días en milisegundos
+      const tenDaysMs = 10 * 24 * 60 * 60 * 1000;
+      const loginAt = sessionStorage.getItem('helados_admin_login_timestamp');
+      if (loginAt) {
+        const elapsed = Date.now() - parseInt(loginAt, 10);
         if (elapsed > tenDaysMs) {
           console.log("🔒 Sesión caducada tras 10 días. Cerrando sesión automáticamente...");
           alert("🔒 Por razones de seguridad, tu sesión administrativa ha expirado tras 10 días de uso continuo. Por favor, inicia sesión de nuevo.");
           handleLogout();
         }
-      } else {
-        localStorage.setItem('helados_admin_login_timestamp', Date.now().toString());
       }
     }
   }, [isLoggedIn]);
 
   useEffect(() => {
-    if (currentUser) {
-      const { password, ...cleanUser } = currentUser;
-      localStorage.setItem('helados_admin_current_user', JSON.stringify(cleanUser));
-      if (password) {
-        localStorage.setItem('helados_admin_password', password);
-      }
-    } else {
-      localStorage.removeItem('helados_admin_current_user');
-      localStorage.removeItem('helados_admin_password');
-    }
-  }, [currentUser]);
+    localStorage.removeItem('helados_admin_logged_in');
+    localStorage.removeItem('helados_admin_current_user');
+    localStorage.removeItem('helados_admin_password');
+    localStorage.removeItem('helados_admin_login_timestamp');
+  }, []);
 
   useEffect(() => {
     if (activeOrderId) {
@@ -1077,6 +1031,7 @@ export default function App() {
         console.warn("Error al cerrar sesión en Supabase:", err.message);
       }
     }
+    sessionStorage.removeItem('helados_admin_login_timestamp');
     setIsLoggedIn(false);
     setCurrentUser(null);
     setView('shop'); // Redirige a la tienda al cerrar sesión

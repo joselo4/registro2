@@ -71,8 +71,6 @@ export default function SettingsManager({
   const [localSalesGoal, setLocalSalesGoal] = useState(salesGoal);
   const [localFreeDeliveryThreshold, setLocalFreeDeliveryThreshold] = useState(freeDeliveryThreshold);
   const [localDeliveryCampaignText, setLocalDeliveryCampaignText] = useState(deliveryCampaignText);
-  const [localTelegramToken, setLocalTelegramToken] = useState(telegramToken);
-  const [localTelegramChatId, setLocalTelegramChatId] = useState(telegramChatId);
   const [localWhatsappGreeting, setLocalWhatsappGreeting] = useState(whatsappGreeting);
   const [localWhatsappFooter, setLocalWhatsappFooter] = useState(whatsappFooter);
   const [localQrCustomUrl, setLocalQrCustomUrl] = useState(qrCustomUrl);
@@ -93,12 +91,6 @@ export default function SettingsManager({
       sunday: { enabled: true, open: '09:00', close: '22:00' }
     }
   });
-
-  const [localR2AccountId, setLocalR2AccountId] = useState(r2Config?.accountId || '');
-  const [localR2AccessKeyId, setLocalR2AccessKeyId] = useState(r2Config?.accessKeyId || '');
-  const [localR2SecretAccessKey, setLocalR2SecretAccessKey] = useState(r2Config?.secretAccessKey || '');
-  const [localR2BucketName, setLocalR2BucketName] = useState(r2Config?.bucketName || '');
-  const [localR2PublicUrl, setLocalR2PublicUrl] = useState(r2Config?.publicUrl || '');
 
   const [localLiterActive, setLocalLiterActive] = useState(literConfig?.active !== false);
   const [localLiterPrice, setLocalLiterPrice] = useState(literConfig?.price || 15.0);
@@ -149,8 +141,6 @@ export default function SettingsManager({
   useEffect(() => { setLocalSalesGoal(salesGoal); }, [salesGoal]);
   useEffect(() => { setLocalFreeDeliveryThreshold(freeDeliveryThreshold); }, [freeDeliveryThreshold]);
   useEffect(() => { setLocalDeliveryCampaignText(deliveryCampaignText); }, [deliveryCampaignText]);
-  useEffect(() => { setLocalTelegramToken(telegramToken); }, [telegramToken]);
-  useEffect(() => { setLocalTelegramChatId(telegramChatId); }, [telegramChatId]);
   useEffect(() => { setLocalWhatsappGreeting(whatsappGreeting); }, [whatsappGreeting]);
   useEffect(() => { setLocalWhatsappFooter(whatsappFooter); }, [whatsappFooter]);
   useEffect(() => { setLocalQrCustomUrl(qrCustomUrl); }, [qrCustomUrl]);
@@ -163,16 +153,6 @@ export default function SettingsManager({
       setLocalShopConfig(shopConfig);
     }
   }, [shopConfig]);
-
-  useEffect(() => {
-    if (r2Config) {
-      setLocalR2AccountId(r2Config.accountId || '');
-      setLocalR2AccessKeyId(r2Config.accessKeyId || '');
-      setLocalR2SecretAccessKey(r2Config.secretAccessKey || '');
-      setLocalR2BucketName(r2Config.bucketName || '');
-      setLocalR2PublicUrl(r2Config.publicUrl || '');
-    }
-  }, [r2Config]);
 
   useEffect(() => {
     if (literConfig) {
@@ -190,7 +170,6 @@ export default function SettingsManager({
     const sanitizedInstagram = localStoreInstagram.toLowerCase().startsWith('http') ? sanitizeUrlToHTTPS(localStoreInstagram) : localStoreInstagram.trim();
     const sanitizedFacebook = localStoreFacebook.toLowerCase().startsWith('http') ? sanitizeUrlToHTTPS(localStoreFacebook) : localStoreFacebook.trim();
     const sanitizedQrUrl = sanitizeUrlToHTTPS(localQrCustomUrl);
-    const sanitizedR2PublicUrl = sanitizeUrlToHTTPS(localR2PublicUrl);
     const sanitizedLiterImage = sanitizeUrlToHTTPS(localLiterImage);
 
     onChangeStoreName(localStoreName);
@@ -204,20 +183,10 @@ export default function SettingsManager({
     onChangeSalesGoal(parseFloat(localSalesGoal) || 0);
     onChangeFreeDeliveryThreshold(parseFloat(localFreeDeliveryThreshold) || 0);
     onChangeDeliveryCampaignText(localDeliveryCampaignText);
-    onChangeTelegramToken(localTelegramToken);
-    onChangeTelegramChatId(localTelegramChatId);
     onChangeWhatsappGreeting(localWhatsappGreeting);
     onChangeWhatsappFooter(localWhatsappFooter);
     onChangeQrCustomUrl(sanitizedQrUrl);
     onUpdateTicketCustomMessage(localTicketCustomMessage);
-    
-    onUpdateR2Config({
-      accountId: localR2AccountId.trim(),
-      accessKeyId: localR2AccessKeyId.trim(),
-      secretAccessKey: localR2SecretAccessKey.trim(),
-      bucketName: localR2BucketName.trim(),
-      publicUrl: sanitizedR2PublicUrl
-    });
 
     onUpdateLiterConfig({
       active: !!localLiterActive,
@@ -410,22 +379,9 @@ export default function SettingsManager({
 
   const handleImageUpload = async (file, type, targetSetter) => {
     if (!file) return;
-    const configToUse = {
-      accountId: localR2AccountId.trim(),
-      accessKeyId: localR2AccessKeyId.trim(),
-      secretAccessKey: localR2SecretAccessKey.trim(),
-      bucketName: localR2BucketName.trim(),
-      publicUrl: localR2PublicUrl.trim()
-    };
-
-    if (!configToUse.accountId || !configToUse.accessKeyId || !configToUse.secretAccessKey || !configToUse.bucketName || !configToUse.publicUrl) {
-      alert("🚨 Cloudflare R2 no está configurado. Por favor, ingresa e inicializa las credenciales antes de subir imágenes.");
-      return;
-    }
-
     setUploadingState(prev => ({ ...prev, [type]: true }));
     try {
-      const url = await uploadToR2(file, configToUse, type);
+      const url = await uploadToR2(file, type);
       targetSetter(url);
       alert("📸 Imagen subida y optimizada a WebP correctamente.");
     } catch (err) {
@@ -437,32 +393,25 @@ export default function SettingsManager({
   };
 
   const handleTestTelegramConnection = async () => {
-    const tokenToUse = localTelegramToken || telegramToken;
-    const chatIdToUse = localTelegramChatId || telegramChatId;
-    if (!tokenToUse || !chatIdToUse) {
-      setTelegramTestStatus({ loading: false, success: false, error: 'Por favor, ingresa tanto el Token como el Chat ID.' });
-      return;
-    }
-
     setTelegramTestStatus({ loading: true, success: null, error: null });
     try {
       const testMsg = `🔔 *¡Conexión Exitosa!*\n\nTu bot de Telegram ha sido correctamente configurado para la heladería *${localStoreName || storeName}*.\n\nRecibirás una notificación por este canal cada vez que se realice un nuevo pedido. 🎉`;
-      const response = await fetch(`https://api.telegram.org/bot${tokenToUse}/sendMessage`, {
+      const response = await fetch('/api/telegram', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          chat_id: chatIdToUse,
           text: testMsg,
-          parse_mode: 'Markdown'
+          parse_mode: 'Markdown',
+          kind: 'test'
         })
       });
 
-      const resData = await response.json();
-      if (response.ok && resData.ok) {
+      const resData = await response.json().catch(() => ({}));
+      if (response.ok && resData.ok !== false) {
         setTelegramTestStatus({ loading: false, success: true, error: null });
         addLog("Notificación de prueba enviada con éxito a Telegram.");
       } else {
-        throw new Error(resData.description || 'Error al conectar con Telegram API.');
+        throw new Error(resData.error || 'Error al conectar con Telegram API.');
       }
     } catch (err) {
       setTelegramTestStatus({ 
@@ -509,8 +458,6 @@ export default function SettingsManager({
         freeDeliveryThreshold,
         deliveryCampaignText,
         storePhone,
-        telegramToken,
-        telegramChatId,
         salesGoal,
         whatsappGreeting,
         whatsappFooter,
@@ -523,7 +470,6 @@ export default function SettingsManager({
         coupons,
         shopConfig,
         staffPermissions,
-        r2Config,
         trendsInterval,
         trendsDisplayTime
       };
@@ -575,8 +521,6 @@ export default function SettingsManager({
           if (data.deliveryCampaignText !== undefined && onChangeDeliveryCampaignText) onChangeDeliveryCampaignText(data.deliveryCampaignText);
           if (data.storePhone !== undefined && onChangeStorePhone) onChangeStorePhone(data.storePhone);
           if (data.whatsappContactMessage !== undefined && onChangeWhatsappContactMessage) onChangeWhatsappContactMessage(data.whatsappContactMessage);
-          if (data.telegramToken !== undefined && onChangeTelegramToken) onChangeTelegramToken(data.telegramToken);
-          if (data.telegramChatId !== undefined && onChangeTelegramChatId) onChangeTelegramChatId(data.telegramChatId);
           if (data.salesGoal !== undefined && onChangeSalesGoal) onChangeSalesGoal(parseFloat(data.salesGoal));
           if (data.whatsappGreeting !== undefined && onChangeWhatsappGreeting) onChangeWhatsappGreeting(data.whatsappGreeting);
           if (data.whatsappFooter !== undefined && onChangeWhatsappFooter) onChangeWhatsappFooter(data.whatsappFooter);
@@ -589,7 +533,6 @@ export default function SettingsManager({
           if (data.coupons && onUpdateCoupons) onUpdateCoupons(data.coupons);
           if (data.shopConfig && onChangeShopConfig) onChangeShopConfig(data.shopConfig);
           if (data.staffPermissions && onUpdateStaffPermissions) onUpdateStaffPermissions(data.staffPermissions);
-          if (data.r2Config && onUpdateR2Config) onUpdateR2Config(data.r2Config);
           if (data.trendsInterval !== undefined && onChangeTrendsInterval) onChangeTrendsInterval(parseInt(data.trendsInterval, 10));
           if (data.trendsDisplayTime !== undefined && onChangeTrendsDisplayTime) onChangeTrendsDisplayTime(parseInt(data.trendsDisplayTime, 10));
 
@@ -623,8 +566,6 @@ export default function SettingsManager({
             addKey('delivery_campaign_text', data.deliveryCampaignText);
             addKey('store_phone', data.storePhone);
             addKey('whatsapp_contact_message', data.whatsappContactMessage);
-            addKey('telegram_token', data.telegramToken);
-            addKey('telegram_chat_id', data.telegramChatId);
             addKey('sales_goal', data.salesGoal);
             addKey('whatsapp_greeting', data.whatsappGreeting);
             addKey('whatsapp_footer', data.whatsappFooter);
@@ -635,7 +576,6 @@ export default function SettingsManager({
             addKey('recommendations', data.recommendations);
             addKey('cart_recommended_pack', data.cartRecommendedPack);
             addKey('staff_permissions', data.staffPermissions);
-            addKey('r2_config', data.r2Config);
             addKey('trends_interval', data.trendsInterval);
             addKey('trends_display_time', data.trendsDisplayTime);
 
@@ -1206,65 +1146,9 @@ export default function SettingsManager({
           <strong style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '0.9rem' }}>
             ✈️ Notificaciones en tiempo real (Telegram Bot)
           </strong>
-          <p style={{ fontSize: '0.75rem', color: 'var(--text-light)', marginTop: '4px', marginBottom: '10px' }}>
-            Configura tu bot de Telegram para recibir alertas instantáneas cada vez que un cliente realice un nuevo pedido.
+          <p style={{ fontSize: '0.75rem', color: 'var(--text-light)', marginTop: '4px', marginBottom: '0' }}>
+            Esta integración ahora usa una Pages Function. El token y el chat ID se cargan como variables de entorno en Cloudflare, no en el navegador.
           </p>
-          <div style={{ display: 'flex', gap: '10px', flexDirection: 'column' }}>
-            <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
-              <div style={{ flex: 2, minWidth: '200px', display: 'flex', flexDirection: 'column', gap: '4px' }}>
-                <label htmlFor="telegram-token-input" style={{ fontSize: '0.75rem', fontWeight: 'bold' }}>Token del Bot</label>
-                <input
-                  id="telegram-token-input"
-                  name="telegram-token"
-                  type="text"
-                  className="form-control"
-                  placeholder="Token del Bot"
-                  style={{ width: '100%', fontSize: '0.8rem', padding: '8px' }}
-                  value={localTelegramToken}
-                  onChange={(e) => setLocalTelegramToken(e.target.value)}
-                />
-              </div>
-              <div style={{ flex: 1, minWidth: '100px', display: 'flex', flexDirection: 'column', gap: '4px' }}>
-                <label htmlFor="telegram-chat-id-input" style={{ fontSize: '0.75rem', fontWeight: 'bold' }}>Chat ID</label>
-                <input
-                  id="telegram-chat-id-input"
-                  name="telegram-chat-id"
-                  type="text"
-                  className="form-control"
-                  placeholder="Chat ID"
-                  style={{ width: '100%', fontSize: '0.8rem', padding: '8px' }}
-                  value={localTelegramChatId}
-                  onChange={(e) => setLocalTelegramChatId(e.target.value)}
-                />
-              </div>
-            </div>
-            
-            <div style={{ display: 'flex', alignItems: 'center', gap: '10px', flexWrap: 'wrap' }}>
-              <button
-                type="button"
-                className="btn btn-secondary"
-                style={{ padding: '6px 12px', fontSize: '0.75rem', backgroundColor: '#0088cc', borderColor: '#0088cc', color: 'white', cursor: 'pointer' }}
-                disabled={telegramTestStatus.loading}
-                onClick={handleTestTelegramConnection}
-              >
-                {telegramTestStatus.loading ? 'Enviando...' : '⚡ Probar Conexión'}
-              </button>
-              <span style={{ fontSize: '0.65rem', color: 'var(--text-light)' }}>
-                Recuerda haber enviado `/start` a tu bot en Telegram.
-              </span>
-            </div>
-
-            {telegramTestStatus.success && (
-              <div style={{ color: 'var(--success)', fontSize: '0.75rem', fontWeight: 600, marginTop: '3px' }}>
-                ✅ ¡Mensaje de prueba enviado con éxito! Revisa tu chat de Telegram.
-              </div>
-            )}
-            {telegramTestStatus.error && (
-              <div style={{ color: 'var(--danger)', fontSize: '0.75rem', fontWeight: 600, marginTop: '3px' }}>
-                ❌ Error: {telegramTestStatus.error}
-              </div>
-            )}
-          </div>
         </div>
 
         {/* Estado Sincronización */}
@@ -1866,71 +1750,14 @@ alter table public.helados_sync enable row level security;`}
 
 
 
-        {/* Cloudflare R2 Credentials */}
+        {/* Cloudflare R2 */}
         <div className="glass" style={{ padding: '15px', borderRadius: '8px', marginBottom: '15px' }}>
           <strong style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '0.9rem', marginBottom: '4px' }}>
-            📸 Configuración de Almacenamiento Cloudflare R2
+            📸 Almacenamiento Cloudflare R2
           </strong>
-          <p style={{ fontSize: '0.75rem', color: 'var(--text-light)', marginBottom: '12px' }}>
-            Permite la subida directa de fotografías en formato web (WebP optimizado) para los productos del menú.
+          <p style={{ fontSize: '0.75rem', color: 'var(--text-light)', marginBottom: '0' }}>
+            La subida de imágenes ahora se resuelve del lado del servidor. Configura las claves de R2 como variables de entorno en Cloudflare Pages.
           </p>
-          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '10px' }}>
-            <div className="form-group" style={{ gridColumn: 'span 2' }}>
-              <label style={{ fontSize: '0.75rem', fontWeight: 'bold' }}>Account ID</label>
-              <input
-                type="text"
-                className="form-control"
-                placeholder="Ej. d41d8cd98..."
-                style={{ fontSize: '0.8rem', padding: '6px 10px' }}
-                value={localR2AccountId}
-                onChange={(e) => setLocalR2AccountId(e.target.value)}
-              />
-            </div>
-            <div className="form-group">
-              <label style={{ fontSize: '0.75rem', fontWeight: 'bold' }}>Access Key ID</label>
-              <input
-                type="text"
-                className="form-control"
-                placeholder="Access Key"
-                style={{ fontSize: '0.8rem', padding: '6px 10px' }}
-                value={localR2AccessKeyId}
-                onChange={(e) => setLocalR2AccessKeyId(e.target.value)}
-              />
-            </div>
-            <div className="form-group">
-              <label style={{ fontSize: '0.75rem', fontWeight: 'bold' }}>Secret Access Key</label>
-              <input
-                type="password"
-                className="form-control"
-                placeholder="Secret Key"
-                style={{ fontSize: '0.8rem', padding: '6px 10px' }}
-                value={localR2SecretAccessKey}
-                onChange={(e) => setLocalR2SecretAccessKey(e.target.value)}
-              />
-            </div>
-            <div className="form-group">
-              <label style={{ fontSize: '0.75rem', fontWeight: 'bold' }}>Bucket Name</label>
-              <input
-                type="text"
-                className="form-control"
-                placeholder="Bucket Name"
-                style={{ fontSize: '0.8rem', padding: '6px 10px' }}
-                value={localR2BucketName}
-                onChange={(e) => setLocalR2BucketName(e.target.value)}
-              />
-            </div>
-            <div className="form-group">
-              <label style={{ fontSize: '0.75rem', fontWeight: 'bold' }}>Public URL</label>
-              <input
-                type="text"
-                className="form-control"
-                placeholder="https://pub-..."
-                style={{ fontSize: '0.8rem', padding: '6px 10px' }}
-                value={localR2PublicUrl}
-                onChange={(e) => setLocalR2PublicUrl(e.target.value)}
-              />
-            </div>
-          </div>
         </div>
 
         {/* 1 Liter Configuration */}

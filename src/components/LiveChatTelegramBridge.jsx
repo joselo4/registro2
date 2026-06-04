@@ -1,8 +1,6 @@
 import { useState } from 'react';
 
 export default function LiveChatTelegramBridge({ 
-  telegramToken, 
-  telegramChatId, 
   storePhone, 
   storeName, 
   view, 
@@ -33,16 +31,6 @@ export default function LiveChatTelegramBridge({
     e.preventDefault();
     if (!message.trim()) return;
 
-    if (!telegramToken || !telegramChatId) {
-      const waMessage = `Hola, mi nombre es ${name || 'Cliente'}. Tengo una consulta sobre ${storeName || 'helados'}:\n\n${message}`;
-      const cleanPhone = String(storePhone || '').replace(/\D/g, '');
-      const waUrl = `https://wa.me/${cleanPhone}?text=${encodeURIComponent(waMessage)}`;
-      window.open(waUrl, '_blank');
-      setIsOpen(false);
-      setMessage('');
-      return;
-    }
-
     setSending(true);
     const textMsg = `💬 *¡NUEVO MENSAJE DE CLIENTE!* 💬\n\n` +
       `*Cliente:* ${name.trim() || 'Anónimo'}\n` +
@@ -50,13 +38,13 @@ export default function LiveChatTelegramBridge({
       `_Enviado desde el chat en vivo de la heladería._`;
 
     try {
-      const response = await fetch(`https://api.telegram.org/bot${telegramToken}/sendMessage`, {
+      const response = await fetch('/api/telegram', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          chat_id: telegramChatId,
           text: textMsg,
-          parse_mode: 'Markdown'
+          parse_mode: 'Markdown',
+          kind: 'support'
         })
       });
 
@@ -68,7 +56,12 @@ export default function LiveChatTelegramBridge({
           setIsOpen(false);
         }, 3000);
       } else {
-        triggerAlert("Error al enviar mensaje. Por favor, inténtalo de nuevo.");
+        const cleanPhone = String(storePhone || '').replace(/\D/g, '');
+        const waMessage = `Hola, mi nombre es ${name || 'Cliente'}. Tengo una consulta sobre ${storeName || 'helados'}:\n\n${message}`;
+        const waUrl = `https://wa.me/${cleanPhone}?text=${encodeURIComponent(waMessage)}`;
+        window.open(waUrl, '_blank');
+        setIsOpen(false);
+        setMessage('');
       }
     } catch (err) {
       console.error("Error al enviar mensaje a Telegram:", err);
@@ -263,7 +256,7 @@ export default function LiveChatTelegramBridge({
                   style={{ width: '100%', padding: '8px', fontSize: '0.8rem', marginTop: '5px', cursor: 'pointer' }}
                   disabled={sending}
                 >
-                  {sending ? 'Enviando...' : (!telegramToken || !telegramChatId ? '💬 Enviar por WhatsApp' : '🚀 Enviar Mensaje')}
+                  {sending ? 'Enviando...' : '🚀 Enviar Mensaje'}
                 </button>
               </form>
             </div>

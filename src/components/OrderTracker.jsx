@@ -2,7 +2,7 @@ import React, { useState, useEffect, useRef } from 'react';
 import { supabase } from '../utils/supabaseClient';
 import { updateSyncedData } from '../utils/supabaseSync';
 
-export default function OrderTracker({ orderId, orders, setView, storePhone, telegramToken, telegramChatId, onClearActiveOrder }) {
+export default function OrderTracker({ orderId, orders, setView, storePhone, onClearActiveOrder }) {
   const [inputVal, setInputVal] = useState('');
   const [activeSearchId, setActiveSearchId] = useState(orderId || '');
   const [hasSearched, setHasSearched] = useState(false);
@@ -68,18 +68,16 @@ export default function OrderTracker({ orderId, orders, setView, storePhone, tel
       `_Enviado desde la encuesta rápida post-entrega._`;
 
     try {
-      if (telegramToken && telegramChatId) {
-        const response = await fetch(`https://api.telegram.org/bot${telegramToken}/sendMessage`, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            chat_id: telegramChatId,
-            text: textMsg,
-            parse_mode: 'Markdown'
-          })
-        });
-        if (!response.ok) throw new Error("Error en bot de Telegram");
-      }
+      const response = await fetch('/api/telegram', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          text: textMsg,
+          parse_mode: 'Markdown',
+          kind: 'survey'
+        })
+      });
+      if (!response.ok) throw new Error("Error en notificación centralizada");
 
       localStorage.setItem(`helados_survey_submitted_${orderIdUpper}`, 'true');
       setSurveySubmitted(true);

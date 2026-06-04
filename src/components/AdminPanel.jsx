@@ -327,7 +327,7 @@ export default function AdminPanel({
     const handleLoginSuccess = (userObj, isSupabase) => {
       setLoginAttempts(0);
       setLockoutUntil(0);
-      localStorage.setItem('helados_admin_login_timestamp', Date.now().toString());
+      sessionStorage.setItem('helados_admin_login_timestamp', Date.now().toString());
       setIsLoggedIn(true);
       setCurrentUser(userObj);
       addLog(`Inicio de sesión ${isSupabase ? 'multidispositivo' : 'exitoso'} por ${userObj.name} (${userObj.role}).`);
@@ -364,7 +364,6 @@ export default function AdminPanel({
             name: user.user_metadata?.name || 'Administrador Supabase',
             role: user.user_metadata?.role || 'Administrador',
             status: 'Activo',
-            password: passwordSanitized,
             isSupabaseUser: true
           };
 
@@ -406,7 +405,6 @@ export default function AdminPanel({
             name: data.name,
             role: data.role,
             status: data.status,
-            password: passwordSanitized,
             isSupabaseUser: true
           };
           
@@ -425,28 +423,7 @@ export default function AdminPanel({
       }
     }
 
-    // 3. Fallback Local
-    let foundUser = staffUsers && staffUsers.length > 0
-      ? staffUsers.find(u => u.email.toLowerCase() === searchEmail)
-      : null;
-    
-    if (foundUser) {
-      if (foundUser.status === 'Suspendido') {
-        setAuthError('🚨 Tu cuenta se encuentra SUSPENDIDA. Contacta al administrador.');
-        return;
-      }
-
-      if (foundUser.password === passwordSanitized) {
-        const userObj = { ...foundUser, password: passwordSanitized, isSupabaseUser: false };
-        handleLoginSuccess(userObj, false);
-        return;
-      } else {
-        handleLoginFailure('Contraseña incorrecta.');
-        return;
-      }
-    }
-
-    handleLoginFailure('Credenciales incorrectas o usuario no registrado.');
+    setAuthError('🚨 No fue posible autenticar el acceso administrativo. Verifica la conexión con Supabase o vuelve a iniciar sesión.');
   };
 
   const handleLogoutAction = () => {

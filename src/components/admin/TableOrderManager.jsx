@@ -268,7 +268,7 @@ export default function TableOrderManager({
       return;
     }
 
-    const orderId = `PED-${Math.floor(1000 + Math.random() * 9000)}`;
+    const orderId = `PED-${crypto.randomUUID()}`;
     const isBarra = selectedTable === 'Barra';
     const finalClient = newOrderClient.trim() || (isBarra ? `Barra` : `Mesa ${selectedTable}`);
     const subtotal = newOrderItems.reduce((sum, i) => sum + (i.price * i.quantity), 0);

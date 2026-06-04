@@ -18,29 +18,8 @@ const _writeTimeouts = {};
 // ─────────────────────────────────────────────────────────────────────────────
 
 /**
- * Obtiene las credenciales del administrador guardadas en el LocalStorage
- * tras un inicio de sesión administrativo exitoso.
- */
-const getAdminCredentials = () => {
-  try {
-    const saved = localStorage.getItem('helados_admin_current_user');
-    if (saved) {
-      const user = JSON.parse(saved);
-      const password = localStorage.getItem('helados_admin_password');
-      if (user && user.email && password) {
-        return { email: user.email, password: password };
-      }
-    }
-  } catch (e) {
-    console.warn("Supabase Sync: Error leyendo credenciales de administración.", e);
-  }
-  return null;
-};
-
-/**
  * Obtiene todos los datos sincronizados desde Supabase de forma segura.
  * Si es administrador y tiene sesión activa, utiliza consultas directas protegidas por RLS.
- * Si es administrador mediante credenciales locales heredadas, usa RPC como fallback.
  * Si es cliente, descarga únicamente las configuraciones públicas de la tienda.
  */
 export const fetchSyncedData = async (isAdmin = false) => {
@@ -58,34 +37,17 @@ export const fetchSyncedData = async (isAdmin = false) => {
       isSessionAdmin = true;
     }
 
-    const creds = getAdminCredentials();
-
-    // 1. Caso de uso administrativo
-    if (isAdmin && (isSessionAdmin || creds)) {
-      if (isSessionAdmin) {
-        console.log("🔌 Solicitando datos administrativos seguros mediante consulta directa (Supabase Auth activa)...");
-        const { data, error } = await supabase.from('helados_sync').select('*');
-        if (error) throw error;
-        if (data && data.length > 0) {
-          data.forEach(row => {
-            syncData[row.key] = row.value;
-          });
-        }
-      } else {
-        console.log("🔌 Solicitando datos administrativos seguros mediante RPC de fallback...");
-        const { data, error } = await supabase.rpc('get_all_sensitive_keys', {
-          p_admin_email: creds.email,
-          p_admin_password: creds.password
+    if (isAdmin && isSessionAdmin) {
+      console.log("🔌 Solicitando datos administrativos seguros mediante consulta directa (Supabase Auth activa)...");
+      const { data, error } = await supabase.from('helados_sync').select('*');
+      if (error) throw error;
+      if (data && data.length > 0) {
+        data.forEach(row => {
+          syncData[row.key] = row.value;
         });
-
-        if (error) throw error;
-
-        if (data && typeof data === 'object') {
-          syncData = data;
-        }
       }
     } else {
-      // 2. Caso de uso público (Clientes): cargar únicamente la configuración general no sensible
+      // Caso de uso público (Clientes): cargar únicamente la configuración general no sensible
       console.log("🔌 Cargando configuración pública de la tienda...");
       const publicKeys = [
         'store_name', 
@@ -186,19 +148,6 @@ const _executeUpsert = async (key, value) => {
       return true;
     }
 
-    // 2. Si no hay sesión de Supabase Auth pero hay credenciales guardadas de RPC
-    const creds = getAdminCredentials();
-    if (creds) {
-      const { error } = await supabase.rpc('update_sensitive_key', {
-        p_admin_email: creds.email,
-        p_admin_password: creds.password,
-        p_key: key,
-        p_value: value
-      });
-      if (error) throw error;
-      return true;
-    }
-
     // 3. Si es una acción pública (ej: un cliente registrando su pedido o encuesta)
     // El RLS de Supabase solo permitirá la operación si la clave empieza por 'order_'
     const { error } = await supabase
@@ -241,24 +190,7 @@ export const updateMultipleSyncedData = async (keyValuePairs) => {
       return true;
     }
 
-    // 2. Si hay sesión administrativa por credenciales de RPC
-    const creds = getAdminCredentials();
-    if (creds) {
-      const promises = keyValuePairs.map(item => 
-        supabase.rpc('update_sensitive_key', {
-          p_admin_email: creds.email,
-          p_admin_password: creds.password,
-          p_key: item.key,
-          p_value: item.value
-        })
-      );
-      const results = await Promise.all(promises);
-      const error = results.find(r => r.error);
-      if (error) throw error.error;
-      return true;
-    }
-
-    // 3. Fallback público compatible con operaciones de cliente en lote (si las hubiera)
+    // 2. Fallback público compatible con operaciones de cliente en lote (si las hubiera)
     const rows = keyValuePairs.map(item => ({
       key: item.key,
       value: item.value,
