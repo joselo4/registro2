@@ -177,6 +177,18 @@ export default function CartLocationsView({
     });
   };
 
+  const handleLabelBlur = () => {
+    const trimmed = cartLabel.trim();
+    if (isSharing && ownCart && trimmed && trimmed !== ownCart.label) {
+      const nextCart = {
+        ...ownCart,
+        label: trimmed,
+        updatedAt: new Date().toISOString()
+      };
+      persistCart(nextCart);
+    }
+  };
+
   const stopSharing = () => {
     const cartId = ownCart?.id || currentCartIdRef.current || normalizedEmail;
     const nextCart = {
@@ -404,6 +416,8 @@ export default function CartLocationsView({
                   className="form-control"
                   value={cartLabel}
                   onChange={(e) => setCartLabel(e.target.value)}
+                  onBlur={handleLabelBlur}
+                  onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); handleLabelBlur(); e.target.blur(); } }}
                   placeholder="Carrito Centro"
                 />
                 <small style={{ color: 'var(--text-light)', display: 'block', marginTop: '4px' }}>Ahorro de bateria activo: la ubicacion se envia cada 10 minutos.</small>

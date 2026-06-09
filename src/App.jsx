@@ -484,7 +484,7 @@ export default function App() {
     if (serverData.cart_locations !== undefined) {
       setCartLocations(prev => {
         const serverVal = serverData.cart_locations || { updatedAt: null, carts: [] };
-        if (prev && prev.updatedAt && serverVal.updatedAt) {
+        if (isLoggedIn && prev && prev.updatedAt && serverVal.updatedAt) {
           if (new Date(serverVal.updatedAt) <= new Date(prev.updatedAt)) {
             console.log("⏳ Ignorando carga inicial de cart_locations más antigua o igual que la local.");
             return prev;
@@ -555,6 +555,7 @@ export default function App() {
         // Habilitar escrituras después de que las actualizaciones del estado de React se procesen
         setTimeout(() => {
           allowCloudWrite.current = true;
+          isRemoteUpdate.current = {}; // Limpiar flags residuales de la carga inicial
         }, 400);
       } else {
         console.warn("⚠️ No se pudieron obtener datos de Supabase. Escrituras remotas desactivadas para proteger la base de datos.");
@@ -604,13 +605,16 @@ export default function App() {
             
             setTimeout(() => {
               allowCloudWrite.current = true;
+              isRemoteUpdate.current = {}; // Limpiar flags residuales de la carga de admin
             }, 400);
           } else {
             allowCloudWrite.current = false;
           }
           setIsSyncLoaded(true);
         }
-        if (!session) {
+        // Solo responder a SIGNED_OUT para evitar que INITIAL_SESSION con sesión nula
+        // cierre la sesión de usuarios autenticados mediante RPC fallback local
+        if (!session && event === 'SIGNED_OUT') {
           setIsLoggedIn(false);
           setCurrentUser(null);
         }
@@ -892,7 +896,7 @@ export default function App() {
         case 'cart_locations':
           setCartLocations(prev => {
             const serverVal = value || { updatedAt: null, carts: [] };
-            if (prev && prev.updatedAt && serverVal.updatedAt) {
+            if (isLoggedIn && prev && prev.updatedAt && serverVal.updatedAt) {
               if (new Date(serverVal.updatedAt) <= new Date(prev.updatedAt)) {
                 console.log("⏳ Ignorando actualización remota de cart_locations más antigua o igual que la local.");
                 return prev;
@@ -1108,13 +1112,37 @@ export default function App() {
     logoutInProgressRef.current = true;
     window.setTimeout(() => {
       logoutInProgressRef.current = false;
-    }, 1000);
+    }, 2000); // 2 segundos para dar margen a la desconexión asíncrona
 
     if (supabase) {
       try {
         await supabase.auth.signOut();
       } catch (err) {
         console.warn("Error al cerrar sesión en Supabase:", err.message);
+      }
+      
+      // Limpieza manual y agresiva de tokens de Supabase en localStorage y sessionStorage
+      // para asegurar el cierre de sesión local incluso ante fallos de conexión o almacenamiento móvil
+      try {
+        const keysToRemove = [];
+        for (let i = 0; i < localStorage.length; i++) {
+          const key = localStorage.key(i);
+          if (key && (key.startsWith('sb-') || key.includes('auth-token'))) {
+            keysToRemove.push(key);
+          }
+        }
+        keysToRemove.forEach(k => localStorage.removeItem(k));
+
+        const sessionKeysToRemove = [];
+        for (let i = 0; i < sessionStorage.length; i++) {
+          const key = sessionStorage.key(i);
+          if (key && (key.startsWith('sb-') || key.includes('auth-token'))) {
+            sessionKeysToRemove.push(key);
+          }
+        }
+        sessionKeysToRemove.forEach(k => sessionStorage.removeItem(k));
+      } catch (e) {
+        console.warn("Error al limpiar tokens locales de Supabase:", e);
       }
     }
     sessionStorage.removeItem('helados_admin_login_timestamp');
@@ -1563,7 +1591,7 @@ export default function App() {
         </div>
         <div>&copy; {new Date().getFullYear()} {storeName} - Todos los derechos reservados.</div>
         <div style={{ marginTop: '5px' }}>
-          Hecho para heladerias y delivery.
+          Hecho con mucho amor por heladeros artesanales
           <button
             onClick={() => setView('admin')}
             style={{
@@ -1571,13 +1599,15 @@ export default function App() {
               border: 'none',
               cursor: 'pointer',
               color: 'var(--text-light)',
-              fontSize: '0.75rem',
-              marginLeft: '10px',
-              opacity: 0.3
+              fontSize: '0.8rem',
+              marginLeft: '2px',
+              padding: 0,
+              display: 'inline',
+              opacity: 0.8
             }}
             title="Acceso administrativo"
           >
-            🛠️ Admin
+            .
           </button>
         </div>
       </footer>

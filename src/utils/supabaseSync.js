@@ -31,8 +31,14 @@ export const fetchSyncedData = async (isAdmin = false) => {
     let syncData = {};
     let isSessionAdmin = false;
 
-    // Verificar si hay una sesión activa de Supabase Auth
-    const { data: { session } } = await supabase.auth.getSession();
+    // Verificar si hay una sesión activa de Supabase Auth de forma segura
+    let session = null;
+    try {
+      const { data } = await supabase.auth.getSession();
+      session = data?.session || null;
+    } catch (authErr) {
+      console.warn("⚠️ Supabase Sync: Error al obtener sesión en fetch:", authErr.message);
+    }
     if (session) {
       isSessionAdmin = true;
     }
@@ -131,7 +137,13 @@ export const updateSyncedData = async (key, value) => {
 
 const _executeUpsert = async (key, value) => {
   try {
-    const { data: { session } } = await supabase.auth.getSession();
+    let session = null;
+    try {
+      const { data } = await supabase.auth.getSession();
+      session = data?.session || null;
+    } catch (authErr) {
+      console.warn("⚠️ Supabase Sync: Error al obtener sesión en upsert:", authErr.message);
+    }
 
     // 1. Si hay una sesión activa de Supabase Auth, hacemos upsert directo
     if (session) {
@@ -175,7 +187,13 @@ const _executeUpsert = async (key, value) => {
 export const updateMultipleSyncedData = async (keyValuePairs) => {
   if (!supabase || !keyValuePairs || keyValuePairs.length === 0) return false;
   try {
-    const { data: { session } } = await supabase.auth.getSession();
+    let session = null;
+    try {
+      const { data } = await supabase.auth.getSession();
+      session = data?.session || null;
+    } catch (authErr) {
+      console.warn("⚠️ Supabase Sync: Error al obtener sesión en upsert múltiple:", authErr.message);
+    }
 
     // 1. Si hay una sesión activa de Supabase Auth, hacemos upsert en lote directo
     if (session) {
