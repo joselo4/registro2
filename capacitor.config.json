@@ -1,0 +1,8 @@
+{
+  "appId": "com.donhelado.carritos",
+  "appName": "Don Helado",
+  "webDir": "dist",
+  "server": {
+    "androidScheme": "https"
+  }
+}

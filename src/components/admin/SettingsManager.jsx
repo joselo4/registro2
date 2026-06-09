@@ -58,7 +58,8 @@ export default function SettingsManager({
   trendsInterval, onChangeTrendsInterval,
   trendsDisplayTime, onChangeTrendsDisplayTime,
   shopConfig, onChangeShopConfig,
-  staffPermissions, onUpdateStaffPermissions
+  staffPermissions, onUpdateStaffPermissions,
+  cartLocations, onUpdateCartLocations
 }) {
   // --- Estados Locales para Ajustes (Evita lags en el dashboard completo al escribir) ---
   const [localStoreName, setLocalStoreName] = useState(storeName);
@@ -466,6 +467,7 @@ export default function SettingsManager({
         recommendations,
         cartRecommendedPack,
         staffUsers,
+        cartLocations,
         literConfig,
         ticketCustomMessage,
         catalogOrder,
@@ -533,6 +535,7 @@ export default function SettingsManager({
           if (data.recommendations && onUpdateRecommendations) onUpdateRecommendations(data.recommendations);
         if (data.cartRecommendedPack && onUpdateCartRecommendedPack) onUpdateCartRecommendedPack(data.cartRecommendedPack);
           if (data.staffUsers && onUpdateStaffUsers) onUpdateStaffUsers(data.staffUsers);
+          if (data.cartLocations && onUpdateCartLocations) onUpdateCartLocations(data.cartLocations);
           if (data.coupons && onUpdateCoupons) onUpdateCoupons(data.coupons);
           if (data.shopConfig && onChangeShopConfig) onChangeShopConfig(data.shopConfig);
           if (data.staffPermissions && onUpdateStaffPermissions) onUpdateStaffPermissions(data.staffPermissions);
@@ -579,6 +582,7 @@ export default function SettingsManager({
             addKey('recommendations', data.recommendations);
             addKey('cart_recommended_pack', data.cartRecommendedPack);
             addKey('staff_users', data.staffUsers);
+            addKey('cart_locations', data.cartLocations);
             addKey('staff_permissions', data.staffPermissions);
             addKey('trends_interval', data.trendsInterval);
             addKey('trends_display_time', data.trendsDisplayTime);
@@ -1102,6 +1106,44 @@ export default function SettingsManager({
               />
               <span className="slider"></span>
             </label>
+          </div>
+
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+            <div>
+              <strong style={{ display: 'block' }}>Ubicacion de Carritos en Vivo</strong>
+              <span style={{ fontSize: '0.75rem', color: 'var(--text-light)', display: 'block', marginTop: '2px' }}>
+                Permite que vendedores compartan su ubicacion cada 10 minutos para mostrarla en la web publica.
+              </span>
+            </div>
+            <label className="toggle-switch" htmlFor="shop-location-tracking-enabled-input">
+              <input 
+                id="shop-location-tracking-enabled-input" 
+                type="checkbox" 
+                checked={localShopConfig.locationTrackingEnabled !== false} 
+                onChange={(e) => setLocalShopConfig(prev => ({ ...prev, locationTrackingEnabled: e.target.checked }))} 
+              />
+              <span className="slider"></span>
+            </label>
+          </div>
+          <div className="form-group">
+            <label>Mensaje si no hay carritos en calle</label>
+            <textarea
+              className="form-control"
+              rows="3"
+              value={localShopConfig.locationUnavailableMessage || ''}
+              onChange={(e) => setLocalShopConfig(prev => ({ ...prev, locationUnavailableMessage: e.target.value }))}
+              placeholder="Nuestros carritos saldran pronto a la calle. Puedes pedir por delivery."
+            />
+          </div>
+
+          <div className="form-group">
+            <label>Texto del boton de venta</label>
+            <input
+              className="form-control"
+              value={localShopConfig.locationUnavailableButtonText || ''}
+              onChange={(e) => setLocalShopConfig(prev => ({ ...prev, locationUnavailableButtonText: e.target.value }))}
+              placeholder="Ver carta y pedir delivery"
+            />
           </div>
         </div>
 

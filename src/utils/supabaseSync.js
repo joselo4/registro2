@@ -75,7 +75,8 @@ export const fetchSyncedData = async (isAdmin = false) => {
         'recommendations', 
         'cart_recommended_pack', 
         'liter_config', 
-        'ticket_custom_message'
+        'ticket_custom_message',
+        'cart_locations'
       ];
 
       const { data, error } = await supabase
@@ -213,7 +214,7 @@ export const updateMultipleSyncedData = async (keyValuePairs) => {
  * Suscribe la aplicación a los cambios de la tabla `helados_sync` en tiempo real.
  * Ejecuta el callback onUpdateCallback(key, value) ante cada cambio remoto.
  */
-export const subscribeToSync = (onUpdateCallback, isAdmin = false, tableNumber = null) => {
+export const subscribeToSync = (onUpdateCallback, isAdmin = false, tableNumber = null, onStatusCallback = null) => {
   if (!supabase) return null;
   try {
     if (!isAdmin) {
@@ -244,51 +245,43 @@ export const subscribeToSync = (onUpdateCallback, isAdmin = false, tableNumber =
         'recommendations', 
         'cart_recommended_pack', 
         'liter_config', 
-        'ticket_custom_message'
+        'ticket_custom_message',
+        'cart_locations'
       ];
 
-      let channel = supabase.channel('helados-realtime-client-channel');
-      publicKeys.forEach((k) => {
-        channel = channel.on(
+      const randId = Math.random().toString(36).substring(2, 10);
+      const channel = supabase
+        .channel(`helados-realtime-client-channel-${randId}`)
+        .on(
           'postgres_changes',
-          { event: 'UPDATE', schema: 'public', table: 'helados_sync', filter: `key=eq.${k}` },
+          { event: '*', schema: 'public', table: 'helados_sync' },
           (payload) => {
             const key = payload.new?.key || payload.old?.key;
             const val = payload.new?.value || null;
             if (key) {
-              invalidateSyncCache();
-              onUpdateCallback(key, val);
+              const isPublicKey = publicKeys.includes(key);
+              const isMyTableCall = tableNumber && key === `order_call_Mesa_${tableNumber}`;
+              if (isPublicKey || isMyTableCall) {
+                invalidateSyncCache();
+                onUpdateCallback(key, val);
+              }
             }
           }
-        );
-      });
-
-      // Suscribirse también al llamado de esta mesa en específico
-      if (tableNumber) {
-        channel = channel.on(
-          'postgres_changes',
-          { event: '*', schema: 'public', table: 'helados_sync', filter: `key=eq.order_call_Mesa_${tableNumber}` },
-          (payload) => {
-            const key = payload.new?.key || payload.old?.key;
-            const val = payload.new?.value || null;
-            if (key) {
-              invalidateSyncCache();
-              onUpdateCallback(key, val);
-            }
+        )
+        .subscribe((status, err) => {
+          if (onStatusCallback) onStatusCallback(status, err);
+          if (status === 'SUBSCRIBED') {
+            console.log(`🔌 Canal Supabase Realtime (Cliente) suscrito con éxito (ID: ${randId}).`);
+          } else if (err || status === 'CHANNEL_ERROR') {
+            console.error(`❌ Error en Realtime (Cliente):`, err || status);
           }
-        );
-      }
-
-      channel.subscribe((status) => {
-        if (status === 'SUBSCRIBED') {
-          console.log(`🔌 Canal Supabase Realtime (Cliente) con llaves públicas${tableNumber ? ` y Mesa ${tableNumber}` : ''} suscrito con éxito.`);
-        }
-      });
+        });
       return channel;
     } else {
       // Para administradores, suscribirse a todos los cambios
+      const randId = Math.random().toString(36).substring(2, 10);
       const channel = supabase
-        .channel('helados-realtime-admin-channel')
+        .channel(`helados-realtime-admin-channel-${randId}`)
         .on(
           'postgres_changes',
           { event: '*', schema: 'public', table: 'helados_sync' },
@@ -301,15 +294,19 @@ export const subscribeToSync = (onUpdateCallback, isAdmin = false, tableNumber =
             }
           }
         )
-        .subscribe((status) => {
+        .subscribe((status, err) => {
+          if (onStatusCallback) onStatusCallback(status, err);
           if (status === 'SUBSCRIBED') {
-            console.log("🔌 Canal Supabase Realtime (Admin) suscrito con éxito.");
+            console.log(`🔌 Canal Supabase Realtime (Admin) suscrito con éxito (ID: ${randId}).`);
+          } else if (err || status === 'CHANNEL_ERROR') {
+            console.error(`❌ Error en Realtime (Admin):`, err || status);
           }
         });
       return channel;
     }
   } catch (err) {
     console.warn("⚠️ Supabase Realtime: Suscripción fallida.", err.message);
+    if (onStatusCallback) onStatusCallback('error', err);
     return null;
   }
 };

@@ -1,0 +1,7 @@
+<?xml version='1.0' encoding='utf-8'?>
+<resources>
+    <string name="app_name">Don Helado</string>
+    <string name="title_activity_main">Don Helado</string>
+    <string name="package_name">com.donhelado.carritos</string>
+    <string name="custom_url_scheme">com.donhelado.carritos</string>
+</resources>

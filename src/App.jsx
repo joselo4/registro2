@@ -9,6 +9,7 @@ import {
 } from './utils/mockData';
 import { fetchSyncedData, updateSyncedData, subscribeToSync } from './utils/supabaseSync';
 import { supabase } from './utils/supabaseClient';
+import { Capacitor } from '@capacitor/core';
 
 // Lazy loading components for better initial load performance (UX)
 const CustomerShop = React.lazy(() => import('./components/CustomerShop'));
@@ -18,6 +19,7 @@ const Cart = React.lazy(() => import('./components/Cart'));
 const LiveChatTelegramBridge = React.lazy(() => import('./components/LiveChatTelegramBridge'));
 const OrderTracker = React.lazy(() => import('./components/OrderTracker'));
 const AdminPanel = React.lazy(() => import('./components/AdminPanel'));
+const CartLocationsView = React.lazy(() => import('./components/CartLocationsView'));
 
 // Combinaciones recomendadas por defecto para el menú
 const DEFAULT_RECOMMENDATIONS = [
@@ -82,6 +84,13 @@ export default function App() {
   const logoutInProgressRef = useRef(false);
   const [isCloudSynced, setIsCloudSynced] = useState(false);
   const [isSyncLoaded, setIsSyncLoaded] = useState(false);
+  const [realtimeStatus, setRealtimeStatus] = useState('connecting'); // 'connecting' | 'connected' | 'error'
+  const isVendorApp = typeof window !== 'undefined' && (
+    Capacitor.isNativePlatform?.() ||
+    window.matchMedia?.('(display-mode: standalone)').matches ||
+    window.navigator?.standalone ||
+    new URLSearchParams(window.location.search).get('mode') === 'vendor'
+  );
 
   const [customAlert, setCustomAlert] = useState(null); // { title: string, message: string, type: 'info' | 'warning' | 'error' | 'success', onClose?: () => void }
 
@@ -216,6 +225,9 @@ export default function App() {
   const DEFAULT_SHOP_CONFIG = {
     open: true,
     useHours: false,
+    locationTrackingEnabled: true,
+    locationUnavailableMessage: 'Nuestros carritos saldran pronto a la calle. Mientras tanto, puedes pedir por delivery y recibir tus helados en casa.',
+    locationUnavailableButtonText: 'Ver carta y pedir delivery',
     hours: {
       monday: { enabled: true, open: '09:00', close: '22:00' },
       tuesday: { enabled: true, open: '09:00', close: '22:00' },
@@ -345,7 +357,18 @@ export default function App() {
   });
 
   // --- Estados de Flujo de Cliente ---
-  const [view, setView] = useState('shop'); 
+  const [cartLocations, setCartLocations] = useState(() => {
+    const saved = localStorage.getItem('helados_cart_locations');
+    if (saved) {
+      try {
+        const parsed = JSON.parse(saved);
+        if (parsed && typeof parsed === 'object') return parsed;
+      } catch {}
+    }
+    return { updatedAt: null, carts: [] };
+  });
+
+  const [view, setView] = useState(() => (isVendorApp ? 'admin' : 'shop')); 
   
   useEffect(() => {
     window.scrollTo(0, 0);
@@ -458,6 +481,18 @@ export default function App() {
     if (serverData.store_instagram !== undefined) setStoreInstagram(serverData.store_instagram);
     if (serverData.store_facebook !== undefined) setStoreFacebook(serverData.store_facebook);
     if (serverData.whatsapp_contact_message !== undefined) setWhatsappContactMessage(serverData.whatsapp_contact_message);
+    if (serverData.cart_locations !== undefined) {
+      setCartLocations(prev => {
+        const serverVal = serverData.cart_locations || { updatedAt: null, carts: [] };
+        if (prev && prev.updatedAt && serverVal.updatedAt) {
+          if (new Date(serverVal.updatedAt) <= new Date(prev.updatedAt)) {
+            console.log("⏳ Ignorando carga inicial de cart_locations más antigua o igual que la local.");
+            return prev;
+          }
+        }
+        return serverVal;
+      });
+    }
     if (serverData.trends_interval !== undefined) setTrendsInterval(parseInt(serverData.trends_interval, 10) || 25);
     if (serverData.trends_display_time !== undefined) setTrendsDisplayTime(parseInt(serverData.trends_display_time, 10) || 6);
   };
@@ -608,6 +643,13 @@ export default function App() {
         return;
       }
 
+      // 4. Si es una actualización remota, limpiar bandera y no re-escribir
+      if (isRemoteUpdate.current[key]) {
+        isRemoteUpdate.current[key] = false;
+        prevValueRef.current = value;
+        return;
+      }
+
       // 3. Comprobar si el valor realmente cambió localmente
       const hasChanged = isJSON 
         ? JSON.stringify(prevValueRef.current) !== valueStr
@@ -616,12 +658,6 @@ export default function App() {
       if (!hasChanged) return;
 
       prevValueRef.current = value;
-
-      // 4. Si es una actualización remota, limpiar bandera y no re-escribir
-      if (isRemoteUpdate.current[key]) {
-        isRemoteUpdate.current[key] = false;
-        return;
-      }
 
       // 5. Si está logueado, subir a la nube de forma segura
       if (isLoggedIn) {
@@ -661,6 +697,7 @@ export default function App() {
   useSyncEffect('store_instagram', storeInstagram, false);
   useSyncEffect('store_facebook', storeFacebook, false);
   useSyncEffect('whatsapp_contact_message', whatsappContactMessage, false);
+  useSyncEffect('cart_locations', cartLocations, true);
   useSyncEffect('trends_interval', trendsInterval, false);
   useSyncEffect('trends_display_time', trendsDisplayTime, false);
 
@@ -852,10 +889,35 @@ export default function App() {
         case 'whatsapp_contact_message':
           updateStateIfChanged(setWhatsappContactMessage, 'whatsapp_contact_message', value);
           break;
+        case 'cart_locations':
+          setCartLocations(prev => {
+            const serverVal = value || { updatedAt: null, carts: [] };
+            if (prev && prev.updatedAt && serverVal.updatedAt) {
+              if (new Date(serverVal.updatedAt) <= new Date(prev.updatedAt)) {
+                console.log("⏳ Ignorando actualización remota de cart_locations más antigua o igual que la local.");
+                return prev;
+              }
+            }
+            if (JSON.stringify(prev) !== JSON.stringify(serverVal)) {
+              isRemoteUpdate.current['cart_locations'] = true;
+              return serverVal;
+            }
+            return prev;
+          });
+          break;
         default:
           break;
       }
-    }, isLoggedIn, tableNumber);
+    }, isLoggedIn, tableNumber, (status, err) => {
+      console.log(`🔌 Estado Realtime (Navbar): ${status}`, err || '');
+      if (status === 'SUBSCRIBED') {
+        setRealtimeStatus('connected');
+      } else if (status === 'CHANNEL_ERROR' || status === 'TIMED_OUT' || err) {
+        setRealtimeStatus('error');
+      } else {
+        setRealtimeStatus('connecting');
+      }
+    });
 
     return () => {
       if (supabase && activeChannel) {
@@ -1058,7 +1120,7 @@ export default function App() {
     sessionStorage.removeItem('helados_admin_login_timestamp');
     setIsLoggedIn(false);
     setCurrentUser(null);
-    setView('shop'); // Redirige a la tienda al cerrar sesión
+    setView(isVendorApp ? 'admin' : 'shop');
   }
 
   const totalCartItems = cart.reduce((sum, item) => sum + item.quantity, 0);
@@ -1081,7 +1143,7 @@ export default function App() {
           <a 
             href="#" 
             className="logo" 
-            onClick={(e) => { e.preventDefault(); setView('shop'); }}
+            onClick={(e) => { e.preventDefault(); setView(isVendorApp ? 'admin' : 'shop'); }}
             onDoubleClick={handleLogoDoubleClick}
             title="Doble clic para administrar"
             style={{ cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '8px' }}
@@ -1104,74 +1166,135 @@ export default function App() {
           </a>
 
           {/* Menú de Navegación para Escritorio */}
-          <div className="nav-links desktop-only">
-            <a 
-              href="#tienda"
-              className={`nav-btn ${view === 'shop' ? 'active' : ''}`}
-              onClick={(e) => { e.preventDefault(); setView('shop'); }}
-              style={{ textDecoration: 'none', display: 'inline-flex', alignItems: 'center' }}
-            >
-              🍨 Tienda
-            </a>
-            <a 
-              href="#personalizar"
-              className={`nav-btn ${view === 'customizer' ? 'active' : ''}`}
-              onClick={(e) => { e.preventDefault(); setView('customizer'); }}
-              style={{ textDecoration: 'none', display: 'inline-flex', alignItems: 'center' }}
-            >
-              🎨 Personalizar
-            </a>
-            <a 
-              href="#carrito"
-              className={`nav-btn ${view === 'cart' ? 'active' : ''}`}
-              onClick={(e) => { e.preventDefault(); setView('cart'); }}
-              style={{ textDecoration: 'none', display: 'inline-flex', alignItems: 'center' }}
-            >
-              🛒 Carrito 
-              {totalCartItems > 0 && <span className="cart-badge">{totalCartItems}</span>}
-            </a>
-            <a 
-              href="#rastrear"
-              className={`nav-btn ${view === 'tracker' ? 'active' : ''}`}
-              onClick={(e) => { e.preventDefault(); setView('tracker'); }}
-              style={{ textDecoration: 'none', display: 'inline-flex', alignItems: 'center' }}
-            >
-              🔍 Rastrear
-            </a>
-            
-            {isLoggedIn && (
+          {!isVendorApp && (
+            <div className="nav-links desktop-only">
               <a 
-                href="#admin"
-                className={`nav-btn ${view === 'admin' ? 'active' : ''}`}
-                onClick={(e) => { e.preventDefault(); setView('admin'); }}
-                style={{ borderLeft: '1px solid var(--border-color)', borderRadius: 0, paddingLeft: '15px', textDecoration: 'none', display: 'inline-flex', alignItems: 'center' }}
+                href="#tienda"
+                className={`nav-btn ${view === 'shop' ? 'active' : ''}`}
+                onClick={(e) => { e.preventDefault(); setView('shop'); }}
+                style={{ textDecoration: 'none', display: 'inline-flex', alignItems: 'center' }}
               >
-                🔧 Panel Admin
+                <span aria-hidden="true">🍦</span>
+                <span>Tienda</span>
               </a>
-            )}
-            
-            <button 
-              onClick={toggleTheme} 
-              className="nav-btn"
-              style={{ fontSize: '1.1rem', padding: '6px' }}
-              title="Cambiar Tema"
-            >
-              {theme === 'light' ? '🌙' : '☀️'}
-            </button>
-
-            {isLoggedIn && (
-              <button 
-                onClick={handleLogout} 
-                className="nav-btn logout-desktop-btn"
-                title="Cerrar Sesión"
+              <a 
+                href="#personalizar"
+                className={`nav-btn ${view === 'customizer' ? 'active' : ''}`}
+                onClick={(e) => { e.preventDefault(); setView('customizer'); }}
+                style={{ textDecoration: 'none', display: 'inline-flex', alignItems: 'center' }}
               >
-                🚪 Cerrar Sesión
+                <span aria-hidden="true">🎨</span>
+                <span>Personalizar</span>
+              </a>
+              <a 
+                href="#carrito"
+                className={`nav-btn ${view === 'cart' ? 'active' : ''}`}
+                onClick={(e) => { e.preventDefault(); setView('cart'); }}
+                style={{ textDecoration: 'none', display: 'inline-flex', alignItems: 'center' }}
+              >
+                <span aria-hidden="true">🛒</span>
+                <span>Carrito</span>
+                {totalCartItems > 0 && <span className="cart-badge">{totalCartItems}</span>}
+              </a>
+              <a 
+                href="#ubicacion"
+                className={`nav-btn ${view === 'locations' ? 'active' : ''}`}
+                onClick={(e) => { e.preventDefault(); setView('locations'); }}
+                style={{ textDecoration: 'none', display: 'inline-flex', alignItems: 'center' }}
+              >
+                <span aria-hidden="true">📍</span>
+                <span>Ubicacion</span>
+              </a>
+              <a 
+                href="#rastrear"
+                className={`nav-btn ${view === 'tracker' ? 'active' : ''}`}
+                onClick={(e) => { e.preventDefault(); setView('tracker'); }}
+                style={{ textDecoration: 'none', display: 'inline-flex', alignItems: 'center' }}
+              >
+                <span aria-hidden="true">🔎</span>
+                <span>Rastrear</span>
+              </a>
+              
+              {isLoggedIn && (
+                <a 
+                  href="#admin"
+                  className={`nav-btn ${view === 'admin' ? 'active' : ''}`}
+                  onClick={(e) => { e.preventDefault(); setView('admin'); }}
+                  style={{ borderLeft: '1px solid var(--border-color)', borderRadius: 0, paddingLeft: '15px', textDecoration: 'none', display: 'inline-flex', alignItems: 'center' }}
+                >
+                  <span aria-hidden="true">🛠️</span>
+                  <span>Panel Admin</span>
+                </a>
+              )}
+              
+              <button 
+                onClick={toggleTheme} 
+                className="nav-btn"
+                style={{ fontSize: '1.1rem', padding: '6px' }}
+                title="Cambiar Tema"
+              >
+                {theme === 'light' ? '🌙 Noche' : '☀️ Dia'}
               </button>
-            )}
-          </div>
+
+              {/* Indicador de conexión Realtime (Desktop) */}
+              <span 
+                style={{
+                  display: 'inline-flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  width: '10px',
+                  height: '10px',
+                  borderRadius: '50%',
+                  background: realtimeStatus === 'connected' ? '#2ecc71' :
+                              realtimeStatus === 'error' ? '#e74c3c' :
+                              '#f1c40f',
+                  marginLeft: '12px',
+                  boxShadow: realtimeStatus === 'connected' ? '0 0 8px rgba(46, 204, 113, 0.6)' :
+                             realtimeStatus === 'error' ? '0 0 8px rgba(231, 76, 60, 0.6)' :
+                             '0 0 8px rgba(241, 196, 15, 0.6)'
+                }}
+                title={realtimeStatus === 'connected' ? 'Sincronización en tiempo real activa' :
+                       realtimeStatus === 'error' ? 'Error al conectar con el servidor en tiempo real' :
+                       'Conectando con el servidor en tiempo real...'}
+              />
+
+              {isLoggedIn && (
+                <button 
+                  onClick={handleLogout} 
+                  className="nav-btn logout-desktop-btn"
+                  title="Cerrar Sesión"
+                >
+                  <span aria-hidden="true">🚪</span>
+                  <span>Cerrar Sesion</span>
+                </button>
+              )}
+            </div>
+          )}
 
           {/* Acciones Rápidas de Cabecera para Móvil */}
-          <div className="mobile-header-actions">
+          <div className="mobile-header-actions" style={{ alignItems: 'center', gap: '8px' }}>
+            {/* Indicador de conexión Realtime (Móvil) */}
+            <span 
+              style={{
+                display: 'inline-flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                width: '10px',
+                height: '10px',
+                borderRadius: '50%',
+                background: realtimeStatus === 'connected' ? '#2ecc71' :
+                            realtimeStatus === 'error' ? '#e74c3c' :
+                            '#f1c40f',
+                marginRight: '8px',
+                boxShadow: realtimeStatus === 'connected' ? '0 0 8px rgba(46, 204, 113, 0.6)' :
+                           realtimeStatus === 'error' ? '0 0 8px rgba(231, 76, 60, 0.6)' :
+                           '0 0 8px rgba(241, 196, 15, 0.6)'
+              }}
+              title={realtimeStatus === 'connected' ? 'Tiempo real conectado' :
+                     realtimeStatus === 'error' ? 'Tiempo real desconectado' :
+                     'Conectando tiempo real...'}
+            />
+
             <button 
               onClick={toggleTheme} 
               className="nav-btn-icon"
@@ -1206,11 +1329,11 @@ export default function App() {
             fontWeight: '600',
             fontSize: '0.9rem'
           }}>
-            🔒 En este momento estamos fuera de horario de atención. Puedes explorar el menú o administrar la tienda, pero no se aceptan pedidos.
+            En este momento estamos fuera de horario de atencion. Puedes explorar el menu o administrar la tienda, pero no se aceptan pedidos.
           </div>
         )}
 
-        <React.Suspense fallback={<div className="glass" style={{ padding: '40px', textAlign: 'center', fontFamily: 'var(--font-title)', color: 'var(--primary-color)', fontSize: '1.2rem', fontWeight: 'bold' }}>🍨 Cargando carta...</div>}>
+        <React.Suspense fallback={<div className="glass" style={{ padding: '40px', textAlign: 'center', fontFamily: 'var(--font-title)', color: 'var(--primary-color)', fontSize: '1.2rem', fontWeight: 'bold' }}>Cargando...</div>}>
           {view === 'shop' && (
           <CustomerShop 
             flavors={flavors}
@@ -1306,7 +1429,19 @@ export default function App() {
                 setActiveOrderId(null);
                 localStorage.removeItem('helados_active_order_id');
               }}
+          />
+        )}
+
+        {view === 'locations' && (
+          <React.Suspense fallback={<div className="glass" style={{ padding: '40px', textAlign: 'center', fontFamily: 'var(--font-title)', color: 'var(--primary-color)', fontSize: '1.2rem', fontWeight: 'bold' }}>Cargando mapa de carritos...</div>}>
+            <CartLocationsView
+              mode="public"
+              cartLocations={cartLocations}
+              shopConfig={shopConfig}
+              showAlert={showAlert}
+              onGoToShop={() => setView('shop')}
             />
+          </React.Suspense>
         )}
 
         {view === 'admin' && (
@@ -1389,6 +1524,8 @@ export default function App() {
               onChangeStoreFacebook={setStoreFacebook}
               whatsappContactMessage={whatsappContactMessage}
               onChangeWhatsappContactMessage={setWhatsappContactMessage}
+              cartLocations={cartLocations}
+              onUpdateCartLocations={setCartLocations}
               trendsInterval={trendsInterval}
               onChangeTrendsInterval={setTrendsInterval}
               trendsDisplayTime={trendsDisplayTime}
@@ -1401,6 +1538,7 @@ export default function App() {
       </main>
 
       {/* 🔑 PIE DE PÁGINA (Footer) CON ACCESO DISCRETO */}
+      {!isVendorApp && (
       <footer style={{
         textAlign: 'center',
         padding: '20px 15px',
@@ -1414,19 +1552,19 @@ export default function App() {
         {/* Redes Sociales del Local */}
         <div style={{ marginBottom: '15px', display: 'flex', justifyContent: 'center', gap: '20px', flexWrap: 'wrap' }}>
           <a href={storeInstagram || "https://www.instagram.com/"} target="_blank" rel="noopener noreferrer" style={{ color: 'var(--text-light)', display: 'inline-flex', alignItems: 'center', gap: '4px', textDecoration: 'none', fontWeight: '600' }} title="Instagram">
-            <span>📸</span> Instagram
+            <span aria-hidden="true">📷</span> Instagram
           </a>
           <a href={storeFacebook || "https://www.facebook.com/"} target="_blank" rel="noopener noreferrer" style={{ color: 'var(--text-light)', display: 'inline-flex', alignItems: 'center', gap: '4px', textDecoration: 'none', fontWeight: '600' }} title="Facebook">
-            <span>📘</span> Facebook
+            <span aria-hidden="true">f</span> Facebook
           </a>
           <a href={`https://wa.me/${String(storePhone || '51987654321').replace(/\D/g, '')}?text=${encodeURIComponent(whatsappContactMessage || '¡Hola! Me gustaría hacer una consulta. 🍦')}`} target="_blank" rel="noopener noreferrer" style={{ color: 'var(--text-light)', display: 'inline-flex', alignItems: 'center', gap: '4px', textDecoration: 'none', fontWeight: '600' }} title="WhatsApp">
-            <span>💬</span> WhatsApp
+            <span aria-hidden="true">💬</span> WhatsApp
           </a>
         </div>
         <div>&copy; {new Date().getFullYear()} {storeName} - Todos los derechos reservados.</div>
         <div style={{ marginTop: '5px' }}>
-          Hecho con mucho 💖 para heladeros artesanos.
-          <button 
+          Hecho para heladerias y delivery.
+          <button
             onClick={() => setView('admin')}
             style={{
               background: 'none',
@@ -1439,68 +1577,81 @@ export default function App() {
             }}
             title="Acceso administrativo"
           >
-            🔑
+            🛠️ Admin
           </button>
         </div>
       </footer>
+      )}
 
       {/* 📱 BARRA DE NAVEGACIÓN INFERIOR PARA MÓVIL (Bottom Tab Bar) */}
-      <nav className="mobile-tab-bar glass">
-        <a 
-          href="#tienda"
-          className={`tab-item ${view === 'shop' ? 'active' : ''}`}
-          onClick={(e) => { e.preventDefault(); setView('shop'); }}
-          style={{ textDecoration: 'none' }}
-        >
-          <span className="tab-icon">🍨</span>
-          <span className="tab-label">Tienda</span>
-        </a>
-        <a 
-          href="#personalizar"
-          className={`tab-item ${view === 'customizer' ? 'active' : ''}`}
-          onClick={(e) => { e.preventDefault(); setView('customizer'); }}
-          style={{ textDecoration: 'none' }}
-        >
-          <span className="tab-icon">🎨</span>
-          <span className="tab-label">Diseñar</span>
-        </a>
-        <a 
-          href="#carrito"
-          className={`tab-item ${view === 'cart' ? 'active' : ''}`}
-          onClick={(e) => { e.preventDefault(); setView('cart'); }}
-          style={{ textDecoration: 'none' }}
-        >
-          <span className="tab-icon" style={{ position: 'relative' }}>
-            🛒
-            {totalCartItems > 0 && (
-              <span className="tab-badge">{totalCartItems}</span>
-            )}
-          </span>
-          <span className="tab-label">Carrito</span>
-        </a>
-        <a 
-          href="#rastrear"
-          className={`tab-item ${view === 'tracker' ? 'active' : ''}`}
-          onClick={(e) => { e.preventDefault(); setView('tracker'); }}
-          style={{ textDecoration: 'none' }}
-        >
-          <span className="tab-icon">🔍</span>
-          <span className="tab-label">Rastrear</span>
-        </a>
-        {isLoggedIn && (
+      {!isVendorApp && (
+        <nav className="mobile-tab-bar glass">
           <a 
-            href="#admin"
-            className={`tab-item ${view === 'admin' ? 'active' : ''}`}
-            onClick={(e) => { e.preventDefault(); setView('admin'); }}
+            href="#tienda"
+            className={`tab-item ${view === 'shop' ? 'active' : ''}`}
+            onClick={(e) => { e.preventDefault(); setView('shop'); }}
             style={{ textDecoration: 'none' }}
           >
-            <span className="tab-icon">🔧</span>
-            <span className="tab-label">Admin</span>
+            <span className="tab-icon">🍦</span>
+            <span className="tab-label">Tienda</span>
           </a>
-        )}
-      </nav>
+          <a 
+            href="#personalizar"
+            className={`tab-item ${view === 'customizer' ? 'active' : ''}`}
+            onClick={(e) => { e.preventDefault(); setView('customizer'); }}
+            style={{ textDecoration: 'none' }}
+          >
+            <span className="tab-icon">🎨</span>
+            <span className="tab-label">Disenar</span>
+          </a>
+          <a 
+            href="#carrito"
+            className={`tab-item ${view === 'cart' ? 'active' : ''}`}
+            onClick={(e) => { e.preventDefault(); setView('cart'); }}
+            style={{ textDecoration: 'none' }}
+          >
+            <span className="tab-icon" style={{ position: 'relative' }}>
+              🛒
+              {totalCartItems > 0 && (
+                <span className="tab-badge">{totalCartItems}</span>
+              )}
+            </span>
+            <span className="tab-label">Carrito</span>
+          </a>
+          <a 
+            href="#ubicacion"
+            className={`tab-item ${view === 'locations' ? 'active' : ''}`}
+            onClick={(e) => { e.preventDefault(); setView('locations'); }}
+            style={{ textDecoration: 'none' }}
+          >
+            <span className="tab-icon">📍</span>
+            <span className="tab-label">Mapa</span>
+          </a>
+          <a 
+            href="#rastrear"
+            className={`tab-item ${view === 'tracker' ? 'active' : ''}`}
+            onClick={(e) => { e.preventDefault(); setView('tracker'); }}
+            style={{ textDecoration: 'none' }}
+          >
+            <span className="tab-icon">🔎</span>
+            <span className="tab-label">Rastrear</span>
+          </a>
+          {isLoggedIn && (
+            <a 
+              href="#admin"
+              className={`tab-item ${view === 'admin' ? 'active' : ''}`}
+              onClick={(e) => { e.preventDefault(); setView('admin'); }}
+              style={{ textDecoration: 'none' }}
+            >
+              <span className="tab-icon">🛠️</span>
+              <span className="tab-label">Admin</span>
+            </a>
+          )}
+        </nav>
+      )}
 
       {/* 💬 Burbuja de Chat Puente a Telegram */}
+      {!isVendorApp && (
       <LiveChatTelegramBridge 
         telegramToken={telegramToken}
         telegramChatId={telegramChatId}
@@ -1509,9 +1660,10 @@ export default function App() {
         view={view}
         hasFloatingCart={cart.length > 0 && view !== 'cart' && view !== 'admin'}
       />
+      )}
 
       {/* Floating Cart Toast/Window */}
-      {cart.length > 0 && view !== 'cart' && view !== 'admin' && (
+      {!isVendorApp && cart.length > 0 && view !== 'cart' && view !== 'admin' && (
         <div className="floating-cart-toast glass animate-float-toast" style={{
           position: 'fixed',
           bottom: '80px',
@@ -1564,8 +1716,7 @@ export default function App() {
               margin: 0
             }}
           >
-            Finalizar Compra ➔
-          </button>
+            Finalizar Compra</button>
         </div>
       )}
 

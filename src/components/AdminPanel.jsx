@@ -1,4 +1,4 @@
-/* eslint-disable react-hooks/set-state-in-effect */
+﻿/* eslint-disable react-hooks/set-state-in-effect */
 import { useState, useEffect, useRef } from 'react';
 import { supabase } from '../utils/supabaseClient';
 import { updateSyncedData } from '../utils/supabaseSync';
@@ -9,8 +9,9 @@ import OrderManager from './admin/OrderManager';
 import DashboardView from './admin/DashboardView';
 import UserManager from './admin/UserManager';
 import TableOrderManager from './admin/TableOrderManager';
+import CartLocationsView from './CartLocationsView';
 
-// --- FUNCIONES DE SANITIZACIÓN Y SEGURIDAD ---
+// --- FUNCIONES DE SANITIZACIÃ“N Y SEGURIDAD ---
 const sanitizeHTML = (text) => {
   if (typeof text !== 'string') return '';
   return text.replace(/<[^>]*>/g, '').trim();
@@ -129,14 +130,20 @@ export default function AdminPanel({
   shopConfig,
   onChangeShopConfig,
   tableOrdersEnabled,
-  waiterTakerEnabled
+  waiterTakerEnabled,
+  cartLocations,
+  onUpdateCartLocations
 }) {
+  const canUseNotifications =
+    typeof window !== 'undefined' &&
+    typeof window.Notification !== 'undefined';
+
   const alert = (msg) => {
     if (showAlert) {
-      const isError = msg.toLowerCase().includes('error') || msg.toLowerCase().includes('falló') || msg.toLowerCase().includes('no se puede') || msg.toLowerCase().includes('inválido') || msg.toLowerCase().includes('vacío') || msg.toLowerCase().includes('obligatorio') || msg.toLowerCase().includes('ya existe');
-      const isSuccess = msg.toLowerCase().includes('éxito') || msg.toLowerCase().includes('guardados') || msg.toLowerCase().includes('actualizados') || msg.toLowerCase().includes('sincronizados');
+      const isError = msg.toLowerCase().includes('error') || msg.toLowerCase().includes('fallÃ³') || msg.toLowerCase().includes('no se puede') || msg.toLowerCase().includes('invÃ¡lido') || msg.toLowerCase().includes('vacÃ­o') || msg.toLowerCase().includes('obligatorio') || msg.toLowerCase().includes('ya existe');
+      const isSuccess = msg.toLowerCase().includes('Ã©xito') || msg.toLowerCase().includes('guardados') || msg.toLowerCase().includes('actualizados') || msg.toLowerCase().includes('sincronizados');
       const type = isError ? 'warning' : isSuccess ? 'success' : 'info';
-      const title = isError ? 'Atención' : isSuccess ? 'Operación Exitosa' : 'Aviso';
+      const title = isError ? 'AtenciÃ³n' : isSuccess ? 'OperaciÃ³n Exitosa' : 'Aviso';
       showAlert(title, msg, type);
     } else {
       window.alert(msg);
@@ -150,7 +157,7 @@ export default function AdminPanel({
     window.scrollTo(0, 0);
   }, [activeTab]);
 
-  // --- Estados de Autenticación y Seguridad ---
+  // --- Estados de AutenticaciÃ³n y Seguridad ---
   const [emailInput, setEmailInput] = useState('');
   const [passwordInput, setPasswordInput] = useState('');
   const [authError, setAuthError] = useState('');
@@ -170,11 +177,11 @@ export default function AdminPanel({
     localStorage.setItem('helados_lockout_until', lockoutUntil.toString());
   }, [lockoutUntil]);
 
-  // --- Bitácora de Auditoría (Simulada) ---
+  // --- BitÃ¡cora de AuditorÃ­a (Simulada) ---
   const [logs, setLogs] = useState(() => {
     const saved = localStorage.getItem('helados_admin_logs');
     return saved ? JSON.parse(saved) : [
-      { time: new Date().toLocaleTimeString('es-PE'), text: 'Inicio de sesión administrativa habilitado.' }
+      { time: new Date().toLocaleTimeString('es-PE'), text: 'Inicio de sesiÃ³n administrativa habilitado.' }
     ];
   });
 
@@ -187,7 +194,7 @@ export default function AdminPanel({
       time: new Date().toLocaleTimeString('es-PE', { hour: '2-digit', minute: '2-digit', second: '2-digit' }),
       text
     };
-    setLogs(prev => [newLog, ...prev.slice(0, 499)]); // Mantener últimas 500 operaciones
+    setLogs(prev => [newLog, ...prev.slice(0, 499)]); // Mantener Ãºltimas 500 operaciones
   };
 
   // --- Detector de Nuevos Pedidos (Alerta Sonora) ---
@@ -234,15 +241,15 @@ export default function AdminPanel({
       if (latestOrder && latestOrder.status === 'Pendiente') {
         playNewOrderSound();
         addLog(`Nuevo pedido recibido: ${latestOrder.id} por el cliente ${latestOrder.customer.name}.`);
-        if (Notification.permission === 'granted') {
-          new Notification(`🍦 ¡Nuevo Pedido en ${storeName}!`, {
+        if (canUseNotifications && window.Notification.permission === 'granted') {
+          new window.Notification(`🍦 ¡Nuevo Pedido en ${storeName}!`, {
             body: `Cliente: ${latestOrder.customer.name} - Total: S/. ${latestOrder.grandTotal.toFixed(2)}`
           });
         }
       }
     }
     prevOrdersCount.current = orders.length;
-  }, [orders, soundEnabled]);
+  }, [orders, soundEnabled, canUseNotifications, storeName]);
 
   // --- Detector de Nuevos Llamados en Mesa (Alerta Sonora y Visual) ---
   const prevCallsCount = useRef(tableCalls.filter(c => !c.resolved).length);
@@ -280,24 +287,24 @@ export default function AdminPanel({
       playCallWaiterSound();
       const latestCall = activeCalls[activeCalls.length - 1];
       if (latestCall) {
-        addLog(`🛎️ Mesa ${latestCall.table} solicita atención: ${latestCall.request}`);
-        if (Notification.permission === 'granted') {
-          new Notification(`🛎️ ¡Mesa ${latestCall.table} solicita atención!`, {
+        addLog(`ðŸ›Žï¸ Mesa ${latestCall.table} solicita atenciÃ³n: ${latestCall.request}`);
+        if (canUseNotifications && window.Notification.permission === 'granted') {
+          new window.Notification(`🛎️ ¡Mesa ${latestCall.table} solicita atención!`, {
             body: `Solicitud: ${latestCall.request}`
           });
         }
       }
     }
     prevCallsCount.current = activeCalls.length;
-  }, [tableCalls, soundEnabled]);
+  }, [tableCalls, soundEnabled, canUseNotifications]);
 
   useEffect(() => {
-    if (isLoggedIn && Notification.permission === 'default') {
-      Notification.requestPermission();
+    if (isLoggedIn && canUseNotifications && window.Notification.permission === 'default') {
+      window.Notification.requestPermission().catch(() => {});
     }
-  }, [isLoggedIn]);
+  }, [isLoggedIn, canUseNotifications]);
 
-  // --- Control de Acceso por Ventanas/Módulos ---
+  // --- Control de Acceso por Ventanas/MÃ³dulos ---
   const isTabAllowed = (tabId) => {
     if (!currentUser) return false;
     if (isAdminUser(currentUser)) return true;
@@ -312,22 +319,20 @@ export default function AdminPanel({
     }
 
     const role = normalizeText(currentUser.role);
-    if (role.includes('vendedor')) return ['orders', 'inventory', 'surveys', 'table_orders'].includes(tabId);
+    if (role.includes('vendedor')) return ['orders', 'inventory', 'surveys', 'table_orders', 'locations'].includes(tabId);
     if (role.includes('cocina')) return ['orders'].includes(tabId);
     return false;
   };
 
   useEffect(() => {
     if (currentUser && !isTabAllowed(activeTab)) {
-      const tabs = ['orders', 'inventory', 'packs', 'users', 'finance', 'settings', 'stats', 'surveys', 'table_orders'];
-      const allowed = tabs.find(t => isTabAllowed(t));
-      if (allowed) {
-        setActiveTab(allowed);
-      }
+      const fallbackTab = ['orders', 'inventory', 'packs', 'users', 'finance', 'locations', 'settings', 'stats', 'surveys', 'table_orders']
+        .find((tabId) => isTabAllowed(tabId));
+      if (fallbackTab) setActiveTab(fallbackTab);
     }
   }, [currentUser, activeTab]);
 
-  // --- Manejo del Inicio de Sesión ---
+  // --- Manejo del Inicio de SesiÃ³n ---
   const handleLogin = async (e) => {
     e.preventDefault();
     setAuthError('');
@@ -335,7 +340,7 @@ export default function AdminPanel({
     const now = Date.now();
     if (lockoutUntil && now < lockoutUntil) {
       const minutesLeft = Math.ceil((lockoutUntil - now) / (60 * 1000));
-      setAuthError(`🚨 Panel bloqueado por seguridad. Inténtalo de nuevo en ${minutesLeft} minuto(s).`);
+      setAuthError(`Panel bloqueado por seguridad. Intentalo de nuevo en ${minutesLeft} minuto(s).`);
       return;
     }
 
@@ -343,7 +348,7 @@ export default function AdminPanel({
     const passwordSanitized = passwordInput.trim();
 
     if (!userInput || !passwordSanitized) {
-      setAuthError('Por favor ingresa usuario o correo y contraseña.');
+      setAuthError('Por favor ingresa usuario o correo y contrasena.');
       return;
     }
 
@@ -355,7 +360,7 @@ export default function AdminPanel({
       sessionStorage.setItem('helados_admin_login_timestamp', Date.now().toString());
       setIsLoggedIn(true);
       setCurrentUser(userObj);
-      addLog(`Inicio de sesión ${isSupabase ? 'multidispositivo' : 'exitoso'} por ${userObj.name} (${userObj.role}).`);
+      addLog(`Inicio de sesion ${isSupabase ? 'multidispositivo' : 'exitoso'} por ${userObj.name} (${userObj.role}).`);
     };
 
     const handleLoginFailure = (customMsg) => {
@@ -364,17 +369,17 @@ export default function AdminPanel({
       if (nextAttempts >= 5) {
         const blockTime = Date.now() + 15 * 60 * 1000; // 15 minutos
         setLockoutUntil(blockTime);
-        setAuthError('🚨 Has superado los 5 intentos de inicio de sesión fallidos. El panel de administración ha sido bloqueado temporalmente por 15 minutos.');
+        setAuthError('Has superado los 5 intentos de inicio de sesion fallidos. El panel administrativo fue bloqueado temporalmente por 15 minutos.');
         addLog(`BLOQUEO DE SEGURIDAD: 5 intentos fallidos en login para usuario: ${userInput}`);
       } else {
         setAuthError(customMsg || `Credenciales incorrectas. Intentos restantes: ${5 - nextAttempts}`);
       }
     };
 
-    // 1. Intentar iniciar sesión por medio de Supabase Auth nativo (JWT)
+    // 1. Intentar iniciar sesiÃ³n por medio de Supabase Auth nativo (JWT)
     if (supabase) {
       try {
-        console.log("🔑 Intentando inicio de sesión nativo con Supabase Auth...");
+        console.log('Intentando inicio de sesion nativo con Supabase Auth...');
         const { data: authData, error: authError } = await supabase.auth.signInWithPassword({
           email: searchEmail,
           password: passwordSanitized
@@ -421,7 +426,7 @@ export default function AdminPanel({
         
         if (data) {
           if (data.error === 'Usuario suspendido.') {
-            setAuthError('🚨 Tu cuenta se encuentra SUSPENDIDA. Contacta al administrador.');
+            setAuthError('Tu cuenta se encuentra SUSPENDIDA. Contacta al administrador.');
             return;
           }
           
@@ -452,11 +457,11 @@ export default function AdminPanel({
       }
     }
 
-    setAuthError('🚨 No fue posible autenticar el acceso administrativo. Verifica la conexión con Supabase o vuelve a iniciar sesión.');
+    setAuthError('No fue posible autenticar el acceso administrativo. Verifica la conexion con Supabase o vuelve a iniciar sesion.');
   };
 
   const handleLogoutAction = async () => {
-    addLog(`Cierre de sesión por el usuario ${currentUser?.name || ''}.`);
+    addLog(`Cierre de sesion por el usuario ${currentUser?.name || ''}.`);
     await onLogout();
   };
 
@@ -467,19 +472,19 @@ export default function AdminPanel({
     const avgTicket = ordersToday.length > 0 ? (salesToday / ordersToday.length) : 0;
     const today = new Date().toLocaleDateString('es-PE');
     
-    const textReport = `📊 REPORTE DE VENTAS DIARIO - ${storeName.toUpperCase()} (${today})\n` +
-      `• Pedidos Válidos Hoy: ${ordersToday.length}\n` +
-      `• Ventas de Hoy: S/. ${salesToday.toFixed(2)}\n` +
-      `• Ticket Promedio Hoy: S/. ${avgTicket.toFixed(2)}\n` +
-      `• Meta Diaria: S/. ${salesGoal.toFixed(2)} (${Math.round((salesToday / salesGoal) * 100)}%)\n` +
+    const textReport = `ðŸ“Š REPORTE DE VENTAS DIARIO - ${storeName.toUpperCase()} (${today})\n` +
+      `â€¢ Pedidos VÃ¡lidos Hoy: ${ordersToday.length}\n` +
+      `â€¢ Ventas de Hoy: S/. ${salesToday.toFixed(2)}\n` +
+      `â€¢ Ticket Promedio Hoy: S/. ${avgTicket.toFixed(2)}\n` +
+      `â€¢ Meta Diaria: S/. ${salesGoal.toFixed(2)} (${Math.round((salesToday / salesGoal) * 100)}%)\n` +
       `---------------------------\n` +
       (ordersToday.length > 0 
         ? ordersToday.map(o => `[${o.status}] ${o.id} - ${o.customer.name} - S/. ${o.grandTotal.toFixed(2)}`).join('\n')
-        : 'Sin pedidos el día de hoy.'
+        : 'Sin pedidos el dÃ­a de hoy.'
       );
       
     navigator.clipboard.writeText(textReport)
-      .then(() => alert("¡Reporte de ventas copiado al portapapeles! Listo para enviar por WhatsApp."))
+      .then(() => alert("Â¡Reporte de ventas copiado al portapapeles! Listo para enviar por WhatsApp."))
       .catch(() => alert("Error al copiar reporte."));
   };
 
@@ -491,10 +496,10 @@ export default function AdminPanel({
     
     let csvContent = "\uFEFF";
     csvContent += "=== REPORTE FINANCIERO Y CONTROL DE CAJA ===\n";
-    csvContent += `Heladería: ${storeName}\n`;
-    csvContent += `Fecha de Generación: ${new Date().toLocaleString('es-PE')}\n\n`;
-    csvContent += "--- RESUMEN DE VENTAS POR DÍA ---\n";
-    csvContent += "Fecha,Pedidos Válidos,Subtotal Insumos (S/.),Delivery Recaudado (S/.),Monto Total (S/.)\n";
+    csvContent += `HeladerÃ­a: ${storeName}\n`;
+    csvContent += `Fecha de GeneraciÃ³n: ${new Date().toLocaleString('es-PE')}\n\n`;
+    csvContent += "--- RESUMEN DE VENTAS POR DÃA ---\n";
+    csvContent += "Fecha,Pedidos VÃ¡lidos,Subtotal Insumos (S/.),Delivery Recaudado (S/.),Monto Total (S/.)\n";
     
     const dailyMap = {};
     orders.filter(o => o.status !== 'Cancelado').forEach(o => {
@@ -512,8 +517,8 @@ export default function AdminPanel({
       csvContent += `${day.dateStr},${day.count},${day.subtotal.toFixed(2)},${day.delivery.toFixed(2)},${day.total.toFixed(2)}\n`;
     });
     
-    csvContent += "\n--- BITÁCORA DE GASTOS Y EGRESOS ---\n";
-    csvContent += "Fecha Gasto,Categoría,Concepto,Monto (S/.)\n";
+    csvContent += "\n--- BITÃCORA DE GASTOS Y EGRESOS ---\n";
+    csvContent += "Fecha Gasto,CategorÃ­a,Concepto,Monto (S/.)\n";
     
     expenses.forEach(e => {
       const expenseDateStr = new Date(e.date + 'T12:00:00').toLocaleDateString('es-PE');
@@ -557,11 +562,11 @@ export default function AdminPanel({
           </div>
 
           <div className="form-group">
-            <label>Contraseña de Acceso</label>
+            <label>Contrasena de Acceso</label>
             <input
               type="password"
               className="form-control"
-              placeholder="Contraseña"
+              placeholder="Contrasena"
               value={passwordInput}
               onChange={(e) => setPasswordInput(e.target.value)}
               required
@@ -569,11 +574,11 @@ export default function AdminPanel({
           </div>
 
           {authError && (
-            <p style={{ color: 'var(--danger)', fontSize: '0.8rem', fontWeight: 600 }}>⚠️ {authError}</p>
+            <p style={{ color: 'var(--danger)', fontSize: '0.8rem', fontWeight: 600 }}>{authError}</p>
           )}
 
           <button type="submit" className="btn btn-primary" style={{ width: '100%', padding: '12px' }}>
-            🔑 Ingresar al Panel
+            Ingresar al Panel
           </button>
         </form>
       </div>
@@ -598,7 +603,7 @@ export default function AdminPanel({
           color: isCloudSynced ? 'var(--success)' : 'var(--secondary-color)',
           width: 'fit-content'
         }}>
-          <span>{isCloudSynced ? '🟢 Sincronizado (Supabase)' : '🟡 Modo Local (Offline)'}</span>
+          <span>{isCloudSynced ? 'Sincronizado (Supabase)' : 'Modo Local (Offline)'}</span>
         </div>
 
 
@@ -632,7 +637,7 @@ export default function AdminPanel({
                 {currentUser.name || currentUser.username}
               </span>
               <span style={{ fontSize: '0.65rem', color: 'var(--text-light)', fontWeight: 600 }}>
-                👤 {currentUser.role || 'Operador'}
+                {currentUser.role || 'Operador'}
               </span>
             </div>
           </div>
@@ -683,10 +688,15 @@ export default function AdminPanel({
               ⚙️ Ajustes Tienda
             </button>
           )}
+          {isTabAllowed('locations') && (
+            <button className={`sidebar-btn ${activeTab === 'locations' ? 'active' : ''}`} onClick={() => setActiveTab('locations')}>
+              📍 Carritos / Ubicacion
+            </button>
+          )}
         </div>
       </div>
 
-      {/* Contenido de pestaña activa */}
+      {/* Contenido de pestaÃ±a activa */}
       <div className="admin-content">
         {(activeTab === 'orders' || activeTab === 'surveys') && (
           <OrderManager
@@ -748,6 +758,18 @@ export default function AdminPanel({
             packs={packs}
             addLog={addLog}
             currentUser={currentUser}
+            showAlert={showAlert}
+          />
+        )}
+
+        {activeTab === 'locations' && (
+          <CartLocationsView
+            mode="admin"
+            currentUser={currentUser}
+            cartLocations={cartLocations}
+            onUpdateCartLocations={onUpdateCartLocations}
+            shopConfig={shopConfig}
+            staffPermissions={staffPermissions}
             showAlert={showAlert}
           />
         )}
@@ -850,6 +872,8 @@ export default function AdminPanel({
             onUpdateCartRecommendedPack={onUpdateCartRecommendedPack}
             staffPermissions={staffPermissions}
             onUpdateStaffPermissions={onUpdateStaffPermissions}
+            cartLocations={cartLocations}
+            onUpdateCartLocations={onUpdateCartLocations}
           />
         )}
 
@@ -868,7 +892,7 @@ export default function AdminPanel({
         )}
       </div>
 
-      {/* Panel Flotante Persistente para Llamados de Atención en Mesa */}
+      {/* Panel Flotante Persistente para Llamados de AtenciÃ³n en Mesa */}
       {(tableOrdersEnabled || isAdminUser(currentUser)) && tableCalls.filter(c => !c.resolved).length > 0 && (
         <div style={{
           position: 'fixed',

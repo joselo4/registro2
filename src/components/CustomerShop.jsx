@@ -930,6 +930,11 @@ export default function CustomerShop({
             }}>
               🍨 Ver Catálogo
             </button>
+            {shopConfig?.locationTrackingEnabled !== false && (
+              <button className="btn btn-secondary" onClick={() => setView('locations')}>
+                📍 Ver carritos
+              </button>
+            )}
             <button 
               className="btn btn-secondary" 
               style={{ 

@@ -19,6 +19,7 @@ ALTER TABLE public.helados_sync ENABLE ROW LEVEL SECURITY;
 -- 4. Eliminar políticas existentes para evitar duplicados
 DROP POLICY IF EXISTS "Permitir lectura pública de llaves generales" ON public.helados_sync;
 DROP POLICY IF EXISTS "Permitir a clientes crear y leer sus propios pedidos" ON public.helados_sync;
+DROP POLICY IF EXISTS "Permitir a clientes y vendedores actualizar ubicaciones de carritos" ON public.helados_sync;
 DROP POLICY IF EXISTS "Permitir todo a administradores autenticados" ON public.helados_sync;
 
 -- 5. POLÍTICA A: Permitir lectura pública de llaves del catálogo (no confidenciales)
@@ -54,7 +55,8 @@ USING (
         'recommendations', 
         'cart_recommended_pack', 
         'liter_config', 
-        'ticket_custom_message'
+        'ticket_custom_message',
+        'cart_locations'
     )
 );
 
@@ -66,6 +68,15 @@ FOR ALL
 TO anon
 USING (key LIKE 'order_%')
 WITH CHECK (key LIKE 'order_%');
+
+-- 6.1 POLÍTICA B2: Permitir a clientes y vendedores actualizar ubicaciones de carritos
+-- Dado que los vendedores pueden no tener sesión nativa JWT si iniciaron sesión mediante RPC fallback
+CREATE POLICY "Permitir a clientes y vendedores actualizar ubicaciones de carritos" 
+ON public.helados_sync
+FOR ALL
+TO anon
+USING (key = 'cart_locations')
+WITH CHECK (key = 'cart_locations');
 
 -- 7. POLÍTICA C: Permitir acceso absoluto a usuarios autenticados (Administradores/Staff)
 -- Cualquier usuario autenticado mediante Supabase Auth tiene control total
@@ -201,7 +212,7 @@ $$;
 CREATE OR REPLACE FUNCTION public.manage_admin_user(
     p_admin_email text,
     p_admin_role text DEFAULT NULL,
-    p_target_email text,
+    p_target_email text DEFAULT NULL,
     p_username text DEFAULT NULL,
     p_name text DEFAULT NULL,
     p_role text DEFAULT NULL,

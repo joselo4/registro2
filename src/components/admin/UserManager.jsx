@@ -21,6 +21,20 @@ const isAdminUser = (user) => {
   return email === 'admin@donhelado.com' || role.includes('admin');
 };
 
+const getDefaultAllowedTabsForRole = (role) => {
+  const normalizedRole = normalizeText(role);
+  if (normalizedRole.includes('admin')) {
+    return ['orders', 'inventory', 'packs', 'users', 'finance', 'settings', 'stats', 'surveys', 'table_orders', 'locations'];
+  }
+  if (normalizedRole.includes('vendedor')) {
+    return ['orders', 'inventory', 'surveys', 'table_orders', 'locations'];
+  }
+  if (normalizedRole.includes('cocina')) {
+    return ['orders'];
+  }
+  return [];
+};
+
 export default function UserManager({
   currentUser,
   setCurrentUser,
@@ -147,7 +161,11 @@ export default function UserManager({
       status: 'Activo' 
     };
 
+    const defaultTabs = getDefaultAllowedTabsForRole(newUser.role);
+    const nextPermissions = { ...staffPermissions, [sanitizedEmail]: defaultTabs };
+
     onUpdateStaffUsers([...staffUsers, added]);
+    onUpdateStaffPermissions(nextPermissions);
     setShowAddUser(false);
     addLog(`Personal registrado: ${sanitizedName} (${newUser.role}) por ${currentUser?.name}.`);
     setNewUser({ name: '', email: '', role: 'Vendedor', password: '' });
@@ -383,18 +401,19 @@ export default function UserManager({
           
           <div className="form-group">
             <label style={{ fontWeight: 'bold', fontSize: '0.8rem', display: 'block', marginBottom: '5px' }}>
-              🖥️ Ventanas y Módulos Autorizados:
+              Ventanas y Modulos Autorizados:
             </label>
             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(130px, 1fr))', gap: '8px', fontSize: '0.78rem' }}>
               {[
-                { id: 'orders', label: '📋 Pedidos' },
-                { id: 'inventory', label: '🍦 Carta Helada' },
-                { id: 'packs', label: '🎁 Packs Combos' },
-                { id: 'users', label: '👥 Personal / Staff' },
-                { id: 'finance', label: '💵 Caja y Finanzas' },
-                { id: 'settings', label: '⚙️ Ajustes Tienda' },
-                { id: 'stats', label: '📈 Meta e Ingresos' },
-                { id: 'surveys', label: '⭐ Encuestas' }
+                { id: 'orders', label: 'Pedidos' },
+                { id: 'inventory', label: 'Carta Helada' },
+                { id: 'packs', label: 'Packs Combos' },
+                { id: 'users', label: 'Personal / Staff' },
+                { id: 'finance', label: 'Caja y Finanzas' },
+                { id: 'settings', label: 'Ajustes Tienda' },
+                { id: 'stats', label: 'Meta e Ingresos' },
+                { id: 'locations', label: 'Carritos / Ubicacion' },
+                { id: 'surveys', label: 'Encuestas' }
               ].map(tab => {
                 const isChecked = editingUser.allowedTabs.includes(tab.id);
                 return (
