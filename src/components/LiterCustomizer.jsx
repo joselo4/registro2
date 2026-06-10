@@ -566,6 +566,17 @@ export default function LiterCustomizer({ flavors, toppings = [], literConfig, o
               <div>
                 <span style={{ fontSize: '0.78rem', color: 'var(--text-light)', display: 'block', marginBottom: '6px' }}>Toppings Sólidos (Opcional - Máx 3):</span>
                 <div className="option-grid" style={{ gridTemplateColumns: 'repeat(auto-fill, minmax(100px, 1fr))', gap: '6px', maxHeight: '110px', overflowY: 'auto' }}>
+                  <button
+                    key="sin-toppings"
+                    type="button"
+                    className={`option-btn ${selectedToppings.length === 0 ? 'selected' : ''}`}
+                    onClick={() => setSelectedToppings([])}
+                    style={{ padding: '8px 4px' }}
+                  >
+                    <span style={{ fontSize: '1rem' }}>🚫</span>
+                    <strong style={{ fontSize: '0.75rem' }}>Sin Toppings</strong>
+                    <span style={{ fontSize: '0.65rem', color: 'var(--text-light)' }}>S/. 0.00</span>
+                  </button>
                   {toppings.filter(t => t.category === 'solido' && t.active !== false).map(topping => {
                     const isSelected = selectedToppings.some(t => t.id === topping.id);
                     return (
@@ -587,6 +598,17 @@ export default function LiterCustomizer({ flavors, toppings = [], literConfig, o
               <div>
                 <span style={{ fontSize: '0.78rem', color: 'var(--text-light)', display: 'block', marginBottom: '6px' }}>Jarabe / Salsa (Opcional - Máx 1):</span>
                 <div className="option-grid" style={{ gridTemplateColumns: 'repeat(auto-fill, minmax(100px, 1fr))', gap: '6px' }}>
+                  <button
+                    key="sin-syrup"
+                    type="button"
+                    className={`option-btn ${selectedSyrup === null ? 'selected' : ''}`}
+                    onClick={() => setSelectedSyrup(null)}
+                    style={{ padding: '8px' }}
+                  >
+                    <span style={{ fontSize: '1rem' }}>🚫</span>
+                    <strong style={{ fontSize: '0.75rem' }}>Sin Jarabe</strong>
+                    <span style={{ fontSize: '0.65rem', color: 'var(--text-light)' }}>S/. 0.00</span>
+                  </button>
                   {toppings.filter(t => t.category === 'liquido' && t.active !== false).map(syrup => {
                     const isSelected = selectedSyrup?.id === syrup.id;
                     return (

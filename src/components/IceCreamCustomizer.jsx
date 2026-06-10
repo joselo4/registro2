@@ -548,6 +548,16 @@ export default function IceCreamCustomizer({ bases, flavors, toppings, onAddToCa
               <div>
                 <p style={{ fontSize: '0.75rem', color: 'var(--text-light)', marginBottom: '5px' }}>Toppings:</p>
                 <div className="option-grid" style={{ gridTemplateColumns: 'repeat(auto-fill, minmax(100px, 1fr))', gap: '6px' }}>
+                  <button
+                    key="sin-toppings"
+                    className={`option-btn ${selectedToppings.length === 0 ? 'selected' : ''}`}
+                    onClick={() => setSelectedToppings([])}
+                    style={{ padding: '8px 4px' }}
+                  >
+                    <span style={{ fontSize: '1rem' }}>🚫</span>
+                    <strong style={{ fontSize: '0.75rem' }}>Sin Toppings</strong>
+                    <span style={{ fontSize: '0.65rem', color: 'var(--text-light)' }}>S/. 0.00</span>
+                  </button>
                   {activeToppings.map(topping => {
                     const isSelected = selectedToppings.some(t => t.id === topping.id);
                     return (
@@ -573,6 +583,16 @@ export default function IceCreamCustomizer({ bases, flavors, toppings, onAddToCa
               <div>
                 <p style={{ fontSize: '0.75rem', color: 'var(--text-light)', marginBottom: '5px' }}>Jarabe / Salsa (S/. 0.50):</p>
                 <div className="option-grid" style={{ gridTemplateColumns: 'repeat(auto-fill, minmax(100px, 1fr))', gap: '6px' }}>
+                  <button
+                    key="sin-syrup"
+                    className={`option-btn ${selectedSyrup === null ? 'selected' : ''}`}
+                    onClick={() => setSelectedSyrup(null)}
+                    style={{ padding: '8px' }}
+                  >
+                    <span style={{ fontSize: '1rem' }}>🚫</span>
+                    <strong style={{ fontSize: '0.75rem' }}>Sin Jarabe</strong>
+                    <span style={{ fontSize: '0.65rem', color: 'var(--text-light)' }}>S/. 0.00</span>
+                  </button>
                   {toppings.filter(t => t.category === 'liquido' && t.active !== false).map(syrup => {
                     const isSelected = selectedSyrup?.id === syrup.id || (syrup.id === 'fresa_sauce' && selectedSyrup?.id === 'fresa');
                     const icon = syrup.id === 'fudge' ? '🍫' : (syrup.id === 'fresa_sauce' || syrup.id === 'fresa' ? '🍓' : '🍯');

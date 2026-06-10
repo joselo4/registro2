@@ -39,9 +39,23 @@ DROP FUNCTION IF EXISTS public.manage_admin_user(text, text, text, text, text, t
 CREATE OR REPLACE FUNCTION public.current_app_role()
 RETURNS text
 LANGUAGE sql
+SECURITY DEFINER
 STABLE
+SET search_path = public, pg_temp
 AS $$
-  SELECT lower(coalesce(auth.jwt() -> 'app_metadata' ->> 'role', ''));
+  SELECT lower(coalesce(
+    nullif(auth.jwt() -> 'app_metadata' ->> 'role', ''),
+    (
+      SELECT item->>'role'
+      FROM public.helados_sync sync_row
+      CROSS JOIN LATERAL jsonb_array_elements(COALESCE(sync_row.value, '[]'::jsonb)) AS item
+      WHERE sync_row.key = 'staff_users'
+        AND lower(coalesce(item->>'email', '')) = lower(coalesce(auth.jwt() ->> 'email', ''))
+        AND coalesce(item->>'status', 'Activo') = 'Activo'
+      LIMIT 1
+    ),
+    ''
+  ));
 $$;
 
 CREATE OR REPLACE FUNCTION public.is_admin_session()
@@ -403,6 +417,20 @@ SET value = (
 )
 WHERE key = 'staff_users'
   AND jsonb_typeof(value) = 'array';
+
+-- 11. Habilitar la replicación en tiempo real para helados_sync si no está agregada
+DO $$
+BEGIN
+  IF NOT EXISTS (
+    SELECT 1 FROM pg_publication_tables 
+    WHERE pubname = 'supabase_realtime' 
+      AND schemaname = 'public' 
+      AND tablename = 'helados_sync'
+  ) THEN
+    ALTER PUBLICATION supabase_realtime ADD TABLE public.helados_sync;
+  END IF;
+END;
+$$;
 
 -- =====================================================================
 -- FIN DEL SCRIPT.
