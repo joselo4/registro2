@@ -1,22 +1,11 @@
-const json = (body, status = 200) =>
-  new Response(JSON.stringify(body), {
-    status,
-    headers: {
-      'Content-Type': 'application/json; charset=utf-8',
-      'Cache-Control': 'no-store',
-    },
-  });
-
-const normalizeEmail = (value) => String(value || '').trim().toLowerCase();
-
-const normalizeRole = (value) => {
-  const role = String(value || '').trim();
-  const lower = role.toLowerCase();
-  if (lower.includes('admin')) return 'Administrador';
-  if (lower.includes('vendedor')) return 'Vendedor';
-  if (lower.includes('cocina')) return 'Cocina';
-  return role || 'Administrador';
-};
+import {
+  createAdminClient,
+  fail,
+  isTrustedAdmin,
+  json,
+  normalizeEmail,
+  normalizeRole,
+} from './_security.js';
 
 const normalizeStatus = (value) => {
   const status = String(value || '').trim();
@@ -24,9 +13,6 @@ const normalizeStatus = (value) => {
   if (status.toLowerCase().includes('suspend')) return 'Suspendido';
   return status;
 };
-
-const fail = (status, step, error) =>
-  json({ ok: false, step, error }, status);
 
 const syncStaffUsers = async (adminClient, nextStaffValue) => {
   const { error } = await adminClient
@@ -52,14 +38,14 @@ export async function onRequestPost({ request, env }) {
     const authHeader = request.headers.get('Authorization') || '';
     const accessToken = authHeader.startsWith('Bearer ') ? authHeader.slice(7).trim() : '';
 
-    const supabaseUrl = String(env.SUPABASE_URL || env.VITE_SUPABASE_URL || '').trim();
-    const serviceRoleKey = String(env.SUPABASE_SERVICE_ROLE_KEY || '').trim();
+    const adminClient = await createAdminClient(env);
+    const skipLegacyConfigCheck = Boolean(env.LEGACY_CONFIG_CHECK);
 
-    if (!supabaseUrl || !serviceRoleKey) {
+    if (skipLegacyConfigCheck) {
       return fail(503, 'config', 'Supabase Auth admin no está configurado en el servidor.');
     }
 
-    if (!/^https?:\/\/.+/i.test(supabaseUrl)) {
+    if (skipLegacyConfigCheck) {
       return fail(500, 'config', 'SUPABASE_URL debe empezar con http:// o https:// y no puede tener espacios ni comillas.');
     }
 
@@ -67,24 +53,13 @@ export async function onRequestPost({ request, env }) {
       return fail(401, 'auth', 'Falta el token de sesión del administrador.');
     }
 
-    const { createClient } = await import('@supabase/supabase-js');
-    const adminClient = createClient(supabaseUrl, serviceRoleKey, {
-      auth: {
-        autoRefreshToken: false,
-        persistSession: false,
-        detectSessionInUrl: false,
-      },
-    });
-
     const { data: userResult, error: userError } = await adminClient.auth.getUser(accessToken);
     if (userError || !userResult?.user) {
       return fail(401, 'auth', userError?.message || 'No se pudo validar la sesión del administrador.');
     }
 
     const caller = userResult.user;
-    const callerEmail = normalizeEmail(caller.email);
-    const callerRole = normalizeRole(caller.user_metadata?.role || caller.app_metadata?.role || '');
-    if (callerEmail !== 'admin@donhelado.com' && !callerRole.toLowerCase().includes('admin')) {
+    if (!isTrustedAdmin(caller)) {
       return fail(403, 'authz', 'Solo un administrador puede cambiar usuarios de Auth.');
     }
 
@@ -138,7 +113,6 @@ export async function onRequestPost({ request, env }) {
         email,
         name: name || existingStaffUser?.name || email.split('@')[0],
         role,
-        password: password || existingStaffUser?.password || '',
         status,
         allowedTabs: Array.isArray(existingStaffUser?.allowedTabs) ? existingStaffUser.allowedTabs : [],
       };
@@ -166,7 +140,6 @@ export async function onRequestPost({ request, env }) {
       email_confirm: true,
       user_metadata: {
         name,
-        role,
       },
       app_metadata: {
         role,

@@ -1,3 +1,5 @@
+import { supabase } from './supabaseClient';
+
 /**
  * Convierte y comprime una imagen a formato WebP utilizando un Canvas HTML5.
  * Limita el ancho/alto máximo a 800px para que las imágenes carguen al instante en celulares.
@@ -75,8 +77,17 @@ export const uploadToR2 = async (file, prefix = 'productos') => {
   formData.append('file', webpBlob, fileName);
   formData.append('prefix', prefix);
 
+  const { data } = supabase?.auth ? await supabase.auth.getSession() : { data: null };
+  const accessToken = data?.session?.access_token;
+  if (!accessToken) {
+    throw new Error('Debes iniciar sesion para subir imagenes.');
+  }
+
   const response = await fetch('/api/r2-upload', {
     method: 'POST',
+    headers: {
+      Authorization: `Bearer ${accessToken}`
+    },
     body: formData
   });
 

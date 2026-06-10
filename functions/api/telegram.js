@@ -1,19 +1,26 @@
-const json = (body, status = 200) =>
-  new Response(JSON.stringify(body), {
-    status,
-    headers: {
-      'Content-Type': 'application/json; charset=utf-8',
-      'Cache-Control': 'no-store',
-    },
-  });
+import { json, sameOriginRequest } from './_security.js';
+
+const allowedKinds = new Set(['order', 'table_call', 'survey', 'support', 'test']);
+const allowedParseModes = new Set(['Markdown', 'MarkdownV2', 'HTML']);
 
 export async function onRequestPost({ request, env }) {
   try {
-    const { text, parse_mode = 'Markdown' } = await request.json();
+    if (!sameOriginRequest(request)) {
+      return json({ error: 'Origen no permitido.' }, 403);
+    }
+
+    const { text, parse_mode = 'Markdown', kind = 'support' } = await request.json();
 
     if (!text || typeof text !== 'string') {
       return json({ error: 'Falta el texto del mensaje.' }, 400);
     }
+    if (text.length > 3500) {
+      return json({ error: 'El mensaje es demasiado largo.' }, 413);
+    }
+    if (!allowedKinds.has(kind)) {
+      return json({ error: 'Tipo de notificacion no permitido.' }, 400);
+    }
+    const safeParseMode = allowedParseModes.has(parse_mode) ? parse_mode : 'Markdown';
 
     const token = env.TELEGRAM_BOT_TOKEN;
     const chatId = env.TELEGRAM_CHAT_ID;
@@ -28,7 +35,7 @@ export async function onRequestPost({ request, env }) {
       body: JSON.stringify({
         chat_id: chatId,
         text,
-        parse_mode,
+        parse_mode: safeParseMode,
       }),
     });
 

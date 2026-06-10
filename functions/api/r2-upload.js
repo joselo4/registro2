@@ -1,13 +1,5 @@
 import { S3Client, PutObjectCommand } from '@aws-sdk/client-s3';
-
-const json = (body, status = 200) =>
-  new Response(JSON.stringify(body), {
-    status,
-    headers: {
-      'Content-Type': 'application/json; charset=utf-8',
-      'Cache-Control': 'no-store',
-    },
-  });
+import { fail, getAuthenticatedUser, isTrustedStaff, json } from './_security.js';
 
 const cleanPrefix = (value) =>
   String(value || 'productos')
@@ -17,12 +9,23 @@ const cleanPrefix = (value) =>
 
 export async function onRequestPost({ request, env }) {
   try {
+    const { user, error } = await getAuthenticatedUser(request, env);
+    if (error || !user) return fail(401, 'auth', error || 'Sesion requerida.');
+    if (!isTrustedStaff(user)) return fail(403, 'authz', 'No tienes permiso para subir imagenes.');
+
     const formData = await request.formData();
     const file = formData.get('file');
     const prefix = cleanPrefix(formData.get('prefix'));
 
     if (!file || typeof file.arrayBuffer !== 'function') {
       return json({ error: 'No se recibió un archivo válido.' }, 400);
+    }
+
+    if (!String(file.type || '').startsWith('image/')) {
+      return json({ error: 'Solo se permiten imagenes.' }, 400);
+    }
+    if (Number(file.size || 0) > 5 * 1024 * 1024) {
+      return json({ error: 'La imagen no puede superar 5 MB.' }, 413);
     }
 
     const accountId = env.R2_ACCOUNT_ID;

@@ -34,7 +34,7 @@ const normalizeRoleLabel = (role, email = '') => {
   if (lowerRole.includes('admin')) return 'Administrador';
   if (lowerRole.includes('vendedor')) return 'Vendedor';
   if (lowerRole.includes('cocina')) return 'Cocina';
-  return normalizedRole || 'Administrador';
+  return normalizedRole || 'Vendedor';
 };
 
 const isAdminUser = (user) => {
@@ -392,7 +392,7 @@ export default function AdminPanel({
             username: user.email.split('@')[0],
             email: user.email,
             name: user.user_metadata?.name || 'Administrador Supabase',
-            role: normalizeRoleLabel(user.user_metadata?.role, user.email),
+            role: normalizeRoleLabel(user.app_metadata?.role, user.email),
             status: 'Activo',
             isSupabaseUser: true
           };
@@ -414,50 +414,8 @@ export default function AdminPanel({
       }
     }
 
-    // 2. Fallback de RPC
-    if (supabase) {
-      try {
-        const { data, error } = await supabase.rpc('verify_admin_login', {
-          p_username_or_email: userInput,
-          p_password: passwordSanitized
-        });
-        
-        if (error) throw error;
-        
-        if (data) {
-          if (data.error === 'Usuario suspendido.') {
-            setAuthError('Tu cuenta se encuentra SUSPENDIDA. Contacta al administrador.');
-            return;
-          }
-          
-          const userObj = {
-            id: data.id,
-            username: data.username,
-            email: data.email,
-            name: data.name,
-            role: normalizeRoleLabel(data.role, data.email),
-            status: data.status,
-            isSupabaseUser: true
-          };
-          
-          handleLoginSuccess(userObj, true);
-
-          if (isAdminUser(userObj)) {
-            try {
-              const { data: adminList } = await supabase.rpc('get_all_admins');
-              if (Array.isArray(adminList) && adminList.length > 0) onUpdateStaffUsers(adminList);
-            } catch (err) {
-              console.warn("No se pudo refrescar lista de personal", err);
-            }
-          }
-          return;
-        }
-      } catch (err) {
-        console.warn("Fallo en login de Supabase RPC, buscando local...", err.message);
-      }
-    }
-
-    setAuthError('No fue posible autenticar el acceso administrativo. Verifica la conexion con Supabase o vuelve a iniciar sesion.');
+    handleLoginFailure('Credenciales incorrectas o usuario no registrado en Supabase Auth.');
+    return;
   };
 
   const handleLogoutAction = async () => {

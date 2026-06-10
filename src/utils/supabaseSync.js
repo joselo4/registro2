@@ -135,6 +135,33 @@ export const updateSyncedData = async (key, value) => {
   }
 };
 
+const updatePublicOrder = async (key, value) => {
+  const id = String(key || '').replace(/^order_/, '');
+  const response = await fetch('/api/order', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ id, order: value }),
+  });
+  if (!response.ok) {
+    const payload = await response.json().catch(() => ({}));
+    throw new Error(payload.error || 'No se pudo guardar el pedido.');
+  }
+  return true;
+};
+
+const updatePublicTableCall = async (value) => {
+  const response = await fetch('/api/table-call', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(value),
+  });
+  if (!response.ok) {
+    const payload = await response.json().catch(() => ({}));
+    throw new Error(payload.error || 'No se pudo enviar el llamado.');
+  }
+  return true;
+};
+
 const _executeUpsert = async (key, value) => {
   try {
     let session = null;
@@ -163,6 +190,14 @@ const _executeUpsert = async (key, value) => {
 
     // 3. Si es una acción pública (ej: un cliente registrando su pedido o encuesta)
     // El RLS de Supabase solo permitirá la operación si la clave empieza por 'order_'
+    if (key.startsWith('order_call_Mesa_')) {
+      return await updatePublicTableCall(value);
+    }
+
+    if (key.startsWith('order_')) {
+      return await updatePublicOrder(key, value);
+    }
+
     const { error } = await supabase
       .from('helados_sync')
       .upsert(

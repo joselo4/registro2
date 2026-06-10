@@ -5,6 +5,7 @@
 
 -- 1. Habilitar la extensión de UUID si no está habilitada
 CREATE EXTENSION IF NOT EXISTS "uuid-ossp";
+CREATE EXTENSION IF NOT EXISTS "pgcrypto";
 
 -- 2. Asegurar la existencia de la tabla helados_sync con su estructura adecuada
 CREATE TABLE IF NOT EXISTS public.helados_sync (
@@ -21,6 +22,66 @@ DROP POLICY IF EXISTS "Permitir lectura pública de llaves generales" ON public.
 DROP POLICY IF EXISTS "Permitir a clientes crear y leer sus propios pedidos" ON public.helados_sync;
 DROP POLICY IF EXISTS "Permitir a clientes y vendedores actualizar ubicaciones de carritos" ON public.helados_sync;
 DROP POLICY IF EXISTS "Permitir todo a administradores autenticados" ON public.helados_sync;
+DROP POLICY IF EXISTS "Permitir lectura operativa a personal autenticado" ON public.helados_sync;
+DROP POLICY IF EXISTS "Permitir escritura operativa a personal autenticado" ON public.helados_sync;
+DROP POLICY IF EXISTS "Permitir insercion operativa a personal autenticado" ON public.helados_sync;
+
+-- Eliminar funciones existentes para evitar conflictos de tipo de retorno (ERROR: 42P13)
+DROP FUNCTION IF EXISTS public.current_app_role();
+DROP FUNCTION IF EXISTS public.is_admin_session();
+DROP FUNCTION IF EXISTS public.is_vendor_session();
+DROP FUNCTION IF EXISTS public.is_kitchen_session();
+DROP FUNCTION IF EXISTS public.get_all_admins();
+DROP FUNCTION IF EXISTS public.verify_admin_login(text, text);
+DROP FUNCTION IF EXISTS public.manage_admin_user(text, text, text, text, text, text, text, text, text);
+
+
+CREATE OR REPLACE FUNCTION public.current_app_role()
+RETURNS text
+LANGUAGE sql
+STABLE
+AS $$
+  SELECT lower(coalesce(auth.jwt() -> 'app_metadata' ->> 'role', ''));
+$$;
+
+CREATE OR REPLACE FUNCTION public.is_admin_session()
+RETURNS boolean
+LANGUAGE sql
+STABLE
+AS $$
+  SELECT
+    auth.uid() IS NOT NULL
+    AND (
+      lower(coalesce(auth.jwt() ->> 'email', '')) = 'admin@donhelado.com'
+      OR public.current_app_role() LIKE '%admin%'
+    );
+$$;
+
+CREATE OR REPLACE FUNCTION public.is_vendor_session()
+RETURNS boolean
+LANGUAGE sql
+STABLE
+AS $$
+  SELECT
+    auth.uid() IS NOT NULL
+    AND (
+      public.is_admin_session()
+      OR public.current_app_role() LIKE '%vendedor%'
+    );
+$$;
+
+CREATE OR REPLACE FUNCTION public.is_kitchen_session()
+RETURNS boolean
+LANGUAGE sql
+STABLE
+AS $$
+  SELECT
+    auth.uid() IS NOT NULL
+    AND (
+      public.is_admin_session()
+      OR public.current_app_role() LIKE '%cocina%'
+    );
+$$;
 
 -- 5. POLÍTICA A: Permitir lectura pública de llaves del catálogo (no confidenciales)
 -- Regular los datos que lee el cliente (sin sesión iniciada)
@@ -29,7 +90,8 @@ ON public.helados_sync
 FOR SELECT
 TO anon
 USING (
-    key IN (
+    key LIKE 'order_call_%'
+    OR key IN (
         'store_name', 
         'store_logo', 
         'store_title',
@@ -56,27 +118,19 @@ USING (
         'cart_recommended_pack', 
         'liter_config', 
         'ticket_custom_message',
-        'cart_locations'
+        'cart_locations',
+        'trends_interval',
+        'trends_display_time'
     )
 );
 
 -- 6. POLÍTICA B: Permitir a clientes crear, actualizar y consultar sus propios pedidos
 -- Los pedidos se guardan en llaves individuales con el prefijo "order_" (ej: order_PED-1234)
-CREATE POLICY "Permitir a clientes crear y leer sus propios pedidos" 
-ON public.helados_sync
-FOR ALL
-TO anon
-USING (key LIKE 'order_%')
-WITH CHECK (key LIKE 'order_%');
+-- Los pedidos publicos se crean y consultan por la Pages Function /api/order.
 
 -- 6.1 POLÍTICA B2: Permitir a clientes y vendedores actualizar ubicaciones de carritos
 -- Dado que los vendedores pueden no tener sesión nativa JWT si iniciaron sesión mediante RPC fallback
-CREATE POLICY "Permitir a clientes y vendedores actualizar ubicaciones de carritos" 
-ON public.helados_sync
-FOR ALL
-TO anon
-USING (key = 'cart_locations')
-WITH CHECK (key = 'cart_locations');
+-- Las ubicaciones se actualizan solo con usuarios autenticados.
 
 -- 7. POLÍTICA C: Permitir acceso absoluto a usuarios autenticados (Administradores/Staff)
 -- Cualquier usuario autenticado mediante Supabase Auth tiene control total
@@ -84,8 +138,101 @@ CREATE POLICY "Permitir todo a administradores autenticados"
 ON public.helados_sync
 FOR ALL
 TO authenticated
-USING (true)
-WITH CHECK (true);
+USING (public.is_admin_session())
+WITH CHECK (public.is_admin_session());
+
+CREATE POLICY "Permitir lectura operativa a personal autenticado"
+ON public.helados_sync
+FOR SELECT
+TO authenticated
+USING (
+    public.is_admin_session()
+    OR key LIKE 'order_%'
+    OR key IN (
+        'store_name',
+        'store_logo',
+        'store_title',
+        'store_favicon',
+        'store_phone',
+        'store_instagram',
+        'store_facebook',
+        'whatsapp_contact_message',
+        'shop_open',
+        'catalog_order',
+        'flavors',
+        'toppings',
+        'bases',
+        'packs',
+        'coupons',
+        'delivery_fee',
+        'free_delivery_threshold',
+        'delivery_campaign_text',
+        'sound_enabled',
+        'whatsapp_greeting',
+        'whatsapp_footer',
+        'qr_custom_url',
+        'recommendations',
+        'cart_recommended_pack',
+        'liter_config',
+        'ticket_custom_message',
+        'cart_locations',
+        'staff_permissions',
+        'trends_interval',
+        'trends_display_time'
+    )
+);
+
+CREATE POLICY "Permitir escritura operativa a personal autenticado"
+ON public.helados_sync
+FOR UPDATE
+TO authenticated
+USING (
+    public.is_admin_session()
+    OR (
+      public.is_vendor_session()
+      AND (
+        key LIKE 'order_%'
+        OR key IN ('cart_locations', 'flavors', 'toppings', 'bases', 'packs', 'catalog_order', 'liter_config', 'cart_recommended_pack', 'recommendations')
+      )
+    )
+    OR (
+      public.is_kitchen_session()
+      AND key LIKE 'order_%'
+    )
+)
+WITH CHECK (
+    public.is_admin_session()
+    OR (
+      public.is_vendor_session()
+      AND (
+        key LIKE 'order_%'
+        OR key IN ('cart_locations', 'flavors', 'toppings', 'bases', 'packs', 'catalog_order', 'liter_config', 'cart_recommended_pack', 'recommendations')
+      )
+    )
+    OR (
+      public.is_kitchen_session()
+      AND key LIKE 'order_%'
+    )
+);
+
+CREATE POLICY "Permitir insercion operativa a personal autenticado"
+ON public.helados_sync
+FOR INSERT
+TO authenticated
+WITH CHECK (
+    public.is_admin_session()
+    OR (
+      public.is_vendor_session()
+      AND (
+        key LIKE 'order_%'
+        OR key IN ('cart_locations', 'flavors', 'toppings', 'bases', 'packs', 'catalog_order', 'liter_config', 'cart_recommended_pack', 'recommendations')
+      )
+    )
+    OR (
+      public.is_kitchen_session()
+      AND key LIKE 'order_%'
+    )
+);
 
 -- 8. [OPCIONAL] Función y disparador para actualizar automáticamente 'updated_at'
 CREATE OR REPLACE FUNCTION public.trigger_set_timestamp()
@@ -113,7 +260,6 @@ RETURNS TABLE (
     name text,
     role text,
     status text,
-    password text,
     "allowedTabs" jsonb
 )
 LANGUAGE sql
@@ -125,7 +271,6 @@ AS $$
         COALESCE(item->>'name', split_part(COALESCE(item->>'email', ''), '@', 1)) AS name,
         COALESCE(item->>'role', 'Vendedor') AS role,
         COALESCE(item->>'status', 'Activo') AS status,
-        COALESCE(item->>'password', '') AS password,
         COALESCE(item->'allowedTabs', '[]'::jsonb) AS "allowedTabs"
     FROM public.helados_sync sync_row
     CROSS JOIN LATERAL jsonb_array_elements(COALESCE(sync_row.value, '[]'::jsonb)) AS item
@@ -133,7 +278,6 @@ AS $$
       AND auth.uid() IS NOT NULL
       AND (
         lower(coalesce(auth.jwt() ->> 'email', '')) = 'admin@donhelado.com'
-        OR lower(coalesce(auth.jwt() -> 'user_metadata' ->> 'role', '')) LIKE '%admin%'
         OR lower(coalesce(auth.jwt() -> 'app_metadata' ->> 'role', '')) LIKE '%admin%'
       )
     ORDER BY COALESCE(item->>'name', item->>'email');
@@ -154,58 +298,15 @@ RETURNS TABLE (
 )
 LANGUAGE plpgsql
 AS $$
-DECLARE
-    user_item jsonb;
-    search_value text := lower(trim(coalesce(p_username_or_email, '')));
 BEGIN
-    SELECT item
-    INTO user_item
-    FROM public.helados_sync sync_row
-    CROSS JOIN LATERAL jsonb_array_elements(COALESCE(sync_row.value, '[]'::jsonb)) AS item
-    WHERE sync_row.key = 'staff_users'
-      AND (
-        lower(COALESCE(item->>'email', '')) = search_value
-        OR lower(COALESCE(item->>'username', '')) = search_value
-      )
-    LIMIT 1;
-
-    IF user_item IS NULL THEN
-        RETURN QUERY SELECT NULL::text, NULL::text, NULL::text, NULL::text, NULL::text, NULL::text, 'Usuario no encontrado.'::text;
-        RETURN;
-    END IF;
-
-    IF COALESCE(user_item->>'status', 'Activo') ILIKE 'Suspendido' THEN
-        RETURN QUERY SELECT
-            COALESCE(user_item->>'id', uuid_generate_v4()::text),
-            COALESCE(user_item->>'username', split_part(COALESCE(user_item->>'email', ''), '@', 1)),
-            COALESCE(user_item->>'email', ''),
-            COALESCE(user_item->>'name', split_part(COALESCE(user_item->>'email', ''), '@', 1)),
-            COALESCE(user_item->>'role', 'Vendedor'),
-            COALESCE(user_item->>'status', 'Suspendido'),
-            'Usuario suspendido.'::text;
-        RETURN;
-    END IF;
-
-    IF COALESCE(user_item->>'password', '') <> COALESCE(p_password, '') THEN
-        RETURN QUERY SELECT
-            COALESCE(user_item->>'id', uuid_generate_v4()::text),
-            COALESCE(user_item->>'username', split_part(COALESCE(user_item->>'email', ''), '@', 1)),
-            COALESCE(user_item->>'email', ''),
-            COALESCE(user_item->>'name', split_part(COALESCE(user_item->>'email', ''), '@', 1)),
-            COALESCE(user_item->>'role', 'Vendedor'),
-            COALESCE(user_item->>'status', 'Activo'),
-            'Credenciales incorrectas.'::text;
-        RETURN;
-    END IF;
-
     RETURN QUERY SELECT
-        COALESCE(user_item->>'id', uuid_generate_v4()::text),
-        COALESCE(user_item->>'username', split_part(COALESCE(user_item->>'email', ''), '@', 1)),
-        COALESCE(user_item->>'email', ''),
-        COALESCE(user_item->>'name', split_part(COALESCE(user_item->>'email', ''), '@', 1)),
-        COALESCE(user_item->>'role', 'Vendedor'),
-        COALESCE(user_item->>'status', 'Activo'),
-        NULL::text;
+        NULL::text,
+        NULL::text,
+        NULL::text,
+        NULL::text,
+        NULL::text,
+        NULL::text,
+        'Inicio heredado deshabilitado. Usa una cuenta creada en Supabase Auth.'::text;
 END;
 $$;
 
@@ -238,9 +339,7 @@ BEGIN
         RETURN;
     END IF;
 
-    IF lower(coalesce(auth.jwt() ->> 'email', '')) <> 'admin@donhelado.com'
-       AND lower(coalesce(auth.jwt() -> 'user_metadata' ->> 'role', '')) NOT LIKE '%admin%'
-       AND lower(coalesce(auth.jwt() -> 'app_metadata' ->> 'role', '')) NOT LIKE '%admin%' THEN
+    IF NOT public.is_admin_session() THEN
         RETURN QUERY SELECT false, 'Sesión no autenticada.';
         RETURN;
     END IF;
@@ -269,7 +368,6 @@ BEGIN
             'email', lower(COALESCE(p_target_email, '')),
             'name', COALESCE(NULLIF(p_name, ''), existing_user->>'name', split_part(COALESCE(p_target_email, ''), '@', 1)),
             'role', COALESCE(NULLIF(p_role, ''), existing_user->>'role', 'Vendedor'),
-            'password', COALESCE(NULLIF(p_password, ''), existing_user->>'password', ''),
             'status', COALESCE(NULLIF(p_status, ''), existing_user->>'status', 'Activo'),
             'allowedTabs', COALESCE(existing_user->'allowedTabs', '[]'::jsonb)
         );
@@ -295,6 +393,16 @@ BEGIN
     RETURN QUERY SELECT true, CASE WHEN lower(coalesce(p_action, 'upsert')) = 'delete' THEN 'Usuario eliminado.' ELSE 'Usuario guardado.' END;
 END;
 $$;
+
+-- 10.1 Eliminar contraseÃ±as heredadas guardadas en JSON.
+-- Las claves deben gestionarse Ãºnicamente con Supabase Auth.
+UPDATE public.helados_sync
+SET value = (
+    SELECT COALESCE(jsonb_agg(item - 'password'), '[]'::jsonb)
+    FROM jsonb_array_elements(COALESCE(value, '[]'::jsonb)) AS item
+)
+WHERE key = 'staff_users'
+  AND jsonb_typeof(value) = 'array';
 
 -- =====================================================================
 -- FIN DEL SCRIPT.

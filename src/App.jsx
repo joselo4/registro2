@@ -75,7 +75,7 @@ const normalizeRoleLabel = (role, email = '') => {
   if (lowerRole.includes('admin')) return 'Administrador';
   if (lowerRole.includes('vendedor')) return 'Vendedor';
   if (lowerRole.includes('cocina')) return 'Cocina';
-  return normalizedRole || 'Administrador';
+  return normalizedRole || 'Vendedor';
 };
 
 export default function App() {
@@ -363,7 +363,9 @@ export default function App() {
       try {
         const parsed = JSON.parse(saved);
         if (parsed && typeof parsed === 'object') return parsed;
-      } catch {}
+      } catch {
+        return { updatedAt: null, carts: [] };
+      }
     }
     return { updatedAt: null, carts: [] };
   });
@@ -519,7 +521,7 @@ export default function App() {
           if (session) {
             console.log("🔑 Sesión activa de Supabase recuperada:", session.user.email);
             hasActiveSession = true;
-            const userRole = normalizeRoleLabel(session.user.user_metadata?.role, session.user.email);
+            const userRole = normalizeRoleLabel(session.user.app_metadata?.role, session.user.email);
             const userName = session.user.user_metadata?.name || 'Administrador Supabase';
             setIsLoggedIn(true);
             setCurrentUser({
@@ -580,7 +582,7 @@ export default function App() {
       const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event, session) => {
         console.log(`🔔 Supabase Auth Evento: ${event}`);
         if (session) {
-          const userRole = normalizeRoleLabel(session.user.user_metadata?.role, session.user.email);
+          const userRole = normalizeRoleLabel(session.user.app_metadata?.role, session.user.email);
           const userName = session.user.user_metadata?.name || 'Administrador Supabase';
           setIsLoggedIn(true);
           setCurrentUser({

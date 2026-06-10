@@ -1,5 +1,4 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { supabase } from '../utils/supabaseClient';
 import { updateSyncedData } from '../utils/supabaseSync';
 
 export default function OrderTracker({ orderId, orders, setView, storePhone, onClearActiveOrder }) {
@@ -151,7 +150,7 @@ export default function OrderTracker({ orderId, orders, setView, storePhone, onC
 
   // Efecto para buscar pedido en Supabase de forma segura e independiente (por privacidad de egress)
   useEffect(() => {
-    if (!activeSearchId || !supabase) return;
+    if (!activeSearchId) return;
 
     const searchUpper = activeSearchId.trim().toUpperCase();
     const local = orders.find(o => o.id.toUpperCase() === searchUpper);
@@ -165,16 +164,13 @@ export default function OrderTracker({ orderId, orders, setView, storePhone, onC
     const fetchFromSupabase = async () => {
       setLoadingOrder(true);
       try {
-        const { data, error } = await supabase
-          .from('helados_sync')
-          .select('value')
-          .eq('key', `order_${searchUpper}`)
-          .maybeSingle();
+        const response = await fetch(`/api/order?id=${encodeURIComponent(searchUpper)}`);
+        const payload = await response.json().catch(() => ({}));
 
         if (cancelled) return;
 
-        if (!error && data && data.value) {
-          setFetchedOrder(data.value);
+        if (response.ok && payload.order) {
+          setFetchedOrder(payload.order);
           saveToRecentOrders(searchUpper);
         }
       } catch (err) {
@@ -191,23 +187,12 @@ export default function OrderTracker({ orderId, orders, setView, storePhone, onC
     fetchFromSupabase();
 
     // Suscribirse únicamente al canal en tiempo real de este pedido específico (cero filtración de datos)
-    const channel = supabase
-      .channel(`track-${searchUpper}`)
-      .on(
-        'postgres_changes',
-        { event: 'UPDATE', schema: 'public', table: 'helados_sync', filter: `key=eq.order_${searchUpper}` },
-        (payload) => {
-          if (payload.new && payload.new.value) {
-            setFetchedOrder(payload.new.value);
-          }
-        }
-      )
-      .subscribe();
+    const refreshTimer = setInterval(fetchFromSupabase, 15000);
 
     return () => {
       cancelled = true;
       clearTimeout(failSafeTimer);
-      supabase.removeChannel(channel);
+      clearInterval(refreshTimer);
     };
   }, [activeSearchId, searchNonce]);
 

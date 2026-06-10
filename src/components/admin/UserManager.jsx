@@ -157,7 +157,6 @@ export default function UserManager({
       name: sanitizedName, 
       email: sanitizedEmail, 
       role: newUser.role, 
-      password: sanitizedPassword, 
       status: 'Activo' 
     };
 
@@ -265,8 +264,6 @@ export default function UserManager({
       alert("¡Contraseña actualizada con éxito!");
     }
 
-    const updated = staffUsers.map(u => u.email === editingUserPassword ? { ...u, password: sanitizedPassword } : u);
-    onUpdateStaffUsers(updated);
     addLog(`Contraseña de usuario ${editingUserPassword} actualizada por ${currentUser?.name}.`);
     setEditingUserPassword(null);
     setNewPasswordForUser('');

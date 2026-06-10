@@ -1,5 +1,11 @@
+import { fail, getAuthenticatedUser, isTrustedStaff } from './_security.js';
+
 export async function onRequestPost(context) {
   try {
+    const { user, error } = await getAuthenticatedUser(context.request, context.env);
+    if (error || !user) return fail(401, 'auth', error || 'Sesion requerida.');
+    if (!isTrustedStaff(user)) return fail(403, 'authz', 'No tienes permiso para subir imagenes.');
+
     // 1. Validar que la vinculación del Bucket exista en el panel de Cloudflare
     // Usaremos "HELADERIA_BUCKET" como el nombre de la variable nativa
     const BUCKET = context.env.HELADERIA_BUCKET;
@@ -21,11 +27,29 @@ export async function onRequestPost(context) {
         { status: 400, headers: { "Content-Type": "application/json" } }
       );
     }
+    if (!String(archivo.type || '').startsWith('image/')) {
+      return new Response(
+        JSON.stringify({ error: "Error: Solo se permiten imagenes." }),
+        { status: 400, headers: { "Content-Type": "application/json" } }
+      );
+    }
+    if (Number(archivo.size || 0) > 5 * 1024 * 1024) {
+      return new Response(
+        JSON.stringify({ error: "Error: La imagen no puede superar 5 MB." }),
+        { status: 413, headers: { "Content-Type": "application/json" } }
+      );
+    }
 
     // 3. Definir el nombre con el que se guardará en R2
     // Si el frontend envía un nombre lo usa, si no, genera uno usando la fecha actual
     const nombreOriginal = archivo.name || "imagen.jpg";
-    const nombreFinal = formData.get("name") || `${Date.now()}-${nombreOriginal}`;
+    const nombreSeguro = String(formData.get("name") || `${Date.now()}-${nombreOriginal}`)
+      .replace(/\\/g, "/")
+      .split("/")
+      .filter(Boolean)
+      .map(part => part.toLowerCase().replace(/[^a-z0-9._-]/g, "_").slice(0, 60))
+      .join("/");
+    const nombreFinal = nombreSeguro || `${Date.now()}-imagen.webp`;
 
     // 4. Subir el archivo directamente a tu almacenamiento de Cloudflare R2
     await BUCKET.put(nombreFinal, archivo.stream(), {
@@ -51,7 +75,7 @@ export async function onRequestPost(context) {
         status: 200, 
         headers: { 
           "Content-Type": "application/json",
-          "Access-Control-Allow-Origin": "*" // Permite que tu frontend la llame sin problemas de CORS
+          "Access-Control-Allow-Origin": new URL(context.request.url).origin
         } 
       }
     );
@@ -65,13 +89,13 @@ export async function onRequestPost(context) {
 }
 
 // Manejador para peticiones OPTIONS (CORS obligado por los navegadores en peticiones tipo POST)
-export async function onRequestOptions() {
+export async function onRequestOptions({ request }) {
   return new Response(null, {
     status: 204,
     headers: {
-      "Access-Control-Allow-Origin": "*",
+      "Access-Control-Allow-Origin": new URL(request.url).origin,
       "Access-Control-Allow-Methods": "POST, OPTIONS",
-      "Access-Control-Allow-Headers": "Content-Type",
+      "Access-Control-Allow-Headers": "Content-Type, Authorization",
     },
   });
 }
