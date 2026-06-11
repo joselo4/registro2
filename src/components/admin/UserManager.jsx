@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import { supabase } from '../../utils/supabaseClient';
+import { updateSyncedData } from '../../utils/supabaseSync';
 
 // --- FUNCIONES DE SANITIZACIÓN ---
 const sanitizeHTML = (text) => {
@@ -33,6 +34,14 @@ const getDefaultAllowedTabsForRole = (role) => {
     return ['orders'];
   }
   return [];
+};
+
+const withTimeout = (promise, ms, label) => {
+  let timer = null;
+  const timeout = new Promise((_, reject) => {
+    timer = setTimeout(() => reject(new Error(`${label} tardó demasiado.`)), ms);
+  });
+  return Promise.race([promise, timeout]).finally(() => clearTimeout(timer));
 };
 
 export default function UserManager({
@@ -84,6 +93,7 @@ export default function UserManager({
           Authorization: `Bearer ${accessToken}`,
         },
         body: JSON.stringify({
+          adminAccessToken: accessToken,
           action: payload.p_action || 'upsert',
           email: payload.p_target_email,
           password: payload.p_password || '',
@@ -106,6 +116,22 @@ export default function UserManager({
       console.warn(`No se pudo sincronizar ${label} en Supabase:`, err.message);
       return false;
     }
+  };
+
+  const persistStaffSnapshot = async (nextStaffUsers, nextPermissions = staffPermissions) => {
+    const [staffResult, permissionsResult] = await Promise.allSettled([
+      withTimeout(updateSyncedData('staff_users', nextStaffUsers), 10000, 'El guardado de personal'),
+      withTimeout(updateSyncedData('staff_permissions', nextPermissions), 10000, 'El guardado de permisos')
+    ]);
+
+    if (staffResult.status === 'rejected') {
+      console.warn('No se pudo guardar staff_users en Supabase:', staffResult.reason?.message || staffResult.reason);
+    }
+    if (permissionsResult.status === 'rejected') {
+      console.warn('No se pudo guardar staff_permissions en Supabase:', permissionsResult.reason?.message || permissionsResult.reason);
+    }
+
+    return staffResult.status === 'fulfilled' && staffResult.value !== false;
   };
 
   const handleCopyStaffSummary = async () => {
@@ -161,15 +187,18 @@ export default function UserManager({
     };
 
     const defaultTabs = getDefaultAllowedTabsForRole(newUser.role);
+    const nextStaffUsers = [...staffUsers, added];
     const nextPermissions = { ...staffPermissions, [sanitizedEmail]: defaultTabs };
 
-    onUpdateStaffUsers([...staffUsers, added]);
+    onUpdateStaffUsers(nextStaffUsers);
     onUpdateStaffPermissions(nextPermissions);
     setShowAddUser(false);
     addLog(`Personal registrado: ${sanitizedName} (${newUser.role}) por ${currentUser?.name}.`);
     setNewUser({ name: '', email: '', role: 'Vendedor', password: '' });
 
-    const syncOk = await syncAdminMutation({
+    const [snapshotOk, authOk] = await Promise.all([
+      persistStaffSnapshot(nextStaffUsers, nextPermissions),
+      syncAdminMutation({
       p_admin_email: currentUser.email,
       p_admin_role: currentUser.role,
       p_target_email: sanitizedEmail,
@@ -179,8 +208,9 @@ export default function UserManager({
       p_password: sanitizedPassword,
       p_status: 'Activo',
       p_action: 'upsert'
-    }, 'registro de personal');
-    if (!syncOk) {
+      }, 'registro de personal')
+    ]);
+    if (!snapshotOk || !authOk) {
       alert("Aviso: el registro quedó guardado localmente, pero no se pudo sincronizar con Supabase Auth y personal.");
     }
   };
@@ -198,7 +228,9 @@ export default function UserManager({
     onUpdateStaffUsers(updated);
     addLog(`Usuario ${userToToggle.name} cambiado a estado ${nextStatus} por ${currentUser?.name}.`);
 
-    const syncOk = await syncAdminMutation({
+    const [snapshotOk, authOk] = await Promise.all([
+      persistStaffSnapshot(updated),
+      syncAdminMutation({
       p_admin_email: currentUser.email,
       p_admin_role: currentUser.role,
       p_target_email: email,
@@ -207,8 +239,9 @@ export default function UserManager({
       p_role: userToToggle.role,
       p_status: nextStatus,
       p_action: 'upsert'
-    }, 'cambio de estado');
-    if (!syncOk) {
+      }, 'cambio de estado')
+    ]);
+    if (!snapshotOk || !authOk) {
       alert("Aviso: el cambio quedó local, pero no se pudo sincronizar con Supabase.");
     }
   };
@@ -219,16 +252,23 @@ export default function UserManager({
       return;
     }
     if (window.confirm("¿Seguro que deseas eliminar este usuario del personal?")) {
-      onUpdateStaffUsers(staffUsers.filter(u => u.email !== email));
+      const updated = staffUsers.filter(u => u.email !== email);
+      const nextPermissions = { ...staffPermissions };
+      delete nextPermissions[email];
+      onUpdateStaffUsers(updated);
+      onUpdateStaffPermissions(nextPermissions);
       addLog(`Usuario con correo ${email} eliminado por ${currentUser?.name}.`);
 
-      const syncOk = await syncAdminMutation({
+      const [snapshotOk, authOk] = await Promise.all([
+        persistStaffSnapshot(updated, nextPermissions),
+        syncAdminMutation({
         p_admin_email: currentUser.email,
         p_admin_role: currentUser.role,
         p_target_email: email,
         p_action: 'delete'
-      }, 'eliminación de personal');
-      if (!syncOk) {
+        }, 'eliminacion de personal')
+      ]);
+      if (!snapshotOk || !authOk) {
         alert("Aviso: el usuario se eliminó localmente, pero no se pudo sincronizar con Supabase.");
       }
     }
@@ -257,7 +297,7 @@ export default function UserManager({
       p_status: userToToggle?.status || 'Activo',
       p_password: sanitizedPassword,
       p_action: 'upsert'
-    }, 'actualización de contraseña');
+    }, 'actualizacion de contraseña');
     if (!syncOk) {
       alert("Aviso: no se pudo actualizar la contraseña en Supabase.");
     } else {
@@ -299,7 +339,9 @@ export default function UserManager({
     setEditingUser(null);
 
     const targetUser = staffUsers.find(u => u.email === editingUser.email);
-    const syncOk = await syncAdminMutation({
+    const [snapshotOk, authOk] = await Promise.all([
+      persistStaffSnapshot(updatedStaff, nextPermissions),
+      syncAdminMutation({
       p_admin_email: currentUser.email,
       p_admin_role: currentUser.role,
       p_target_email: editingUser.email,
@@ -308,8 +350,9 @@ export default function UserManager({
       p_role: editingUser.role,
       p_status: targetUser?.status || 'Activo',
       p_action: 'upsert'
-    }, 'edición de personal');
-    if (!syncOk) {
+      }, 'edicion de personal')
+    ]);
+    if (!snapshotOk || !authOk) {
       alert("Aviso: los cambios de perfil quedaron locales, pero no se pudieron sincronizar con Supabase.");
     }
   };

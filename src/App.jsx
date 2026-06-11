@@ -699,6 +699,7 @@ export default function App() {
   useSyncEffect('free_delivery_threshold', freeDeliveryThreshold, false);
   useSyncEffect('delivery_campaign_text', deliveryCampaignText, false);
   useSyncEffect('store_phone', storePhone, false);
+  useSyncEffect('staff_users', staffUsers, true);
   useSyncEffect('staff_permissions', staffPermissions, true);
   useSyncEffect('sound_enabled', soundEnabled, true);
   useSyncEffect('coupons', coupons, true);

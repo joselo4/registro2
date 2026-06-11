@@ -1,10 +1,12 @@
 import {
   createAdminClient,
   fail,
+  getSupabaseConfig,
   isTrustedAdmin,
   json,
   normalizeEmail,
   normalizeRole,
+  sameOriginRequest,
 } from './_security.js';
 
 const normalizeStatus = (value) => {
@@ -33,10 +35,51 @@ const syncStaffUsers = async (adminClient, nextStaffValue) => {
   return { ok: true };
 };
 
+const validateAccessToken = async (adminClient, env, accessToken) => {
+  const { data: userResult, error: userError } = await adminClient.auth.getUser(accessToken);
+  if (!userError && userResult?.user) {
+    return { user: userResult.user, error: null };
+  }
+
+  const { supabaseUrl, serviceRoleKey } = getSupabaseConfig(env);
+  const response = await fetch(`${supabaseUrl.replace(/\/$/, '')}/auth/v1/user`, {
+    headers: {
+      apikey: serviceRoleKey,
+      Authorization: `Bearer ${accessToken}`,
+    },
+  });
+
+  const payload = await response.json().catch(() => ({}));
+  if (!response.ok || !payload?.id) {
+    return {
+      user: null,
+      error: payload?.msg || payload?.error_description || payload?.error || userError?.message || 'No se pudo validar la sesión del administrador.',
+    };
+  }
+
+  return { user: payload, error: null };
+};
+
+const isStaffAdmin = (staffUsers, email) => {
+  const normalizedEmail = normalizeEmail(email);
+  return staffUsers.some((item) => {
+    const role = normalizeRole(item?.role, '').toLowerCase();
+    const status = String(item?.status || 'Activo').trim().toLowerCase();
+    return normalizeEmail(item?.email) === normalizedEmail
+      && role.includes('admin')
+      && !status.includes('suspend');
+  });
+};
+
 export async function onRequestPost({ request, env }) {
   try {
+    if (!sameOriginRequest(request)) return fail(403, 'origin', 'Origen no permitido.');
+
+    const body = await request.json();
     const authHeader = request.headers.get('Authorization') || '';
-    const accessToken = authHeader.startsWith('Bearer ') ? authHeader.slice(7).trim() : '';
+    const headerToken = authHeader.startsWith('Bearer ') ? authHeader.slice(7).trim() : '';
+    const bodyToken = String(body.adminAccessToken || body.accessToken || '').trim();
+    const accessToken = headerToken || bodyToken;
 
     const adminClient = await createAdminClient(env);
     const skipLegacyConfigCheck = Boolean(env.LEGACY_CONFIG_CHECK);
@@ -53,17 +96,27 @@ export async function onRequestPost({ request, env }) {
       return fail(401, 'auth', 'Falta el token de sesión del administrador.');
     }
 
-    const { data: userResult, error: userError } = await adminClient.auth.getUser(accessToken);
-    if (userError || !userResult?.user) {
-      return fail(401, 'auth', userError?.message || 'No se pudo validar la sesión del administrador.');
+    const { user: caller, error: tokenError } = await validateAccessToken(adminClient, env, accessToken);
+    if (!caller) {
+      return fail(401, 'auth', tokenError || 'No se pudo validar la sesión del administrador.');
     }
 
-    const caller = userResult.user;
-    if (!isTrustedAdmin(caller)) {
+    const { data: staffRow, error: staffError } = await adminClient
+      .from('helados_sync')
+      .select('value')
+      .eq('key', 'staff_users')
+      .maybeSingle();
+
+    if (staffError) {
+      return fail(502, 'staff_read', staffError.message || 'No se pudo leer el personal sincronizado.');
+    }
+
+    const currentStaff = Array.isArray(staffRow?.value) ? staffRow.value : [];
+
+    if (!isTrustedAdmin(caller) && !isStaffAdmin(currentStaff, caller.email)) {
       return fail(403, 'authz', 'Solo un administrador puede cambiar usuarios de Auth.');
     }
 
-    const body = await request.json();
     const action = String(body.action || 'upsert').toLowerCase();
     const email = normalizeEmail(body.email);
     const password = String(body.password || '').trim();
@@ -89,17 +142,6 @@ export async function onRequestPost({ request, env }) {
     }
 
     const authUser = listData?.users?.find((u) => normalizeEmail(u.email) === email) || null;
-    const { data: staffRow, error: staffError } = await adminClient
-      .from('helados_sync')
-      .select('value')
-      .eq('key', 'staff_users')
-      .maybeSingle();
-
-    if (staffError) {
-      return fail(502, 'staff_read', staffError.message || 'No se pudo leer el personal sincronizado.');
-    }
-
-    const currentStaff = Array.isArray(staffRow?.value) ? staffRow.value : [];
     const existingStaffUser = currentStaff.find((item) => normalizeEmail(item?.email) === email) || null;
 
     const nextStaffValue = (() => {

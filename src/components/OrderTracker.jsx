@@ -23,6 +23,24 @@ export default function OrderTracker({ orderId, orders, setView, storePhone, onC
   const [submittingSurvey, setSubmittingSurvey] = useState(false);
   const [surveySubmitted, setSurveySubmitted] = useState(false);
 
+  const withTimeout = (promise, ms, label) => {
+    let timer = null;
+    const timeout = new Promise((_, reject) => {
+      timer = setTimeout(() => reject(new Error(`${label} tardó demasiado.`)), ms);
+    });
+    return Promise.race([promise, timeout]).finally(() => clearTimeout(timer));
+  };
+
+  const fetchWithTimeout = async (url, options = {}, ms = 10000) => {
+    const controller = new AbortController();
+    const timer = setTimeout(() => controller.abort(), ms);
+    try {
+      return await fetch(url, { ...options, signal: controller.signal });
+    } finally {
+      clearTimeout(timer);
+    }
+  };
+
   // Comprobar si la encuesta ya fue enviada para este pedido
   useEffect(() => {
     if (activeSearchId) {
@@ -55,8 +73,14 @@ export default function OrderTracker({ orderId, orders, setView, storePhone, onC
             date: new Date().toISOString()
           }
         };
-        await updateSyncedData(`order_${orderIdUpper}`, updatedOrder);
-        setFetchedOrder(updatedOrder);
+        const saved = await withTimeout(
+          updateSyncedData(`order_${orderIdUpper}`, updatedOrder),
+          12000,
+          'El guardado de la encuesta'
+        );
+        if (saved) {
+          setFetchedOrder(updatedOrder);
+        }
       } catch (errSurvey) {
         console.warn("Fallo al guardar encuesta en el pedido:", errSurvey);
       }
@@ -70,7 +94,7 @@ export default function OrderTracker({ orderId, orders, setView, storePhone, onC
       `_Enviado desde la encuesta rápida post-entrega._`;
 
     try {
-      const response = await fetch('/api/telegram', {
+      const response = await fetchWithTimeout('/api/telegram', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -78,7 +102,7 @@ export default function OrderTracker({ orderId, orders, setView, storePhone, onC
           parse_mode: 'Markdown',
           kind: 'survey'
         })
-      });
+      }, 10000);
       if (!response.ok) throw new Error("Error en notificación centralizada");
 
       localStorage.setItem(`helados_survey_submitted_${orderIdUpper}`, 'true');
