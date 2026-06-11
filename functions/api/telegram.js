@@ -3,6 +3,25 @@ import { json, sameOriginRequest } from './_security.js';
 const allowedKinds = new Set(['order', 'table_call', 'survey', 'support', 'test']);
 const allowedParseModes = new Set(['Markdown', 'MarkdownV2', 'HTML']);
 
+const markdownParseError = (description = '') => {
+  const normalized = String(description).toLowerCase();
+  return normalized.includes("can't parse entities") || normalized.includes('parse entities');
+};
+
+const sendTelegramMessage = async ({ token, chatId, text, parseMode }) => {
+  const body = { chat_id: chatId, text };
+  if (parseMode) body.parse_mode = parseMode;
+
+  const response = await fetch(`https://api.telegram.org/bot${token}/sendMessage`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(body),
+  });
+
+  const payload = await response.json().catch(() => ({}));
+  return { response, payload };
+};
+
 export async function onRequestPost({ request, env }) {
   try {
     if (!sameOriginRequest(request)) {
@@ -22,24 +41,28 @@ export async function onRequestPost({ request, env }) {
     }
     const safeParseMode = allowedParseModes.has(parse_mode) ? parse_mode : 'Markdown';
 
-    const token = env.TELEGRAM_BOT_TOKEN;
-    const chatId = env.TELEGRAM_CHAT_ID;
+    const token = String(env.TELEGRAM_BOT_TOKEN || '').trim();
+    const chatId = String(env.TELEGRAM_CHAT_ID || '').trim();
 
     if (!token || !chatId) {
       return json({ error: 'Telegram no está configurado en el servidor.' }, 503);
     }
 
-    const response = await fetch(`https://api.telegram.org/bot${token}/sendMessage`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        chat_id: chatId,
-        text,
-        parse_mode: safeParseMode,
-      }),
+    let { response, payload } = await sendTelegramMessage({
+      token,
+      chatId,
+      text,
+      parseMode: safeParseMode,
     });
 
-    const payload = await response.json().catch(() => ({}));
+    if (!response.ok && markdownParseError(payload.description)) {
+      ({ response, payload } = await sendTelegramMessage({
+        token,
+        chatId,
+        text,
+        parseMode: null,
+      }));
+    }
 
     if (!response.ok || payload.ok === false) {
       return json(

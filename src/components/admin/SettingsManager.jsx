@@ -1195,6 +1195,27 @@ export default function SettingsManager({
           <p style={{ fontSize: '0.75rem', color: 'var(--text-light)', marginTop: '4px', marginBottom: '0' }}>
             Esta integración ahora usa una Pages Function. El token y el chat ID se cargan como variables de entorno en Cloudflare, no en el navegador.
           </p>
+          <div style={{ marginTop: '12px', display: 'flex', alignItems: 'center', gap: '10px', flexWrap: 'wrap' }}>
+            <button
+              type="button"
+              className="btn btn-secondary"
+              onClick={handleTestTelegramConnection}
+              disabled={telegramTestStatus.loading}
+              style={{ fontSize: '0.78rem', padding: '7px 12px', borderColor: '#0088cc', color: '#0088cc' }}
+            >
+              {telegramTestStatus.loading ? 'Probando...' : 'Probar notificacion'}
+            </button>
+            {telegramTestStatus.success && (
+              <span style={{ color: 'var(--success)', fontSize: '0.75rem', fontWeight: 700 }}>
+                Notificacion enviada correctamente.
+              </span>
+            )}
+            {telegramTestStatus.error && (
+              <span style={{ color: 'var(--danger)', fontSize: '0.75rem', fontWeight: 700 }}>
+                {telegramTestStatus.error}
+              </span>
+            )}
+          </div>
         </div>
 
         {/* Estado Sincronización */}
