@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { buildSmsHref, formatOrderStatusMessage, normalizeSmsTemplates } from '../../utils/orderMessaging';
 
 // --- FUNCIONES DE SANITIZACIÓN ---
 const sanitizeHTML = (text) => {
@@ -19,6 +20,7 @@ export default function OrderManager({
   addLog,
   currentUser,
   showAlert,
+  shopConfig,
   activeSubTab: activeSubTabProp
 }) {
   const alert = (msg) => {
@@ -50,6 +52,30 @@ export default function OrderManager({
   const [dateEnd, setDateEnd] = useState('');
   const [ratingFilter, setRatingFilter] = useState('all'); // all, low, high
   const [ordersLimit, setOrdersLimit] = useState(20); // 20, 40, 60, all
+
+  const openStatusSms = (order, newStatus) => {
+    if (shopConfig?.smsNotificationsEnabled !== true) return;
+    const href = buildSmsHref(
+      order.customer?.phone,
+      formatOrderStatusMessage({
+        template: normalizeSmsTemplates(shopConfig.smsTemplates)[newStatus],
+        order,
+        status: newStatus,
+        storeName,
+      })
+    );
+    if (!href) {
+      alert('El pedido no tiene telefono valido para SMS.');
+      return;
+    }
+    window.location.href = href;
+  };
+
+  const handleStatusChange = (order, newStatus, logText) => {
+    onUpdateOrderStatus(order.id, newStatus);
+    addLog(logText);
+    openStatusSms(order, newStatus);
+  };
 
   // --- Estados de Edición de Pedidos ---
   const [editingOrder, setEditingOrder] = useState(null);
@@ -688,22 +714,22 @@ export default function OrderManager({
                       <td>
                         <div style={{ display: 'flex', gap: '4px', flexWrap: 'wrap' }}>
                           {order.status === 'Por Corroborar' && (
-                            <button className="admin-action-btn" style={{ color: '#e67e22', fontWeight: 'bold' }} onClick={() => { onUpdateOrderStatus(order.id, 'Pendiente'); addLog(`Pedido ${order.id} corroborado por ${currentUser?.name}`); }}>
+                            <button className="admin-action-btn" style={{ color: '#e67e22', fontWeight: 'bold' }} onClick={() => handleStatusChange(order, 'Pendiente', `Pedido ${order.id} corroborado por ${currentUser?.name}`)}>
                               ✅ Corroborar
                             </button>
                           )}
                           {order.status === 'Pendiente' && (
-                            <button className="admin-action-btn" style={{ color: 'var(--info)' }} onClick={() => { onUpdateOrderStatus(order.id, 'Preparando'); addLog(`Pedido ${order.id} marcado como 'Preparando' por ${currentUser?.name}`); }}>
+                            <button className="admin-action-btn" style={{ color: 'var(--info)' }} onClick={() => handleStatusChange(order, 'Preparando', `Pedido ${order.id} marcado como 'Preparando' por ${currentUser?.name}`)}>
                               🍳 Servir
                             </button>
                           )}
                           {order.status === 'Preparando' && (
-                            <button className="admin-action-btn" style={{ color: 'var(--secondary-color)' }} onClick={() => { onUpdateOrderStatus(order.id, 'En camino'); addLog(`Pedido ${order.id} marcado como 'En camino' por ${currentUser?.name}`); }}>
+                            <button className="admin-action-btn" style={{ color: 'var(--secondary-color)' }} onClick={() => handleStatusChange(order, 'En camino', `Pedido ${order.id} marcado como 'En camino' por ${currentUser?.name}`)}>
                               🛵 Enviar
                             </button>
                           )}
                           {order.status === 'En camino' && (
-                            <button className="admin-action-btn" style={{ color: 'var(--success)' }} onClick={() => { onUpdateOrderStatus(order.id, 'Entregado'); addLog(`Pedido ${order.id} marcado como 'Entregado' por ${currentUser?.name}`); }}>
+                            <button className="admin-action-btn" style={{ color: 'var(--success)' }} onClick={() => handleStatusChange(order, 'Entregado', `Pedido ${order.id} marcado como 'Entregado' por ${currentUser?.name}`)}>
                               ✅ Entregado
                             </button>
                           )}
@@ -713,8 +739,7 @@ export default function OrderManager({
                               style={{ color: 'var(--danger)' }} 
                               onClick={() => { 
                                 if (window.confirm(`⚠️ ¿Estás seguro de que deseas CANCELAR el pedido ${order.id} de ${order.customer.name}?`)) {
-                                  onUpdateOrderStatus(order.id, 'Cancelado'); 
-                                  addLog(`Pedido ${order.id} CANCELADO por ${currentUser?.name}`); 
+                                  handleStatusChange(order, 'Cancelado', `Pedido ${order.id} CANCELADO por ${currentUser?.name}`); 
                                 }
                               }}
                               title="Cancelar Pedido"

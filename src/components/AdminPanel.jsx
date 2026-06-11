@@ -670,6 +670,7 @@ export default function AdminPanel({
             addLog={addLog}
             currentUser={currentUser}
             showAlert={showAlert}
+            shopConfig={shopConfig}
             activeSubTab={activeTab === 'orders' ? 'orders' : 'surveys'}
           />
         )}
@@ -741,6 +742,8 @@ export default function AdminPanel({
             bases={bases}
             packs={packs}
             literConfig={literConfig}
+            deliveryFee={deliveryFee}
+            storeName={storeName}
             waiterTakerEnabled={waiterTakerEnabled}
             addLog={addLog}
             currentUser={currentUser}

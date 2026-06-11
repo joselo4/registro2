@@ -10,6 +10,7 @@ import {
 import { fetchSyncedData, updateSyncedData, subscribeToSync } from './utils/supabaseSync';
 import { supabase } from './utils/supabaseClient';
 import { Capacitor } from '@capacitor/core';
+import { DEFAULT_SMS_TEMPLATES } from './utils/orderMessaging';
 
 // Lazy loading components for better initial load performance (UX)
 const CustomerShop = React.lazy(() => import('./components/CustomerShop'));
@@ -225,6 +226,9 @@ export default function App() {
   const DEFAULT_SHOP_CONFIG = {
     open: true,
     useHours: false,
+    freeDeliveryEnabled: true,
+    smsNotificationsEnabled: false,
+    smsTemplates: DEFAULT_SMS_TEMPLATES,
     locationTrackingEnabled: true,
     locationUnavailableMessage: 'Nuestros carritos saldran pronto a la calle. Mientras tanto, puedes pedir por delivery y recibir tus helados en casa.',
     locationUnavailableButtonText: 'Ver carta y pedir delivery',
@@ -278,6 +282,7 @@ export default function App() {
   };
 
   const effectiveShopOpen = isShopOpenCurrently(shopConfig);
+  const locationFeatureVisible = shopConfig.locationTrackingEnabled !== false;
 
   // --- Configuración Dinámica y Gestión de Usuarios ---
   const [freeDeliveryThreshold, setFreeDeliveryThreshold] = useState(() => {
@@ -375,6 +380,12 @@ export default function App() {
   useEffect(() => {
     window.scrollTo(0, 0);
   }, [view]);
+
+  useEffect(() => {
+    if (!locationFeatureVisible && view === 'locations' && !isVendorApp) {
+      setView('shop');
+    }
+  }, [locationFeatureVisible, view, isVendorApp]);
 
   const [cart, setCart] = useState([]);
   const [activeOrderId, setActiveOrderId] = useState(() => {
@@ -1090,23 +1101,24 @@ export default function App() {
   };
 
   const handleUpdateOrderStatus = async (orderId, newStatus) => {
+    const cleanOrderId = String(orderId || '').trim().toUpperCase();
+    const statusTimestamp = new Date().toISOString();
+    let updatedOrder = null;
     const updated = orders.map(o => {
-      if (o.id === orderId) {
+      if (String(o.id || '').trim().toUpperCase() === cleanOrderId) {
         const history = o.statusHistory || [{ status: 'Pendiente', timestamp: o.date || new Date().toISOString() }];
-        const newHistory = [...history, { status: newStatus, timestamp: new Date().toISOString() }];
-        return { ...o, status: newStatus, statusHistory: newHistory };
+        const lastStatus = history[history.length - 1]?.status;
+        const newHistory = lastStatus === newStatus ? history : [...history, { status: newStatus, timestamp: statusTimestamp }];
+        updatedOrder = { ...o, id: cleanOrderId, status: newStatus, statusHistory: newHistory, updatedAt: statusTimestamp };
+        return updatedOrder;
       }
       return o;
     });
     setOrders(updated);
 
     // Actualizar el pedido individual en la nube para que el cliente reciba la actualización en tiempo real en su rastreador
-    const targetOrder = orders.find(o => o.id === orderId);
-    if (targetOrder) {
-      const history = targetOrder.statusHistory || [{ status: 'Pendiente', timestamp: targetOrder.date || new Date().toISOString() }];
-      const newHistory = [...history, { status: newStatus, timestamp: new Date().toISOString() }];
-      const updatedOrder = { ...targetOrder, status: newStatus, statusHistory: newHistory };
-      await updateSyncedData(`order_${orderId}`, updatedOrder);
+    if (updatedOrder) {
+      await updateSyncedData(`order_${cleanOrderId}`, updatedOrder);
     }
   };
 
@@ -1226,6 +1238,7 @@ export default function App() {
                 <span>Carrito</span>
                 {totalCartItems > 0 && <span className="cart-badge">{totalCartItems}</span>}
               </a>
+              {locationFeatureVisible && (
               <a 
                 href="#ubicacion"
                 className={`nav-btn ${view === 'locations' ? 'active' : ''}`}
@@ -1235,6 +1248,7 @@ export default function App() {
                 <span aria-hidden="true">📍</span>
                 <span>Ubicacion</span>
               </a>
+              )}
               <a 
                 href="#rastrear"
                 className={`nav-btn ${view === 'tracker' ? 'active' : ''}`}
@@ -1374,6 +1388,7 @@ export default function App() {
             setView={setView}
             storeName={storeName}
             freeDeliveryThreshold={freeDeliveryThreshold}
+            freeDeliveryEnabled={shopConfig.freeDeliveryEnabled !== false}
             deliveryCampaignText={deliveryCampaignText}
             literConfig={literConfig}
             catalogOrder={catalogOrder}
@@ -1429,6 +1444,7 @@ export default function App() {
             telegramToken={telegramToken}
             telegramChatId={telegramChatId}
             freeDeliveryThreshold={freeDeliveryThreshold}
+            freeDeliveryEnabled={shopConfig.freeDeliveryEnabled !== false}
             storePhone={storePhone}
             storeName={storeName}
             coupons={coupons}
@@ -1650,6 +1666,7 @@ export default function App() {
             </span>
             <span className="tab-label">Carrito</span>
           </a>
+          {locationFeatureVisible && (
           <a 
             href="#ubicacion"
             className={`tab-item ${view === 'locations' ? 'active' : ''}`}
@@ -1659,6 +1676,7 @@ export default function App() {
             <span className="tab-icon">📍</span>
             <span className="tab-label">Mapa</span>
           </a>
+          )}
           <a 
             href="#rastrear"
             className={`tab-item ${view === 'tracker' ? 'active' : ''}`}

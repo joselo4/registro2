@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { updateSyncedData } from '../../utils/supabaseSync';
 import { generateOrderId } from '../../utils/orderId';
+import { buildSmsHref, formatOrderStatusMessage, normalizeSmsTemplates } from '../../utils/orderMessaging';
 
 export default function TableOrderManager({
   orders,
@@ -10,6 +11,8 @@ export default function TableOrderManager({
   bases,
   packs,
   literConfig,
+  deliveryFee = 0,
+  storeName,
   waiterTakerEnabled,
   addLog,
   currentUser,
@@ -44,6 +47,20 @@ export default function TableOrderManager({
 
   // Método de pago para cierre de mesa
   const [checkoutPaymentMethod, setCheckoutPaymentMethod] = useState('Yape');
+
+  const openStatusSms = (order, newStatus) => {
+    if (shopConfig?.smsNotificationsEnabled !== true) return;
+    const href = buildSmsHref(
+      order.customer?.phone,
+      formatOrderStatusMessage({
+        template: normalizeSmsTemplates(shopConfig.smsTemplates)[newStatus],
+        order,
+        status: newStatus,
+        storeName,
+      })
+    );
+    if (href) window.location.href = href;
+  };
   const [showCheckoutSection, setShowCheckoutSection] = useState(false);
 
   const totalTables = shopConfig?.totalTables || 12;
@@ -340,7 +357,7 @@ export default function TableOrderManager({
     const addressPrompt = window.prompt("Dirección para la entrega (o escribe 'Recojo en tienda'):", "Recojo en Tienda");
     if (addressPrompt === null) return; // Canceló
 
-    const deliveryFeeVal = addressPrompt.toLowerCase().includes('recojo') ? 0 : 4.0; // Cargo estándar
+    const deliveryFeeVal = addressPrompt.toLowerCase().includes('recojo') ? 0 : Number(deliveryFee || 0);
 
     let orderVal = null;
     const updatedOrders = orders.map(o => {
@@ -373,13 +390,16 @@ export default function TableOrderManager({
   // Cambiar estado de orden de mesa
   const handleUpdateTableOrderStatus = (activeOrder, newStatus) => {
     let orderVal = null;
+    const statusTimestamp = new Date().toISOString();
     const updatedOrders = orders.map(o => {
       if (o.id === activeOrder.id) {
         const history = o.statusHistory || [];
+        const lastStatus = history[history.length - 1]?.status;
         orderVal = {
           ...o,
           status: newStatus,
-          statusHistory: [...history, { status: newStatus, timestamp: new Date().toISOString() }]
+          statusHistory: lastStatus === newStatus ? history : [...history, { status: newStatus, timestamp: statusTimestamp }],
+          updatedAt: statusTimestamp
         };
         return orderVal;
       }
@@ -390,18 +410,24 @@ export default function TableOrderManager({
     }
     onUpdateOrders(updatedOrders);
     addLog(`Estado de pedido ${activeOrder.id} (Mesa ${selectedTable}) cambiado a ${newStatus} por ${currentUser?.name}.`);
+    if (orderVal) openStatusSms(orderVal, newStatus);
     alert(`Estado de la Mesa ${selectedTable} cambiado a ${newStatus}.`);
   };
 
   // Cierre y Cobro de Mesa
   const handleCheckoutTable = (activeOrder) => {
     let orderVal = null;
+    const statusTimestamp = new Date().toISOString();
     const updatedOrders = orders.map(o => {
       if (o.id === activeOrder.id) {
+        const history = o.statusHistory || [];
+        const lastStatus = history[history.length - 1]?.status;
         orderVal = {
           ...o,
           tablePaid: true,
           status: 'Entregado',
+          statusHistory: lastStatus === 'Entregado' ? history : [...history, { status: 'Entregado', timestamp: statusTimestamp }],
+          updatedAt: statusTimestamp,
           customer: {
             ...o.customer,
             paymentMethod: checkoutPaymentMethod
@@ -417,6 +443,7 @@ export default function TableOrderManager({
     }
     onUpdateOrders(updatedOrders);
     addLog(`Mesa ${selectedTable} pagada y cerrada vía ${checkoutPaymentMethod}. Pedido ${activeOrder.id} cobrado.`);
+    if (orderVal) openStatusSms(orderVal, 'Entregado');
     alert(`Mesa ${selectedTable} cerrada y liberada exitosamente.`);
     
     setShowCheckoutSection(false);

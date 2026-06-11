@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { supabase } from '../../utils/supabaseClient';
 import { uploadToR2 } from '../../utils/r2Client';
 import { updateMultipleSyncedData } from '../../utils/supabaseSync';
+import { DEFAULT_SMS_TEMPLATES, ORDER_STATUSES, normalizeSmsTemplates } from '../../utils/orderMessaging';
 
 // --- FUNCIONES DE SANITIZACIÓN ---
 const sanitizeHTML = (text) => {
@@ -71,6 +72,7 @@ export default function SettingsManager({
   const [localStoreFacebook, setLocalStoreFacebook] = useState(storeFacebook || 'https://www.facebook.com/');
   const [localWhatsappContactMessage, setLocalWhatsappContactMessage] = useState(whatsappContactMessage || '¡Hola! Me gustaría hacer una consulta. 🍦');
   const [localSalesGoal, setLocalSalesGoal] = useState(salesGoal);
+  const [localDeliveryFee, setLocalDeliveryFee] = useState(deliveryFee);
   const [localFreeDeliveryThreshold, setLocalFreeDeliveryThreshold] = useState(freeDeliveryThreshold);
   const [localDeliveryCampaignText, setLocalDeliveryCampaignText] = useState(deliveryCampaignText);
   const [localWhatsappGreeting, setLocalWhatsappGreeting] = useState(whatsappGreeting);
@@ -83,6 +85,12 @@ export default function SettingsManager({
   const [localShopConfig, setLocalShopConfig] = useState(() => shopConfig || {
     open: true,
     useHours: false,
+    freeDeliveryEnabled: true,
+    smsNotificationsEnabled: false,
+    smsTemplates: DEFAULT_SMS_TEMPLATES,
+    locationTrackingEnabled: true,
+    locationUnavailableMessage: 'Nuestros carritos saldran pronto a la calle. Mientras tanto, puedes pedir por delivery y recibir tus helados en casa.',
+    locationUnavailableButtonText: 'Ver carta y pedir delivery',
     hours: {
       monday: { enabled: true, open: '09:00', close: '22:00' },
       tuesday: { enabled: true, open: '09:00', close: '22:00' },
@@ -141,6 +149,7 @@ export default function SettingsManager({
   useEffect(() => { setLocalWhatsappContactMessage(whatsappContactMessage || '¡Hola! Me gustaría hacer una consulta. 🍦'); }, [whatsappContactMessage]);
   useEffect(() => { setLocalStorePhone(storePhone); }, [storePhone]);
   useEffect(() => { setLocalSalesGoal(salesGoal); }, [salesGoal]);
+  useEffect(() => { setLocalDeliveryFee(deliveryFee); }, [deliveryFee]);
   useEffect(() => { setLocalFreeDeliveryThreshold(freeDeliveryThreshold); }, [freeDeliveryThreshold]);
   useEffect(() => { setLocalDeliveryCampaignText(deliveryCampaignText); }, [deliveryCampaignText]);
   useEffect(() => { setLocalWhatsappGreeting(whatsappGreeting); }, [whatsappGreeting]);
@@ -152,7 +161,11 @@ export default function SettingsManager({
   useEffect(() => { setLocalTrendsDisplayTime(trendsDisplayTime || 6); }, [trendsDisplayTime]);
   useEffect(() => {
     if (shopConfig) {
-      setLocalShopConfig(shopConfig);
+      setLocalShopConfig(prev => ({
+        ...prev,
+        ...shopConfig,
+        smsTemplates: normalizeSmsTemplates(shopConfig.smsTemplates)
+      }));
     }
   }, [shopConfig]);
 
@@ -183,6 +196,7 @@ export default function SettingsManager({
     onChangeStorePhone(localStorePhone);
     if (onChangeWhatsappContactMessage) onChangeWhatsappContactMessage(localWhatsappContactMessage);
     onChangeSalesGoal(parseFloat(localSalesGoal) || 0);
+    if (onChangeDeliveryFee) onChangeDeliveryFee(parseFloat(localDeliveryFee) || 0);
     onChangeFreeDeliveryThreshold(parseFloat(localFreeDeliveryThreshold) || 0);
     onChangeDeliveryCampaignText(localDeliveryCampaignText);
     onChangeWhatsappGreeting(localWhatsappGreeting);
@@ -202,7 +216,12 @@ export default function SettingsManager({
     }
     if (onChangeTrendsInterval) onChangeTrendsInterval(parseInt(localTrendsInterval, 10) || 25);
     if (onChangeTrendsDisplayTime) onChangeTrendsDisplayTime(parseInt(localTrendsDisplayTime, 10) || 6);
-    if (onChangeShopConfig) onChangeShopConfig(localShopConfig);
+    if (onChangeShopConfig) {
+      onChangeShopConfig({
+        ...localShopConfig,
+        smsTemplates: normalizeSmsTemplates(localShopConfig.smsTemplates)
+      });
+    }
     
     addLog(`Ajustes de heladería guardados en la nube por ${currentUser?.name || 'Administrador'}.`);
     alert("¡Ajustes de heladería guardados y sincronizados correctamente en la nube!");
@@ -825,6 +844,44 @@ export default function SettingsManager({
           />
         </div>
 
+        {/* Costo de envio */}
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderBottom: '1px solid var(--border-color)', paddingBottom: '10px' }}>
+          <div>
+            <label htmlFor="delivery-fee-input" style={{ display: 'block', cursor: 'pointer' }}>
+              <strong>Costo de envio si no aplica gratis (S/.)</strong>
+            </label>
+            <span style={{ fontSize: '0.75rem', color: 'var(--text-light)', display: 'block' }}>Monto que se cobra cuando el pedido no llega al minimo o no tiene cupon.</span>
+          </div>
+          <input
+            id="delivery-fee-input"
+            name="delivery-fee"
+            type="number"
+            step="0.50"
+            min="0"
+            style={{ width: '90px', padding: '6px' }}
+            className="form-control"
+            value={localDeliveryFee}
+            onChange={(e) => setLocalDeliveryFee(e.target.value)}
+          />
+        </div>
+
+        {/* Delivery gratis */}
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderBottom: '1px solid var(--border-color)', paddingBottom: '10px' }}>
+          <div>
+            <strong style={{ display: 'block' }}>Delivery gratis por monto minimo</strong>
+            <span style={{ fontSize: '0.75rem', color: 'var(--text-light)', display: 'block' }}>Activa o desactiva la promocion automatica de envio gratis.</span>
+          </div>
+          <label className="toggle-switch" htmlFor="free-delivery-enabled-input">
+            <input
+              id="free-delivery-enabled-input"
+              type="checkbox"
+              checked={localShopConfig.freeDeliveryEnabled !== false}
+              onChange={(e) => setLocalShopConfig(prev => ({ ...prev, freeDeliveryEnabled: e.target.checked }))}
+            />
+            <span className="slider"></span>
+          </label>
+        </div>
+
         {/* Envío Gratis */}
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderBottom: '1px solid var(--border-color)', paddingBottom: '10px' }}>
           <div>
@@ -862,8 +919,12 @@ export default function SettingsManager({
             value={localDeliveryCampaignText}
             onChange={(e) => setLocalDeliveryCampaignText(e.target.value)}
           />
-          <div style={{ marginTop: '8px', padding: '10px', background: 'linear-gradient(135deg, rgba(46, 204, 113, 0.15) 0%, rgba(52, 152, 219, 0.1) 100%)', borderLeft: '4px solid var(--success)', borderRadius: '6px', textAlign: 'center' }}>
-            <span style={{ fontSize: '0.9rem', fontWeight: 'bold', display: 'block' }}>🚚 Delivery GRATIS por compras desde S/. {parseFloat(localFreeDeliveryThreshold || 0).toFixed(2)}</span>
+          <div style={{ marginTop: '8px', padding: '10px', background: 'linear-gradient(135deg, rgba(46, 204, 113, 0.15) 0%, rgba(52, 152, 219, 0.1) 100%)', borderLeft: `4px solid ${localShopConfig.freeDeliveryEnabled !== false ? 'var(--success)' : 'var(--danger)'}`, borderRadius: '6px', textAlign: 'center' }}>
+            <span style={{ fontSize: '0.9rem', fontWeight: 'bold', display: 'block' }}>
+              {localShopConfig.freeDeliveryEnabled !== false
+                ? `Delivery GRATIS por compras desde S/. ${parseFloat(localFreeDeliveryThreshold || 0).toFixed(2)}`
+                : `Delivery gratis desactivado. Envio: S/. ${parseFloat(localDeliveryFee || 0).toFixed(2)}`}
+            </span>
             {localDeliveryCampaignText && <p style={{ fontSize: '0.75rem', color: 'var(--text-light)', marginTop: '2px', marginBottom: 0 }}>{localDeliveryCampaignText}</p>}
           </div>
         </div>
@@ -1126,7 +1187,7 @@ export default function SettingsManager({
             <div>
               <strong style={{ display: 'block' }}>Ubicacion de Carritos en Vivo</strong>
               <span style={{ fontSize: '0.75rem', color: 'var(--text-light)', display: 'block', marginTop: '2px' }}>
-                Permite que vendedores compartan su ubicacion cada 10 minutos para mostrarla en la web publica.
+                Muestra u oculta la pestaña de mapa en la web y permite que vendedores compartan ubicacion.
               </span>
             </div>
             <label className="toggle-switch" htmlFor="shop-location-tracking-enabled-input">
@@ -1199,6 +1260,54 @@ export default function SettingsManager({
               <span style={{ fontSize: '0.65rem', color: 'var(--text-light)' }}>Duración visible de la alerta antes de ocultarse.</span>
             </div>
           </div>
+        </div>
+
+        {/* SMS de estados */}
+        <div className="glass" style={{ borderLeft: '4px solid #2ecc71', padding: '15px', background: 'rgba(46, 204, 113, 0.03)', borderRadius: '8px', marginBottom: '15px' }}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: '12px', marginBottom: '10px' }}>
+            <div>
+              <strong style={{ display: 'block', fontSize: '0.9rem' }}>SMS al cliente por cambio de estado</strong>
+              <span style={{ fontSize: '0.75rem', color: 'var(--text-light)' }}>
+                Abre la app SMS del telefono del operador con el mensaje listo para enviar.
+              </span>
+            </div>
+            <label className="toggle-switch" htmlFor="sms-notifications-enabled-input">
+              <input
+                id="sms-notifications-enabled-input"
+                type="checkbox"
+                checked={localShopConfig.smsNotificationsEnabled === true}
+                onChange={(e) => setLocalShopConfig(prev => ({ ...prev, smsNotificationsEnabled: e.target.checked }))}
+              />
+              <span className="slider"></span>
+            </label>
+          </div>
+
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(240px, 1fr))', gap: '10px' }}>
+            {ORDER_STATUSES.map(status => {
+              const templates = normalizeSmsTemplates(localShopConfig.smsTemplates);
+              return (
+                <div key={status} className="form-group" style={{ marginBottom: 0 }}>
+                  <label style={{ fontSize: '0.75rem', fontWeight: 700 }}>{status}</label>
+                  <textarea
+                    className="form-control"
+                    rows="3"
+                    style={{ fontSize: '0.75rem', resize: 'vertical' }}
+                    value={templates[status]}
+                    onChange={(e) => setLocalShopConfig(prev => ({
+                      ...prev,
+                      smsTemplates: {
+                        ...normalizeSmsTemplates(prev.smsTemplates),
+                        [status]: e.target.value
+                      }
+                    }))}
+                  />
+                </div>
+              );
+            })}
+          </div>
+          <p style={{ fontSize: '0.7rem', color: 'var(--text-light)', marginTop: '10px', marginBottom: 0 }}>
+            Variables disponibles: {'{cliente}'}, {'{pedido}'}, {'{estado}'}, {'{tienda}'}, {'{total}'}, {'{direccion}'}.
+          </p>
         </div>
 
         {/* Telegram Bot */}

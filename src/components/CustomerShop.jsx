@@ -10,6 +10,7 @@ export default function CustomerShop({
   setView, 
   storeName,
   freeDeliveryThreshold = 15.0,
+  freeDeliveryEnabled = true,
   deliveryCampaignText = '¡Arma tu helado con toppings o elige un pack promocional para no pagar envío!',
   literConfig,
   catalogOrder = ['liter', 'classic', 'packs'],
@@ -967,7 +968,7 @@ export default function CustomerShop({
       </section>
 
       {/* BANNER DELIVERY GRATIS */}
-      {!tableNumber && (
+      {!tableNumber && freeDeliveryEnabled && parseFloat(freeDeliveryThreshold || 0) > 0 && (
         <div 
           className="glass" 
           style={{ 

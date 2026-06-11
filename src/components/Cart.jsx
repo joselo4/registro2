@@ -11,6 +11,7 @@ export default function Cart({
   onAddToCart,
   flavors,
   freeDeliveryThreshold,
+  freeDeliveryEnabled = true,
   storePhone,
   coupons,
   whatsappGreeting,
@@ -64,7 +65,7 @@ export default function Cart({
     orderType === 'Mesa_Llevar' || 
     orderType === 'Barra' || 
     orderType === 'Llevar' || 
-    cartSubtotal >= freeDeliveryThreshold || 
+    (freeDeliveryEnabled && freeDeliveryThreshold > 0 && cartSubtotal >= freeDeliveryThreshold) || 
     (appliedCoupon && appliedCoupon.type === 'free_delivery');
   const activeDeliveryFee = isFreeDelivery ? 0 : deliveryFee;
   
@@ -364,7 +365,7 @@ export default function Cart({
       </div>
 
       {/* 💰 BARRA DE PROGRESO DE ENVÍO GRATIS DINÁMICA */}
-      {freeDeliveryThreshold > 0 && !tableNumber && (
+      {freeDeliveryEnabled && freeDeliveryThreshold > 0 && !tableNumber && (
         <div className="glass" style={{ padding: '12px', marginBottom: '15px', borderLeft: `5px solid ${isFreeDelivery ? 'var(--success)' : 'var(--warning)'}` }}>
           {isFreeDelivery ? (
             <div>

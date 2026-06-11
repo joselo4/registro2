@@ -146,7 +146,15 @@ export default function OrderTracker({ orderId, orders, setView, storePhone, onC
   const localOrder = orders.find(
     o => o.id.toLowerCase() === activeSearchId.trim().toLowerCase()
   );
-  const currentOrder = fetchedOrder || localOrder;
+  const getOrderFreshness = (order) => {
+    if (!order) return 0;
+    const history = Array.isArray(order.statusHistory) ? order.statusHistory : [];
+    const lastHistory = history[history.length - 1]?.timestamp;
+    const sourceDate = order.updatedAt || lastHistory || order.date;
+    const time = new Date(sourceDate || 0).getTime();
+    return Number.isNaN(time) ? 0 : time;
+  };
+  const currentOrder = getOrderFreshness(localOrder) > getOrderFreshness(fetchedOrder) ? localOrder : (fetchedOrder || localOrder);
 
   // Efecto para buscar pedido en Supabase de forma segura e independiente (por privacidad de egress)
   useEffect(() => {
@@ -187,14 +195,14 @@ export default function OrderTracker({ orderId, orders, setView, storePhone, onC
     fetchFromSupabase();
 
     // Suscribirse únicamente al canal en tiempo real de este pedido específico (cero filtración de datos)
-    const refreshTimer = setInterval(fetchFromSupabase, 15000);
+    const refreshTimer = setInterval(fetchFromSupabase, 5000);
 
     return () => {
       cancelled = true;
       clearTimeout(failSafeTimer);
       clearInterval(refreshTimer);
     };
-  }, [activeSearchId, searchNonce]);
+  }, [activeSearchId, searchNonce, orders]);
 
   // Efecto para animar y reproducir sonido cuando cambia el estado del pedido tracked
   useEffect(() => {
