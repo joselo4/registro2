@@ -2,6 +2,7 @@ import { json, sameOriginRequest } from './_security.js';
 
 const allowedKinds = new Set(['order', 'table_call', 'survey', 'support', 'test']);
 const allowedParseModes = new Set(['Markdown', 'MarkdownV2', 'HTML']);
+const telegramTimeoutMs = 8000;
 
 const markdownParseError = (description = '') => {
   const normalized = String(description).toLowerCase();
@@ -23,15 +24,39 @@ const sendTelegramMessage = async ({ token, chatId, text, parseMode }) => {
   const body = { chat_id: chatId, text };
   if (parseMode) body.parse_mode = parseMode;
 
-  const response = await fetch(`https://api.telegram.org/bot${token}/sendMessage`, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify(body),
-  });
+  const controller = new AbortController();
+  const timeout = setTimeout(() => controller.abort('Telegram API timeout'), telegramTimeoutMs);
+
+  let response;
+  try {
+    response = await fetch(`https://api.telegram.org/bot${token}/sendMessage`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(body),
+      signal: controller.signal,
+    });
+  } finally {
+    clearTimeout(timeout);
+  }
 
   const { payload, rawText } = await readTelegramPayload(response);
   return { response, payload, rawText };
 };
+
+export async function onRequestGet({ request, env }) {
+  if (!sameOriginRequest(request)) {
+    return json({ error: 'Origen no permitido.' }, 403);
+  }
+
+  return json({
+    ok: true,
+    route: '/api/telegram',
+    configured: {
+      botToken: Boolean(String(env.TELEGRAM_BOT_TOKEN || '').trim()),
+      chatId: Boolean(String(env.TELEGRAM_CHAT_ID || '').trim()),
+    },
+  });
+}
 
 export async function onRequestPost({ request, env }) {
   try {
@@ -90,6 +115,6 @@ export async function onRequestPost({ request, env }) {
 
     return json({ ok: true });
   } catch (err) {
-    return json({ error: err.message || 'Error inesperado.' }, 500);
+    return json({ error: err?.message || String(err) || 'Error inesperado.' }, 500);
   }
 }
