@@ -408,12 +408,18 @@ export default function SettingsManager({
         })
       });
 
-      const resData = await response.json().catch(() => ({}));
+      const responseText = await response.text().catch(() => '');
+      let resData = {};
+      try {
+        resData = responseText ? JSON.parse(responseText) : {};
+      } catch {
+        resData = {};
+      }
       if (response.ok && resData.ok !== false) {
         setTelegramTestStatus({ loading: false, success: true, error: null });
         addLog("Notificación de prueba enviada con éxito a Telegram.");
       } else {
-        throw new Error(resData.error || 'Error al conectar con Telegram API.');
+        throw new Error(resData.error || responseText || `Error al conectar con Telegram API. HTTP ${response.status}`);
       }
     } catch (err) {
       setTelegramTestStatus({ 

@@ -8,6 +8,17 @@ const markdownParseError = (description = '') => {
   return normalized.includes("can't parse entities") || normalized.includes('parse entities');
 };
 
+const readTelegramPayload = async (response) => {
+  const rawText = await response.text().catch(() => '');
+  if (!rawText) return { payload: {}, rawText };
+
+  try {
+    return { payload: JSON.parse(rawText), rawText };
+  } catch {
+    return { payload: {}, rawText };
+  }
+};
+
 const sendTelegramMessage = async ({ token, chatId, text, parseMode }) => {
   const body = { chat_id: chatId, text };
   if (parseMode) body.parse_mode = parseMode;
@@ -18,8 +29,8 @@ const sendTelegramMessage = async ({ token, chatId, text, parseMode }) => {
     body: JSON.stringify(body),
   });
 
-  const payload = await response.json().catch(() => ({}));
-  return { response, payload };
+  const { payload, rawText } = await readTelegramPayload(response);
+  return { response, payload, rawText };
 };
 
 export async function onRequestPost({ request, env }) {
@@ -48,7 +59,7 @@ export async function onRequestPost({ request, env }) {
       return json({ error: 'Telegram no está configurado en el servidor.' }, 503);
     }
 
-    let { response, payload } = await sendTelegramMessage({
+    let { response, payload, rawText } = await sendTelegramMessage({
       token,
       chatId,
       text,
@@ -56,7 +67,7 @@ export async function onRequestPost({ request, env }) {
     });
 
     if (!response.ok && markdownParseError(payload.description)) {
-      ({ response, payload } = await sendTelegramMessage({
+      ({ response, payload, rawText } = await sendTelegramMessage({
         token,
         chatId,
         text,
@@ -65,8 +76,14 @@ export async function onRequestPost({ request, env }) {
     }
 
     if (!response.ok || payload.ok === false) {
+      const telegramError =
+        payload.description ||
+        rawText ||
+        response.statusText ||
+        'No se pudo enviar el mensaje a Telegram.';
+
       return json(
-        { error: payload.description || 'No se pudo enviar el mensaje a Telegram.' },
+        { error: `Telegram API ${response.status}: ${telegramError}` },
         502
       );
     }
