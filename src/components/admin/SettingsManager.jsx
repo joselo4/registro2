@@ -419,7 +419,15 @@ export default function SettingsManager({
         setTelegramTestStatus({ loading: false, success: true, error: null });
         addLog("Notificación de prueba enviada con éxito a Telegram.");
       } else {
-        throw new Error(resData.error || responseText || `Error al conectar con Telegram API. HTTP ${response.status}`);
+        const isCloudflareHtmlError =
+          responseText.toLowerCase().includes('<!doctype html') ||
+          responseText.toLowerCase().includes('cloudflare') ||
+          responseText.toLowerCase().includes('bad gateway');
+        const fallbackError = isCloudflareHtmlError
+          ? `Cloudflare devolvio ${response.status} antes de completar la funcion. Revisa el deployment y los logs de Pages Functions.`
+          : responseText || `Error al conectar con Telegram API. HTTP ${response.status}`;
+
+        throw new Error(resData.error || fallbackError);
       }
     } catch (err) {
       setTelegramTestStatus({ 
