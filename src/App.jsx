@@ -778,7 +778,7 @@ export default function App() {
         return;
       }
 
-      if (key.startsWith('order_') && value) {
+      if (key.startsWith('order_') && key !== 'orders' && value) {
         setOrders(prev => {
           const exists = prev.some(o => o.id === value.id);
           if (exists) {
