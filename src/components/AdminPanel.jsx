@@ -140,7 +140,10 @@ export default function AdminPanel({
   metaPixelId,
   onChangeMetaPixelId,
   googleAnalyticsId,
-  onChangeGoogleAnalyticsId
+  onChangeGoogleAnalyticsId,
+  realtimeStatus,
+  onRefreshCarts,
+  isVendorApp
 }) {
   const canUseNotifications =
     typeof window !== 'undefined' &&
@@ -509,9 +512,44 @@ export default function AdminPanel({
         <div style={{ textAlign: 'center', marginBottom: '20px' }}>
           <span style={{ fontSize: '3rem' }}>🔒</span>
           <h2 style={{ marginTop: '10px' }}>Acceso Administrativo</h2>
-          <p style={{ fontSize: '0.85rem', color: 'var(--text-light)', marginTop: '4px' }}>
+          <p style={{ fontSize: '0.85rem', color: 'var(--text-light)', marginTop: '4px', marginBottom: isVendorApp ? '15px' : '4px' }}>
             {supabase ? "Conectado a la base de datos Supabase." : "Ingresa con tu usuario o clave maestra."}
           </p>
+          {isVendorApp && (
+            <div style={{ display: 'flex', justifyContent: 'center', marginTop: '10px' }}>
+              <div style={{
+                display: 'flex',
+                alignItems: 'center',
+                gap: '6px',
+                fontSize: '0.72rem',
+                fontWeight: 'bold',
+                padding: '4px 10px',
+                borderRadius: '12px',
+                backgroundColor: realtimeStatus === 'connected' ? 'rgba(46, 204, 113, 0.1)' :
+                                 realtimeStatus === 'error' ? 'rgba(231, 76, 60, 0.1)' :
+                                 'rgba(241, 196, 15, 0.1)',
+                color: realtimeStatus === 'connected' ? 'var(--success)' :
+                       realtimeStatus === 'error' ? 'var(--danger)' :
+                       'var(--secondary-color)',
+              }}>
+                <span style={{
+                  display: 'inline-block',
+                  width: '6px',
+                  height: '6px',
+                  borderRadius: '50%',
+                  background: realtimeStatus === 'connected' ? '#2ecc71' :
+                              realtimeStatus === 'error' ? '#e74c3c' :
+                              '#f1c40f',
+                  boxShadow: realtimeStatus === 'connected' ? '0 0 6px rgba(46, 204, 113, 0.6)' :
+                             realtimeStatus === 'error' ? '0 0 6px rgba(231, 76, 60, 0.6)' :
+                             '0 0 6px rgba(241, 196, 15, 0.6)'
+                }} />
+                {realtimeStatus === 'connected' ? 'Tiempo Real En Línea' :
+                 realtimeStatus === 'error' ? 'Tiempo Real Desconectado' :
+                 'Conectando Tiempo Real...'}
+              </div>
+            </div>
+          )}
         </div>
 
         <form onSubmit={handleLogin} style={{ display: 'flex', flexDirection: 'column', gap: '15px' }}>
@@ -569,6 +607,25 @@ export default function AdminPanel({
           color: isCloudSynced ? 'var(--success)' : 'var(--secondary-color)',
           width: 'fit-content'
         }}>
+          {isCloudSynced && (
+            <span 
+              style={{
+                display: 'inline-block',
+                width: '6px',
+                height: '6px',
+                borderRadius: '50%',
+                background: realtimeStatus === 'connected' ? '#2ecc71' :
+                            realtimeStatus === 'error' ? '#e74c3c' :
+                            '#f1c40f',
+                boxShadow: realtimeStatus === 'connected' ? '0 0 6px rgba(46, 204, 113, 0.6)' :
+                           realtimeStatus === 'error' ? '0 0 6px rgba(231, 76, 60, 0.6)' :
+                           '0 0 6px rgba(241, 196, 15, 0.6)'
+              }}
+              title={realtimeStatus === 'connected' ? 'Tiempo Real: Conectado' :
+                     realtimeStatus === 'error' ? 'Tiempo Real: Desconectado' :
+                     'Tiempo Real: Conectando...'}
+            />
+          )}
           <span>{isCloudSynced ? 'Sincronizado (Supabase)' : 'Modo Local (Offline)'}</span>
         </div>
 
@@ -738,6 +795,7 @@ export default function AdminPanel({
             shopConfig={shopConfig}
             staffPermissions={staffPermissions}
             showAlert={showAlert}
+            onRefreshCarts={onRefreshCarts}
           />
         )}
 

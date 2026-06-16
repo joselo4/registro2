@@ -91,7 +91,8 @@ export default function CartLocationsView({
   shopConfig = {},
   staffPermissions = {},
   showAlert,
-  onGoToShop
+  onGoToShop,
+  onRefreshCarts
 }) {
   const mapRef = useRef(null);
   const mapInstanceRef = useRef(null);
@@ -104,6 +105,19 @@ export default function CartLocationsView({
   const [isLoadingPosition, setIsLoadingPosition] = useState(false);
   const [mapError, setMapError] = useState('');
   const [isInitialized, setIsInitialized] = useState(false);
+  const [isRefreshing, setIsRefreshing] = useState(false);
+
+  const handleManualRefresh = async () => {
+    if (!onRefreshCarts) return;
+    setIsRefreshing(true);
+    const success = await onRefreshCarts();
+    setIsRefreshing(false);
+    if (success) {
+      showAlert?.('Ubicaciones actualizadas', 'Se han cargado las últimas coordenadas de los carritos.', 'success');
+    } else {
+      showAlert?.('Error de actualización', 'No se pudieron recuperar las ubicaciones. Inténtalo de nuevo.', 'error');
+    }
+  };
 
   const normalizedEmail = normalizeText(currentUser?.email);
   const permissions = Array.isArray(staffPermissions?.[currentUser?.email])
@@ -366,17 +380,38 @@ export default function CartLocationsView({
       <div style={{ display: 'flex', justifyContent: 'space-between', gap: '12px', flexWrap: 'wrap', marginBottom: '12px' }}>
         <div>
           <h2 style={{ marginBottom: '4px' }}>
-            {mode === 'public' ? 'Sabes donde esta tu helado mas cercano' : 'Ubicacion de carritos'}
+            {mode === 'public' ? '🍨 Sabes dónde está tu helado más cercano' : '📍 Ubicación de carritos'}
           </h2>
           <p style={{ color: 'var(--text-light)', fontSize: '0.92rem' }}>
             {mode === 'public'
-              ? 'Mira los carritos disponibles. No pedimos la ubicacion del cliente.'
-              : 'Comparte o pausa la posicion del carrito desde el celular del vendedor.'}
+              ? 'Mira los carritos disponibles en tiempo real. No solicitamos tu ubicación.'
+              : 'Comparte o pausa la posición del carrito desde el celular del vendedor.'}
           </p>
         </div>
-        <div style={{ minWidth: '180px', textAlign: 'right' }}>
+        <div style={{ minWidth: '180px', textAlign: 'right', display: 'flex', flexDirection: 'column', gap: '4px', alignItems: 'flex-end' }}>
           <div style={{ fontWeight: 700, color: 'var(--primary-color)' }}>{visibleCarts.length} carritos en mapa</div>
-          <div style={{ fontSize: '0.8rem', color: 'var(--text-light)' }}>Actualizacion cada 10 min</div>
+          <div style={{ fontSize: '0.8rem', color: 'var(--text-light)' }}>Actualización automática cada 10 min</div>
+          {onRefreshCarts && (
+            <button
+              type="button"
+              className="btn btn-secondary"
+              onClick={handleManualRefresh}
+              disabled={isRefreshing}
+              style={{
+                padding: '5px 12px',
+                fontSize: '0.75rem',
+                display: 'inline-flex',
+                alignItems: 'center',
+                gap: '6px',
+                borderRadius: 'var(--radius-sm)',
+                cursor: 'pointer',
+                marginTop: '4px',
+                height: '32px'
+              }}
+            >
+              🔄 {isRefreshing ? 'Actualizando...' : 'Actualizar ahora'}
+            </button>
+          )}
         </div>
       </div>
 
@@ -518,32 +553,100 @@ export default function CartLocationsView({
             />
           </div>
 
-          <div className="glass-card" style={{ padding: '14px' }}>
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '10px' }}>
-              <strong>Carritos visibles</strong>
-              <span style={{ color: 'var(--text-light)', fontSize: '0.8rem' }}>Cada vendedor decide si comparte su posicion.</span>
+          <div className="glass-card" style={{ padding: '18px', border: '1px solid var(--border-color)', boxShadow: 'var(--shadow-sm)' }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '14px', flexWrap: 'wrap', gap: '8px' }}>
+              <strong style={{ fontSize: '1rem', color: 'var(--text-dark)' }}>🚚 Carritos Activos en la Calle</strong>
+              <span style={{ color: 'var(--text-light)', fontSize: '0.78rem' }}>Los vendedores deciden cuándo compartir su posición.</span>
             </div>
-            <div style={{ display: 'grid', gap: '10px' }}>
+            <div style={{ display: 'grid', gap: '12px', gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))' }}>
               {visibleCarts.length === 0 ? (
-                <div style={{ color: 'var(--text-light)' }}>Aun no hay carritos con ubicacion compartida.</div>
+                <div style={{ color: 'var(--text-light)', gridColumn: '1 / -1', textAlign: 'center', padding: '20px', fontStyle: 'italic' }}>
+                  Aun no hay carritos con ubicacion compartida.
+                </div>
               ) : visibleCarts.map((cart) => (
-                <div key={cart.id || cart.email || `${cart.lat}-${cart.lng}`} className="glass" style={{ padding: '12px', borderRadius: '12px', background: 'rgba(255,255,255,0.35)' }}>
-                  <div style={{ display: 'flex', justifyContent: 'space-between', gap: '12px', flexWrap: 'wrap' }}>
-                    <div>
-                      <strong>{cart.label || cart.name || 'Carrito'}</strong>
-                      <div style={{ fontSize: '0.82rem', color: 'var(--text-light)' }}>
-                        Ultima ubicacion: {formatTime(cart.updatedAt || cart.lastUpdated)}
-                      </div>
+                <div 
+                  key={cart.id || cart.email || `${cart.lat}-${cart.lng}`} 
+                  className="glass-card" 
+                  style={{ 
+                    padding: '16px', 
+                    borderRadius: '16px', 
+                    background: 'var(--bg-secondary)',
+                    border: '1px solid var(--border-color)',
+                    boxShadow: 'var(--shadow-sm)',
+                    transition: 'all 0.3s ease',
+                    display: 'flex',
+                    flexDirection: 'column',
+                    justifyContent: 'space-between',
+                    gap: '12px'
+                  }}
+                >
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+                    <div style={{
+                      width: '40px',
+                      height: '40px',
+                      borderRadius: '12px',
+                      background: 'rgba(255, 107, 129, 0.1)',
+                      color: 'var(--primary-color)',
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                      fontSize: '1.4rem'
+                    }}>
+                      🍦
                     </div>
+                    <div style={{ flex: 1, minWidth: 0 }}>
+                      <strong style={{ display: 'block', fontSize: '0.95rem', color: 'var(--text-dark)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                        {cart.label || cart.name || 'Carrito Friozo'}
+                      </strong>
+                      <span style={{ fontSize: '0.78rem', color: 'var(--text-light)', display: 'block', marginTop: '2px' }}>
+                        🕒 Activo: {formatTime(cart.updatedAt || cart.lastUpdated)}
+                      </span>
+                    </div>
+                  </div>
+
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderTop: '1px solid rgba(0,0,0,0.03)', paddingTop: '10px' }}>
+                    <span style={{ 
+                      fontSize: '0.72rem', 
+                      background: 'rgba(46, 204, 113, 0.1)', 
+                      color: 'var(--success)', 
+                      padding: '3px 8px', 
+                      borderRadius: '20px', 
+                      fontWeight: 'bold',
+                      display: 'inline-flex',
+                      alignItems: 'center',
+                      gap: '4px'
+                    }}>
+                      <span style={{
+                        width: '5px',
+                        height: '5px',
+                        borderRadius: '50%',
+                        background: 'currentColor',
+                        animation: 'location-pulse-dot 1.5s infinite',
+                        display: 'inline-block'
+                      }} />
+                      En Línea
+                    </span>
+
                     {mode === 'public' && (
                       <a
                         href={`https://www.google.com/maps/dir/?api=1&destination=${cart.lat},${cart.lng}`}
                         target="_blank"
                         rel="noreferrer"
                         className="btn btn-secondary"
-                        style={{ padding: '8px 14px', textDecoration: 'none' }}
+                        style={{ 
+                          padding: '6px 12px', 
+                          fontSize: '0.8rem', 
+                          textDecoration: 'none',
+                          display: 'inline-flex',
+                          alignItems: 'center',
+                          gap: '4px',
+                          borderRadius: 'var(--radius-sm)',
+                          backgroundColor: 'var(--bg-primary)',
+                          borderColor: 'var(--border-color)',
+                          color: 'var(--primary-color)'
+                        }}
                       >
-                        Como llegar
+                        📍 Cómo llegar
                       </a>
                     )}
                   </div>

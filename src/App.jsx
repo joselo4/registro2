@@ -7,7 +7,7 @@ import {
   INITIAL_PACKS, 
   INITIAL_ORDERS 
 } from './utils/mockData';
-import { fetchSyncedData, updateSyncedData, subscribeToSync } from './utils/supabaseSync';
+import { fetchSyncedData, updateSyncedData, subscribeToSync, invalidateSyncCache } from './utils/supabaseSync';
 import { supabase } from './utils/supabaseClient';
 import { Capacitor } from '@capacitor/core';
 import { DEFAULT_SMS_TEMPLATES } from './utils/orderMessaging';
@@ -770,6 +770,21 @@ export default function App() {
     };
   }, []);
 
+  const handleRefreshCarts = async () => {
+    if (!supabase) return false;
+    try {
+      invalidateSyncCache();
+      const serverData = await fetchSyncedData(isLoggedIn);
+      if (serverData && serverData.cart_locations) {
+        setCartLocations(serverData.cart_locations);
+        return true;
+      }
+    } catch (err) {
+      console.warn("Error refreshing cart locations:", err);
+    }
+    return false;
+  };
+
   // --- Hook de Sincronización Consolidado y Seguro ---
   const useSyncEffect = (key, value, isJSON = false) => {
     const prevValueRef = useRef(value);
@@ -880,7 +895,12 @@ export default function App() {
   useEffect(() => {
     if (!supabase || !isSyncLoaded) return;
     
-    console.log(`🔌 Suscribiendo canal en tiempo real. ¿Es Admin?: ${isLoggedIn}`);
+    if ((!isLoggedIn && !isVendorApp) || view !== 'admin') {
+      setRealtimeStatus('disconnected');
+      return;
+    }
+    
+    console.log(`🔌 Suscribiendo canal en tiempo real en vista administración...`);
 
     const updateStateIfChanged = (setter, key, newValue) => {
       setter(prev => {
@@ -1071,7 +1091,7 @@ export default function App() {
         supabase.removeChannel(activeChannel);
       }
     };
-  }, [isLoggedIn, isSyncLoaded, tableNumber]);
+  }, [isLoggedIn, isSyncLoaded, tableNumber, view]);
 
   // Calcular automáticamente la lista de mesas ocupadas a partir de pedidos activos
   useEffect(() => {
@@ -1410,27 +1430,7 @@ export default function App() {
                 {theme === 'light' ? '🌙 Noche' : '☀️ Dia'}
               </button>
 
-              {/* Indicador de conexión Realtime (Desktop) */}
-              <span 
-                style={{
-                  display: 'inline-flex',
-                  alignItems: 'center',
-                  justifyContent: 'center',
-                  width: '10px',
-                  height: '10px',
-                  borderRadius: '50%',
-                  background: realtimeStatus === 'connected' ? '#2ecc71' :
-                              realtimeStatus === 'error' ? '#e74c3c' :
-                              '#f1c40f',
-                  marginLeft: '12px',
-                  boxShadow: realtimeStatus === 'connected' ? '0 0 8px rgba(46, 204, 113, 0.6)' :
-                             realtimeStatus === 'error' ? '0 0 8px rgba(231, 76, 60, 0.6)' :
-                             '0 0 8px rgba(241, 196, 15, 0.6)'
-                }}
-                title={realtimeStatus === 'connected' ? 'Sincronización en tiempo real activa' :
-                       realtimeStatus === 'error' ? 'Error al conectar con el servidor en tiempo real' :
-                       'Conectando con el servidor en tiempo real...'}
-              />
+              {/* Indicador de conexión Realtime (Desktop) removido por discreción */}
 
               {isLoggedIn && (
                 <button 
@@ -1447,27 +1447,7 @@ export default function App() {
 
           {/* Acciones Rápidas de Cabecera para Móvil */}
           <div className="mobile-header-actions" style={{ alignItems: 'center', gap: '8px' }}>
-            {/* Indicador de conexión Realtime (Móvil) */}
-            <span 
-              style={{
-                display: 'inline-flex',
-                alignItems: 'center',
-                justifyContent: 'center',
-                width: '10px',
-                height: '10px',
-                borderRadius: '50%',
-                background: realtimeStatus === 'connected' ? '#2ecc71' :
-                            realtimeStatus === 'error' ? '#e74c3c' :
-                            '#f1c40f',
-                marginRight: '8px',
-                boxShadow: realtimeStatus === 'connected' ? '0 0 8px rgba(46, 204, 113, 0.6)' :
-                           realtimeStatus === 'error' ? '0 0 8px rgba(231, 76, 60, 0.6)' :
-                           '0 0 8px rgba(241, 196, 15, 0.6)'
-              }}
-              title={realtimeStatus === 'connected' ? 'Tiempo real conectado' :
-                     realtimeStatus === 'error' ? 'Tiempo real desconectado' :
-                     'Conectando tiempo real...'}
-            />
+            {/* Indicador de conexión Realtime (Móvil) removido por discreción */}
 
             <button 
               onClick={toggleTheme} 
@@ -1620,6 +1600,7 @@ export default function App() {
               shopConfig={shopConfig}
               showAlert={showAlert}
               onGoToShop={() => setView('shop')}
+              onRefreshCarts={handleRefreshCarts}
             />
           </React.Suspense>
         )}
@@ -1719,6 +1700,9 @@ export default function App() {
               onChangeMetaPixelId={setMetaPixelId}
               googleAnalyticsId={googleAnalyticsId}
               onChangeGoogleAnalyticsId={setGoogleAnalyticsId}
+              realtimeStatus={realtimeStatus}
+              onRefreshCarts={handleRefreshCarts}
+              isVendorApp={isVendorApp}
             />
         )}
         </React.Suspense>
