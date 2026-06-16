@@ -180,6 +180,17 @@ export default function OrderTracker({ orderId, orders, setView, storePhone, onC
   };
   const currentOrder = getOrderFreshness(localOrder) > getOrderFreshness(fetchedOrder) ? localOrder : (fetchedOrder || localOrder);
 
+  // Efecto para limpiar búsquedas automáticas expiradas y evitar la pantalla de bloqueo
+  useEffect(() => {
+    if (currentOrder && isOrderExpired(currentOrder) && !hasSearched) {
+      setActiveSearchId('');
+      setFetchedOrder(null);
+      if (onClearActiveOrder) {
+        onClearActiveOrder();
+      }
+    }
+  }, [currentOrder, hasSearched]);
+
   // Efecto para buscar pedido en Supabase de forma segura e independiente (por privacidad de egress)
   useEffect(() => {
     if (!activeSearchId) return;
@@ -478,15 +489,30 @@ export default function OrderTracker({ orderId, orders, setView, storePhone, onC
           Si tienes alguna consulta sobre tu pedido, por favor ponte en contacto con nuestro soporte de WhatsApp.
         </p>
         <div style={{ display: 'flex', gap: '12px', justifyContent: 'center', marginTop: '20px', flexWrap: 'wrap' }}>
-          <button className="btn btn-secondary" style={{ flex: '1 1 140px' }} onClick={() => setView('shop')}>
+          <button className="btn btn-secondary" style={{ flex: '1 1 120px' }} onClick={() => setView('shop')}>
             🍨 Volver a la Tienda
+          </button>
+          <button 
+            className="btn btn-secondary" 
+            style={{ flex: '1 1 120px' }}
+            onClick={() => {
+              setActiveSearchId('');
+              setFetchedOrder(null);
+              setInputVal('');
+              setHasSearched(false);
+              if (onClearActiveOrder) {
+                onClearActiveOrder();
+              }
+            }}
+          >
+            🔍 Buscar Otro
           </button>
           <a 
             href={`https://wa.me/${String(storePhone || '').replace(/\D/g, '')}?text=Hola,%20tengo%20una%20duda%20sobre%20mi%20pedido%20${currentOrder.id}`} 
             target="_blank" 
             rel="noopener noreferrer" 
             className="btn btn-primary"
-            style={{ background: '#25D366', borderColor: '#25D366', color: 'white', textDecoration: 'none', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '6px', flex: '1 1 140px' }}
+            style={{ background: '#25D366', borderColor: '#25D366', color: 'white', textDecoration: 'none', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '6px', flex: '1 1 120px' }}
           >
             💬 WhatsApp Soporte
           </a>
