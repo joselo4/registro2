@@ -24,7 +24,12 @@ export const sameOriginRequest = (request) => {
   const origin = request.headers.get('Origin');
   if (!origin) return true;
   try {
-    return new URL(origin).host === new URL(request.url).host;
+    const originHost = new URL(origin).host;
+    const requestHost = new URL(request.url).host;
+    if (originHost === requestHost) return true;
+    if (originHost.endsWith('.' + requestHost) || requestHost.endsWith('.' + originHost)) return true;
+    const trustedHosts = ['localhost', 'localhost:5173'];
+    return trustedHosts.includes(originHost);
   } catch {
     return false;
   }

@@ -534,15 +534,17 @@ export default function SettingsManager({
         trendsDisplayTime
       };
 
-      const dataStr = "data:text/json;charset=utf-8," + encodeURIComponent(JSON.stringify(backupData, null, 2));
-      const downloadAnchor = document.createElement('a');
-      downloadAnchor.setAttribute("href", dataStr);
-      const filename = `backup_heladeria_${new Date().toISOString().slice(0,10)}.json`;
-      downloadAnchor.setAttribute("download", filename);
-      document.body.appendChild(downloadAnchor);
-      downloadAnchor.click();
-      downloadAnchor.remove();
-      
+      const jsonString = JSON.stringify(backupData, null, 2);
+      const blob = new Blob([jsonString], { type: 'application/json;charset=utf-8' });
+      const downloadLink = document.createElement('a');
+      downloadLink.href = URL.createObjectURL(blob);
+      const filename = `backup_heladeria_${new Date().toISOString().slice(0, 10)}.json`;
+      downloadLink.setAttribute('download', filename);
+      document.body.appendChild(downloadLink);
+      downloadLink.click();
+      document.body.removeChild(downloadLink);
+
+      addLog(`Copia de seguridad de la base de datos descargada por ${currentUser?.name}.`);
       alert("Copia de seguridad exportada con éxito en tu computadora.");
     } catch (err) {
       alert("Error al exportar copia de seguridad: " + err.message);
@@ -563,6 +565,7 @@ export default function SettingsManager({
         }
 
         if (window.confirm("⚠️ ¿Estás seguro de que deseas restaurar esta copia de seguridad? Se reemplazarán todos los datos actuales de la heladería por los de la copia.")) {
+          // 1. Actualizar los estados del padre mediante callbacks
           if (data.storeName && onChangeStoreName) onChangeStoreName(data.storeName);
           if (data.storeLogo && onChangeStoreLogo) onChangeStoreLogo(data.storeLogo);
           if (data.storeTitle && onChangeStoreTitle) onChangeStoreTitle(data.storeTitle);
@@ -589,7 +592,7 @@ export default function SettingsManager({
           if (data.ticketCustomMessage && onUpdateTicketCustomMessage) onUpdateTicketCustomMessage(data.ticketCustomMessage);
           if (data.catalogOrder && onUpdateCatalogOrder) onUpdateCatalogOrder(data.catalogOrder);
           if (data.recommendations && onUpdateRecommendations) onUpdateRecommendations(data.recommendations);
-        if (data.cartRecommendedPack && onUpdateCartRecommendedPack) onUpdateCartRecommendedPack(data.cartRecommendedPack);
+          if (data.cartRecommendedPack && onUpdateCartRecommendedPack) onUpdateCartRecommendedPack(data.cartRecommendedPack);
           if (data.staffUsers && onUpdateStaffUsers) onUpdateStaffUsers(data.staffUsers);
           if (data.cartLocations && onUpdateCartLocations) onUpdateCartLocations(data.cartLocations);
           if (data.coupons && onUpdateCoupons) onUpdateCoupons(data.coupons);
@@ -598,6 +601,29 @@ export default function SettingsManager({
           if (data.trendsInterval !== undefined && onChangeTrendsInterval) onChangeTrendsInterval(parseInt(data.trendsInterval, 10));
           if (data.trendsDisplayTime !== undefined && onChangeTrendsDisplayTime) onChangeTrendsDisplayTime(parseInt(data.trendsDisplayTime, 10));
 
+          // 2. Actualizar estados locales de SettingsManager para que los formularios reflejen los nuevos valores al instante
+          if (data.storeName !== undefined) setLocalStoreName(data.storeName);
+          if (data.storeLogo !== undefined) setLocalStoreLogo(data.storeLogo);
+          if (data.storeTitle !== undefined) setLocalStoreTitle(data.storeTitle);
+          if (data.storeFavicon !== undefined) setLocalStoreFavicon(data.storeFavicon);
+          if (data.storePhone !== undefined) setLocalStorePhone(data.storePhone);
+          if (data.storeInstagram !== undefined) setLocalStoreInstagram(data.storeInstagram);
+          if (data.storeFacebook !== undefined) setLocalStoreFacebook(data.storeFacebook);
+          if (data.whatsappContactMessage !== undefined) setLocalWhatsappContactMessage(data.whatsappContactMessage);
+          if (data.salesGoal !== undefined) setLocalSalesGoal(data.salesGoal);
+          if (data.deliveryFee !== undefined) setLocalDeliveryFee(data.deliveryFee);
+          if (data.freeDeliveryThreshold !== undefined) setLocalFreeDeliveryThreshold(data.freeDeliveryThreshold);
+          if (data.deliveryCampaignText !== undefined) setLocalDeliveryCampaignText(data.deliveryCampaignText);
+          if (data.whatsappGreeting !== undefined) setLocalWhatsappGreeting(data.whatsappGreeting);
+          if (data.whatsappFooter !== undefined) setLocalWhatsappFooter(data.whatsappFooter);
+          if (data.qrCustomUrl !== undefined) setLocalQrCustomUrl(data.qrCustomUrl);
+          if (data.ticketCustomMessage !== undefined) setLocalTicketCustomMessage(data.ticketCustomMessage);
+          if (data.catalogOrder !== undefined) setLocalCatalogOrder(data.catalogOrder);
+          if (data.trendsInterval !== undefined) setLocalTrendsInterval(data.trendsInterval);
+          if (data.trendsDisplayTime !== undefined) setLocalTrendsDisplayTime(data.trendsDisplayTime);
+          if (data.shopConfig !== undefined) setLocalShopConfig(data.shopConfig);
+
+          // 3. Sincronizar en lote a Supabase
           if (supabase) {
             const keysToSync = [];
             const addKey = (key, val) => {
