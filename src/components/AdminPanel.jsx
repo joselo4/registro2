@@ -1,4 +1,4 @@
-﻿/* eslint-disable react-hooks/set-state-in-effect */
+/* eslint-disable react-hooks/set-state-in-effect */
 import { useState, useEffect, useRef } from 'react';
 import { supabase } from '../utils/supabaseClient';
 import { updateSyncedData } from '../utils/supabaseSync';
@@ -132,7 +132,15 @@ export default function AdminPanel({
   tableOrdersEnabled,
   waiterTakerEnabled,
   cartLocations,
-  onUpdateCartLocations
+  onUpdateCartLocations,
+  testimonials,
+  onUpdateTestimonials,
+  storeHeroImage,
+  onChangeStoreHeroImage,
+  metaPixelId,
+  onChangeMetaPixelId,
+  googleAnalyticsId,
+  onChangeGoogleAnalyticsId
 }) {
   const canUseNotifications =
     typeof window !== 'undefined' &&
@@ -497,7 +505,7 @@ export default function AdminPanel({
   // --- Pantalla de Login ---
   if (!isLoggedIn) {
     return (
-      <div className="glass" style={{ maxWidth: '400px', width: '90%', margin: '40px auto', padding: '25px', borderRadius: 'var(--radius-lg)' }}>
+      <div className="glass admin-login-container" style={{ maxWidth: '400px', width: '90%', margin: '40px auto', padding: '25px', borderRadius: 'var(--radius-lg)' }}>
         <div style={{ textAlign: 'center', marginBottom: '20px' }}>
           <span style={{ fontSize: '3rem' }}>🔒</span>
           <h2 style={{ marginTop: '10px' }}>Acceso Administrativo</h2>
@@ -835,6 +843,14 @@ export default function AdminPanel({
             onUpdateStaffPermissions={onUpdateStaffPermissions}
             cartLocations={cartLocations}
             onUpdateCartLocations={onUpdateCartLocations}
+            testimonials={testimonials}
+            onUpdateTestimonials={onUpdateTestimonials}
+            storeHeroImage={storeHeroImage}
+            onChangeStoreHeroImage={onChangeStoreHeroImage}
+            metaPixelId={metaPixelId}
+            onChangeMetaPixelId={onChangeMetaPixelId}
+            googleAnalyticsId={googleAnalyticsId}
+            onChangeGoogleAnalyticsId={onChangeGoogleAnalyticsId}
           />
         )}
 

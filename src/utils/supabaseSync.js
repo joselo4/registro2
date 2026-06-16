@@ -25,6 +25,13 @@ const _writeTimeouts = {};
 export const fetchSyncedData = async (isAdmin = false) => {
   if (!supabase) return null;
 
+  // ─── Caching for public clients (massive scaling) ──────────────────────────
+  const now = Date.now();
+  if (!isAdmin && _syncCache.client && (now - _syncCacheTime.client < 30000)) {
+    console.log("🔌 Retornando datos públicos de heladería desde caché...");
+    return _syncCache.client;
+  }
+
 
 
   try {
@@ -82,7 +89,10 @@ export const fetchSyncedData = async (isAdmin = false) => {
         'cart_recommended_pack', 
         'liter_config', 
         'ticket_custom_message',
-        'cart_locations'
+        'cart_locations',
+        'store_hero_image',
+        'meta_pixel_id',
+        'google_analytics_id'
       ];
 
       const { data, error } = await supabase
@@ -97,6 +107,15 @@ export const fetchSyncedData = async (isAdmin = false) => {
           syncData[row.key] = row.value;
         });
       }
+    }
+
+    // Guardar en caché antes de retornar para optimizar solicitudes concurrentes
+    if (isAdmin && isSessionAdmin) {
+      _syncCache.admin = syncData;
+      _syncCacheTime.admin = now;
+    } else {
+      _syncCache.client = syncData;
+      _syncCacheTime.client = now;
     }
 
     return syncData;
@@ -297,9 +316,11 @@ export const subscribeToSync = (onUpdateCallback, isAdmin = false, tableNumber =
         'qr_custom_url', 
         'recommendations', 
         'cart_recommended_pack', 
-        'liter_config', 
         'ticket_custom_message',
-        'cart_locations'
+        'cart_locations',
+        'store_hero_image',
+        'meta_pixel_id',
+        'google_analytics_id'
       ];
 
       const randId = Math.random().toString(36).substring(2, 10);

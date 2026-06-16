@@ -12,15 +12,14 @@ import { supabase } from './utils/supabaseClient';
 import { Capacitor } from '@capacitor/core';
 import { DEFAULT_SMS_TEMPLATES } from './utils/orderMessaging';
 
-// Lazy loading components for better initial load performance (UX)
-const CustomerShop = React.lazy(() => import('./components/CustomerShop'));
-const IceCreamCustomizer = React.lazy(() => import('./components/IceCreamCustomizer'));
-const LiterCustomizer = React.lazy(() => import('./components/LiterCustomizer'));
-const Cart = React.lazy(() => import('./components/Cart'));
-const LiveChatTelegramBridge = React.lazy(() => import('./components/LiveChatTelegramBridge'));
-const OrderTracker = React.lazy(() => import('./components/OrderTracker'));
-const AdminPanel = React.lazy(() => import('./components/AdminPanel'));
-const CartLocationsView = React.lazy(() => import('./components/CartLocationsView'));
+import CustomerShop from './components/CustomerShop';
+import IceCreamCustomizer from './components/IceCreamCustomizer';
+import LiterCustomizer from './components/LiterCustomizer';
+import Cart from './components/Cart';
+import LiveChatTelegramBridge from './components/LiveChatTelegramBridge';
+import OrderTracker from './components/OrderTracker';
+import AdminPanel from './components/AdminPanel';
+import CartLocationsView from './components/CartLocationsView';
 
 // Combinaciones recomendadas por defecto para el menú
 const DEFAULT_RECOMMENDATIONS = [
@@ -51,8 +50,43 @@ const DEFAULT_RECOMMENDATIONS = [
 ];
 
 // Helper to render emoji or URL/image logo
-const renderLogo = (logo, size = '32px') => {
+const renderLogo = (logo, size = '38px') => {
   if (!logo) return null;
+  if (logo === '🍦') {
+    return (
+      <svg viewBox="0 0 100 100" width={size} height={size} style={{ width: size, height: size, display: 'inline-block', verticalAlign: 'middle' }}>
+        <defs>
+          <linearGradient id="logoConeGrad" x1="0" y1="0" x2="1" y2="1">
+            <stop offset="0%" stopColor="#f3a683" />
+            <stop offset="100%" stopColor="#cf8a4f" />
+          </linearGradient>
+          <linearGradient id="logoScoopGrad" x1="0" y1="0" x2="0" y2="1">
+            <stop offset="0%" stopColor="#ff8a9a" />
+            <stop offset="100%" stopColor="#ff4757" />
+          </linearGradient>
+          <filter id="logoShadow" x="-10%" y="-10%" width="120%" height="120%">
+            <feDropShadow dx="0" dy="3" stdDeviation="2" floodOpacity="0.15" />
+          </filter>
+        </defs>
+        <g filter="url(#logoShadow)">
+          {/* Cone */}
+          <path d="M 32 50 L 50 88 L 68 50 Z" fill="url(#logoConeGrad)" />
+          {/* Waffle grid detail */}
+          <path d="M 36 50 L 50 80 M 42 50 L 50 72 M 48 50 L 50 64 M 52 50 L 50 64 M 58 50 L 50 72 M 64 50 L 50 80" stroke="#7a4b1c" strokeWidth="0.8" opacity="0.3" />
+          {/* Scoop */}
+          <circle cx="50" cy="38" r="20" fill="url(#logoScoopGrad)" />
+          {/* Cream drip overlay */}
+          <path d="M 29 42 Q 35 48 40 43 Q 45 48 50 43 Q 55 48 60 43 Q 65 48 71 42 Q 50 54 29 42 Z" fill="#ff4757" />
+          {/* Specular highlights */}
+          <ellipse cx="44" cy="30" rx="5" ry="2.5" fill="white" opacity="0.45" transform="rotate(-15 44 30)" />
+          <circle cx="56" cy="34" r="1.5" fill="white" opacity="0.4" />
+          {/* Cherry on top */}
+          <circle cx="50" cy="18" r="6" fill="#d63031" />
+          <path d="M 50 18 Q 54 10 61 8" fill="none" stroke="#2d3436" strokeWidth="1.2" strokeLinecap="round" />
+        </g>
+      </svg>
+    );
+  }
   const isUrl = logo.startsWith('http://') || logo.startsWith('https://') || logo.startsWith('/') || logo.startsWith('./') || logo.includes('.') || logo.startsWith('data:image/');
   if (isUrl) {
     const numericSize = parseInt(size, 10) || 32;
@@ -148,6 +182,15 @@ export default function App() {
     return localStorage.getItem('helados_ticket_custom_message') || '¡Gracias por preferirnos! Conserva tu helado en el congelador para mantener su textura perfecta. 🍦';
   });
 
+  const [testimonials, setTestimonials] = useState(() => {
+    const saved = localStorage.getItem('helados_testimonials');
+    return saved ? JSON.parse(saved) : [
+      { id: 1, rating: 5, text: 'El helado de lúcuma con trozos de chocolate es una locura. El delivery llegó súper rápido y los potes vienen perfectamente congelados.', name: 'Andrea Mendoza', initials: 'AM', color: 'var(--primary-color)' },
+      { id: 2, rating: 5, text: 'Armé mi helado personalizado con Sabor-O-Matic y me encantó la combinación. Excelente atención y empaque térmico impecable.', name: 'Juan Carlos', initials: 'JC', color: 'var(--secondary-color)' },
+      { id: 3, rating: 5, text: 'Compramos el Pack Dúo Familiar para el fin de semana. Helados cremosos, buen precio y la entrega a domicilio fue impecable.', name: 'Sofía Prado', initials: 'SP', color: '#2ecc71' }
+    ];
+  });
+
   // --- NUEVO: Estado de Ordenamiento del Catálogo de la Carta (Sincronizado) ---
   const [catalogOrder, setCatalogOrder] = useState(() => {
     const saved = localStorage.getItem('helados_catalog_order');
@@ -170,6 +213,84 @@ export default function App() {
   const [storeFavicon, setStoreFavicon] = useState(() => {
     return localStorage.getItem('helados_store_favicon') || '🍦';
   });
+
+  const [storeHeroImage, setStoreHeroImage] = useState(() => {
+    return localStorage.getItem('helados_store_hero_image') || '';
+  });
+
+  const [metaPixelId, setMetaPixelId] = useState(() => {
+    return localStorage.getItem('helados_meta_pixel_id') || '';
+  });
+
+  const [googleAnalyticsId, setGoogleAnalyticsId] = useState(() => {
+    return localStorage.getItem('helados_google_analytics_id') || '';
+  });
+
+  // Helper for professional non-obvious event tracking
+  const trackEvent = (eventName, eventData = {}) => {
+    // 1. Meta Pixel
+    if (window.fbq && metaPixelId) {
+      try {
+        window.fbq('track', eventName, eventData);
+      } catch (err) {
+        console.warn('Meta Pixel track failed:', err);
+      }
+    }
+    // 2. Google Analytics
+    if (window.gtag && googleAnalyticsId) {
+      try {
+        window.gtag('event', eventName, eventData);
+      } catch (err) {
+        console.warn('Google Analytics track failed:', err);
+      }
+    }
+    console.log(`📊 Tracking Event: ${eventName}`, eventData);
+  };
+
+  // Dynamic script injection for Meta Pixel
+  useEffect(() => {
+    if (metaPixelId && metaPixelId.trim()) {
+      const pixelId = metaPixelId.trim();
+      if (!window.fbq) {
+        /* eslint-disable */
+        !(function (f, b, e, v, n, t, s) {
+          if (f.fbq) return;
+          n = f.fbq = function () {
+            n.callMethod ? n.callMethod.apply(n, arguments) : n.queue.push(arguments);
+          };
+          if (!f._fbq) f._fbq = n;
+          n.push = n;
+          n.loaded = !0;
+          n.version = "2.0";
+          n.queue = [];
+          t = b.createElement(e);
+          t.async = !0;
+          t.src = v;
+          s = b.getElementsByTagName(e)[0];
+          s.parentNode.insertBefore(t, s);
+        })(window, document, "script", "https://connect.facebook.net/en_US/fbevents.js");
+        /* eslint-enable */
+        window.fbq('init', pixelId);
+      }
+      window.fbq('track', 'PageView');
+    }
+  }, [metaPixelId]);
+
+  // Dynamic script injection for Google Analytics
+  useEffect(() => {
+    if (googleAnalyticsId && googleAnalyticsId.trim()) {
+      const gaId = googleAnalyticsId.trim();
+      const script = document.createElement('script');
+      script.async = true;
+      script.src = `https://www.googletagmanager.com/gtag/js?id=${gaId}`;
+      document.head.appendChild(script);
+
+      window.dataLayer = window.dataLayer || [];
+      window.gtag = function(){window.dataLayer.push(arguments);}
+      window.gtag('js', new Date());
+      window.gtag('config', gaId);
+    }
+  }, [googleAnalyticsId]);
 
   const [storeInstagram, setStoreInstagram] = useState(() => {
     return localStorage.getItem('helados_store_instagram') || 'https://www.instagram.com/';
@@ -508,6 +629,10 @@ export default function App() {
     }
     if (serverData.trends_interval !== undefined) setTrendsInterval(parseInt(serverData.trends_interval, 10) || 25);
     if (serverData.trends_display_time !== undefined) setTrendsDisplayTime(parseInt(serverData.trends_display_time, 10) || 6);
+    if (serverData.testimonials !== undefined) setTestimonials(serverData.testimonials);
+    if (serverData.store_hero_image !== undefined) setStoreHeroImage(serverData.store_hero_image);
+    if (serverData.meta_pixel_id !== undefined) setMetaPixelId(serverData.meta_pixel_id);
+    if (serverData.google_analytics_id !== undefined) setGoogleAnalyticsId(serverData.google_analytics_id);
   };
 
   // --- NUEVO: Efecto de Sincronización e Inicialización Supabase ---
@@ -643,7 +768,7 @@ export default function App() {
         authSubscription.unsubscribe();
       }
     };
-  }, [isLoggedIn]);
+  }, []);
 
   // --- Hook de Sincronización Consolidado y Seguro ---
   const useSyncEffect = (key, value, isJSON = false) => {
@@ -685,6 +810,7 @@ export default function App() {
 
   // --- Invocaciones de Sincronización de Estados ---
   useSyncEffect('store_name', storeName, false);
+  useSyncEffect('testimonials', testimonials, true);
   useSyncEffect('store_title', storeTitle, false);
   useSyncEffect('store_favicon', storeFavicon, false);
   useSyncEffect('catalog_order', catalogOrder, true);
@@ -716,6 +842,9 @@ export default function App() {
   useSyncEffect('store_facebook', storeFacebook, false);
   useSyncEffect('whatsapp_contact_message', whatsappContactMessage, false);
   useSyncEffect('cart_locations', cartLocations, true);
+  useSyncEffect('store_hero_image', storeHeroImage, false);
+  useSyncEffect('meta_pixel_id', metaPixelId, false);
+  useSyncEffect('google_analytics_id', googleAnalyticsId, false);
   useSyncEffect('trends_interval', trendsInterval, false);
   useSyncEffect('trends_display_time', trendsDisplayTime, false);
 
@@ -1406,6 +1535,9 @@ export default function App() {
             telegramToken={telegramToken}
             telegramChatId={telegramChatId}
             shopConfig={shopConfig}
+            testimonials={testimonials}
+            storeHeroImage={storeHeroImage}
+            trackEvent={trackEvent}
           />
         )}
 
@@ -1461,6 +1593,7 @@ export default function App() {
             setTableNumber={setTableNumber}
             occupiedTables={shopConfig.occupiedTables || []}
             shopConfig={shopConfig}
+            trackEvent={trackEvent}
           />
         )}
 
@@ -1576,9 +1709,16 @@ export default function App() {
               trendsInterval={trendsInterval}
               onChangeTrendsInterval={setTrendsInterval}
               trendsDisplayTime={trendsDisplayTime}
-              onChangeTrendsDisplayTime={setTrendsDisplayTime}
               tableOrdersEnabled={shopConfig.tableOrdersEnabled !== false}
               waiterTakerEnabled={shopConfig.waiterTakerEnabled !== false}
+              testimonials={testimonials}
+              onUpdateTestimonials={setTestimonials}
+              storeHeroImage={storeHeroImage}
+              onChangeStoreHeroImage={setStoreHeroImage}
+              metaPixelId={metaPixelId}
+              onChangeMetaPixelId={setMetaPixelId}
+              googleAnalyticsId={googleAnalyticsId}
+              onChangeGoogleAnalyticsId={setGoogleAnalyticsId}
             />
         )}
         </React.Suspense>

@@ -24,11 +24,26 @@ export default function CustomerShop({
   tableCalls = [],
   occupiedTables = [],
   cart = [],
-  shopConfig = {}
+  shopConfig = {},
+  testimonials = [],
+  storeHeroImage = '',
+  trackEvent
 }) {
   const tableCategories = useMemo(() => {
     return shopConfig?.tableCatalogCategories || ['classic', 'liter', 'packs'];
   }, [shopConfig?.tableCatalogCategories]);
+
+  const handleAddToCartWrapped = useCallback((item) => {
+    onAddToCart(item);
+    if (trackEvent) {
+      trackEvent('AddToCart', {
+        content_name: item.name || 'Helado',
+        value: item.price || 1.0,
+        currency: 'PEN',
+        quantity: item.quantity || 1
+      });
+    }
+  }, [onAddToCart, trackEvent]);
 
   const [filter, setFilter] = useState(() => {
     if (tableNumber) {
@@ -374,7 +389,7 @@ export default function CustomerShop({
   }, [dismissedTrend, trendsInterval, trendsDisplayTime, tableNumber]);
 
   const handleTryTrend = (item) => {
-    onAddToCart(item);
+    handleAddToCartWrapped(item);
     if (showAlert) {
       showAlert('¡Añadido al Carrito!', `Se agregó a tu carrito: ${item.name}`, 'success');
     } else {
@@ -504,8 +519,8 @@ export default function CustomerShop({
       quantity: 1,
       name: `Helado Simple de ${flavor.name}`
     };
-    onAddToCart(customItem);
-  }, [onAddToCart]);
+    handleAddToCartWrapped(customItem);
+  }, [handleAddToCartWrapped]);
 
   const handleAddPackToCart = useCallback((pack) => {
     const packItem = {
@@ -517,8 +532,8 @@ export default function CustomerShop({
       image: pack.image || '',
       quantity: 1
     };
-    onAddToCart(packItem);
-  }, [onAddToCart]);
+    handleAddToCartWrapped(packItem);
+  }, [handleAddToCartWrapped]);
 
   const renderedCatalog = useMemo(() => {
     const activeOrder = tableNumber 
@@ -963,7 +978,91 @@ export default function CustomerShop({
         </div>
         <div className="hero-image-container">
           <div className="hero-circle-bg"></div>
-          <div className="hero-graphic">🍦</div>
+          <div className="hero-graphic-premium">
+            {storeHeroImage ? (
+              <img 
+                src={storeHeroImage} 
+                alt="Helados Deliciosos" 
+                style={{ 
+                  width: '100%', 
+                  height: 'auto', 
+                  maxHeight: '380px', 
+                  objectFit: 'contain',
+                  filter: 'drop-shadow(0 20px 35px rgba(255,107,129,0.25))' 
+                }} 
+              />
+            ) : (
+              <svg viewBox="0 0 200 240" width="100%" height="100%" style={{ display: 'block', maxHeight: '380px', filter: 'drop-shadow(0 20px 35px rgba(255,107,129,0.25))' }}>
+                <defs>
+                  <linearGradient id="coneGrad" x1="0" y1="0" x2="1" y2="1">
+                    <stop offset="0%" stopColor="#f3a683" />
+                    <stop offset="50%" stopColor="#e19e75" />
+                    <stop offset="100%" stopColor="#cf8a4f" />
+                  </linearGradient>
+                  <linearGradient id="chocolateGrad" x1="0" y1="0" x2="0" y2="1">
+                    <stop offset="0%" stopColor="#74451c" />
+                    <stop offset="100%" stopColor="#4e2c0e" />
+                  </linearGradient>
+                  <linearGradient id="strawberryGrad" x1="0" y1="0" x2="0" y2="1">
+                    <stop offset="0%" stopColor="#ff8a9a" />
+                    <stop offset="100%" stopColor="#ff4757" />
+                  </linearGradient>
+                  <linearGradient id="mangoGrad" x1="0" y1="0" x2="0" y2="1">
+                    <stop offset="0%" stopColor="#ffca28" />
+                    <stop offset="100%" stopColor="#ffa000" />
+                  </linearGradient>
+                  <linearGradient id="creamGrad" x1="0" y1="0" x2="0" y2="1">
+                    <stop offset="0%" stopColor="#ffffff" />
+                    <stop offset="100%" stopColor="#f1f2f6" />
+                  </linearGradient>
+                </defs>
+
+                <g opacity="0.6">
+                  <circle cx="20" cy="50" r="3" fill="#ff4757" />
+                  <circle cx="180" cy="90" r="4" fill="#ffa000" />
+                  <rect x="30" y="150" width="8" height="3" rx="1.5" fill="#2ecc71" transform="rotate(30 30 150)" />
+                  <rect x="170" y="40" width="10" height="4" rx="2" fill="#3498db" transform="rotate(-15 170 40)" />
+                </g>
+
+                {/* CONE */}
+                <path d="M 55 130 L 100 230 L 145 130 Z" fill="url(#coneGrad)" />
+                <path d="M 62 130 L 100 215 M 72 130 L 100 195 M 82 130 L 100 175 M 92 130 L 100 155" stroke="#7a4b1c" strokeWidth="1.2" opacity="0.25" strokeLinecap="round" />
+                <path d="M 138 130 L 100 215 M 128 130 L 100 195 M 118 130 L 100 175 M 108 130 L 100 155" stroke="#7a4b1c" strokeWidth="1.2" opacity="0.25" strokeLinecap="round" />
+                
+                {/* Chocolate Scoop */}
+                <circle cx="100" cy="125" r="38" fill="url(#chocolateGrad)" />
+                <path d="M 64 135 C 70 145, 80 145, 84 135 C 88 145, 96 148, 102 136 C 108 148, 116 148, 120 136 C 124 144, 134 142, 137 132" fill="url(#chocolateGrad)" />
+                
+                {/* Strawberry Scoop */}
+                <circle cx="85" cy="95" r="32" fill="url(#strawberryGrad)" />
+                <ellipse cx="78" cy="82" rx="8" ry="4" fill="#fff" opacity="0.35" transform="rotate(-20 78 82)" />
+                
+                {/* Mango Scoop */}
+                <circle cx="118" cy="92" r="30" fill="url(#mangoGrad)" />
+                <ellipse cx="112" cy="80" rx="7" ry="3" fill="#fff" opacity="0.35" transform="rotate(-15 112 80)" />
+
+                {/* Whipped Cream */}
+                <path d="M 75 75 Q 85 55 100 55 Q 115 55 125 75 Q 100 80 75 75 Z" fill="url(#creamGrad)" />
+                <path d="M 88 65 Q 100 40 100 40 Q 112 40 112 65 Z" fill="url(#creamGrad)" />
+                
+                {/* Syrup */}
+                <path d="M 85 55 Q 100 68 115 55" fill="none" stroke="#4e2c0e" strokeWidth="4" strokeLinecap="round" />
+                <path d="M 92 48 Q 100 58 108 48" fill="none" stroke="#4e2c0e" strokeWidth="4" strokeLinecap="round" />
+
+                {/* Cherry */}
+                <circle cx="100" cy="30" r="12" fill="#d63031" />
+                <circle cx="96" cy="26" r="3" fill="#fff" opacity="0.6" />
+                <path d="M 100 30 Q 112 15 125 10" fill="none" stroke="#2d3436" strokeWidth="2" strokeLinecap="round" />
+
+                {/* Sprinkles */}
+                <rect x="70" y="90" width="5" height="2" rx="1" fill="#fff" transform="rotate(45 70 90)" />
+                <rect x="85" y="105" width="5" height="2" rx="1" fill="#ffa000" transform="rotate(-30 85 105)" />
+                <rect x="75" y="102" width="5" height="2" rx="1" fill="#2ecc71" transform="rotate(15 75 102)" />
+                <rect x="120" y="92" width="5" height="2" rx="1" fill="#fff" transform="rotate(-15 120 92)" />
+                <rect x="110" y="100" width="5" height="2" rx="1" fill="#ff4757" transform="rotate(60 110 100)" />
+              </svg>
+            )}
+          </div>
         </div>
       </section>
 
@@ -1064,6 +1163,35 @@ export default function CustomerShop({
         {/* Grid de Productos */}
         {renderedCatalog}
       </section>
+
+      {/* Testimonios y Reseñas Verificadas */}
+      {!tableNumber && testimonials && testimonials.length > 0 && (
+        <section className="testimonials-section">
+          <h2 className="section-title">Lo Que Dicen Nuestros Clientes</h2>
+          <p className="section-subtitle">Opiniones reales de amantes del helado artesanal</p>
+          
+          <div className="testimonials-grid">
+            {testimonials.map((item, idx) => {
+              const stars = '⭐'.repeat(item.rating || 5);
+              const initials = item.initials || (item.name ? item.name.split(' ').map(n => n[0]).join('').substring(0, 2).toUpperCase() : 'U');
+              const bgColor = item.color || 'var(--primary-color)';
+              return (
+                <div key={item.id || idx} className="glass-card testimonial-card">
+                  <div className="testimonial-rating">{stars}</div>
+                  <p className="testimonial-text">"{item.text}"</p>
+                  <div className="testimonial-user">
+                    <div className="testimonial-avatar" style={{ backgroundColor: bgColor }}>{initials}</div>
+                    <div>
+                      <h4 className="testimonial-name">{item.name}</h4>
+                      <span className="testimonial-badge">✓ Compra Verificada</span>
+                    </div>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        </section>
+      )}
 
       {/* MODAL WIZARD SABOR-O-MATIC */}
       {showWizard && (
@@ -1246,7 +1374,7 @@ export default function CustomerShop({
                                 quantity: 1,
                                 name: `Sabor-O-Matic: ${wizardResult.scoops.map(s => s.name).join(' + ')}`
                               };
-                              onAddToCart(customItem);
+                              handleAddToCartWrapped(customItem);
                               setShowWizard(false);
                               if (showAlert) {
                                 showAlert('¡Carrito Actualizado!', 'Tu helado personalizado sugerido por Sabor-O-Matic ha sido añadido al carrito.', 'success');

@@ -60,7 +60,11 @@ export default function SettingsManager({
   trendsDisplayTime, onChangeTrendsDisplayTime,
   shopConfig, onChangeShopConfig,
   staffPermissions, onUpdateStaffPermissions,
-  cartLocations, onUpdateCartLocations
+  cartLocations, onUpdateCartLocations,
+  testimonials, onUpdateTestimonials,
+  storeHeroImage, onChangeStoreHeroImage,
+  metaPixelId, onChangeMetaPixelId,
+  googleAnalyticsId, onChangeGoogleAnalyticsId
 }) {
   // --- Estados Locales para Ajustes (Evita lags en el dashboard completo al escribir) ---
   const [localStoreName, setLocalStoreName] = useState(storeName);
@@ -102,6 +106,15 @@ export default function SettingsManager({
     }
   });
 
+  const [localTestimonials, setLocalTestimonials] = useState(() => testimonials || []);
+  useEffect(() => {
+    if (testimonials) setLocalTestimonials(testimonials);
+  }, [testimonials]);
+
+  const [localStoreHeroImage, setLocalStoreHeroImage] = useState(storeHeroImage || '');
+  const [localMetaPixelId, setLocalMetaPixelId] = useState(metaPixelId || '');
+  const [localGoogleAnalyticsId, setLocalGoogleAnalyticsId] = useState(googleAnalyticsId || '');
+
   const [localLiterActive, setLocalLiterActive] = useState(literConfig?.active !== false);
   const [localLiterPrice, setLocalLiterPrice] = useState(literConfig?.price || 15.0);
   const [localLiterMaxFlavors, setLocalLiterMaxFlavors] = useState(literConfig?.maxFlavors || 3);
@@ -136,7 +149,8 @@ export default function SettingsManager({
   const [uploadingState, setUploadingState] = useState({
     logo: false,
     liter: false,
-    favicon: false
+    favicon: false,
+    heroImage: false
   });
 
   // --- Sincronizar estados locales con los globales cuando cambien externamente ---
@@ -159,6 +173,9 @@ export default function SettingsManager({
   useEffect(() => { setLocalCatalogOrder(catalogOrder || ['liter', 'classic', 'packs']); }, [catalogOrder]);
   useEffect(() => { setLocalTrendsInterval(trendsInterval || 25); }, [trendsInterval]);
   useEffect(() => { setLocalTrendsDisplayTime(trendsDisplayTime || 6); }, [trendsDisplayTime]);
+  useEffect(() => { setLocalStoreHeroImage(storeHeroImage || ''); }, [storeHeroImage]);
+  useEffect(() => { setLocalMetaPixelId(metaPixelId || ''); }, [metaPixelId]);
+  useEffect(() => { setLocalGoogleAnalyticsId(googleAnalyticsId || ''); }, [googleAnalyticsId]);
   useEffect(() => {
     if (shopConfig) {
       setLocalShopConfig(prev => ({
@@ -195,6 +212,9 @@ export default function SettingsManager({
     if (onChangeStoreFacebook) onChangeStoreFacebook(sanitizedFacebook);
     onChangeStorePhone(localStorePhone);
     if (onChangeWhatsappContactMessage) onChangeWhatsappContactMessage(localWhatsappContactMessage);
+    if (onChangeStoreHeroImage) onChangeStoreHeroImage(localStoreHeroImage);
+    if (onChangeMetaPixelId) onChangeMetaPixelId(localMetaPixelId);
+    if (onChangeGoogleAnalyticsId) onChangeGoogleAnalyticsId(localGoogleAnalyticsId);
     onChangeSalesGoal(parseFloat(localSalesGoal) || 0);
     if (onChangeDeliveryFee) onChangeDeliveryFee(parseFloat(localDeliveryFee) || 0);
     onChangeFreeDeliveryThreshold(parseFloat(localFreeDeliveryThreshold) || 0);
@@ -213,6 +233,9 @@ export default function SettingsManager({
 
     if (onUpdateCatalogOrder) {
       onUpdateCatalogOrder(localCatalogOrder);
+    }
+    if (onUpdateTestimonials) {
+      onUpdateTestimonials(localTestimonials);
     }
     if (onChangeTrendsInterval) onChangeTrendsInterval(parseInt(localTrendsInterval, 10) || 25);
     if (onChangeTrendsDisplayTime) onChangeTrendsDisplayTime(parseInt(localTrendsDisplayTime, 10) || 6);
@@ -757,6 +780,67 @@ export default function SettingsManager({
             </div>
             <span style={{ fontSize: '0.7rem', color: 'var(--text-light)' }}>
               Puedes ingresar un Emoji (ej: 🍨) o subir una imagen cuadrada (PNG/SVG) para representarla en la pestaña del navegador.
+            </span>
+          </div>
+
+          <div className="form-group" style={{ gridColumn: 'span 2' }}>
+            <label htmlFor="store-hero-image-input">Imagen del Banner Catálogo (Hero) - Opcional</label>
+            <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
+              <input
+                id="store-hero-image-input"
+                name="store-hero-image"
+                type="text"
+                className="form-control"
+                placeholder="Enlace de imagen https://..."
+                value={localStoreHeroImage}
+                onChange={(e) => setLocalStoreHeroImage(e.target.value)}
+                style={{ flex: 1 }}
+              />
+              <label 
+                htmlFor="hero-image-upload" 
+                className="btn btn-secondary" 
+                style={{ 
+                  padding: '8px 12px', 
+                  fontSize: '0.8rem', 
+                  cursor: 'pointer', 
+                  margin: 0, 
+                  display: 'flex', 
+                  alignItems: 'center', 
+                  justifyContent: 'center',
+                  gap: '4px',
+                  whiteSpace: 'nowrap'
+                }}
+              >
+                📁 {uploadingState.heroImage ? 'Subiendo...' : 'Subir'}
+              </label>
+              <input 
+                type="file" 
+                accept="image/*" 
+                style={{ display: 'none' }} 
+                id="hero-image-upload" 
+                onChange={(e) => handleImageUpload(e.target.files[0], 'heroImage', setLocalStoreHeroImage)} 
+                disabled={uploadingState.heroImage}
+              />
+            </div>
+            {localStoreHeroImage && (
+              <div style={{ marginTop: '8px', display: 'flex', alignItems: 'center', gap: '10px' }}>
+                <img 
+                  src={localStoreHeroImage} 
+                  alt="Vista previa Hero" 
+                  style={{ maxHeight: '80px', borderRadius: '6px', border: '1px solid var(--border-color)' }}
+                />
+                <button 
+                  type="button" 
+                  className="btn btn-secondary" 
+                  style={{ padding: '4px 8px', fontSize: '0.75rem', color: 'var(--danger)', borderColor: 'var(--danger)' }}
+                  onClick={() => setLocalStoreHeroImage('')}
+                >
+                  Quitar Imagen
+                </button>
+              </div>
+            )}
+            <span style={{ fontSize: '0.7rem', color: 'var(--text-light)' }}>
+              Si configuras una imagen, se mostrará en el banner superior del catálogo público. Si la dejas vacía, se usará el cono animado por defecto.
             </span>
           </div>
 
@@ -1940,6 +2024,42 @@ alter table public.helados_sync enable row level security;`}
 
 
 
+        {/* Métricas y Píxeles de Tracking */}
+        <div className="glass" style={{ padding: '15px', borderRadius: '8px', marginBottom: '15px' }}>
+          <strong style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '0.9rem', marginBottom: '8px' }}>
+            📊 Métricas y Píxeles de Tracking (SEO/Marketing)
+          </strong>
+          <p style={{ fontSize: '0.75rem', color: 'var(--text-light)', marginBottom: '12px' }}>
+            Registra los IDs de seguimiento para habilitar la medición de eventos de ventas y visitas de forma silenciosa.
+          </p>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
+            <div className="form-group">
+              <label htmlFor="meta-pixel-id-input" style={{ fontSize: '0.75rem', fontWeight: 'bold' }}>Meta Pixel ID (Facebook)</label>
+              <input
+                id="meta-pixel-id-input"
+                type="text"
+                className="form-control"
+                placeholder="Ej: 123456789012345"
+                style={{ fontSize: '0.8rem', padding: '6px 10px' }}
+                value={localMetaPixelId}
+                onChange={(e) => setLocalMetaPixelId(e.target.value)}
+              />
+            </div>
+            <div className="form-group">
+              <label htmlFor="google-analytics-id-input" style={{ fontSize: '0.75rem', fontWeight: 'bold' }}>Google Analytics ID (G-XXXXXX)</label>
+              <input
+                id="google-analytics-id-input"
+                type="text"
+                className="form-control"
+                placeholder="Ej: G-ABC123XYZ"
+                style={{ fontSize: '0.8rem', padding: '6px 10px' }}
+                value={localGoogleAnalyticsId}
+                onChange={(e) => setLocalGoogleAnalyticsId(e.target.value)}
+              />
+            </div>
+          </div>
+        </div>
+
         {/* Cloudflare R2 */}
         <div className="glass" style={{ padding: '15px', borderRadius: '8px', marginBottom: '15px' }}>
           <strong style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '0.9rem', marginBottom: '4px' }}>
@@ -2139,6 +2259,143 @@ alter table public.helados_sync enable row level security;`}
             >
               📤 Subir Copia
             </label>
+          </div>
+        </div>
+
+        {/* Testimonials Management */}
+        <div className="glass" style={{ padding: '20px', borderRadius: '8px', marginBottom: '15px' }}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '8px', flexWrap: 'wrap', gap: '10px' }}>
+            <strong style={{ fontSize: '0.95rem' }}>💬 Gestión de Testimonios y Reseñas</strong>
+            <button 
+              type="button" 
+              className="btn btn-primary" 
+              style={{ padding: '6px 12px', fontSize: '0.75rem', margin: 0 }}
+              onClick={() => {
+                const colors = ['#ff4757', '#e58e26', '#2ecc71', '#9b59b6', '#3498db', '#f1c40f'];
+                const randomColor = colors[Math.floor(Math.random() * colors.length)];
+                setLocalTestimonials([
+                  ...localTestimonials,
+                  {
+                    id: Date.now(),
+                    name: 'Nuevo Cliente',
+                    initials: 'NC',
+                    text: 'El servicio es excelente y los helados son sumamente cremosos.',
+                    rating: 5,
+                    color: randomColor
+                  }
+                ]);
+              }}
+            >
+              ➕ Añadir Testimonio
+            </button>
+          </div>
+          <p style={{ fontSize: '0.75rem', color: 'var(--text-light)', marginTop: '4px', marginBottom: '15px' }}>
+            Personaliza los testimonios que verán tus clientes al final del catálogo para aumentar las ventas (social proof).
+          </p>
+          
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+            {!localTestimonials || localTestimonials.length === 0 ? (
+              <span style={{ fontSize: '0.8rem', color: 'var(--text-light)', fontStyle: 'italic' }}>No hay testimonios registrados. No se mostrará esta sección en la tienda.</span>
+            ) : (
+              localTestimonials.map((t, idx) => (
+                <div key={t.id || idx} style={{ 
+                  background: 'rgba(0,0,0,0.02)', 
+                  padding: '12px', 
+                  borderRadius: '8px', 
+                  border: '1px solid var(--border-color)',
+                  display: 'flex',
+                  flexDirection: 'column',
+                  gap: '8px'
+                }}>
+                  <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap', alignItems: 'center' }}>
+                    <div style={{ flex: '1 1 150px' }}>
+                      <label style={{ fontSize: '0.7rem', fontWeight: 'bold', display: 'block', marginBottom: '3px' }}>Nombre del Cliente</label>
+                      <input
+                        type="text"
+                        className="form-control"
+                        style={{ fontSize: '0.8rem', padding: '5px' }}
+                        value={t.name}
+                        onChange={(e) => {
+                          const val = e.target.value;
+                          const newT = [...localTestimonials];
+                          newT[idx] = {
+                            ...t,
+                            name: val,
+                            initials: val ? val.split(' ').map(n => n[0]).join('').substring(0, 2).toUpperCase() : 'U'
+                          };
+                          setLocalTestimonials(newT);
+                        }}
+                        required
+                      />
+                    </div>
+                    
+                    <div style={{ width: '110px' }}>
+                      <label style={{ fontSize: '0.7rem', fontWeight: 'bold', display: 'block', marginBottom: '3px' }}>Puntuación</label>
+                      <select
+                        className="form-control"
+                        style={{ fontSize: '0.8rem', padding: '4px', cursor: 'pointer', height: '30px' }}
+                        value={t.rating || 5}
+                        onChange={(e) => {
+                          const newT = [...localTestimonials];
+                          newT[idx] = { ...t, rating: parseInt(e.target.value) || 5 };
+                          setLocalTestimonials(newT);
+                        }}
+                      >
+                        <option value={5}>⭐⭐⭐⭐⭐</option>
+                        <option value={4}>⭐⭐⭐⭐</option>
+                        <option value={3}>⭐⭐⭐</option>
+                        <option value={2}>⭐⭐</option>
+                        <option value={1}>⭐</option>
+                      </select>
+                    </div>
+
+                    <div style={{ width: '70px' }}>
+                      <label style={{ fontSize: '0.7rem', fontWeight: 'bold', display: 'block', marginBottom: '3px' }}>Fondo Avatar</label>
+                      <input
+                        type="color"
+                        className="form-control"
+                        style={{ padding: '2px', height: '30px', cursor: 'pointer' }}
+                        value={t.color && t.color.startsWith('#') ? t.color : '#ff4757'}
+                        onChange={(e) => {
+                          const newT = [...localTestimonials];
+                          newT[idx] = { ...t, color: e.target.value };
+                          setLocalTestimonials(newT);
+                        }}
+                      />
+                    </div>
+
+                    <div style={{ display: 'flex', alignSelf: 'flex-end', marginLeft: 'auto' }}>
+                      <button 
+                        type="button" 
+                        className="btn" 
+                        style={{ padding: '6px 10px', fontSize: '0.75rem', background: 'var(--danger)', color: 'white', border: 'none', borderRadius: '4px', cursor: 'pointer' }}
+                        onClick={() => {
+                          setLocalTestimonials(localTestimonials.filter((_, i) => i !== idx));
+                        }}
+                      >
+                        🗑️ Eliminar
+                      </button>
+                    </div>
+                  </div>
+                  
+                  <div>
+                    <label style={{ fontSize: '0.7rem', fontWeight: 'bold', display: 'block', marginBottom: '3px' }}>Comentario o Reseña</label>
+                    <textarea
+                      className="form-control"
+                      rows="2"
+                      style={{ fontSize: '0.8rem', padding: '6px', resize: 'vertical', width: '100%', fontFamily: 'inherit' }}
+                      value={t.text}
+                      onChange={(e) => {
+                        const newT = [...localTestimonials];
+                        newT[idx] = { ...t, text: e.target.value };
+                        setLocalTestimonials(newT);
+                      }}
+                      required
+                    />
+                  </div>
+                </div>
+              ))
+            )}
           </div>
         </div>
 

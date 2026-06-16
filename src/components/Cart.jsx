@@ -24,7 +24,8 @@ export default function Cart({
   tableNumber = null,
   setTableNumber,
   occupiedTables = [],
-  shopConfig
+  shopConfig,
+  trackEvent
 }) {
   const alert = (msg) => {
     if (showAlert) {
@@ -44,6 +45,7 @@ export default function Cart({
   const [address, setAddress] = useState(() => localStorage.getItem('last_customer_address') || '');
   const [paymentMethod, setPaymentMethod] = useState('Yape'); // Yape, Plin, Efectivo
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [sendToWhatsApp, setSendToWhatsApp] = useState(true);
 
   // Módulo de Mesas
   const [orderType, setOrderType] = useState(() => {
@@ -115,6 +117,17 @@ export default function Cart({
     localStorage.setItem('last_customer_phone', phone);
     localStorage.setItem('last_customer_address', address);
   }, [name, phone, address]);
+
+  // InitiateCheckout tracking
+  useEffect(() => {
+    if (trackEvent && cart && cart.length > 0) {
+      trackEvent('InitiateCheckout', {
+        num_items: cart.reduce((sum, item) => sum + item.quantity, 0),
+        value: cartSubtotal,
+        currency: 'PEN'
+      });
+    }
+  }, [trackEvent]);
 
   // Enviar notificación a Telegram (Canal Directo)
   const sendTelegramNotification = async (order) => {
@@ -277,14 +290,26 @@ export default function Cart({
       // Enviar notificación en segundo plano a través de la función segura
       await sendTelegramNotification(newOrder);
 
-       // Registrar pedido en la base de datos
-      onPlaceOrder(newOrder);
- 
-       // Redirigir a WhatsApp del dueño (desactivado a petición del usuario)
-       // window.open(whatsappUrl, '_blank');
-       
-       // Permitimos volver a enviar después de abrir WhatsApp por si acaso
-       setTimeout(() => setIsSubmitting(false), 2000);
+        // Registrar pedido en la base de datos
+       onPlaceOrder(newOrder);
+
+       // Track purchase event
+       if (trackEvent) {
+         trackEvent('Purchase', {
+           value: total,
+           currency: 'PEN',
+           order_id: orderId,
+           num_items: cart.reduce((sum, item) => sum + item.quantity, 0)
+         });
+       }
+  
+       // Redirigir a WhatsApp del local si el cliente lo prefiere
+       if (sendToWhatsApp) {
+         window.open(whatsappUrl, '_blank');
+       }
+        
+        // Permitimos volver a enviar después de abrir WhatsApp por si acaso
+        setTimeout(() => setIsSubmitting(false), 2000);
     } catch (err) {
       console.error("Fallo al enviar pedido:", err);
       alert("⚠️ Lo sentimos, ocurrió un error al estructurar el pedido. Vuelve a intentarlo.");
@@ -751,6 +776,22 @@ export default function Cart({
                 </span>
               )}
             </div>
+
+            {/* WhatsApp redirect checkbox */}
+            {!tableNumber && shopOpen && (
+              <div className="whatsapp-toggle-container" onClick={() => setSendToWhatsApp(!sendToWhatsApp)}>
+                <input
+                  type="checkbox"
+                  id="whatsapp-redirect-checkbox"
+                  checked={sendToWhatsApp}
+                  onChange={() => {}} /* Handled by container click */
+                  className="whatsapp-toggle-checkbox"
+                />
+                <label htmlFor="whatsapp-redirect-checkbox" className="whatsapp-toggle-label">
+                  💬 Enviar y chatear por WhatsApp
+                </label>
+              </div>
+            )}
 
             {/* Resumen */}
             <div style={{ marginTop: '10px', fontSize: '0.8rem', borderTop: '1px solid var(--border-color)', paddingTop: '8px' }}>
