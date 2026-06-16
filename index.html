@@ -61,17 +61,23 @@
 
     <!-- Security: Frame-busting script and style to defend against click-jacking attacks -->
     <style id="antiClickjack">body{display:none !important;}</style>
-    <script>
-      if (self === top) {
-        var antiClickjack = document.getElementById("antiClickjack");
-        if (antiClickjack) {
-          antiClickjack.parentNode.removeChild(antiClickjack);
-        }
-      } else {
-        top.location = self.location;
-      }
-    </script>
-    
+    <script src="/anti-clickjack.js"></script>
+
+    <!-- Open Graph / Facebook -->
+    <meta property="og:type" content="website" />
+    <meta property="og:url" content="https://pideanda.com/" />
+    <meta property="og:title" content="Friozo Andahuaylas - Heladería & Delivery de Helados Artesanales" />
+    <meta property="og:description" content="La mejor heladería artesanal en Andahuaylas. Helados clásicos y personalizados a domicilio. Pide por WhatsApp o Yape." />
+    <meta property="og:image" content="https://pideanda.com/friozo_og_image.png" />
+    <meta property="og:site_name" content="Friozo Andahuaylas" />
+
+    <!-- Twitter -->
+    <meta name="twitter:card" content="summary_large_image" />
+    <meta name="twitter:url" content="https://pideanda.com/" />
+    <meta name="twitter:title" content="Friozo Andahuaylas - Heladería & Delivery de Helados Artesanales" />
+    <meta name="twitter:description" content="La mejor heladería artesanal en Andahuaylas. Helados clásicos y personalizados a domicilio. Pide por WhatsApp o Yape." />
+    <meta name="twitter:image" content="https://pideanda.com/friozo_og_image.png" />
+
     <title>Friozo Andahuaylas - Heladería & Delivery de Helados Artesanales</title>
   </head>
   <body>

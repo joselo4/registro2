@@ -74,8 +74,7 @@ export async function onRequestPost(context) {
       { 
         status: 200, 
         headers: { 
-          "Content-Type": "application/json",
-          "Access-Control-Allow-Origin": new URL(context.request.url).origin
+          "Content-Type": "application/json"
         } 
       }
     );
@@ -88,14 +87,3 @@ export async function onRequestPost(context) {
   }
 }
 
-// Manejador para peticiones OPTIONS (CORS obligado por los navegadores en peticiones tipo POST)
-export async function onRequestOptions({ request }) {
-  return new Response(null, {
-    status: 204,
-    headers: {
-      "Access-Control-Allow-Origin": new URL(request.url).origin,
-      "Access-Control-Allow-Methods": "POST, OPTIONS",
-      "Access-Control-Allow-Headers": "Content-Type, Authorization",
-    },
-  });
-}

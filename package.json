@@ -17,13 +17,14 @@
     "@capacitor/geolocation": "^8.0.0",
     "@supabase/supabase-js": "^2.106.2",
     "leaflet": "^1.9.4",
+    "pdfkit": "^0.19.1",
     "react": "^19.2.6",
     "react-dom": "^19.2.6"
   },
   "devDependencies": {
-    "@eslint/js": "^10.0.1",
     "@capacitor/android": "^8.0.0",
     "@capacitor/cli": "^8.0.0",
+    "@eslint/js": "^10.0.1",
     "@types/react": "^19.2.14",
     "@types/react-dom": "^19.2.3",
     "@vitejs/plugin-react": "^5.1.1",

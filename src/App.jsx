@@ -18,8 +18,8 @@ import LiterCustomizer from './components/LiterCustomizer';
 import Cart from './components/Cart';
 import LiveChatTelegramBridge from './components/LiveChatTelegramBridge';
 import OrderTracker from './components/OrderTracker';
-import AdminPanel from './components/AdminPanel';
-import CartLocationsView from './components/CartLocationsView';
+const AdminPanel = React.lazy(() => import('./components/AdminPanel'));
+const CartLocationsView = React.lazy(() => import('./components/CartLocationsView'));
 
 // Combinaciones recomendadas por defecto para el menú
 const DEFAULT_RECOMMENDATIONS = [
