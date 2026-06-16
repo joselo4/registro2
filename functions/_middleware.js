@@ -37,6 +37,7 @@ export async function onRequest(context) {
     const origin = context.request.headers.get('Origin');
     const allowedOrigins = [
       'https://pideanda.com',
+      'https://www.pideanda.com',
       'https://localhost',
       'http://localhost',
       'http://localhost:5173',
@@ -58,26 +59,45 @@ export async function onRequest(context) {
             'Access-Control-Allow-Methods': 'GET, POST, OPTIONS, PUT, DELETE',
             'Access-Control-Allow-Headers': 'Content-Type, Authorization',
             'Access-Control-Max-Age': '86400',
+            'X-XSS-Protection': '0',
+            'X-Content-Type-Options': 'nosniff',
+            'X-Frame-Options': 'DENY'
           }
         });
       } else {
-        return new Response(null, { status: 204 });
+        return new Response(null, { 
+          status: 204,
+          headers: {
+            'X-XSS-Protection': '0',
+            'X-Content-Type-Options': 'nosniff',
+            'X-Frame-Options': 'DENY'
+          }
+        });
       }
     }
 
     // Proceed to actual handler
     const response = await context.next();
+    const newResponse = new Response(response.body, response);
+
+    // Inject Security headers to dynamic response
+    newResponse.headers.set('X-XSS-Protection', '0');
+    newResponse.headers.set('X-Content-Type-Options', 'nosniff');
+    newResponse.headers.set('X-Frame-Options', 'DENY');
 
     // Inject CORS header to response if origin is allowed
     if (isAllowedOrigin) {
-      const newResponse = new Response(response.body, response);
       newResponse.headers.set('Access-Control-Allow-Origin', origin);
-      return newResponse;
     }
 
-    return response;
+    return newResponse;
   }
 
   // Otherwise, proceed to the static assets (standard page loads/refresh)
-  return context.next();
+  const response = await context.next();
+  const newResponse = new Response(response.body, response);
+  newResponse.headers.set('X-XSS-Protection', '0');
+  newResponse.headers.set('X-Content-Type-Options', 'nosniff');
+  newResponse.headers.set('X-Frame-Options', 'DENY');
+  return newResponse;
 }
