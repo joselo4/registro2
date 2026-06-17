@@ -22,7 +22,7 @@ const _writeTimeouts = {};
  * Si es administrador y tiene sesión activa, utiliza consultas directas protegidas por RLS.
  * Si es cliente, descarga únicamente las configuraciones públicas de la tienda.
  */
-export const fetchSyncedData = async (isAdmin = false) => {
+export const fetchSyncedData = async (isAdmin = false, activeSession = null) => {
   if (!supabase) return null;
 
   // ─── Caching for public clients (massive scaling) ──────────────────────────
@@ -39,12 +39,14 @@ export const fetchSyncedData = async (isAdmin = false) => {
     let isSessionAdmin = false;
 
     // Verificar si hay una sesión activa de Supabase Auth de forma segura
-    let session = null;
-    try {
-      const { data } = await supabase.auth.getSession();
-      session = data?.session || null;
-    } catch (authErr) {
-      console.warn("⚠️ Supabase Sync: Error al obtener sesión en fetch:", authErr.message);
+    let session = activeSession;
+    if (!session) {
+      try {
+        const { data } = await supabase.auth.getSession();
+        session = data?.session || null;
+      } catch (authErr) {
+        console.warn("⚠️ Supabase Sync: Error al obtener sesión en fetch:", authErr.message);
+      }
     }
     if (session) {
       isSessionAdmin = true;

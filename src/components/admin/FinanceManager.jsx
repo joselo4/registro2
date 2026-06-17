@@ -549,7 +549,7 @@ export default function FinanceManager({
                               <td style={{ color: 'var(--text-light)' }}>{o.customer.name}</td>
                               <td style={{ color: 'var(--success)', fontWeight: '600' }}>{o.grandTotal.toFixed(2)}</td>
                               <td style={{ color: 'var(--text-light)' }}>{o.customer.paymentMethod}</td>
-                              <td><span className={`badge status-badge-${o.status.toLowerCase().replace(' ','_')}`} style={{ fontSize: '0.65rem' }}>{o.status}</span></td>
+                              <td><span className={`badge status-badge-${(o.status || 'Pendiente').toLowerCase().replace(' ','_')}`} style={{ fontSize: '0.65rem' }}>{o.status || 'Pendiente'}</span></td>
                             </tr>
                           );
                         })}
@@ -588,7 +588,7 @@ export default function FinanceManager({
                       <td>{o.customer.name}</td>
                       <td style={{ fontFamily: 'monospace', fontSize: '0.8rem' }}>{hora}</td>
                       <td style={{ color: 'var(--success)', fontWeight: 'bold' }}>{o.grandTotal.toFixed(2)}</td>
-                      <td><span className={`badge status-badge-${o.status.toLowerCase().replace(' ','_')}`} style={{ fontSize: '0.75rem' }}>{o.status}</span></td>
+                      <td><span className={`badge status-badge-${(o.status || 'Pendiente').toLowerCase().replace(' ','_')}`} style={{ fontSize: '0.75rem' }}>{o.status || 'Pendiente'}</span></td>
                       <td>{o.customer.paymentMethod}</td>
                     </tr>
                   );

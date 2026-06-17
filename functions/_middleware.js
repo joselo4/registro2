@@ -44,10 +44,18 @@ export async function onRequest(context) {
       'capacitor://localhost'
     ];
 
-    const isAllowedOrigin = origin && (
-      allowedOrigins.includes(origin) || 
-      origin.endsWith('.pideanda.com')
-    );
+    let isAllowedOrigin = false;
+    if (origin) {
+      try {
+        const originUrl = new URL(origin);
+        const hostname = originUrl.hostname;
+        isAllowedOrigin = allowedOrigins.includes(origin) || 
+                          hostname === 'pideanda.com' || 
+                          hostname.endsWith('.pideanda.com');
+      } catch {
+        isAllowedOrigin = false;
+      }
+    }
 
     // Handle CORS preflight (OPTIONS)
     if (context.request.method === 'OPTIONS') {

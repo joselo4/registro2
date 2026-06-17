@@ -421,6 +421,21 @@ export default function SettingsManager({
     });
   };
 
+  const handleDefaultCustomizerChange = (field, value) => {
+    setLocalShopConfig(prev => ({
+      ...prev,
+      defaultCustomizer: {
+        ...(prev?.defaultCustomizer || {
+          baseId: 'cono',
+          flavorId: 'lucuma',
+          toppingId: 'chispas',
+          syrupId: 'fresa_sauce'
+        }),
+        [field]: value
+      }
+    }));
+  };
+
   const handleImageUpload = async (file, type, targetSetter) => {
     if (!file) return;
     setUploadingState(prev => ({ ...prev, [type]: true }));
@@ -439,10 +454,19 @@ export default function SettingsManager({
   const handleTestTelegramConnection = async () => {
     setTelegramTestStatus({ loading: true, success: null, error: null });
     try {
+      let headers = { 'Content-Type': 'application/json' };
+      if (supabase) {
+        const { data: sessionData } = await supabase.auth.getSession();
+        const accessToken = sessionData?.session?.access_token;
+        if (accessToken) {
+          headers['Authorization'] = `Bearer ${accessToken}`;
+        }
+      }
+
       const testMsg = `🔔 *¡Conexión Exitosa!*\n\nTu bot de Telegram ha sido correctamente configurado para la heladería *${localStoreName || storeName}*.\n\nRecibirás una notificación por este canal cada vez que se realice un nuevo pedido. 🎉`;
       const response = await fetch('/api/telegram', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers,
         body: JSON.stringify({
           text: testMsg,
           parse_mode: 'Markdown',
@@ -2177,16 +2201,90 @@ alter table public.helados_sync enable row level security;`}
                   </label>
                   {localLiterImage && (
                     <button 
-                      type="button" 
-                      className="btn btn-secondary" 
-                      style={{ padding: '6px 10px', fontSize: '0.75rem', color: 'var(--danger)', borderColor: 'var(--danger)', marginLeft: '6px' }}
-                      onClick={() => setLocalLiterImage('')}
-                    >
-                      Quitar
-                    </button>
+                       type="button" 
+                       className="btn btn-secondary" 
+                       style={{ padding: '6px 10px', fontSize: '0.75rem', color: 'var(--danger)', borderColor: 'var(--danger)', marginLeft: '6px' }}
+                       onClick={() => setLocalLiterImage('')}
+                     >
+                       Quitar
+                     </button>
                   )}
                 </div>
               </div>
+            </div>
+          </div>
+        </div>
+
+        {/* Default Customizer Configuration */}
+        <div className="glass" style={{ padding: '15px', borderRadius: '8px', marginBottom: '15px' }}>
+          <strong style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '0.9rem', marginBottom: '4px' }}>
+            🍦 Configuración por Defecto de "Arma tu Combinación"
+          </strong>
+          <p style={{ fontSize: '0.75rem', color: 'var(--text-light)', marginBottom: '12px' }}>
+            Define qué ingredientes (envase, sabor, topping y jarabe) aparecen seleccionados automáticamente cuando el cliente abre el personalizador.
+          </p>
+          
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '10px' }}>
+            <div className="form-group">
+              <label htmlFor="default-base-select" style={{ fontSize: '0.75rem', fontWeight: 'bold' }}>Envase Inicial</label>
+              <select
+                id="default-base-select"
+                className="form-control"
+                style={{ fontSize: '0.8rem', padding: '6px 10px', width: '100%' }}
+                value={localShopConfig?.defaultCustomizer?.baseId || 'cono'}
+                onChange={(e) => handleDefaultCustomizerChange('baseId', e.target.value)}
+              >
+                {(bases || []).map(b => (
+                  <option key={b.id} value={b.id}>{b.name} {b.active === false ? '(Inactivo)' : ''}</option>
+                ))}
+              </select>
+            </div>
+
+            <div className="form-group">
+              <label htmlFor="default-flavor-select" style={{ fontSize: '0.75rem', fontWeight: 'bold' }}>Sabor de Bola Inicial</label>
+              <select
+                id="default-flavor-select"
+                className="form-control"
+                style={{ fontSize: '0.8rem', padding: '6px 10px', width: '100%' }}
+                value={localShopConfig?.defaultCustomizer?.flavorId || 'lucuma'}
+                onChange={(e) => handleDefaultCustomizerChange('flavorId', e.target.value)}
+              >
+                {(flavors || []).map(f => (
+                  <option key={f.id} value={f.id}>{f.name} {f.active === false ? '(Inactivo)' : ''}</option>
+                ))}
+              </select>
+            </div>
+
+            <div className="form-group">
+              <label htmlFor="default-topping-select" style={{ fontSize: '0.75rem', fontWeight: 'bold' }}>Topping Sólido Inicial</label>
+              <select
+                id="default-topping-select"
+                className="form-control"
+                style={{ fontSize: '0.8rem', padding: '6px 10px', width: '100%' }}
+                value={localShopConfig?.defaultCustomizer?.toppingId || 'chispas'}
+                onChange={(e) => handleDefaultCustomizerChange('toppingId', e.target.value)}
+              >
+                <option value="none">Ninguno (Sin Topping)</option>
+                {(toppings || []).filter(t => t.category === 'solido').map(t => (
+                  <option key={t.id} value={t.id}>{t.name} {t.active === false ? '(Inactivo)' : ''}</option>
+                ))}
+              </select>
+            </div>
+
+            <div className="form-group">
+              <label htmlFor="default-syrup-select" style={{ fontSize: '0.75rem', fontWeight: 'bold' }}>Salsa/Jarabe Inicial</label>
+              <select
+                id="default-syrup-select"
+                className="form-control"
+                style={{ fontSize: '0.8rem', padding: '6px 10px', width: '100%' }}
+                value={localShopConfig?.defaultCustomizer?.syrupId || 'fresa_sauce'}
+                onChange={(e) => handleDefaultCustomizerChange('syrupId', e.target.value)}
+              >
+                <option value="none">Ninguno (Sin Jarabe)</option>
+                {(toppings || []).filter(t => t.category === 'liquido').map(t => (
+                  <option key={t.id} value={t.id}>{t.name} {t.active === false ? '(Inactivo)' : ''}</option>
+                ))}
+              </select>
             </div>
           </div>
         </div>

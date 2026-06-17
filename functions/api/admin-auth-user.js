@@ -82,14 +82,16 @@ export async function onRequestPost({ request, env }) {
     const accessToken = headerToken || bodyToken;
 
     const adminClient = await createAdminClient(env);
+    const { supabaseUrl, serviceRoleKey } = getSupabaseConfig(env);
     const skipLegacyConfigCheck = Boolean(env.LEGACY_CONFIG_CHECK);
 
-    if (skipLegacyConfigCheck) {
-      return fail(503, 'config', 'Supabase Auth admin no está configurado en el servidor.');
-    }
-
-    if (skipLegacyConfigCheck) {
-      return fail(500, 'config', 'SUPABASE_URL debe empezar con http:// o https:// y no puede tener espacios ni comillas.');
+    if (!skipLegacyConfigCheck) {
+      if (!supabaseUrl || !serviceRoleKey) {
+        return fail(503, 'config', 'Supabase Auth admin no está configurado en el servidor.');
+      }
+      if (!/^https?:\/\/.+/i.test(supabaseUrl)) {
+        return fail(500, 'config', 'SUPABASE_URL debe empezar con http:// o https:// y no puede tener espacios ni comillas.');
+      }
     }
 
     if (!accessToken) {

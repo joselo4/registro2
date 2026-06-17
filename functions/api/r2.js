@@ -46,7 +46,7 @@ export async function onRequestPost(context) {
     const nombreSeguro = String(formData.get("name") || `${Date.now()}-${nombreOriginal}`)
       .replace(/\\/g, "/")
       .split("/")
-      .filter(Boolean)
+      .filter(part => part && part !== '.' && part !== '..')
       .map(part => part.toLowerCase().replace(/[^a-z0-9._-]/g, "_").slice(0, 60))
       .join("/");
     const nombreFinal = nombreSeguro || `${Date.now()}-imagen.webp`;

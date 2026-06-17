@@ -36,7 +36,7 @@ const GOMITA_OFFSETS = [
   { dx: 0, dy: -15, color: '#ffa502' }
 ];
 
-export default function IceCreamCustomizer({ bases, flavors, toppings, onAddToCart, setView, recommendations = [], showAlert }) {
+export default function IceCreamCustomizer({ bases, flavors, toppings, onAddToCart, setView, recommendations = [], showAlert, shopConfig }) {
   const alert = (msg) => {
     if (showAlert) {
       const isError = msg.toLowerCase().includes('límite') || msg.toLowerCase().includes('añade') || msg.toLowerCase().includes('al menos');
@@ -53,22 +53,39 @@ export default function IceCreamCustomizer({ bases, flavors, toppings, onAddToCa
   const activeFlavors = flavors.filter(f => f.active !== false);
   const activeToppings = toppings.filter(t => t.active !== false && t.category === 'solido');
 
-  // --- NUEVO: Cargar con cono + 1 bola + toppings por defecto ---
-  const [selectedBase, setSelectedBase] = useState(() => activeBases.find(b => b.id === 'cono') || activeBases[0] || bases[0]); // Cono por defecto
+  // Cargar con configuración guardada por el administrador o con valores por defecto
+  const defaultCustomizer = shopConfig?.defaultCustomizer || {
+    baseId: 'cono',
+    flavorId: 'lucuma',
+    toppingId: 'chispas',
+    syrupId: 'fresa_sauce'
+  };
+
+  const [selectedBase, setSelectedBase] = useState(() => {
+    const baseIdVal = defaultCustomizer.baseId || 'cono';
+    return activeBases.find(b => b.id === baseIdVal) || activeBases[0] || bases[0];
+  });
   
   const [selectedScoops, setSelectedScoops] = useState(() => {
-    // Sabor inicial por defecto lúcuma (si está activo) o el primero de la lista
-    const defaultFlavor = activeFlavors.find(f => f.id === 'lucuma') || activeFlavors[0];
+    const flavorIdVal = defaultCustomizer.flavorId || 'lucuma';
+    const defaultFlavor = activeFlavors.find(f => f.id === flavorIdVal) || activeFlavors[0];
     return defaultFlavor ? [defaultFlavor] : [];
   });
 
   const [selectedToppings, setSelectedToppings] = useState(() => {
-    // Topping de chispas por defecto
-    const defaultTopping = activeToppings.find(t => t.id === 'chispas');
+    const toppingIdVal = defaultCustomizer.toppingId || 'chispas';
+    if (toppingIdVal === 'none' || toppingIdVal === 'none_topping') return [];
+    const defaultTopping = activeToppings.find(t => t.id === toppingIdVal);
     return defaultTopping ? [defaultTopping] : [];
   });
 
-  const [selectedSyrup, setSelectedSyrup] = useState(null); // Jarabe inicial nulo
+  const [selectedSyrup, setSelectedSyrup] = useState(() => {
+    const syrupIdVal = defaultCustomizer.syrupId || 'fresa_sauce';
+    if (syrupIdVal === 'none' || syrupIdVal === 'none_syrup') return null;
+    const defaultSyrup = toppings.find(t => t.id === syrupIdVal);
+    return defaultSyrup ? { id: defaultSyrup.id, name: defaultSyrup.name, price: defaultSyrup.price } : null;
+  });
+  const [isAdding, setIsAdding] = useState(false);
   const [customTab, setCustomTab] = useState('base'); 
 
   const handleAddScoop = (flavor) => {
@@ -168,11 +185,13 @@ export default function IceCreamCustomizer({ bases, flavors, toppings, onAddToCa
   };
 
   const handleAddCustomToCart = () => {
+    if (isAdding) return;
     if (selectedScoops.length === 0) {
       alert("Por favor, añade al menos una bola de helado.");
       return;
     }
 
+    setIsAdding(true);
     const name = `Helado Personalizado en ${selectedBase.name} (${selectedScoops.length} bola${selectedScoops.length > 1 ? 's' : ''})`;
     const customItem = {
       type: 'custom',
@@ -195,9 +214,15 @@ export default function IceCreamCustomizer({ bases, flavors, toppings, onAddToCa
     
     return scoopCoords.map((coord, idx) => {
       const { y, r } = coord;
-      let color = '#3d1d11'; // fudge
-      if (selectedSyrup.id === 'fresa') color = '#e84118';
-      if (selectedSyrup.id === 'manjar') color = '#e67e22';
+      let color = '#ffa502'; // default manjar (caramel color)
+      const syrupId = String(selectedSyrup.id || '').toLowerCase();
+      if (syrupId.includes('fudge') || syrupId.includes('choco')) {
+        color = '#3d1d11'; // chocolate brown
+      } else if (syrupId.includes('fresa') || syrupId.includes('sauce') || syrupId.includes('frutilla')) {
+        color = '#e84118'; // bright strawberry red
+      } else if (syrupId.includes('manjar') || syrupId.includes('caramel')) {
+        color = '#e67e22'; // manjar orange/caramel
+      }
 
       const pathD = `M ${100 - r + 3} ${y + 5} 
                      C ${100 - r} ${y - r - 3} ${100 + r} ${y - r - 3} ${100 + r - 3} ${y + 5} 
@@ -211,28 +236,47 @@ export default function IceCreamCustomizer({ bases, flavors, toppings, onAddToCa
 
   return (
     <div className="customizer-section">
-      <div style={{ marginBottom: '12px', display: 'flex', alignItems: 'center', gap: '10px' }}>
+      <div style={{ marginBottom: '16px', display: 'flex', alignItems: 'center', gap: '10px' }}>
         <button className="btn btn-secondary" style={{ padding: '6px 12px', fontSize: '0.85rem' }} onClick={() => setView('shop')}>
           ← Tienda
         </button>
-        <h2 style={{ fontSize: '1.4rem' }}>Arma tu Combinación</h2>
+        <h2 style={{ fontSize: '1.5rem', fontFamily: 'var(--font-title)' }}>Arma tu Combinación</h2>
       </div>
 
-      {/* 🌟 NUEVO: COMBINACIONES RECOMENDADAS (AUMENTO DE VENTAS RÁPIDAS) */}
-      <div className="glass" style={{ padding: '10px 15px', marginBottom: '15px', background: 'linear-gradient(135deg, rgba(255, 107, 129, 0.08) 0%, rgba(229, 142, 38, 0.08) 100%)', borderRadius: 'var(--radius-md)' }}>
-        <strong style={{ fontSize: '0.8rem', display: 'block', marginBottom: '6px' }}>✨ Combinaciones Recomendadas:</strong>
-        <div style={{ display: 'flex', gap: '6px', overflowX: 'auto', paddingBottom: '2px' }}>
+      {/* 🌟 COMBINACIONES RECOMENDADAS (AUMENTO DE VENTAS RÁPIDAS) */}
+      <div className="glass" style={{ padding: '15px 20px', marginBottom: '20px', background: 'linear-gradient(135deg, rgba(255, 107, 129, 0.08) 0%, rgba(229, 142, 38, 0.08) 100%)', borderRadius: 'var(--radius-md)', border: '1px solid rgba(255,107,129,0.15)' }}>
+        <strong style={{ fontSize: '0.85rem', display: 'flex', alignItems: 'center', gap: '6px', marginBottom: '8px', color: 'var(--text-dark)' }}>
+          ✨ Sugerencias del Maestro Heladero:
+        </strong>
+        <div style={{ display: 'flex', gap: '10px', overflowX: 'auto', paddingBottom: '6px' }}>
           {recommendations.length === 0 ? (
-            <span style={{ fontSize: '0.75rem', color: 'var(--text-light)', padding: '4px 0' }}>No hay combinaciones recomendadas creadas.</span>
+            <span style={{ fontSize: '0.78rem', color: 'var(--text-light)', padding: '4px 0', fontStyle: 'italic' }}>No hay combinaciones recomendadas creadas.</span>
           ) : (
             recommendations.map(rec => (
               <button 
                 key={rec.id}
+                type="button"
                 className="filter-btn" 
-                style={{ padding: '6px 10px', fontSize: '0.75rem', flex: '0 0 auto' }}
+                style={{ 
+                  padding: '8px 14px', 
+                  fontSize: '0.78rem', 
+                  fontWeight: 'bold', 
+                  flex: '0 0 auto',
+                  background: 'white',
+                  border: '1px solid var(--border-color)',
+                  borderRadius: '20px',
+                  boxShadow: 'var(--shadow-sm)',
+                  display: 'inline-flex',
+                  alignItems: 'center',
+                  gap: '6px',
+                  cursor: 'pointer',
+                  transition: 'all 0.2s ease'
+                }}
                 onClick={() => applyPresetRecommendation(rec)}
               >
-                {rec.name}
+                <span>👑</span>
+                <span>{rec.name}</span>
+                <span style={{ fontSize: '0.65rem', background: 'rgba(255, 107, 129, 0.1)', color: 'var(--primary-color)', padding: '2px 6px', borderRadius: '10px' }}>Probar</span>
               </button>
             ))
           )}
@@ -242,13 +286,25 @@ export default function IceCreamCustomizer({ bases, flavors, toppings, onAddToCa
       <div className="glass customizer-container" style={{ borderRadius: 'var(--radius-lg)', overflow: 'hidden' }}>
         
         {/* VISTA PREVIA (Fija y Responsiva) */}
-        <div className="customizer-preview" style={{ padding: '10px', background: 'radial-gradient(circle, var(--bg-secondary) 0%, var(--bg-primary) 100%)', minHeight: '260px' }}>
+        <div className="customizer-preview" style={{ padding: '15px', background: 'radial-gradient(circle, var(--bg-secondary) 0%, var(--bg-primary) 100%)', minHeight: '300px', display: 'flex', flexDirection: 'column', justifyContent: 'space-between' }}>
           <style dangerouslySetInnerHTML={{ __html: `
             @keyframes drop-scoop-generic {
               0% { transform: translateY(-160px) scaleY(1.3); opacity: 0; }
               60% { transform: translateY(8px) scaleY(0.85); }
               80% { transform: translateY(-4px) scaleY(1.05); }
               100% { transform: translateY(0px) scaleY(1); opacity: 1; }
+            }
+            @keyframes pulse-btn {
+              0% { transform: scale(1); }
+              50% { transform: scale(1.03); }
+              100% { transform: scale(1); }
+            }
+            .option-btn {
+              transition: transform 0.2s ease, border-color 0.2s ease, box-shadow 0.2s ease !important;
+            }
+            .option-btn:hover {
+              transform: translateY(-2px);
+              box-shadow: 0 4px 10px rgba(0,0,0,0.08);
             }
           ` }} />
           
@@ -298,7 +354,6 @@ export default function IceCreamCustomizer({ bases, flavors, toppings, onAddToCa
               <g filter="url(#shadow)">
                 {selectedBase.image && selectedBase.image.trim() !== '' ? (
                   <>
-                    {/* Fondo blanco sólido para que la imagen con fondo transparente no quede flotando ni transparente */}
                     <ellipse cx="100" cy="205" rx="42" ry="52" fill="#ffffff" opacity="0.98" />
                     <image href={selectedBase.image} x="55" y="150" width="90" height="110" preserveAspectRatio="xMidYMid meet" />
                   </>
@@ -328,10 +383,10 @@ export default function IceCreamCustomizer({ bases, flavors, toppings, onAddToCa
               );
             })}
 
-            {/* MODIFICADO: Jarabes en cada una de las bolas de helado seleccionadas */}
+            {/* Jarabes */}
             {renderSyrupsSVG()}
 
-            {/* MODIFICADO: Toppings Sólidos esparcidos en cada una de las bolas seleccionadas */}
+            {/* Toppings Sólidos */}
             {selectedToppings.map(topping => {
               return scoopCoords.map((coord, scoopIdx) => {
                 const { y } = coord;
@@ -396,253 +451,600 @@ export default function IceCreamCustomizer({ bases, flavors, toppings, onAddToCa
             })}
           </svg>
 
-          {/* Resumen */}
-          <div style={{ marginTop: '5px', width: '100%', textAlign: 'center' }}>
-            <div style={{ fontSize: '0.8rem', color: 'var(--text-light)', fontWeight: 600 }}>
-              {selectedScoops.length === 0 
-                ? "Agrega tu primera bola 👇" 
-                : `${selectedScoops.length} bola${selectedScoops.length > 1 ? 's' : ''} en ${selectedBase.name}`
-              }
-            </div>
-            
-            <div style={{ display: 'flex', justifyContent: 'center', flexWrap: 'wrap', gap: '4px', marginTop: '4px' }}>
-              {selectedScoops.map((scoop, index) => (
-                <span
-                  key={index}
-                  onClick={() => handleRemoveScoop(index)}
-                  style={{
-                    backgroundColor: scoop.color,
-                    color: scoop.id === 'coco' || scoop.id === 'vainilla' ? '#333' : 'white',
-                    padding: '2px 6px',
-                    borderRadius: 'var(--radius-full)',
-                    fontSize: '0.65rem',
-                    fontWeight: 'bold',
-                    cursor: 'pointer',
-                    display: 'inline-flex',
-                    alignItems: 'center',
-                    gap: '4px'
-                  }}
-                  title="Eliminar bola"
-                >
-                  {scoop.name.split(' ')[0]} ✕
-                </span>
-              ))}
+          {/* Resumen de Receta en Vivo */}
+          <div className="glass" style={{ 
+            marginTop: '10px', 
+            width: '100%', 
+            padding: '12px 15px', 
+            background: 'rgba(255, 255, 255, 0.72)', 
+            border: '1px solid rgba(255, 107, 129, 0.12)',
+            textAlign: 'left',
+            borderRadius: '16px'
+          }}>
+            <strong style={{ fontSize: '0.8rem', display: 'block', marginBottom: '8px', color: 'var(--text-dark)' }}>
+              📝 Tu Receta Especial:
+            </strong>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '6px', fontSize: '0.75rem' }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                <span style={{ fontSize: '1rem' }}>🍦</span>
+                <span style={{ color: 'var(--text-light)' }}>Envase:</span>
+                <strong style={{ color: 'var(--text-dark)' }}>{selectedBase.name}</strong>
+              </div>
+              <div style={{ display: 'flex', alignItems: 'flex-start', gap: '6px' }}>
+                <span style={{ fontSize: '1rem' }}>🍨</span>
+                <span style={{ color: 'var(--text-light)' }}>Sabores:</span>
+                <div style={{ display: 'flex', flexWrap: 'wrap', gap: '3px', flex: 1 }}>
+                  {selectedScoops.length === 0 ? (
+                    <span style={{ color: 'var(--danger)', fontWeight: 'bold' }}>¡Añade al menos un sabor!</span>
+                  ) : (
+                    selectedScoops.map((scoop, idx) => (
+                      <span 
+                        key={idx} 
+                        onClick={() => handleRemoveScoop(idx)}
+                        style={{
+                          background: scoop.color,
+                          color: scoop.id === 'coco' || scoop.id === 'vainilla' ? '#333' : 'white',
+                          padding: '2px 6px',
+                          borderRadius: '8px',
+                          fontSize: '0.65rem',
+                          fontWeight: 'bold',
+                          cursor: 'pointer',
+                          display: 'inline-flex',
+                          alignItems: 'center',
+                          gap: '3px'
+                        }}
+                        title="Haga clic para quitar"
+                      >
+                        {scoop.name} ✕
+                      </span>
+                    ))
+                  )}
+                </div>
+              </div>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                <span style={{ fontSize: '1rem' }}>🍬</span>
+                <span style={{ color: 'var(--text-light)' }}>Toppings:</span>
+                <strong style={{ color: 'var(--text-dark)' }}>
+                  {selectedToppings.map(t => t.name).join(', ') || 'Sin toppings'}
+                </strong>
+              </div>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                <span style={{ fontSize: '1rem' }}>🍓</span>
+                <span style={{ color: 'var(--text-light)' }}>Salsa:</span>
+                <strong style={{ color: 'var(--text-dark)' }}>
+                  {selectedSyrup?.name || 'Sin jarabe'}
+                </strong>
+              </div>
             </div>
           </div>
         </div>
 
-        {/* CONTROLES (Menú por Pestañas para Móvil) */}
-        <div className="customizer-options" style={{ padding: '15px' }}>
+        {/* CONTROLES (Stepper y Contenido) */}
+        <div className="customizer-options" style={{ padding: '20px', display: 'flex', flexDirection: 'column', justifyContent: 'space-between' }}>
           
-          {/* Selector de Pestañas */}
-          <div className="catalog-filters" style={{ marginBottom: '12px', borderBottom: '1px solid var(--border-color)', paddingBottom: '8px' }}>
-            <button 
-              className={`filter-btn ${customTab === 'base' ? 'active' : ''}`}
-              onClick={() => setCustomTab('base')}
-              style={{ flex: 1, padding: '6px 2px', fontSize: '0.8rem' }}
-            >
-              🏢 1. Envase
-            </button>
-            <button 
-              className={`filter-btn ${customTab === 'scoops' ? 'active' : ''}`}
-              onClick={() => setCustomTab('scoops')}
-              style={{ flex: 1, padding: '6px 2px', fontSize: '0.8rem' }}
-            >
-              🍧 2. Sabores
-            </button>
-            <button 
-              className={`filter-btn ${customTab === 'toppings' ? 'active' : ''}`}
-              onClick={() => setCustomTab('toppings')}
-              style={{ flex: 1, padding: '6px 2px', fontSize: '0.8rem' }}
-            >
-              🍫 3. Toppings
-            </button>
-          </div>
+          <div>
+            {/* Stepper Horizontal Interactivo */}
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '25px', position: 'relative', padding: '0 10px' }}>
+              <div style={{ position: 'absolute', top: '18px', left: '12%', right: '12%', height: '3px', backgroundColor: 'rgba(0, 0, 0, 0.05)', zIndex: 1 }}>
+                <div style={{ 
+                  height: '100%', 
+                  width: customTab === 'base' ? '0%' : customTab === 'scoops' ? '50%' : '100%', 
+                  backgroundColor: 'var(--primary-color)', 
+                  transition: 'width 0.4s ease' 
+                }} />
+              </div>
 
-          {/* Pestaña 1: Envases */}
-          {customTab === 'base' && (
-            <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
-              <div className="option-grid">
-                {activeBases.map(base => (
-                  <button
-                    key={base.id}
-                    className={`option-btn ${selectedBase.id === base.id ? 'selected' : ''}`}
-                    onClick={() => {
-                      setSelectedBase(base);
-                      setCustomTab('scoops'); 
-                    }}
-                    style={{ padding: '12px 6px' }}
-                  >
-                    {base.image ? (
-                      <img src={base.image} alt={base.name} width="38" height="38" style={{ width: '38px', height: '38px', objectFit: 'contain', marginBottom: '4px' }} />
-                    ) : (
-                      <span style={{ fontSize: '1.8rem' }}>{base.icon}</span>
-                    )}
-                    <strong style={{ fontSize: '0.8rem' }}>{base.name}</strong>
-                    <span style={{ fontSize: '0.7rem', color: 'var(--primary-color)', fontWeight: 'bold' }}>
-                      {base.price === 0 ? 'Gratis' : `+ S/. ${base.price.toFixed(2)}`}
-                    </span>
-                  </button>
-                ))}
+              <div onClick={() => setCustomTab('base')} style={{ zIndex: 2, display: 'flex', flexDirection: 'column', alignItems: 'center', cursor: 'pointer' }}>
+                <div style={{
+                  width: '36px',
+                  height: '36px',
+                  borderRadius: '50%',
+                  backgroundColor: customTab === 'base' ? 'var(--primary-color)' : 'white',
+                  border: '2px solid var(--primary-color)',
+                  color: customTab === 'base' ? 'white' : 'var(--primary-color)',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  fontWeight: 'bold',
+                  fontSize: '0.85rem',
+                  boxShadow: customTab === 'base' ? '0 0 10px rgba(255, 107, 129, 0.3)' : 'none',
+                  transition: 'all 0.3s ease'
+                }}>
+                  {customTab !== 'base' ? '✓' : '1'}
+                </div>
+                <span style={{ fontSize: '0.72rem', fontWeight: 'bold', marginTop: '6px', color: customTab === 'base' ? 'var(--primary-color)' : 'var(--text-light)' }}>Envase</span>
+              </div>
+
+              <div onClick={() => setCustomTab('scoops')} style={{ zIndex: 2, display: 'flex', flexDirection: 'column', alignItems: 'center', cursor: 'pointer' }}>
+                <div style={{
+                  width: '36px',
+                  height: '36px',
+                  borderRadius: '50%',
+                  backgroundColor: customTab === 'scoops' ? 'var(--primary-color)' : (customTab === 'toppings' ? 'white' : 'white'),
+                  border: `2px solid ${customTab === 'scoops' || customTab === 'toppings' ? 'var(--primary-color)' : 'rgba(0,0,0,0.1)'}`,
+                  color: customTab === 'scoops' ? 'white' : (customTab === 'toppings' ? 'var(--primary-color)' : 'var(--text-light)'),
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  fontWeight: 'bold',
+                  fontSize: '0.85rem',
+                  boxShadow: customTab === 'scoops' ? '0 0 10px rgba(255, 107, 129, 0.3)' : 'none',
+                  transition: 'all 0.3s ease'
+                }}>
+                  {customTab === 'toppings' ? '✓' : '2'}
+                </div>
+                <span style={{ fontSize: '0.72rem', fontWeight: 'bold', marginTop: '6px', color: customTab === 'scoops' ? 'var(--primary-color)' : 'var(--text-light)' }}>Sabores</span>
+              </div>
+
+              <div onClick={() => setCustomTab('toppings')} style={{ zIndex: 2, display: 'flex', flexDirection: 'column', alignItems: 'center', cursor: 'pointer' }}>
+                <div style={{
+                  width: '36px',
+                  height: '36px',
+                  borderRadius: '50%',
+                  backgroundColor: customTab === 'toppings' ? 'var(--primary-color)' : 'white',
+                  border: `2px solid ${customTab === 'toppings' ? 'var(--primary-color)' : 'rgba(0,0,0,0.1)'}`,
+                  color: customTab === 'toppings' ? 'white' : 'var(--text-light)',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  fontWeight: 'bold',
+                  fontSize: '0.85rem',
+                  boxShadow: customTab === 'toppings' ? '0 0 10px rgba(255, 107, 129, 0.3)' : 'none',
+                  transition: 'all 0.3s ease'
+                }}>
+                  3
+                </div>
+                <span style={{ fontSize: '0.72rem', fontWeight: 'bold', marginTop: '6px', color: customTab === 'toppings' ? 'var(--primary-color)' : 'var(--text-light)' }}>Extras</span>
               </div>
             </div>
-          )}
 
-          {/* Pestaña 2: Sabores */}
-          {customTab === 'scoops' && (
-            <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
-              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                <span style={{ fontSize: '0.75rem', color: 'var(--text-light)' }}>
-                  (Bolas tradicionales):
-                </span>
-                <strong style={{ fontSize: '0.8rem', color: 'var(--primary-color)' }}>
-                  {selectedScoops.length} / 5 bolas
-                </strong>
-              </div>
-              
-              <div className="option-grid" style={{ gridTemplateColumns: 'repeat(auto-fill, minmax(100px, 1fr))', gap: '6px' }}>
-                {activeFlavors.map(flavor => {
-                  const count = selectedScoops.filter(s => s.id === flavor.id).length;
-                  return (
+            {/* Pestaña 1: Envases */}
+            {customTab === 'base' && (
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                <div style={{ 
+                  background: 'rgba(255, 107, 129, 0.05)', 
+                  padding: '8px 12px', 
+                  borderRadius: '8px', 
+                  fontSize: '0.78rem', 
+                  color: 'var(--primary-color)', 
+                  fontWeight: '600',
+                  textAlign: 'left'
+                }}>
+                  👉 Paso 1: Elige tu envase (Cono, Vaso o Waffle)
+                </div>
+                <div className="option-grid" style={{ gridTemplateColumns: 'repeat(auto-fill, minmax(110px, 1fr))', gap: '8px' }}>
+                  {activeBases.map(base => (
                     <button
-                      key={flavor.id}
-                      className="option-btn"
-                      onClick={() => handleAddScoop(flavor)}
-                      disabled={selectedScoops.length >= 5}
-                      style={{ position: 'relative', padding: '10px 4px' }}
+                      key={base.id}
+                      type="button"
+                      className={`option-btn ${selectedBase.id === base.id ? 'selected' : ''}`}
+                      onClick={() => {
+                        setSelectedBase(base);
+                        setCustomTab('scoops'); 
+                      }}
+                      style={{ 
+                        padding: '15px 10px',
+                        borderRadius: '16px',
+                        border: selectedBase.id === base.id ? '2px solid var(--primary-color)' : '1px solid var(--border-color)',
+                        background: selectedBase.id === base.id ? 'rgba(255, 107, 129, 0.05)' : 'white',
+                        cursor: 'pointer',
+                        transition: 'all 0.2s ease',
+                        boxShadow: selectedBase.id === base.id ? '0 4px 12px rgba(255, 107, 129, 0.15)' : 'var(--shadow-sm)'
+                      }}
                     >
-                      {count > 0 && (
-                        <span style={{
-                          position: 'absolute',
-                          top: '2px',
-                          right: '2px',
-                          background: 'var(--primary-color)',
-                          color: 'white',
-                          width: '16px',
-                          height: '16px',
-                          borderRadius: '50%',
-                          fontSize: '0.65rem',
-                          display: 'flex',
-                          alignItems: 'center',
-                          justifyContent: 'center',
-                          fontWeight: 'bold'
-                        }}>
-                          {count}
-                        </span>
+                      {base.image ? (
+                        <img src={base.image} alt={base.name} width="42" height="42" style={{ width: '42px', height: '42px', objectFit: 'contain', marginBottom: '6px' }} />
+                      ) : (
+                        <span style={{ fontSize: '2rem', marginBottom: '4px' }}>{base.icon}</span>
                       )}
-                      <span className="color-dot" style={{ backgroundColor: flavor.color, width: '18px', height: '18px' }}></span>
-                      <strong style={{ fontSize: '0.8rem' }}>{flavor.name}</strong>
-                      <span style={{ fontSize: '0.7rem', color: 'var(--text-light)' }}>
-                        S/. {flavor.price.toFixed(2)}
+                      <strong style={{ fontSize: '0.82rem', color: 'var(--text-dark)' }}>{base.name}</strong>
+                      <span style={{ fontSize: '0.72rem', color: 'var(--primary-color)', fontWeight: 'bold' }}>
+                        {base.price === 0 ? 'Gratis' : `+ S/. ${base.price.toFixed(2)}`}
                       </span>
                     </button>
-                  );
-                })}
+                  ))}
+                </div>
               </div>
-            </div>
-          )}
+            )}
 
-          {/* Pestaña 3: Toppings */}
-          {customTab === 'toppings' && (
-            <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
-              <div>
-                <p style={{ fontSize: '0.75rem', color: 'var(--text-light)', marginBottom: '5px' }}>Toppings:</p>
-                <div className="option-grid" style={{ gridTemplateColumns: 'repeat(auto-fill, minmax(100px, 1fr))', gap: '6px' }}>
-                  <button
-                    key="sin-toppings"
-                    className={`option-btn ${selectedToppings.length === 0 ? 'selected' : ''}`}
-                    onClick={() => setSelectedToppings([])}
-                    style={{ padding: '8px 4px' }}
-                  >
-                    <span style={{ fontSize: '1rem' }}>🚫</span>
-                    <strong style={{ fontSize: '0.75rem' }}>Sin Toppings</strong>
-                    <span style={{ fontSize: '0.65rem', color: 'var(--text-light)' }}>S/. 0.00</span>
-                  </button>
-                  {activeToppings.map(topping => {
-                    const isSelected = selectedToppings.some(t => t.id === topping.id);
-                    return (
+            {/* Pestaña 2: Sabores */}
+            {customTab === 'scoops' && (
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                <div style={{ 
+                  background: 'rgba(255, 107, 129, 0.05)', 
+                  padding: '8px 12px', 
+                  borderRadius: '8px', 
+                  fontSize: '0.78rem', 
+                  color: 'var(--primary-color)', 
+                  fontWeight: '600',
+                  textAlign: 'left'
+                }}>
+                  👉 Paso 2: Añade sabores (¡Haz tu combinación favorita!)
+                </div>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '4px' }}>
+                  <span style={{ fontSize: '0.75rem', color: 'var(--text-light)' }}>
+                    (Bolas tradicionales):
+                  </span>
+                  <strong style={{ fontSize: '0.8rem', color: 'var(--primary-color)' }}>
+                    {selectedScoops.length} / 5 bolas
+                  </strong>
+                </div>
+                
+                <div className="option-grid" style={{ gridTemplateColumns: 'repeat(auto-fill, minmax(105px, 1fr))', gap: '8px' }}>
+                  {activeFlavors.map(flavor => {
+                    const count = selectedScoops.filter(s => s.id === flavor.id).length;
+                    return count === 0 ? (
                       <button
-                        key={topping.id}
-                        className={`option-btn ${isSelected ? 'selected' : ''}`}
-                        onClick={() => handleToggleTopping(topping)}
-                        style={{ padding: '8px 4px' }}
+                        key={flavor.id}
+                        type="button"
+                        className="option-btn"
+                        onClick={() => handleAddScoop(flavor)}
+                        disabled={selectedScoops.length >= 5}
+                        style={{
+                          background: 'white',
+                          border: '1px solid var(--border-color)',
+                          borderRadius: '16px',
+                          padding: '12px 8px',
+                          display: 'flex',
+                          flexDirection: 'column',
+                          alignItems: 'center',
+                          gap: '6px',
+                          cursor: 'pointer',
+                          position: 'relative',
+                          transition: 'all 0.2s ease',
+                          boxShadow: 'var(--shadow-sm)',
+                          opacity: selectedScoops.length >= 5 ? 0.55 : 1
+                        }}
                       >
-                        {topping.image ? (
-                          <img src={topping.image} alt={topping.name} width="22" height="22" style={{ width: '22px', height: '22px', objectFit: 'contain', marginBottom: '2px' }} />
-                        ) : (
-                          <span style={{ fontSize: '1rem' }}>🍬</span>
-                        )}
-                        <strong style={{ fontSize: '0.75rem' }}>{topping.name}</strong>
-                        <span style={{ fontSize: '0.65rem', color: 'var(--text-light)' }}>+ S/. {topping.price.toFixed(2)}</span>
+                        <span className="color-dot" style={{ backgroundColor: flavor.color, width: '24px', height: '24px' }}></span>
+                        <strong style={{ fontSize: '0.8rem', color: 'var(--text-dark)' }}>{flavor.name}</strong>
+                        <span style={{ fontSize: '0.7rem', color: 'var(--text-light)' }}>S/. {flavor.price.toFixed(2)}</span>
+                        <div style={{
+                          marginTop: '4px',
+                          width: '100%',
+                          padding: '4px',
+                          borderRadius: '8px',
+                          background: 'rgba(255, 107, 129, 0.05)',
+                          color: 'var(--primary-color)',
+                          fontSize: '0.7rem',
+                          fontWeight: 'bold',
+                          textAlign: 'center'
+                        }}>
+                          Añadir +
+                        </div>
                       </button>
+                    ) : (
+                      <div
+                        key={flavor.id}
+                        style={{
+                          background: 'rgba(255, 107, 129, 0.04)',
+                          border: '2px solid var(--primary-color)',
+                          borderRadius: '16px',
+                          padding: '12px 8px',
+                          display: 'flex',
+                          flexDirection: 'column',
+                          alignItems: 'center',
+                          gap: '6px',
+                          position: 'relative',
+                          transition: 'all 0.2s ease',
+                          boxShadow: '0 4px 12px rgba(255, 107, 129, 0.1)'
+                        }}
+                      >
+                        <span className="color-dot" style={{ backgroundColor: flavor.color, width: '24px', height: '24px' }}></span>
+                        <strong style={{ fontSize: '0.8rem', color: 'var(--text-dark)', fontWeight: 'bold' }}>{flavor.name}</strong>
+                        <span style={{ fontSize: '0.7rem', color: 'var(--primary-color)', fontWeight: 'bold' }}>S/. {flavor.price.toFixed(2)}</span>
+                        
+                        {/* Controles de cantidad dedicados */}
+                        <div style={{ 
+                          display: 'flex', 
+                          alignItems: 'center', 
+                          justifyContent: 'space-between', 
+                          width: '100%', 
+                          marginTop: '4px',
+                          background: 'white',
+                          border: '1px solid var(--border-color)',
+                          borderRadius: '10px',
+                          padding: '2px'
+                        }}>
+                          <button
+                            type="button"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              const idx = selectedScoops.findIndex(s => s.id === flavor.id);
+                              if (idx >= 0) handleRemoveScoop(idx);
+                            }}
+                            style={{
+                              width: '22px',
+                              height: '22px',
+                              borderRadius: '6px',
+                              border: 'none',
+                              background: 'rgba(231, 76, 60, 0.1)',
+                              color: '#e74c3c',
+                              fontWeight: 'bold',
+                              fontSize: '0.9rem',
+                              cursor: 'pointer',
+                              display: 'flex',
+                              alignItems: 'center',
+                              justifyContent: 'center'
+                            }}
+                          >
+                            -
+                          </button>
+                          <span style={{ fontSize: '0.8rem', fontWeight: 'bold', color: 'var(--text-dark)' }}>{count}</span>
+                          <button
+                            type="button"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              if (selectedScoops.length >= 5) {
+                                alert("¡El límite es de 5 bolas de helado!");
+                                return;
+                              }
+                              handleAddScoop(flavor);
+                            }}
+                            disabled={selectedScoops.length >= 5}
+                            style={{
+                              width: '22px',
+                              height: '22px',
+                              borderRadius: '6px',
+                              border: 'none',
+                              background: 'rgba(255, 107, 129, 0.1)',
+                              color: 'var(--primary-color)',
+                              fontWeight: 'bold',
+                              fontSize: '0.9rem',
+                              cursor: 'pointer',
+                              display: 'flex',
+                              alignItems: 'center',
+                              justifyContent: 'center',
+                              opacity: selectedScoops.length >= 5 ? 0.5 : 1
+                            }}
+                          >
+                            +
+                          </button>
+                        </div>
+                      </div>
                     );
                   })}
                 </div>
               </div>
+            )}
 
-              <div>
-                <p style={{ fontSize: '0.75rem', color: 'var(--text-light)', marginBottom: '5px' }}>Jarabe / Salsa (S/. 0.50):</p>
-                <div className="option-grid" style={{ gridTemplateColumns: 'repeat(auto-fill, minmax(100px, 1fr))', gap: '6px' }}>
-                  <button
-                    key="sin-syrup"
-                    className={`option-btn ${selectedSyrup === null ? 'selected' : ''}`}
-                    onClick={() => setSelectedSyrup(null)}
-                    style={{ padding: '8px' }}
-                  >
-                    <span style={{ fontSize: '1rem' }}>🚫</span>
-                    <strong style={{ fontSize: '0.75rem' }}>Sin Jarabe</strong>
-                    <span style={{ fontSize: '0.65rem', color: 'var(--text-light)' }}>S/. 0.00</span>
-                  </button>
-                  {toppings.filter(t => t.category === 'liquido' && t.active !== false).map(syrup => {
-                    const isSelected = selectedSyrup?.id === syrup.id || (syrup.id === 'fresa_sauce' && selectedSyrup?.id === 'fresa');
-                    const icon = syrup.id === 'fudge' ? '🍫' : (syrup.id === 'fresa_sauce' || syrup.id === 'fresa' ? '🍓' : '🍯');
-                    return (
-                      <button
-                        key={syrup.id}
-                        className={`option-btn ${isSelected ? 'selected' : ''}`}
-                        onClick={() => handleToggleSyrup({ id: syrup.id, name: syrup.name, price: syrup.price })}
-                        style={{ padding: '8px' }}
-                      >
-                        {syrup.image ? (
-                          <img src={syrup.image} alt={syrup.name} width="22" height="22" style={{ width: '22px', height: '22px', objectFit: 'contain', marginBottom: '2px' }} />
-                        ) : (
-                          <span style={{ fontSize: '1rem' }}>{icon}</span>
-                        )}
-                        <strong style={{ fontSize: '0.75rem' }}>{syrup.name.split(' ')[0]}</strong>
-                      </button>
-                    );
-                  })}
+            {/* Pestaña 3: Toppings y Salsas */}
+            {customTab === 'toppings' && (
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+                <div style={{ 
+                  background: 'rgba(255, 107, 129, 0.05)', 
+                  padding: '8px 12px', 
+                  borderRadius: '8px', 
+                  fontSize: '0.78rem', 
+                  color: 'var(--primary-color)', 
+                  fontWeight: '600',
+                  textAlign: 'left',
+                  marginBottom: '5px'
+                }}>
+                  👉 Paso 3: Decora con Toppings y Salsas
+                </div>
+
+                <div>
+                  <p style={{ fontSize: '0.78rem', fontWeight: 'bold', color: 'var(--text-dark)', marginBottom: '6px' }}>🍬 Toppings Sólidos (Opcional):</p>
+                  <div className="option-grid" style={{ gridTemplateColumns: 'repeat(auto-fill, minmax(105px, 1fr))', gap: '6px' }}>
+                    <button
+                      key="sin-toppings"
+                      type="button"
+                      className={`option-btn ${selectedToppings.length === 0 ? 'selected' : ''}`}
+                      onClick={() => setSelectedToppings([])}
+                      style={{ 
+                        padding: '10px 6px',
+                        borderRadius: '16px',
+                        border: selectedToppings.length === 0 ? '2px solid var(--primary-color)' : '1px solid var(--border-color)',
+                        background: selectedToppings.length === 0 ? 'rgba(255, 107, 129, 0.05)' : 'white'
+                      }}
+                    >
+                      <span style={{ fontSize: '1.5rem', marginBottom: '2px' }}>🚫</span>
+                      <strong style={{ fontSize: '0.75rem', color: 'var(--text-dark)' }}>Sin Toppings</strong>
+                      <span style={{ fontSize: '0.65rem', color: 'var(--text-light)' }}>Gratis</span>
+                    </button>
+                    {activeToppings.map(topping => {
+                      const isSelected = selectedToppings.some(t => t.id === topping.id);
+                      return (
+                        <button
+                          key={topping.id}
+                          type="button"
+                          className={`option-btn ${isSelected ? 'selected' : ''}`}
+                          onClick={() => handleToggleTopping(topping)}
+                          style={{ 
+                            padding: '10px 6px',
+                            borderRadius: '16px',
+                            border: isSelected ? '2px solid var(--primary-color)' : '1px solid var(--border-color)',
+                            background: isSelected ? 'rgba(255, 107, 129, 0.05)' : 'white',
+                            position: 'relative'
+                          }}
+                        >
+                          {isSelected && (
+                            <span style={{
+                              position: 'absolute',
+                              top: '4px',
+                              right: '4px',
+                              background: 'var(--primary-color)',
+                              color: 'white',
+                              width: '14px',
+                              height: '14px',
+                              borderRadius: '50%',
+                              fontSize: '0.55rem',
+                              display: 'flex',
+                              alignItems: 'center',
+                              justifyContent: 'center',
+                              fontWeight: 'bold'
+                            }}>✓</span>
+                          )}
+                          {topping.image ? (
+                            <img src={topping.image} alt={topping.name} width="26" height="26" style={{ width: '26px', height: '26px', objectFit: 'contain', marginBottom: '4px' }} />
+                          ) : (
+                            <span style={{ fontSize: '1.5rem', marginBottom: '2px' }}>🍬</span>
+                          )}
+                          <strong style={{ fontSize: '0.75rem', color: 'var(--text-dark)' }}>{topping.name}</strong>
+                          <span style={{ fontSize: '0.65rem', color: 'var(--primary-color)', fontWeight: 'bold' }}>+ S/. {topping.price.toFixed(2)}</span>
+                        </button>
+                      );
+                    })}
+                  </div>
+                </div>
+
+                <div>
+                  <p style={{ fontSize: '0.78rem', fontWeight: 'bold', color: 'var(--text-dark)', marginBottom: '6px' }}>🍓 Jarabe / Salsa (S/. 0.50):</p>
+                  <div className="option-grid" style={{ gridTemplateColumns: 'repeat(auto-fill, minmax(105px, 1fr))', gap: '6px' }}>
+                    <button
+                      key="sin-syrup"
+                      type="button"
+                      className={`option-btn ${selectedSyrup === null ? 'selected' : ''}`}
+                      onClick={() => setSelectedSyrup(null)}
+                      style={{ 
+                        padding: '10px 6px',
+                        borderRadius: '16px',
+                        border: selectedSyrup === null ? '2px solid var(--primary-color)' : '1px solid var(--border-color)',
+                        background: selectedSyrup === null ? 'rgba(255, 107, 129, 0.05)' : 'white'
+                      }}
+                    >
+                      <span style={{ fontSize: '1.5rem', marginBottom: '2px' }}>🚫</span>
+                      <strong style={{ fontSize: '0.75rem', color: 'var(--text-dark)' }}>Sin Jarabe</strong>
+                      <span style={{ fontSize: '0.65rem', color: 'var(--text-light)' }}>Gratis</span>
+                    </button>
+                    {toppings.filter(t => t.category === 'liquido' && t.active !== false).map(syrup => {
+                      const isSelected = selectedSyrup?.id === syrup.id || (syrup.id === 'fresa_sauce' && selectedSyrup?.id === 'fresa');
+                      const icon = syrup.id === 'fudge' ? '🍫' : (syrup.id === 'fresa_sauce' || syrup.id === 'fresa' ? '🍓' : '🍯');
+                      return (
+                        <button
+                          key={syrup.id}
+                          type="button"
+                          className={`option-btn ${isSelected ? 'selected' : ''}`}
+                          onClick={() => handleToggleSyrup({ id: syrup.id, name: syrup.name, price: syrup.price })}
+                          style={{ 
+                            padding: '10px 6px',
+                            borderRadius: '16px',
+                            border: isSelected ? '2px solid var(--primary-color)' : '1px solid var(--border-color)',
+                            background: isSelected ? 'rgba(255, 107, 129, 0.05)' : 'white',
+                            position: 'relative'
+                          }}
+                        >
+                          {isSelected && (
+                            <span style={{
+                              position: 'absolute',
+                              top: '4px',
+                              right: '4px',
+                              background: 'var(--primary-color)',
+                              color: 'white',
+                              width: '14px',
+                              height: '14px',
+                              borderRadius: '50%',
+                              fontSize: '0.55rem',
+                              display: 'flex',
+                              alignItems: 'center',
+                              justifyContent: 'center',
+                              fontWeight: 'bold'
+                            }}>✓</span>
+                          )}
+                          {syrup.image ? (
+                            <img src={syrup.image} alt={syrup.name} width="26" height="26" style={{ width: '26px', height: '26px', objectFit: 'contain', marginBottom: '4px' }} />
+                          ) : (
+                            <span style={{ fontSize: '1.5rem', marginBottom: '2px' }}>{icon}</span>
+                          )}
+                          <strong style={{ fontSize: '0.75rem', color: 'var(--text-dark)' }}>{syrup.name.split(' ')[0]}</strong>
+                          <span style={{ fontSize: '0.65rem', color: 'var(--primary-color)', fontWeight: 'bold' }}>+ S/. {syrup.price.toFixed(2)}</span>
+                        </button>
+                      );
+                    })}
+                  </div>
                 </div>
               </div>
-            </div>
-          )}
+            )}
+          </div>
 
-          {/* Barra de Costo y Checkout */}
-          <div className="custom-price-bar" style={{ marginTop: '15px', padding: '10px' }}>
-            <div>
-              <span style={{ fontSize: '0.7rem', color: 'var(--text-light)' }}>Total Helado:</span>
-              <div className="price-tag" style={{ fontSize: '1.35rem', lineHeight: '1.2' }}>S/. {totalPrice.toFixed(2)}</div>
-            </div>
-            
-            <div style={{ display: 'flex', gap: '6px' }}>
-              {customTab !== 'toppings' ? (
-                <button 
-                  className="btn btn-secondary" 
-                  style={{ padding: '6px 10px', fontSize: '0.8rem' }}
-                  onClick={() => setCustomTab(customTab === 'base' ? 'scoops' : 'toppings')}
+          {/* Botones de Navegación del Flujo y Barra de Costo */}
+          <div>
+            <div style={{ display: 'flex', justifyContent: 'space-between', gap: '8px', marginTop: '20px', borderTop: '1px solid var(--border-color)', paddingTop: '15px' }}>
+              {customTab !== 'base' ? (
+                <button
+                  type="button"
+                  className="btn btn-secondary"
+                  style={{ padding: '8px 12px', fontSize: '0.8rem', fontWeight: 'bold' }}
+                  onClick={() => setCustomTab(customTab === 'toppings' ? 'scoops' : 'base')}
                 >
-                  Siguiente →
+                  ← Atrás
                 </button>
-              ) : null}
-              
-              <button
-                className="btn btn-primary"
-                disabled={selectedScoops.length === 0}
-                onClick={handleAddCustomToCart}
-                style={{ padding: '8px 14px', fontSize: '0.85rem' }}
-              >
-                🛒 Agregar
-              </button>
+              ) : <div />}
+
+              <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
+                {customTab !== 'toppings' ? (
+                  <button
+                    type="button"
+                    className="btn btn-primary"
+                    style={{ 
+                      padding: '8px 16px', 
+                      fontSize: '0.8rem', 
+                      fontWeight: 'bold',
+                      background: 'var(--secondary-color)',
+                      borderColor: 'var(--secondary-color)',
+                      boxShadow: '0 4px 10px rgba(229, 142, 38, 0.2)'
+                    }}
+                    onClick={() => setCustomTab(customTab === 'base' ? 'scoops' : 'toppings')}
+                  >
+                    Continuar →
+                  </button>
+                ) : null}
+              </div>
+            </div>
+
+            {/* Barra de Costo Final y Botón de Conversión de Venta */}
+            <div className="custom-price-bar" style={{ 
+              marginTop: '15px', 
+              padding: '12px 15px', 
+              background: 'linear-gradient(135deg, rgba(255, 107, 129, 0.08) 0%, rgba(229, 142, 38, 0.08) 100%)', 
+              borderRadius: '20px',
+              border: '1px solid var(--border-color)',
+              display: 'flex',
+              flexDirection: 'column',
+              gap: '10px'
+            }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', width: '100%', flexWrap: 'wrap', gap: '10px' }}>
+                <div>
+                  <span style={{ fontSize: '0.72rem', color: 'var(--text-light)', fontWeight: 600 }}>Total de tu Creación:</span>
+                  <div className="price-tag" style={{ fontSize: '1.45rem', color: 'var(--text-dark)', fontWeight: 'bold', lineHeight: '1.2' }}>S/. {totalPrice.toFixed(2)}</div>
+                </div>
+                
+                <button
+                  type="button"
+                  className="btn btn-primary"
+                  disabled={selectedScoops.length === 0 || isAdding}
+                  onClick={handleAddCustomToCart}
+                  style={{ 
+                    padding: '10px 20px', 
+                    fontSize: '0.88rem', 
+                    fontWeight: 'bold',
+                    background: 'linear-gradient(135deg, var(--primary-color) 0%, var(--secondary-color) 100%)',
+                    boxShadow: '0 6px 16px rgba(255, 107, 129, 0.35)',
+                    animation: 'pulse-btn 2s infinite',
+                    cursor: 'pointer',
+                    border: 'none',
+                    borderRadius: '12px'
+                  }}
+                >
+                  {isAdding ? 'Agregando...' : '🛒 ¡Agregar al Carrito! 🍦'}
+                </button>
+              </div>
+
+              <div style={{ 
+                display: 'flex', 
+                alignItems: 'center', 
+                justifyContent: 'center', 
+                gap: '6px', 
+                fontSize: '0.68rem', 
+                color: 'var(--text-light)', 
+                background: 'rgba(255,255,255,0.6)', 
+                padding: '5px', 
+                borderRadius: '8px'
+              }}>
+                <span>✨</span>
+                <span>Preparado al instante con ingredientes 100% artesanales y naturales.</span>
+              </div>
             </div>
           </div>
 

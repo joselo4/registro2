@@ -99,6 +99,7 @@ export default function OrderTracker({ orderId, orders, setView, storePhone, onC
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           text: textMsg,
+          orderId: orderIdUpper,
           parse_mode: 'Markdown',
           kind: 'survey'
         })
@@ -575,7 +576,7 @@ export default function OrderTracker({ orderId, orders, setView, storePhone, onC
       </div>
 
       {/* Tarjeta de Estado Actual */}
-      <div className={`tracking-status-badge status-${currentOrder.status.toLowerCase().replace(' ', '_')} ${animateStatus ? 'animate-status-pop' : ''}`} style={{
+      <div className={`tracking-status-badge status-${(currentOrder.status || 'Pendiente').toLowerCase().replace(' ', '_')} ${animateStatus ? 'animate-status-pop' : ''}`} style={{
         textAlign: 'center',
         padding: '10px 15px',
         fontWeight: 'bold',
@@ -584,7 +585,7 @@ export default function OrderTracker({ orderId, orders, setView, storePhone, onC
         marginBottom: '25px',
         transition: 'all 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275)'
       }}>
-        {formatStatusText(currentOrder.status)}
+        {formatStatusText(currentOrder.status || 'Pendiente')}
       </div>
 
       {/* Línea de Tiempo del Pedido */}

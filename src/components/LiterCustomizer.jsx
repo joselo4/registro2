@@ -57,6 +57,7 @@ export default function LiterCustomizer({ flavors, toppings = [], literConfig, o
   const [selectedSyrup, setSelectedSyrup] = useState(null);
   const [activeTab, setActiveTab] = useState('flavors'); // flavors, toppings
   const [flavorError, setFlavorError] = useState(false); // Estado para resaltar error de sabor
+  const [isAdding, setIsAdding] = useState(false);
 
   const handleAddFlavor = (flavor) => {
     if (selectedFlavors.length >= maxFlavors) {
@@ -105,6 +106,7 @@ export default function LiterCustomizer({ flavors, toppings = [], literConfig, o
   const totalPrice = basePrice + toppingsPrice + syrupPrice;
 
   const handleAddLiterToCart = () => {
+    if (isAdding) return;
     if (selectedFlavors.length === 0) {
       // Mostrar alerta descriptiva
       if (showAlert) {
@@ -164,6 +166,7 @@ export default function LiterCustomizer({ flavors, toppings = [], literConfig, o
       } : null
     };
 
+    setIsAdding(true);
     onAddToCart(literItem);
     setView('shop');
   };
@@ -322,7 +325,12 @@ export default function LiterCustomizer({ flavors, toppings = [], literConfig, o
   // Renderizar jarabe/salsa cayendo sobre el helado en el SVG
   const renderSyrupDecoration = () => {
     if (!selectedSyrup) return null;
-    const color = selectedSyrup.id === 'fudge' ? '#3d1d07' : (selectedSyrup.id === 'fresa_sauce' || selectedSyrup.id === 'fresa' ? '#ff3838' : '#ffa502');
+    const syrupId = String(selectedSyrup.id || '').toLowerCase();
+    const color = (syrupId.includes('fudge') || syrupId.includes('choco'))
+      ? '#3d1d07'
+      : ((syrupId.includes('fresa') || syrupId.includes('sauce') || syrupId.includes('frutilla'))
+          ? '#ff3838'
+          : '#ffa502');
     return (
       <path
         d="M 50 56 C 50 56, 70 65, 85 58 C 100 52, 115 62, 130 56 C 145 50, 150 56, 150 56 Q 140 68, 100 66 Q 60 68, 50 56 Z"
@@ -334,16 +342,16 @@ export default function LiterCustomizer({ flavors, toppings = [], literConfig, o
 
   return (
     <div className="customizer-section">
-      <div style={{ marginBottom: '12px', display: 'flex', alignItems: 'center', gap: '10px' }}>
+      <div style={{ marginBottom: '16px', display: 'flex', alignItems: 'center', gap: '10px' }}>
         <button className="btn btn-secondary" style={{ padding: '6px 12px', fontSize: '0.85rem' }} onClick={() => setView('shop')}>
           ← Tienda
         </button>
-        <h2 style={{ fontSize: '1.4rem' }}>Arma tu Litro de Helado</h2>
+        <h2 style={{ fontSize: '1.5rem', fontFamily: 'var(--font-title)' }}>Arma tu Litro de Helado</h2>
       </div>
 
       <div className="glass customizer-container" style={{ borderRadius: 'var(--radius-lg)', overflow: 'hidden' }}>
         {/* VISTA PREVIA DEL POTE DE HELADO */}
-        <div className="customizer-preview" style={{ padding: '20px', background: 'radial-gradient(circle, var(--bg-secondary) 0%, var(--bg-primary) 100%)', minHeight: '260px', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center' }}>
+        <div className="customizer-preview" style={{ padding: '15px', background: 'radial-gradient(circle, var(--bg-secondary) 0%, var(--bg-primary) 100%)', minHeight: '300px', display: 'flex', flexDirection: 'column', justifyContent: 'space-between' }}>
           
           <svg viewBox="0 0 200 200" style={{ width: '100%', maxHeight: '180px', display: 'block' }}>
             <defs>
@@ -380,275 +388,500 @@ export default function LiterCustomizer({ flavors, toppings = [], literConfig, o
             </g>
           </svg>
 
-          <div style={{ marginTop: '10px', textAlign: 'center', width: '100%' }}>
-            <span style={{ fontSize: '0.85rem', fontWeight: 'bold', color: 'var(--text-dark)' }}>
-              {selectedFlavors.length === 0 
-                ? "Selecciona los sabores para llenar tu pote 👇"
-                : `Llevas ${selectedFlavors.length} de ${maxFlavors} sabores permitidos`
-              }
-            </span>
-            <div style={{ display: 'flex', justifyContent: 'center', flexWrap: 'wrap', gap: '4px', marginTop: '6px' }}>
-              {selectedFlavors.map((flavor, index) => (
-                <span
-                  key={`flav-${index}`}
-                  onClick={() => handleRemoveFlavor(index)}
-                  style={{
-                    backgroundColor: flavor.color,
-                    color: flavor.id === 'coco' || flavor.id === 'vainilla' ? '#333' : 'white',
-                    padding: '3px 8px',
-                    borderRadius: 'var(--radius-full)',
-                    fontSize: '0.7rem',
-                    fontWeight: 'bold',
-                    cursor: 'pointer',
-                    display: 'inline-flex',
-                    alignItems: 'center',
-                    gap: '4px'
-                  }}
-                  title="Remover sabor"
-                >
-                  {flavor.name} ✕
-                </span>
-              ))}
-              {selectedToppings.map((topping, index) => (
-                <span
-                  key={`top-${topping.id}`}
-                  onClick={() => handleToggleTopping(topping)}
-                  style={{
-                    backgroundColor: '#eccc68',
-                    color: '#333',
-                    padding: '3px 8px',
-                    borderRadius: 'var(--radius-full)',
-                    fontSize: '0.7rem',
-                    fontWeight: 'bold',
-                    cursor: 'pointer',
-                    display: 'inline-flex',
-                    alignItems: 'center',
-                    gap: '4px'
-                  }}
-                  title="Remover topping"
-                >
-                  🍬 {topping.name} ✕
-                </span>
-              ))}
-              {selectedSyrup && (
-                <span
-                  onClick={() => setSelectedSyrup(null)}
-                  style={{
-                    backgroundColor: '#ff7f50',
-                    color: 'white',
-                    padding: '3px 8px',
-                    borderRadius: 'var(--radius-full)',
-                    fontSize: '0.7rem',
-                    fontWeight: 'bold',
-                    cursor: 'pointer',
-                    display: 'inline-flex',
-                    alignItems: 'center',
-                    gap: '4px'
-                  }}
-                  title="Remover salsa"
-                >
-                  🍯 {selectedSyrup.name} ✕
-                </span>
-              )}
+          {/* Resumen del Pote de Litro */}
+          <div className="glass" style={{ 
+            marginTop: '10px', 
+            width: '100%', 
+            padding: '12px 15px', 
+            background: 'rgba(255, 255, 255, 0.72)', 
+            border: '1px solid rgba(255, 107, 129, 0.12)',
+            textAlign: 'left',
+            borderRadius: '16px'
+          }}>
+            <strong style={{ fontSize: '0.8rem', display: 'block', marginBottom: '8px', color: 'var(--text-dark)' }}>
+              📝 Tu Litro de Felicidad:
+            </strong>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '6px', fontSize: '0.75rem' }}>
+              <div style={{ display: 'flex', alignItems: 'flex-start', gap: '6px' }}>
+                <span style={{ fontSize: '1rem' }}>🍨</span>
+                <span style={{ color: 'var(--text-light)' }}>Sabores:</span>
+                <div style={{ display: 'flex', flexWrap: 'wrap', gap: '3px', flex: 1 }}>
+                  {selectedFlavors.length === 0 ? (
+                    <span style={{ color: 'var(--danger)', fontWeight: 'bold' }}>¡Añade al menos un sabor!</span>
+                  ) : (
+                    selectedFlavors.map((flavor, idx) => (
+                      <span 
+                        key={idx} 
+                        onClick={() => handleRemoveFlavor(idx)}
+                        style={{
+                          background: flavor.color,
+                          color: flavor.id === 'coco' || flavor.id === 'vainilla' ? '#333' : 'white',
+                          padding: '2px 6px',
+                          borderRadius: '8px',
+                          fontSize: '0.65rem',
+                          fontWeight: 'bold',
+                          cursor: 'pointer',
+                          display: 'inline-flex',
+                          alignItems: 'center',
+                          gap: '3px'
+                        }}
+                        title="Haga clic para quitar"
+                      >
+                        {flavor.name} ✕
+                      </span>
+                    ))
+                  )}
+                </div>
+              </div>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                <span style={{ fontSize: '1rem' }}>🍬</span>
+                <span style={{ color: 'var(--text-light)' }}>Toppings:</span>
+                <strong style={{ color: 'var(--text-dark)' }}>
+                  {selectedToppings.map(t => t.name).join(', ') || 'Sin toppings'}
+                </strong>
+              </div>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                <span style={{ fontSize: '1rem' }}>🍓</span>
+                <span style={{ color: 'var(--text-light)' }}>Salsa:</span>
+                <strong style={{ color: 'var(--text-dark)' }}>
+                  {selectedSyrup?.name || 'Sin jarabe'}
+                </strong>
+              </div>
             </div>
           </div>
         </div>
 
         {/* CONTROLES DE SELECCIÓN */}
-        <div className="customizer-options" style={{ padding: '15px' }}>
-          {/* Sub-pestañas */}
-          <div style={{ display: 'flex', borderBottom: '1px solid var(--border-color)', marginBottom: '12px' }}>
-            <button
-              type="button"
-              className={`tab-item ${activeTab === 'flavors' ? 'active' : ''}`}
-              onClick={() => { setActiveTab('flavors'); setFlavorError(false); }}
-              style={{
-                flex: 1,
-                padding: '8px',
-                fontSize: '0.8rem',
-                fontWeight: 'bold',
-                background: flavorError ? 'rgba(241, 196, 15, 0.12)' : 'transparent',
-                border: 'none',
-                borderBottom: flavorError
-                  ? '2px solid var(--secondary-color)'
-                  : activeTab === 'flavors' ? '2px solid var(--primary-color)' : 'none',
-                color: flavorError ? 'var(--secondary-color)' : activeTab === 'flavors' ? 'var(--primary-color)' : 'var(--text-light)',
-                cursor: 'pointer',
-                transition: 'all 0.3s ease',
-                animation: flavorError ? 'flavorTabShake 0.5s ease' : 'none'
-              }}
-            >
-              {flavorError ? '⚠️' : '🍨'} Sabores ({selectedFlavors.length}/{maxFlavors})
-              {flavorError && <span style={{ display: 'block', fontSize: '0.65rem', color: 'var(--secondary-color)', fontWeight: 'bold' }}>¡Selecciona aquí!</span>}
-            </button>
-            <button
-              type="button"
-              className={`tab-item ${activeTab === 'toppings' ? 'active' : ''}`}
-              onClick={() => setActiveTab('toppings')}
-              style={{
-                flex: 1,
-                padding: '8px',
-                fontSize: '0.8rem',
-                fontWeight: 'bold',
-                background: 'transparent',
-                border: 'none',
-                borderBottom: activeTab === 'toppings' ? '2px solid var(--primary-color)' : 'none',
-                color: activeTab === 'toppings' ? 'var(--primary-color)' : 'var(--text-light)',
-                cursor: 'pointer'
-              }}
-            >
-              🍬 Toppings y Salsa ({selectedToppings.length + (selectedSyrup ? 1 : 0)})
-            </button>
-          </div>
-          <style dangerouslySetInnerHTML={{ __html: `
-            @keyframes flavorTabShake {
-              0%, 100% { transform: translateX(0); }
-              20% { transform: translateX(-6px); }
-              40% { transform: translateX(6px); }
-              60% { transform: translateX(-4px); }
-              80% { transform: translateX(4px); }
-            }
-          ` }} />
-
-          {activeTab === 'flavors' ? (
-            <div>
-              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '10px' }}>
-                <span style={{ fontSize: '0.78rem', color: 'var(--text-light)' }}>Elige tus sabores (puedes repetir):</span>
-                {selectedFlavors.length > 0 && (
-                  <button className="btn btn-secondary" style={{ padding: '4px 8px', fontSize: '0.7rem', color: 'var(--danger)', borderColor: 'var(--danger)' }} onClick={handleClear}>
-                    Limpiar todo
-                  </button>
-                )}
+        <div className="customizer-options" style={{ padding: '20px', display: 'flex', flexDirection: 'column', justifyContent: 'space-between' }}>
+          
+          <div>
+            {/* Stepper de 2 Pasos */}
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-around', marginBottom: '25px', position: 'relative', padding: '0 20px' }}>
+              <div style={{ position: 'absolute', top: '18px', left: '25%', right: '25%', height: '3px', backgroundColor: 'rgba(0, 0, 0, 0.05)', zIndex: 1 }}>
+                <div style={{ 
+                  height: '100%', 
+                  width: activeTab === 'flavors' ? '0%' : '100%', 
+                  backgroundColor: 'var(--primary-color)', 
+                  transition: 'width 0.4s ease' 
+                }} />
               </div>
 
-              <div className="option-grid" style={{ gridTemplateColumns: 'repeat(auto-fill, minmax(110px, 1fr))', gap: '8px', maxHeight: '180px', overflowY: 'auto', paddingRight: '2px' }}>
-                {activeFlavors.map(flavor => {
-                  const occurrences = selectedFlavors.filter(f => f.id === flavor.id).length;
-                  return (
-                    <button
-                      key={flavor.id}
-                      className="option-btn"
-                      onClick={() => handleAddFlavor(flavor)}
-                      disabled={selectedFlavors.length >= maxFlavors}
-                      style={{ position: 'relative', padding: '12px 6px', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '4px' }}
-                    >
-                      {occurrences > 0 && (
-                        <span style={{
-                          position: 'absolute',
-                          top: '2px',
-                          right: '2px',
-                          background: 'var(--primary-color)',
-                          color: 'white',
-                          width: '16px',
-                          height: '16px',
-                          borderRadius: '50%',
-                          fontSize: '0.65rem',
-                          display: 'flex',
-                          alignItems: 'center',
-                          justifyContent: 'center',
-                          fontWeight: 'bold'
-                        }}>
-                          {occurrences}
-                        </span>
-                      )}
-                      <span className="color-dot" style={{ backgroundColor: flavor.color, width: '20px', height: '20px', marginBottom: '2px' }}></span>
-                      <strong style={{ fontSize: '0.8rem', textAlign: 'center', width: '100%', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{flavor.name}</strong>
-                      {flavor.isPremium && (
-                        <span style={{ fontSize: '0.6rem', color: 'var(--secondary-color)', fontWeight: 'bold' }}>Premium</span>
-                      )}
+              <div onClick={() => { setActiveTab('flavors'); setFlavorError(false); }} style={{ zIndex: 2, display: 'flex', flexDirection: 'column', alignItems: 'center', cursor: 'pointer' }}>
+                <div style={{
+                  width: '36px',
+                  height: '36px',
+                  borderRadius: '50%',
+                  backgroundColor: flavorError ? 'var(--danger)' : activeTab === 'flavors' ? 'var(--primary-color)' : 'white',
+                  border: flavorError ? '2px solid var(--danger)' : '2px solid var(--primary-color)',
+                  color: flavorError ? 'white' : activeTab === 'flavors' ? 'white' : 'var(--primary-color)',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  fontWeight: 'bold',
+                  fontSize: '0.85rem',
+                  boxShadow: activeTab === 'flavors' ? '0 0 10px rgba(255, 107, 129, 0.3)' : 'none',
+                  transition: 'all 0.3s ease'
+                }}>
+                  {activeTab !== 'flavors' ? '✓' : '1'}
+                </div>
+                <span style={{ fontSize: '0.72rem', fontWeight: 'bold', marginTop: '6px', color: activeTab === 'flavors' ? 'var(--primary-color)' : 'var(--text-light)' }}>Sabores</span>
+              </div>
+
+              <div onClick={() => setActiveTab('toppings')} style={{ zIndex: 2, display: 'flex', flexDirection: 'column', alignItems: 'center', cursor: 'pointer' }}>
+                <div style={{
+                  width: '36px',
+                  height: '36px',
+                  borderRadius: '50%',
+                  backgroundColor: activeTab === 'toppings' ? 'var(--primary-color)' : 'white',
+                  border: `2px solid ${activeTab === 'toppings' ? 'var(--primary-color)' : 'rgba(0,0,0,0.1)'}`,
+                  color: activeTab === 'toppings' ? 'white' : 'var(--text-light)',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  fontWeight: 'bold',
+                  fontSize: '0.85rem',
+                  boxShadow: activeTab === 'toppings' ? '0 0 10px rgba(255, 107, 129, 0.3)' : 'none',
+                  transition: 'all 0.3s ease'
+                }}>
+                  2
+                </div>
+                <span style={{ fontSize: '0.72rem', fontWeight: 'bold', marginTop: '6px', color: activeTab === 'toppings' ? 'var(--primary-color)' : 'var(--text-light)' }}>Extras</span>
+              </div>
+            </div>
+
+            <style dangerouslySetInnerHTML={{ __html: `
+              @keyframes flavorTabShake {
+                0%, 100% { transform: translateX(0); }
+                20% { transform: translateX(-6px); }
+                40% { transform: translateX(6px); }
+                60% { transform: translateX(-4px); }
+                80% { transform: translateX(4px); }
+              }
+            ` }} />
+
+            {activeTab === 'flavors' ? (
+              <div>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '8px' }}>
+                  <span style={{ fontSize: '0.78rem', color: 'var(--text-light)' }}>Elige tus sabores (puedes repetir):</span>
+                  {selectedFlavors.length > 0 && (
+                    <button type="button" className="btn btn-secondary" style={{ padding: '4px 8px', fontSize: '0.7rem', color: 'var(--danger)', borderColor: 'var(--danger)' }} onClick={handleClear}>
+                      Limpiar todo
                     </button>
-                  );
-                })}
-              </div>
-            </div>
-          ) : (
-            <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
-              <div>
-                <span style={{ fontSize: '0.78rem', color: 'var(--text-light)', display: 'block', marginBottom: '6px' }}>Toppings Sólidos (Opcional - Máx 3):</span>
-                <div className="option-grid" style={{ gridTemplateColumns: 'repeat(auto-fill, minmax(100px, 1fr))', gap: '6px', maxHeight: '110px', overflowY: 'auto' }}>
-                  <button
-                    key="sin-toppings"
-                    type="button"
-                    className={`option-btn ${selectedToppings.length === 0 ? 'selected' : ''}`}
-                    onClick={() => setSelectedToppings([])}
-                    style={{ padding: '8px 4px' }}
-                  >
-                    <span style={{ fontSize: '1rem' }}>🚫</span>
-                    <strong style={{ fontSize: '0.75rem' }}>Sin Toppings</strong>
-                    <span style={{ fontSize: '0.65rem', color: 'var(--text-light)' }}>S/. 0.00</span>
-                  </button>
-                  {toppings.filter(t => t.category === 'solido' && t.active !== false).map(topping => {
-                    const isSelected = selectedToppings.some(t => t.id === topping.id);
-                    return (
-                      <button
-                        key={topping.id}
-                        type="button"
-                        className={`option-btn ${isSelected ? 'selected' : ''}`}
-                        onClick={() => handleToggleTopping(topping)}
-                        style={{ padding: '8px 4px' }}
-                      >
-                        <strong style={{ fontSize: '0.75rem' }}>{topping.name}</strong>
-                        <span style={{ fontSize: '0.65rem', color: 'var(--text-light)' }}>+ S/. {topping.price.toFixed(2)}</span>
-                      </button>
-                    );
-                  })}
+                  )}
                 </div>
-              </div>
 
-              <div>
-                <span style={{ fontSize: '0.78rem', color: 'var(--text-light)', display: 'block', marginBottom: '6px' }}>Jarabe / Salsa (Opcional - Máx 1):</span>
-                <div className="option-grid" style={{ gridTemplateColumns: 'repeat(auto-fill, minmax(100px, 1fr))', gap: '6px' }}>
-                  <button
-                    key="sin-syrup"
-                    type="button"
-                    className={`option-btn ${selectedSyrup === null ? 'selected' : ''}`}
-                    onClick={() => setSelectedSyrup(null)}
-                    style={{ padding: '8px' }}
-                  >
-                    <span style={{ fontSize: '1rem' }}>🚫</span>
-                    <strong style={{ fontSize: '0.75rem' }}>Sin Jarabe</strong>
-                    <span style={{ fontSize: '0.65rem', color: 'var(--text-light)' }}>S/. 0.00</span>
-                  </button>
-                  {toppings.filter(t => t.category === 'liquido' && t.active !== false).map(syrup => {
-                    const isSelected = selectedSyrup?.id === syrup.id;
-                    return (
+                <div className="option-grid" style={{ gridTemplateColumns: 'repeat(auto-fill, minmax(105px, 1fr))', gap: '8px', maxHeight: '220px', overflowY: 'auto', paddingRight: '2px' }}>
+                  {activeFlavors.map(flavor => {
+                    const count = selectedFlavors.filter(f => f.id === flavor.id).length;
+                    return count === 0 ? (
                       <button
-                        key={syrup.id}
+                        key={flavor.id}
                         type="button"
-                        className={`option-btn ${isSelected ? 'selected' : ''}`}
-                        onClick={() => handleToggleSyrup(syrup)}
-                        style={{ padding: '8px' }}
+                        className="option-btn"
+                        onClick={() => handleAddFlavor(flavor)}
+                        disabled={selectedFlavors.length >= maxFlavors}
+                        style={{
+                          background: 'white',
+                          border: '1px solid var(--border-color)',
+                          borderRadius: '16px',
+                          padding: '12px 8px',
+                          display: 'flex',
+                          flexDirection: 'column',
+                          alignItems: 'center',
+                          gap: '6px',
+                          cursor: 'pointer',
+                          position: 'relative',
+                          transition: 'all 0.2s ease',
+                          boxShadow: 'var(--shadow-sm)',
+                          opacity: selectedFlavors.length >= maxFlavors ? 0.55 : 1
+                        }}
                       >
-                        <strong style={{ fontSize: '0.75rem' }}>{syrup.name}</strong>
-                        <span style={{ fontSize: '0.65rem', color: 'var(--text-light)' }}>+ S/. {syrup.price.toFixed(2)}</span>
+                        <span className="color-dot" style={{ backgroundColor: flavor.color, width: '24px', height: '24px' }}></span>
+                        <strong style={{ fontSize: '0.8rem', color: 'var(--text-dark)', textOverflow: 'ellipsis', overflow: 'hidden', whiteSpace: 'nowrap', width: '100%' }}>{flavor.name}</strong>
+                        {flavor.isPremium && <span style={{ fontSize: '0.6rem', color: 'var(--secondary-color)', fontWeight: 'bold' }}>Premium</span>}
+                        <div style={{
+                          marginTop: '4px',
+                          width: '100%',
+                          padding: '4px',
+                          borderRadius: '8px',
+                          background: 'rgba(255, 107, 129, 0.05)',
+                          color: 'var(--primary-color)',
+                          fontSize: '0.7rem',
+                          fontWeight: 'bold',
+                          textAlign: 'center'
+                        }}>
+                          Añadir +
+                        </div>
                       </button>
+                    ) : (
+                      <div
+                        key={flavor.id}
+                        style={{
+                          background: 'rgba(255, 107, 129, 0.04)',
+                          border: '2px solid var(--primary-color)',
+                          borderRadius: '16px',
+                          padding: '12px 8px',
+                          display: 'flex',
+                          flexDirection: 'column',
+                          alignItems: 'center',
+                          gap: '6px',
+                          position: 'relative',
+                          transition: 'all 0.2s ease',
+                          boxShadow: '0 4px 12px rgba(255, 107, 129, 0.1)'
+                        }}
+                      >
+                        <span className="color-dot" style={{ backgroundColor: flavor.color, width: '24px', height: '24px' }}></span>
+                        <strong style={{ fontSize: '0.8rem', color: 'var(--text-dark)', fontWeight: 'bold', textOverflow: 'ellipsis', overflow: 'hidden', whiteSpace: 'nowrap', width: '100%' }}>{flavor.name}</strong>
+                        {flavor.isPremium && <span style={{ fontSize: '0.6rem', color: 'var(--secondary-color)', fontWeight: 'bold' }}>Premium</span>}
+                        
+                        {/* Controles de cantidad dedicados */}
+                        <div style={{ 
+                          display: 'flex', 
+                          alignItems: 'center', 
+                          justifyContent: 'space-between', 
+                          width: '100%', 
+                          marginTop: '4px',
+                          background: 'white',
+                          border: '1px solid var(--border-color)',
+                          borderRadius: '10px',
+                          padding: '2px'
+                        }}>
+                          <button
+                            type="button"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              const idx = selectedFlavors.findIndex(s => s.id === flavor.id);
+                              if (idx >= 0) handleRemoveFlavor(idx);
+                            }}
+                            style={{
+                              width: '22px',
+                              height: '22px',
+                              borderRadius: '6px',
+                              border: 'none',
+                              background: 'rgba(231, 76, 60, 0.1)',
+                              color: '#e74c3c',
+                              fontWeight: 'bold',
+                              fontSize: '0.9rem',
+                              cursor: 'pointer',
+                              display: 'flex',
+                              alignItems: 'center',
+                              justifyContent: 'center'
+                            }}
+                          >
+                            -
+                          </button>
+                          <span style={{ fontSize: '0.8rem', fontWeight: 'bold', color: 'var(--text-dark)' }}>{count}</span>
+                          <button
+                            type="button"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              if (selectedFlavors.length >= maxFlavors) {
+                                alert(`El helado de litro permite hasta un máximo de ${maxFlavors} sabores.`);
+                                return;
+                              }
+                              handleAddFlavor(flavor);
+                            }}
+                            disabled={selectedFlavors.length >= maxFlavors}
+                            style={{
+                              width: '22px',
+                              height: '22px',
+                              borderRadius: '6px',
+                              border: 'none',
+                              background: 'rgba(255, 107, 129, 0.1)',
+                              color: 'var(--primary-color)',
+                              fontWeight: 'bold',
+                              fontSize: '0.9rem',
+                              cursor: 'pointer',
+                              display: 'flex',
+                              alignItems: 'center',
+                              justifyContent: 'center',
+                              opacity: selectedFlavors.length >= maxFlavors ? 0.5 : 1
+                            }}
+                          >
+                            +
+                          </button>
+                        </div>
+                      </div>
                     );
                   })}
                 </div>
               </div>
-            </div>
-          )}
+            ) : (
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+                <div>
+                  <span style={{ fontSize: '0.78rem', fontWeight: 'bold', color: 'var(--text-dark)', display: 'block', marginBottom: '6px' }}>🍬 Toppings Sólidos (Opcional - Máx 3):</span>
+                  <div className="option-grid" style={{ gridTemplateColumns: 'repeat(auto-fill, minmax(105px, 1fr))', gap: '6px', maxHeight: '125px', overflowY: 'auto' }}>
+                    <button
+                      key="sin-toppings"
+                      type="button"
+                      className={`option-btn ${selectedToppings.length === 0 ? 'selected' : ''}`}
+                      onClick={() => setSelectedToppings([])}
+                      style={{ 
+                        padding: '10px 6px',
+                        borderRadius: '16px',
+                        border: selectedToppings.length === 0 ? '2px solid var(--primary-color)' : '1px solid var(--border-color)',
+                        background: selectedToppings.length === 0 ? 'rgba(255, 107, 129, 0.05)' : 'white'
+                      }}
+                    >
+                      <span style={{ fontSize: '1.5rem', marginBottom: '2px' }}>🚫</span>
+                      <strong style={{ fontSize: '0.75rem', color: 'var(--text-dark)' }}>Sin Toppings</strong>
+                      <span style={{ fontSize: '0.65rem', color: 'var(--text-light)' }}>Gratis</span>
+                    </button>
+                    {toppings.filter(t => t.category === 'solido' && t.active !== false).map(topping => {
+                      const isSelected = selectedToppings.some(t => t.id === topping.id);
+                      return (
+                        <button
+                          key={topping.id}
+                          type="button"
+                          className={`option-btn ${isSelected ? 'selected' : ''}`}
+                          onClick={() => handleToggleTopping(topping)}
+                          style={{ 
+                            padding: '10px 6px',
+                            borderRadius: '16px',
+                            border: isSelected ? '2px solid var(--primary-color)' : '1px solid var(--border-color)',
+                            background: isSelected ? 'rgba(255, 107, 129, 0.05)' : 'white',
+                            position: 'relative'
+                          }}
+                        >
+                          {isSelected && (
+                            <span style={{
+                              position: 'absolute',
+                              top: '4px',
+                              right: '4px',
+                              background: 'var(--primary-color)',
+                              color: 'white',
+                              width: '14px',
+                              height: '14px',
+                              borderRadius: '50%',
+                              fontSize: '0.55rem',
+                              display: 'flex',
+                              alignItems: 'center',
+                              justifyContent: 'center',
+                              fontWeight: 'bold'
+                            }}>✓</span>
+                          )}
+                          <strong style={{ fontSize: '0.75rem', color: 'var(--text-dark)' }}>{topping.name}</strong>
+                          <span style={{ fontSize: '0.65rem', color: 'var(--primary-color)', fontWeight: 'bold' }}>+ S/. {topping.price.toFixed(2)}</span>
+                        </button>
+                      );
+                    })}
+                  </div>
+                </div>
+
+                <div>
+                  <span style={{ fontSize: '0.78rem', fontWeight: 'bold', color: 'var(--text-dark)', display: 'block', marginBottom: '6px' }}>🍓 Jarabe / Salsa (Opcional - Máx 1):</span>
+                  <div className="option-grid" style={{ gridTemplateColumns: 'repeat(auto-fill, minmax(105px, 1fr))', gap: '6px' }}>
+                    <button
+                      key="sin-syrup"
+                      type="button"
+                      className={`option-btn ${selectedSyrup === null ? 'selected' : ''}`}
+                      onClick={() => setSelectedSyrup(null)}
+                      style={{ 
+                        padding: '10px 6px',
+                        borderRadius: '16px',
+                        border: selectedSyrup === null ? '2px solid var(--primary-color)' : '1px solid var(--border-color)',
+                        background: selectedSyrup === null ? 'rgba(255, 107, 129, 0.05)' : 'white'
+                      }}
+                    >
+                      <span style={{ fontSize: '1.5rem', marginBottom: '2px' }}>🚫</span>
+                      <strong style={{ fontSize: '0.75rem', color: 'var(--text-dark)' }}>Sin Jarabe</strong>
+                      <span style={{ fontSize: '0.65rem', color: 'var(--text-light)' }}>Gratis</span>
+                    </button>
+                    {toppings.filter(t => t.category === 'liquido' && t.active !== false).map(syrup => {
+                      const isSelected = selectedSyrup?.id === syrup.id;
+                      return (
+                        <button
+                          key={syrup.id}
+                          type="button"
+                          className={`option-btn ${isSelected ? 'selected' : ''}`}
+                          onClick={() => handleToggleSyrup(syrup)}
+                          style={{ 
+                            padding: '10px 6px',
+                            borderRadius: '16px',
+                            border: isSelected ? '2px solid var(--primary-color)' : '1px solid var(--border-color)',
+                            background: isSelected ? 'rgba(255, 107, 129, 0.05)' : 'white',
+                            position: 'relative'
+                          }}
+                        >
+                          {isSelected && (
+                            <span style={{
+                              position: 'absolute',
+                              top: '4px',
+                              right: '4px',
+                              background: 'var(--primary-color)',
+                              color: 'white',
+                              width: '14px',
+                              height: '14px',
+                              borderRadius: '50%',
+                              fontSize: '0.55rem',
+                              display: 'flex',
+                              alignItems: 'center',
+                              justifyContent: 'center',
+                              fontWeight: 'bold'
+                            }}>✓</span>
+                          )}
+                          <strong style={{ fontSize: '0.75rem', color: 'var(--text-dark)' }}>{syrup.name}</strong>
+                          <span style={{ fontSize: '0.65rem', color: 'var(--primary-color)', fontWeight: 'bold' }}>+ S/. {syrup.price.toFixed(2)}</span>
+                        </button>
+                      );
+                    })}
+                  </div>
+                </div>
+              </div>
+            )}
+          </div>
 
           {/* Barra de Costo y Confirmación */}
-          <div className="custom-price-bar" style={{ marginTop: '20px', borderTop: '1px solid var(--border-color)', paddingTop: '15px' }}>
-            <div>
-              <span style={{ fontSize: '0.75rem', color: 'var(--text-light)' }}>Total Litro Personalizado:</span>
-              <div className="price-tag" style={{ fontSize: '1.4rem' }}>S/. {totalPrice.toFixed(2)}</div>
+          <div>
+            <div style={{ display: 'flex', justifyContent: 'space-between', gap: '8px', marginTop: '20px', borderTop: '1px solid var(--border-color)', paddingTop: '15px' }}>
+              {activeTab !== 'flavors' ? (
+                <button
+                  type="button"
+                  className="btn btn-secondary"
+                  style={{ padding: '8px 12px', fontSize: '0.8rem', fontWeight: 'bold' }}
+                  onClick={() => setActiveTab('flavors')}
+                >
+                  ← Atrás
+                </button>
+              ) : <div />}
+
+              <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
+                {activeTab !== 'toppings' ? (
+                  <button
+                    type="button"
+                    className="btn btn-primary"
+                    style={{ 
+                      padding: '8px 16px', 
+                      fontSize: '0.8rem', 
+                      fontWeight: 'bold',
+                      background: 'var(--secondary-color)',
+                      borderColor: 'var(--secondary-color)',
+                      boxShadow: '0 4px 10px rgba(229, 142, 38, 0.2)'
+                    }}
+                    onClick={() => setActiveTab('toppings')}
+                  >
+                    Continuar →
+                  </button>
+                ) : null}
+              </div>
             </div>
-            
-            <button
-              className="btn btn-primary"
-              onClick={handleAddLiterToCart}
-              style={{
-                padding: '10px 20px',
-                fontSize: '0.9rem',
-                transition: 'all 0.2s ease',
-                opacity: selectedFlavors.length === 0 ? 0.75 : 1
-              }}
-            >
-              {selectedFlavors.length === 0 ? '⚠️ Selecciona un Sabor' : '🛒 Agregar 1 Litro al Carrito'}
-            </button>
+
+            <div className="custom-price-bar" style={{ 
+              marginTop: '15px', 
+              padding: '12px 15px', 
+              background: 'linear-gradient(135deg, rgba(255, 107, 129, 0.08) 0%, rgba(229, 142, 38, 0.08) 100%)', 
+              borderRadius: '20px',
+              border: '1px solid var(--border-color)',
+              display: 'flex',
+              flexDirection: 'column',
+              gap: '10px'
+            }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', width: '100%', flexWrap: 'wrap', gap: '10px' }}>
+                <div>
+                  <span style={{ fontSize: '0.72rem', color: 'var(--text-light)', fontWeight: 600 }}>Total Litro Personalizado:</span>
+                  <div className="price-tag" style={{ fontSize: '1.45rem', color: 'var(--text-dark)', fontWeight: 'bold', lineHeight: '1.2' }}>S/. {totalPrice.toFixed(2)}</div>
+                </div>
+                
+                <button
+                  type="button"
+                  className="btn btn-primary"
+                  disabled={isAdding}
+                  onClick={handleAddLiterToCart}
+                  style={{ 
+                    padding: '10px 20px', 
+                    fontSize: '0.88rem', 
+                    fontWeight: 'bold',
+                    background: selectedFlavors.length === 0 
+                      ? '#bdc3c7' 
+                      : 'linear-gradient(135deg, var(--primary-color) 0%, var(--secondary-color) 100%)',
+                    boxShadow: selectedFlavors.length === 0 ? 'none' : '0 6px 16px rgba(255, 107, 129, 0.35)',
+                    animation: selectedFlavors.length === 0 ? 'none' : 'pulse-btn 2s infinite',
+                    cursor: selectedFlavors.length === 0 ? 'not-allowed' : 'pointer',
+                    border: 'none',
+                    borderRadius: '12px'
+                  }}
+                >
+                  {isAdding ? 'Agregando...' : selectedFlavors.length === 0 ? '⚠️ Selecciona un Sabor' : '🛒 Agregar al Carrito'}
+                </button>
+              </div>
+
+              <div style={{ 
+                display: 'flex', 
+                alignItems: 'center', 
+                justifyContent: 'center', 
+                gap: '6px', 
+                fontSize: '0.68rem', 
+                color: 'var(--text-light)', 
+                background: 'rgba(255,255,255,0.6)', 
+                padding: '5px', 
+                borderRadius: '8px'
+              }}>
+                <span>✨</span>
+                <span>Envasado higiénicamente en pote térmico de 1 Litro para conservar el frío.</span>
+              </div>
+            </div>
           </div>
+
         </div>
       </div>
     </div>

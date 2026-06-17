@@ -99,9 +99,12 @@ export default function CustomerShop({
 
   const handleCallWaiter = async (type) => {
     if (!tableNumber) return;
+    if (isCalling) return;
     setIsCalling(true);
+    const cleanType = String(type || '').replace(/<[^>]*>/g, '').trim();
     const cartSummary = getCartSummary();
-    const fullRequest = `${type} | Carrito: ${cartSummary}`;
+    const cleanCartSummary = cartSummary.replace(/<[^>]*>/g, '').trim();
+    const fullRequest = `${cleanType} | Carrito: ${cleanCartSummary}`;
 
     const callData = {
       table: tableNumber,
@@ -123,6 +126,7 @@ export default function CustomerShop({
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
             text: messageText,
+            table: tableNumber,
             parse_mode: 'Markdown',
             kind: 'table_call'
           })

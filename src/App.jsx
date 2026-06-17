@@ -651,12 +651,14 @@ export default function App() {
 
       // 1. Verificar la sesión activa de Supabase al montar el componente
       let hasActiveSession = false;
+      let activeSession = null;
       try {
         if (!logoutInProgressRef.current) {
           const { data: { session } } = await supabase.auth.getSession();
           if (session) {
             console.log("🔑 Sesión activa de Supabase recuperada:", session.user.email);
             hasActiveSession = true;
+            activeSession = session;
             const userRole = normalizeRoleLabel(session.user.app_metadata?.role, session.user.email);
             const userName = session.user.user_metadata?.name || 'Administrador Supabase';
             setIsLoggedIn(true);
@@ -678,7 +680,7 @@ export default function App() {
         console.error("Error al obtener la sesión de Supabase:", err);
       }
       
-      const serverData = await fetchSyncedData(hasActiveSession);
+      const serverData = await fetchSyncedData(hasActiveSession, activeSession);
       if (serverData) {
         console.log("🔌 Datos recuperados de Supabase:", Object.keys(serverData));
         setIsCloudSynced(true);
@@ -732,7 +734,7 @@ export default function App() {
           // Re-sincronizar los datos una vez que tenemos la sesión activa de forma segura
           allowCloudWrite.current = false;
           setIsSyncLoaded(false);
-          const updatedServerData = await fetchSyncedData(true);
+          const updatedServerData = await fetchSyncedData(true, session);
           if (updatedServerData) {
             // Desactivar temporalmente escrituras mientras cargamos datos de admin
             Object.keys(updatedServerData).forEach(k => {
@@ -818,9 +820,29 @@ export default function App() {
 
       // 5. Si está logueado, subir a la nube de forma segura
       if (isLoggedIn) {
+        const isConfigKey = ![
+          'cart_locations',
+          'flavors',
+          'toppings',
+          'bases',
+          'packs',
+          'catalog_order',
+          'liter_config',
+          'cart_recommended_pack',
+          'recommendations'
+        ].includes(key) && !key.startsWith('order_');
+
+        const isUserAdmin = currentUser?.role === 'Administrador' || currentUser?.email === 'admin@donhelado.com';
+
+        // Si es una clave de configuración/general y el usuario no es Admin, no intentar sincronizar para evitar advertencias de RLS
+        if (isConfigKey && !isUserAdmin) {
+          console.log(`ℹ️ Omitiendo sincronización remota de '${key}' para rol ${currentUser?.role || 'Personal'}.`);
+          return;
+        }
+
         updateSyncedData(key, value);
       }
-    }, [value, isLoggedIn, isSyncLoaded]);
+    }, [value, isLoggedIn, isSyncLoaded, currentUser]);
   };
 
   // --- Invocaciones de Sincronización de Estados ---
@@ -1220,6 +1242,101 @@ export default function App() {
     setCart(newCart);
   };
 
+  const sendTelegramNotification = async (order) => {
+    const trackerLink = `${window.location.origin}${window.location.pathname}?track=${order.id}`;
+    
+    // Formatear fecha legible en hora de Perú (PET)
+    let dateStr = '';
+    try {
+      dateStr = new Date(order.date).toLocaleString('es-PE', {
+        timeZone: 'America/Lima',
+        day: '2-digit',
+        month: '2-digit',
+        year: 'numeric',
+        hour: '2-digit',
+        minute: '2-digit',
+        hour12: true
+      });
+    } catch {
+      dateStr = new Date(order.date || Date.now()).toLocaleString();
+    }
+
+    let destLine = order.customer?.address || 'Recojo en tienda';
+    let typeLabel = order.customer?.orderType || 'Delivery';
+    if (order.customer?.orderType === 'Mesa') {
+      typeLabel = `Consumo Local (Mesa ${order.customer?.tableNumber})`;
+      destLine = `Mesa ${order.customer?.tableNumber}`;
+    } else if (order.customer?.orderType === 'Mesa_Llevar') {
+      typeLabel = `Mesa ${order.customer?.tableNumber} (Para Llevar)`;
+      destLine = `Mesa ${order.customer?.tableNumber}`;
+    } else if (order.customer?.orderType === 'Barra') {
+      typeLabel = 'Directo en Barra';
+      destLine = 'Recojo en Barra';
+    } else if (order.customer?.orderType === 'Llevar') {
+      typeLabel = 'Recojo en Tienda / Llevar';
+      destLine = 'Recojo en Tienda';
+    } else {
+      typeLabel = 'Delivery a Domicilio';
+    }
+
+    const itemsText = order.items.map(item => {
+      let details = '';
+      if (item.type === 'custom') {
+        const baseName = item.base?.name || item.base || '';
+        const scoops = (item.scoops || []).map(s => s.name).join(', ');
+        const toppings = (item.toppings || []).map(t => t.name).join(', ');
+        const syrup = item.syrup ? (item.syrup.name || item.syrup) : '';
+        details = `\n   • Base: ${baseName}` +
+                  `\n   • Sabores: ${scoops}` + 
+                  (toppings ? `\n   • Toppings: ${toppings}` : '') +
+                  (syrup ? `\n   • Salsa: ${syrup}` : '');
+      } else if (item.type === 'liter') {
+        const scoops = (item.scoops || []).map(s => s.name).join(', ');
+        details = `\n   • Sabores: ${scoops}`;
+      } else if (item.type === 'pack') {
+        details = `\n   • Contenido: ${item.items || item.description || ''}`;
+      }
+      return `• ${item.quantity}x *${item.name}*${details}`;
+    }).join('\n');
+
+    const message = `🚨 *¡NUEVO PEDIDO EN DON HELADO!* 🚨\n\n` +
+      `*Código:* \`${order.id}\`\n` +
+      `*Fecha:* ${dateStr}\n` +
+      `*Tipo:* ${typeLabel}\n` +
+      `*Cliente:* ${order.customer?.name || 'Cliente'}\n` +
+      `*WhatsApp:* ${order.customer?.phone || ''}\n` +
+      `*Dirección/Mesa:* ${destLine}\n` +
+      `*Método de Pago:* ${order.customer?.paymentMethod || ''}\n\n` +
+      `*DETALLE DEL PEDIDO:*\n` +
+      `---------------------------\n` +
+      `${itemsText}\n` +
+      `---------------------------\n` +
+      `*Subtotal:* S/. ${(order.total || 0).toFixed(2)}\n` +
+      (order.couponCode ? `*Cupón:* ${order.couponCode} (-S/. ${(order.discount || 0).toFixed(2)})\n` : '') +
+      `*Delivery:* S/. ${(order.deliveryFee || 0).toFixed(2)}\n` +
+      `*TOTAL A PAGAR:* S/. ${(order.grandTotal || 0).toFixed(2)}\n\n` +
+      `📍 *Rastreo del pedido en tiempo real:*\n[Seguir Pedido en Vivo](${trackerLink})`;
+
+    try {
+      const response = await fetch('/api/telegram', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          text: message,
+          orderId: order.id,
+          parse_mode: 'Markdown',
+          kind: 'order'
+        })
+      });
+      if (!response.ok) {
+        throw new Error('No se pudo entregar la notificación centralizada.');
+      }
+      console.log("Notificación por Telegram enviada con éxito.");
+    } catch (err) {
+      console.error("Error al enviar notificación de Telegram:", err);
+    }
+  };
+
   const handlePlaceOrder = async (newOrder) => {
     setOrders(prev => [newOrder, ...prev]);
     setCart([]);
@@ -1247,7 +1364,14 @@ export default function App() {
     }
 
     // Subir el pedido individual bajo su propia clave para evitar descargar toda la lista de otros clientes
-    await updateSyncedData(`order_${newOrder.id}`, newOrder);
+    const dbSuccess = await updateSyncedData(`order_${newOrder.id}`, newOrder);
+
+    if (dbSuccess) {
+      // Enviar notificación a Telegram
+      await sendTelegramNotification(newOrder);
+    } else {
+      console.warn("⚠️ No se pudo guardar el pedido en base de datos. Se omitió la notificación a Telegram.");
+    }
   };
 
   const handleUpdateOrderStatus = async (orderId, newStatus) => {
@@ -1530,6 +1654,7 @@ export default function App() {
             setView={setView}
             recommendations={recommendations}
             showAlert={showAlert}
+            shopConfig={shopConfig}
           />
         )}
 

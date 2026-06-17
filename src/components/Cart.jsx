@@ -129,54 +129,6 @@ export default function Cart({
     }
   }, [trackEvent]);
 
-  // Enviar notificación a Telegram (Canal Directo)
-  const sendTelegramNotification = async (order) => {
-    const message = `🚨 *¡NUEVO PEDIDO EN DON HELADO!* 🚨\n\n` +
-      `*Código:* ${order.id}\n` +
-      `*Cliente:* ${order.customer.name}\n` +
-      `*WhatsApp:* ${order.customer.phone}\n` +
-      `*Dirección:* ${order.customer.address}\n` +
-      `*Pago:* ${order.customer.paymentMethod}\n` +
-      `---------------------------\n` +
-      order.items.map(item => {
-        let details = '';
-        if (item.type === 'custom') {
-          const scoops = item.scoops.map(s => s.name).join(', ');
-          const toppings = item.toppings.map(t => t.name).join(', ');
-          const syrup = item.syrup ? item.syrup.name : '';
-          details = `\n   Sabores: ${scoops}` + 
-                    (toppings ? `\n   Toppings: ${toppings}` : '') +
-                    (syrup ? `\n   Salsa: ${syrup}` : '');
-        } else if (item.type === 'liter') {
-          const scoops = item.scoops.map(s => s.name).join(', ');
-          details = `\n   Sabores: ${scoops}`;
-        }
-        return `• ${item.quantity}x *${item.name}*${details}`;
-      }).join('\n') +
-      `\n---------------------------\n` +
-      `*Subtotal:* S/. ${order.total.toFixed(2)}\n` +
-      (order.couponCode ? `*Cupón:* ${order.couponCode} (-S/. ${order.discount.toFixed(2)})\n` : '') +
-      `*Delivery:* S/. ${order.deliveryFee.toFixed(2)}\n` +
-      `*TOTAL:* S/. ${order.grandTotal.toFixed(2)}`;
-
-    try {
-      const response = await fetch('/api/telegram', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          text: message,
-          parse_mode: 'Markdown',
-          kind: 'order'
-        })
-      });
-      if (!response.ok) {
-        throw new Error('No se pudo entregar la notificación centralizada.');
-      }
-      console.log("Notificación por Telegram enviada con éxito.");
-    } catch (err) {
-      console.error("Error al enviar notificación de Telegram:", err);
-    }
-  };
 
   const handleSubmit = async (e) => {
     e.preventDefault();
@@ -186,7 +138,8 @@ export default function Cart({
       alert("El carrito está vacío.");
       return;
     }
-    let finalAddress = address;
+    const cleanAddress = address.replace(/<[^>]*>/g, '').trim();
+    let finalAddress = cleanAddress;
     if (orderType === 'Mesa') {
       finalAddress = `Mesa ${localTableNumber}`;
     } else if (orderType === 'Mesa_Llevar') {
@@ -200,8 +153,11 @@ export default function Cart({
     const needsTable = orderType === 'Mesa' || orderType === 'Mesa_Llevar';
     
     // Obtener valores finales con fallback si el cliente está en mesa y dejó los campos vacíos
-    const finalName = (needsTable && !name.trim()) ? `Cliente Mesa ${localTableNumber || tableNumber}` : name.trim();
-    const finalPhone = (needsTable && !phone.trim()) ? `Mesa` : phone.trim();
+    const rawName = (needsTable && !name.trim()) ? `Cliente Mesa ${localTableNumber || tableNumber}` : name.trim();
+    const rawPhone = (needsTable && !phone.trim()) ? `Mesa` : phone.trim();
+
+    const finalName = rawName.replace(/<[^>]*>/g, '').trim();
+    const finalPhone = rawPhone.replace(/[^0-9A-Za-z+\s-]/g, '').trim();
 
     // Validar según tipo de pedido
     if (orderType === 'Delivery') {
@@ -287,11 +243,8 @@ export default function Cart({
       const cleanPhone = String(storePhone || '').replace(/\D/g, ''); // Limpiar caracteres no numéricos
       const whatsappUrl = `https://wa.me/${cleanPhone}?text=${encodedText}`;
 
-      // Enviar notificación en segundo plano a través de la función segura
-      await sendTelegramNotification(newOrder);
-
-        // Registrar pedido en la base de datos
-       onPlaceOrder(newOrder);
+      // Registrar pedido en la base de datos (y esperar a que finalice la sincronización en Supabase)
+      await onPlaceOrder(newOrder);
 
        // Track purchase event
        if (trackEvent) {

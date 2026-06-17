@@ -380,10 +380,10 @@ export default function AdminPanel({
       if (nextAttempts >= 5) {
         const blockTime = Date.now() + 15 * 60 * 1000; // 15 minutos
         setLockoutUntil(blockTime);
-        setAuthError('Has superado los 5 intentos de inicio de sesion fallidos. El panel administrativo fue bloqueado temporalmente por 15 minutos.');
+        setAuthError('Has superado los 5 intentos de inicio de sesión fallidos. El panel administrativo fue bloqueado temporalmente por 15 minutos.');
         addLog(`BLOQUEO DE SEGURIDAD: 5 intentos fallidos en login para usuario: ${userInput}`);
       } else {
-        setAuthError(customMsg || `Credenciales incorrectas. Intentos restantes: ${5 - nextAttempts}`);
+        setAuthError(`Contraseña errada. Intentos restantes: ${5 - nextAttempts}`);
       }
     };
 

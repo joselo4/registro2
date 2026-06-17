@@ -9,6 +9,7 @@ export default function LiveChatTelegramBridge({
 }) {
   const [isOpen, setIsOpen] = useState(false);
   const [name, setName] = useState('');
+  const [phone, setPhone] = useState('');
   const [message, setMessage] = useState('');
   const [sending, setSending] = useState(false);
   const [sent, setSent] = useState(false);
@@ -17,7 +18,7 @@ export default function LiveChatTelegramBridge({
 
   const triggerAlert = (msg) => {
     if (showAlert) {
-      const isError = msg.toLowerCase().includes('error') || msg.toLowerCase().includes('falló') || msg.toLowerCase().includes('conexión');
+      const isError = msg.toLowerCase().includes('error') || msg.toLowerCase().includes('falló') || msg.toLowerCase().includes('conexión') || msg.toLowerCase().includes('obligatorio') || msg.toLowerCase().includes('inválido');
       const isSuccess = msg.toLowerCase().includes('enviado') || msg.toLowerCase().includes('éxito');
       const type = isError ? 'error' : isSuccess ? 'success' : 'warning';
       const title = isError ? 'Error de Envío' : isSuccess ? 'Mensaje Enviado' : 'Aviso';
@@ -29,12 +30,28 @@ export default function LiveChatTelegramBridge({
 
   const handleSendMessage = async (e) => {
     e.preventDefault();
-    if (!message.trim()) return;
+    if (sending) return;
+
+    // Sanitización básica de inputs (evitar inyección HTML/XSS)
+    const cleanName = name.replace(/<[^>]*>/g, '').trim();
+    const cleanPhone = phone.replace(/[^0-9+\s-]/g, '').trim();
+    const cleanMessage = message.replace(/<[^>]*>/g, '').trim();
+
+    if (!cleanPhone || cleanPhone.length < 7) {
+      triggerAlert("El número de teléfono es obligatorio y debe tener al menos 7 dígitos.");
+      return;
+    }
+
+    if (!cleanMessage) {
+      triggerAlert("El mensaje no puede estar vacío.");
+      return;
+    }
 
     setSending(true);
     const textMsg = `💬 *¡NUEVO MENSAJE DE CLIENTE!* 💬\n\n` +
-      `*Cliente:* ${name.trim() || 'Anónimo'}\n` +
-      `*Mensaje:* ${message.trim()}\n\n` +
+      `*Cliente:* ${cleanName || 'Anónimo'}\n` +
+      `*WhatsApp:* ${cleanPhone}\n` +
+      `*Mensaje:* ${cleanMessage}\n\n` +
       `_Enviado desde el chat en vivo de la heladería._`;
 
     try {
@@ -43,6 +60,9 @@ export default function LiveChatTelegramBridge({
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           text: textMsg,
+          name: cleanName,
+          phone: cleanPhone,
+          message: cleanMessage,
           parse_mode: 'Markdown',
           kind: 'support'
         })
@@ -51,17 +71,19 @@ export default function LiveChatTelegramBridge({
       if (response.ok) {
         setSent(true);
         setMessage('');
+        setPhone('');
         setTimeout(() => {
           setSent(false);
           setIsOpen(false);
         }, 3000);
       } else {
-        const cleanPhone = String(storePhone || '').replace(/\D/g, '');
-        const waMessage = `Hola, mi nombre es ${name || 'Cliente'}. Tengo una consulta sobre ${storeName || 'helados'}:\n\n${message}`;
-        const waUrl = `https://wa.me/${cleanPhone}?text=${encodeURIComponent(waMessage)}`;
+        const cleanStorePhone = String(storePhone || '').replace(/\D/g, '');
+        const waMessage = `Hola, mi nombre es ${cleanName || 'Cliente'} (Teléfono: ${cleanPhone}). Tengo una consulta sobre ${storeName || 'helados'}:\n\n${cleanMessage}`;
+        const waUrl = `https://wa.me/${cleanStorePhone}?text=${encodeURIComponent(waMessage)}`;
         window.open(waUrl, '_blank');
         setIsOpen(false);
         setMessage('');
+        setPhone('');
       }
     } catch (err) {
       console.error("Error al enviar mensaje a Telegram:", err);
@@ -234,6 +256,19 @@ export default function LiveChatTelegramBridge({
                     style={{ fontSize: '0.8rem', padding: '6px 10px' }}
                     value={name}
                     onChange={(e) => setName(e.target.value)}
+                  />
+                </div>
+
+                <div className="form-group" style={{ marginBottom: 0 }}>
+                  <label>Tu Teléfono / WhatsApp (Obligatorio)</label>
+                  <input
+                    type="tel"
+                    className="form-control"
+                    placeholder="Ej: +51 987 654 321"
+                    style={{ fontSize: '0.8rem', padding: '6px 10px' }}
+                    value={phone}
+                    onChange={(e) => setPhone(e.target.value)}
+                    required
                   />
                 </div>
                 
