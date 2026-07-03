@@ -186,7 +186,7 @@ export default function App() {
     const saved = localStorage.getItem('helados_testimonials');
     return saved ? JSON.parse(saved) : [
       { id: 1, rating: 5, text: 'El helado de lúcuma con trozos de chocolate es una locura. El delivery llegó súper rápido y los potes vienen perfectamente congelados.', name: 'Andrea Mendoza', initials: 'AM', color: 'var(--primary-color)' },
-      { id: 2, rating: 5, text: 'Armé mi helado personalizado con Sabor-O-Matic y me encantó la combinación. Excelente atención y empaque térmico impecable.', name: 'Juan Carlos', initials: 'JC', color: 'var(--secondary-color)' },
+      { id: 2, rating: 5, text: 'Armé mi helado personalizado con la guía de sabores y me encantó la combinación. Excelente atención y empaque térmico impecable.', name: 'Juan Carlos', initials: 'JC', color: 'var(--secondary-color)' },
       { id: 3, rating: 5, text: 'Compramos el Pack Dúo Familiar para el fin de semana. Helados cremosos, buen precio y la entrega a domicilio fue impecable.', name: 'Sofía Prado', initials: 'SP', color: '#2ecc71' }
     ];
   });

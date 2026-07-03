@@ -459,7 +459,8 @@ export default function OrderTracker({ orderId, orders, setView, storePhone, onC
             }}
             onClick={() => {
               const waUrl = `https://wa.me/${String(storePhone || '51987654321').replace(/\D/g, '')}?text=${encodeURIComponent('¡Hola! Tengo una consulta sobre el estado de un pedido 🍦')}`;
-              window.open(waUrl, '_blank');
+              const waWindow = window.open(waUrl, '_blank', 'noopener,noreferrer');
+              if (waWindow) waWindow.opener = null;
             }}
           >
             <svg viewBox="0 0 24 24" width="16" height="16" fill="currentColor" style={{ verticalAlign: 'middle' }}>

@@ -41,6 +41,7 @@ export async function onRequest(context) {
       'https://localhost',
       'http://localhost',
       'http://localhost:5173',
+      'http://127.0.0.1:5173',
       'capacitor://localhost'
     ];
 
@@ -48,10 +49,7 @@ export async function onRequest(context) {
     if (origin) {
       try {
         const originUrl = new URL(origin);
-        const hostname = originUrl.hostname;
-        isAllowedOrigin = allowedOrigins.includes(origin) || 
-                          hostname === 'pideanda.com' || 
-                          hostname.endsWith('.pideanda.com');
+        isAllowedOrigin = allowedOrigins.includes(origin) || originUrl.host === url.host;
       } catch {
         isAllowedOrigin = false;
       }

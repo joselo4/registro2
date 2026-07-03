@@ -68,7 +68,7 @@ export default function OrderManager({
       alert('El pedido no tiene telefono valido para SMS.');
       return;
     }
-    window.location.href = href;
+    window.location.assign(href);
   };
 
   const handleStatusChange = (order, newStatus, logText) => {

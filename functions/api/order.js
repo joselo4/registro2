@@ -9,13 +9,30 @@ const isPlainObject = (value) =>
 
 const trimText = (value, max = 160) => String(value || '').trim().slice(0, max);
 
+const safeDate = (value) => {
+  const date = new Date(value || '');
+  return Number.isNaN(date.getTime()) ? new Date().toISOString() : date.toISOString();
+};
+
+const isValidOrderItem = (item) => {
+  if (!isPlainObject(item)) return false;
+  const quantity = Number(item.quantity);
+  const price = Number(item.price);
+  if (!Number.isInteger(quantity) || quantity < 1 || quantity > 99) return false;
+  if (!Number.isFinite(price) || price < 0 || price > 10000) return false;
+  if (!trimText(item.name || item.type || item.id, 160)) return false;
+  return true;
+};
+
 const validateOrderForCreate = (order) => {
   if (!isPlainObject(order)) return 'Pedido invalido.';
+  if (JSON.stringify(order).length > 50000) return 'El pedido es demasiado grande.';
   const id = cleanOrderId(order.id);
   if (!ORDER_ID_RE.test(id)) return 'Codigo de pedido invalido.';
   if (!Array.isArray(order.items) || order.items.length === 0 || order.items.length > 40) {
     return 'El pedido debe incluir productos validos.';
   }
+  if (!order.items.every(isValidOrderItem)) return 'El pedido contiene productos invalidos.';
   if (!isPlainObject(order.customer)) return 'Datos del cliente invalidos.';
   if (!trimText(order.customer.name, 80)) return 'Falta el nombre del cliente.';
   if (!trimText(order.customer.phone, 40)) return 'Falta el telefono del cliente.';
@@ -32,7 +49,7 @@ const sanitizeSurvey = (survey) => {
   return {
     rating,
     comment: trimText(survey.comment, 500),
-    date: survey.date || new Date().toISOString(),
+    date: safeDate(survey.date),
   };
 };
 
@@ -96,7 +113,7 @@ export async function onRequestPost({ request, env }) {
         statusHistory: [
           { status: 'Por Corroborar', timestamp: new Date().toISOString() },
         ],
-        date: order.date || new Date().toISOString(),
+        date: safeDate(order.date),
       };
     }
 

@@ -2,6 +2,10 @@ import { createAdminClient, fail, json, sameOriginRequest } from './_security.js
 
 const cleanTable = (value) => String(value || '').trim().replace(/[^\dA-Za-z_-]/g, '').slice(0, 20);
 const trimText = (value, max = 500) => String(value || '').trim().slice(0, max);
+const safeDate = (value) => {
+  const date = new Date(value || '');
+  return Number.isNaN(date.getTime()) ? new Date().toISOString() : date.toISOString();
+};
 
 export async function onRequestPost({ request, env }) {
   try {
@@ -12,13 +16,14 @@ export async function onRequestPost({ request, env }) {
     const requestText = trimText(body?.request);
     const resolved = body?.resolved === true;
 
+    if (JSON.stringify(body || {}).length > 5000) return fail(400, 'input', 'Solicitud demasiado grande.');
     if (!table) return fail(400, 'input', 'Falta el numero de mesa.');
     if (!resolved && !requestText) return fail(400, 'input', 'Falta la solicitud.');
 
     const callData = {
       table,
       request: requestText,
-      timestamp: body?.timestamp || new Date().toISOString(),
+      timestamp: safeDate(body?.timestamp),
       resolved,
     };
 

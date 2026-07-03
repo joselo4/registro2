@@ -82,7 +82,7 @@ export default function CustomerShop({
     }).join(', ');
   };
 
-  // --- Estados y Lógica para Sabor-O-Matic ---
+  // --- Estados y lógica para la guía de sabores ---
   const [showWizard, setShowWizard] = useState(false);
   const [wizardStep, setWizardStep] = useState(1); // 1: antojo, 2: premium, 3: topping, 4: result
   const [wizardAnswers, setWizardAnswers] = useState({ antojo: null, premium: null, topping: null });
@@ -169,7 +169,7 @@ export default function CustomerShop({
   const [dismissedTrend, setDismissedTrend] = useState(false);
   const [isToastDismissing, setIsToastDismissing] = useState(false);
 
-  const generateSaborOMaticCombination = (answers) => {
+  const generateFlavorGuideCombination = (answers) => {
     setIsWizardLoading(true);
     setWizardStep(4);
 
@@ -706,7 +706,7 @@ export default function CustomerShop({
                             title="Añadir helado simple de 1 bola al carrito"
                             onClick={() => handleAddClassicToCart(flavor)}
                           >
-                            +
+                            Agregar
                           </button>
                         </div>
                       </div>
@@ -803,7 +803,7 @@ export default function CustomerShop({
                             title="Añadir pack al carrito"
                             onClick={() => handleAddPackToCart(pack)}
                           >
-                            +
+                            Agregar
                           </button>
                         </div>
                       </div>
@@ -970,7 +970,8 @@ export default function CustomerShop({
               }}
               onClick={() => {
                 const waUrl = `https://wa.me/${String(storePhone || '51987654321').replace(/\D/g, '')}?text=${encodeURIComponent('¡Hola! Me gustaría hacer una consulta sobre los helados 🍦')}`;
-                window.open(waUrl, '_blank');
+                const waWindow = window.open(waUrl, '_blank', 'noopener,noreferrer');
+                if (waWindow) waWindow.opener = null;
               }}
             >
               <svg viewBox="0 0 24 24" width="16" height="16" fill="currentColor" style={{ verticalAlign: 'middle' }}>
@@ -1101,8 +1102,8 @@ export default function CustomerShop({
         </button>
       </section>
 
-      {/* Banner Sabor-O-Matic */}
-      <div className="sabor-omatic-banner" onClick={() => {
+      {/* Guía de sabores */}
+      <button type="button" className="sabor-omatic-banner" onClick={() => {
         setWizardStep(1);
         setWizardAnswers({ antojo: null, premium: null, topping: null });
         setWizardResult(null);
@@ -1113,13 +1114,13 @@ export default function CustomerShop({
             <span>🧠 Descubre tu helado</span>
           </div>
           <div className="sabor-omatic-banner-desc">
-            Prueba nuestro asistente inteligente <strong>Sabor-O-Matic</strong>. Él diseñará el helado perfecto para tu antojo en 3 preguntas rápidas.
+            Responde 3 preguntas rápidas y recibe una combinación de sabores hecha según tu antojo.
           </div>
         </div>
-        <button className="btn btn-secondary" style={{ whiteSpace: 'nowrap', margin: 0, padding: '10px 16px' }}>
+        <span className="btn btn-secondary" style={{ whiteSpace: 'nowrap', margin: 0, padding: '10px 16px' }}>
           ✨ Iniciar
-        </button>
-      </div>
+        </span>
+      </button>
 
       {/* Catálogo */}
       <section id="catalog" style={{ scrollMarginTop: '100px' }}>
@@ -1197,13 +1198,13 @@ export default function CustomerShop({
         </section>
       )}
 
-      {/* MODAL WIZARD SABOR-O-MATIC */}
+      {/* Modal de guía de sabores */}
       {showWizard && (
         <div className="sabor-omatic-overlay">
           <div className="glass sabor-omatic-modal">
             <div className="sabor-omatic-header">
-              <h3>🧠 Asistente Sabor-O-Matic</h3>
-              <button className="sabor-omatic-close" onClick={() => setShowWizard(false)}>&times;</button>
+              <h3>🧠 Guía de sabores</h3>
+              <button className="sabor-omatic-close" onClick={() => setShowWizard(false)} aria-label="Cerrar guía">&times;</button>
             </div>
             <div className="sabor-omatic-body">
               {/* Progress bar */}
@@ -1294,7 +1295,7 @@ export default function CustomerShop({
                       onClick={() => {
                         const answers = { ...wizardAnswers, topping: 'sweet' };
                         setWizardAnswers(answers);
-                        generateSaborOMaticCombination(answers);
+                        generateFlavorGuideCombination(answers);
                       }}
                     >
                       <span className="sabor-omatic-option-emoji">🍪</span>
@@ -1308,7 +1309,7 @@ export default function CustomerShop({
                       onClick={() => {
                         const answers = { ...wizardAnswers, topping: 'fruit_sauce' };
                         setWizardAnswers(answers);
-                        generateSaborOMaticCombination(answers);
+                        generateFlavorGuideCombination(answers);
                       }}
                     >
                       <span className="sabor-omatic-option-emoji">🍒</span>
@@ -1322,7 +1323,7 @@ export default function CustomerShop({
                       onClick={() => {
                         const answers = { ...wizardAnswers, topping: 'surprise' };
                         setWizardAnswers(answers);
-                        generateSaborOMaticCombination(answers);
+                        generateFlavorGuideCombination(answers);
                       }}
                     >
                       <span className="sabor-omatic-option-emoji">🎉</span>
@@ -1376,12 +1377,12 @@ export default function CustomerShop({
                                 toppings: wizardResult.toppings,
                                 price: wizardResult.price,
                                 quantity: 1,
-                                name: `Sabor-O-Matic: ${wizardResult.scoops.map(s => s.name).join(' + ')}`
+                                name: `Guía de sabores: ${wizardResult.scoops.map(s => s.name).join(' + ')}`
                               };
                               handleAddToCartWrapped(customItem);
                               setShowWizard(false);
                               if (showAlert) {
-                                showAlert('¡Carrito Actualizado!', 'Tu helado personalizado sugerido por Sabor-O-Matic ha sido añadido al carrito.', 'success');
+                                showAlert('¡Carrito Actualizado!', 'Tu helado personalizado sugerido por la guía de sabores ha sido añadido al carrito.', 'success');
                               } else {
                                 alert('¡Añadido al carrito con éxito!');
                               }

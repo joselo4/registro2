@@ -24,12 +24,20 @@ export const sameOriginRequest = (request) => {
   const origin = request.headers.get('Origin');
   if (!origin) return true;
   try {
-    const originHost = new URL(origin).host;
-    const requestHost = new URL(request.url).host;
-    if (originHost === requestHost) return true;
-    if (originHost.endsWith('.' + requestHost) || requestHost.endsWith('.' + originHost)) return true;
-    const trustedHosts = ['localhost', 'localhost:5173'];
-    return trustedHosts.includes(originHost);
+    const originUrl = new URL(origin);
+    const requestUrl = new URL(request.url);
+    if (originUrl.host === requestUrl.host) return true;
+
+    const isLocalRequest = ['localhost', '127.0.0.1', '::1'].includes(requestUrl.hostname);
+    const trustedLocalOrigins = new Set([
+      'http://localhost',
+      'https://localhost',
+      'http://localhost:5173',
+      'http://127.0.0.1:5173',
+    ]);
+    if (isLocalRequest && trustedLocalOrigins.has(originUrl.origin)) return true;
+
+    return originUrl.protocol === 'capacitor:' && originUrl.hostname === 'localhost';
   } catch {
     return false;
   }

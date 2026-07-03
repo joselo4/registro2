@@ -80,7 +80,8 @@ export default function LiveChatTelegramBridge({
         const cleanStorePhone = String(storePhone || '').replace(/\D/g, '');
         const waMessage = `Hola, mi nombre es ${cleanName || 'Cliente'} (Teléfono: ${cleanPhone}). Tengo una consulta sobre ${storeName || 'helados'}:\n\n${cleanMessage}`;
         const waUrl = `https://wa.me/${cleanStorePhone}?text=${encodeURIComponent(waMessage)}`;
-        window.open(waUrl, '_blank');
+        const waWindow = window.open(waUrl, '_blank', 'noopener,noreferrer');
+        if (waWindow) waWindow.opener = null;
         setIsOpen(false);
         setMessage('');
         setPhone('');
