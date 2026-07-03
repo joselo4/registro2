@@ -25,7 +25,7 @@ const isAdminUser = (user) => {
 const getDefaultAllowedTabsForRole = (role) => {
   const normalizedRole = normalizeText(role);
   if (normalizedRole.includes('admin')) {
-    return ['orders', 'inventory', 'packs', 'users', 'finance', 'settings', 'stats', 'surveys', 'table_orders', 'locations'];
+    return ['orders', 'inventory', 'packs', 'users', 'finance', 'billing', 'settings', 'stats', 'surveys', 'table_orders', 'locations'];
   }
   if (normalizedRole.includes('vendedor')) {
     return ['orders', 'inventory', 'surveys', 'table_orders', 'locations'];
@@ -450,6 +450,7 @@ export default function UserManager({
                 { id: 'packs', label: 'Packs Combos' },
                 { id: 'users', label: 'Personal / Staff' },
                 { id: 'finance', label: 'Caja y Finanzas' },
+                { id: 'billing', label: 'Facturacion' },
                 { id: 'settings', label: 'Ajustes Tienda' },
                 { id: 'stats', label: 'Meta e Ingresos' },
                 { id: 'locations', label: 'Carritos / Ubicacion' },

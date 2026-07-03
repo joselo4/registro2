@@ -113,6 +113,29 @@ const normalizeRoleLabel = (role, email = '') => {
   return normalizedRole || 'Vendedor';
 };
 
+const DEFAULT_BILLING_CONFIG = {
+  enabled: false,
+  provider: 'nubefact',
+  ruc: '',
+  businessName: '',
+  businessAddress: '',
+  igvPercent: 18,
+  taxIncluded: true,
+  defaultDocumentType: 'boleta',
+  boletaSeries: 'B001',
+  facturaSeries: 'F001',
+  nextBoletaNumber: 1,
+  nextFacturaNumber: 1,
+  autoSendSunat: true
+};
+
+const sanitizeBillingConfig = (config) => {
+  const safeConfig = { ...(config || {}) };
+  delete safeConfig.endpoint;
+  delete safeConfig.token;
+  return { ...DEFAULT_BILLING_CONFIG, ...safeConfig };
+};
+
 export default function App() {
   const isRemoteUpdate = useRef({});
   const allowCloudWrite = useRef(false);
@@ -147,6 +170,11 @@ export default function App() {
   });
 
   const [r2Config, setR2Config] = useState({});
+
+  const [billingConfig, setBillingConfig] = useState(() => {
+    const saved = localStorage.getItem('helados_billing_config');
+    return saved ? sanitizeBillingConfig(JSON.parse(saved)) : DEFAULT_BILLING_CONFIG;
+  });
 
   const [literConfig, setLiterConfig] = useState(() => {
     const saved = localStorage.getItem('helados_liter_config');
@@ -609,6 +637,7 @@ export default function App() {
     if (serverData.expenses !== undefined) setExpenses(serverData.expenses);
     if (serverData.staff_users !== undefined) setStaffUsers(serverData.staff_users);
     if (serverData.staff_permissions !== undefined) setStaffPermissions(serverData.staff_permissions);
+    if (serverData.billing_config !== undefined) setBillingConfig(sanitizeBillingConfig(serverData.billing_config));
     if (serverData.liter_config !== undefined) setLiterConfig(serverData.liter_config);
     if (serverData.ticket_custom_message !== undefined) setTicketCustomMessage(serverData.ticket_custom_message);
     if (serverData.catalog_order !== undefined) setCatalogOrder(serverData.catalog_order);
@@ -873,6 +902,7 @@ export default function App() {
   useSyncEffect('recommendations', recommendations, true);
   useSyncEffect('cart_recommended_pack', cartRecommendedPack, true);
   useSyncEffect('expenses', expenses, true);
+  useSyncEffect('billing_config', billingConfig, true);
   useSyncEffect('liter_config', literConfig, true);
   useSyncEffect('ticket_custom_message', ticketCustomMessage, false);
   useSyncEffect('store_instagram', storeInstagram, false);
@@ -1062,6 +1092,9 @@ export default function App() {
           break;
         case 'staff_permissions':
           updateStateIfChanged(setStaffPermissions, 'staff_permissions', value);
+          break;
+        case 'billing_config':
+          updateStateIfChanged(setBillingConfig, 'billing_config', sanitizeBillingConfig(value));
           break;
         case 'liter_config':
           updateStateIfChanged(setLiterConfig, 'liter_config', value);
@@ -1798,6 +1831,8 @@ export default function App() {
               onUpdateStaffPermissions={setStaffPermissions}
               r2Config={r2Config}
               onUpdateR2Config={setR2Config}
+              billingConfig={billingConfig}
+              onUpdateBillingConfig={setBillingConfig}
               literConfig={literConfig}
               onUpdateLiterConfig={setLiterConfig}
               ticketCustomMessage={ticketCustomMessage}

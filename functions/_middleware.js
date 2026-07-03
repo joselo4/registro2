@@ -21,7 +21,8 @@ export async function onRequest(context) {
       '/api/r2-upload',
       '/api/r2',
       '/api/table-call',
-      '/api/telegram'
+      '/api/telegram',
+      '/api/billing'
     ];
 
     if (!validApiRoutes.includes(path)) {
