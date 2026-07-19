@@ -1,0 +1,8 @@
+{
+  "appId": "com.friozoperu.carritos",
+  "appName": "Friozo peru",
+  "webDir": "dist",
+  "server": {
+    "androidScheme": "https"
+  }
+}
