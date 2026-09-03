@@ -397,12 +397,12 @@ export default function Cart({
                 <div style={{ fontSize: '1.8rem', display: 'flex', alignItems: 'center', justifyContent: 'center', width: '32px', height: '32px' }}>
                   {item.type === 'liter' && literConfig?.image ? (
                     <img src={literConfig.image} alt="1 Litro" width="32" height="32" style={{ width: '100%', height: '100%', objectFit: 'contain' }} />
-                  ) : item.type === 'pack' && item.image ? (
+                  ) : (item.type === 'pack' || item.type === 'popsicle') && item.image ? (
                     <img src={item.image} alt={item.name} width="32" height="32" style={{ width: '100%', height: '100%', objectFit: 'cover', borderRadius: '4px' }} />
                   ) : item.type === 'custom' && item.base?.image ? (
                     <img src={item.base.image} alt={item.name} width="32" height="32" style={{ width: '100%', height: '100%', objectFit: 'contain' }} />
                   ) : (
-                    item.type === 'custom' ? (item.base.icon || (item.base.id === 'cono' ? '🍦' : '🍧')) : (item.type === 'liter' ? '🏺' : '🎁')
+                    item.type === 'custom' ? (item.base.icon || (item.base.id === 'cono' ? '🍦' : '🍧')) : (item.type === 'liter' ? '🏺' : item.type === 'popsicle' ? '🍭' : '🎁')
                   )}
                 </div>
                 <div className="cart-item-details">

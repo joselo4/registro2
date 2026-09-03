@@ -6,6 +6,7 @@ export default function CustomerShop({
   toppings = [],
   bases = [],
   packs, 
+  popsicles = [],
   onAddToCart, 
   setView, 
   storeName,
@@ -13,7 +14,7 @@ export default function CustomerShop({
   freeDeliveryEnabled = true,
   deliveryCampaignText = '¡Arma tu helado con toppings o elige un pack promocional para no pagar envío!',
   literConfig,
-  catalogOrder = ['liter', 'classic', 'packs'],
+  catalogOrder = ['popsicles', 'classic', 'liter', 'packs'],
   storePhone,
   showAlert,
   trendsInterval,
@@ -30,7 +31,7 @@ export default function CustomerShop({
   trackEvent
 }) {
   const tableCategories = useMemo(() => {
-    return shopConfig?.tableCatalogCategories || ['classic', 'liter', 'packs'];
+    return shopConfig?.tableCatalogCategories || ['popsicles', 'classic', 'liter', 'packs'];
   }, [shopConfig?.tableCatalogCategories]);
 
   const handleAddToCartWrapped = useCallback((item) => {
@@ -54,6 +55,7 @@ export default function CustomerShop({
 
   const activeFlavors = flavors.filter(f => f.active);
   const activePacks = packs.filter(p => p.active);
+  const activePopsicles = popsicles.filter(p => p.active !== false);
   const activePrices = activeFlavors
     .map(flavor => Number(flavor.price) || 0)
     .filter(price => price > 0);
@@ -545,13 +547,68 @@ export default function CustomerShop({
     handleAddToCartWrapped(packItem);
   }, [handleAddToCartWrapped]);
 
+  const handleAddPopsicleToCart = useCallback((popsicle) => {
+    handleAddToCartWrapped({
+      type: 'popsicle',
+      id: popsicle.id,
+      name: popsicle.name,
+      price: Number(popsicle.price) || 0,
+      image: popsicle.image || '',
+      quantity: 1
+    });
+  }, [handleAddToCartWrapped]);
+
   const renderedCatalog = useMemo(() => {
-    const activeOrder = tableNumber 
-      ? (shopConfig?.tableCatalogCategories || ['classic', 'liter', 'packs']) 
-      : (catalogOrder || ['liter', 'classic', 'packs']);
+    const configuredOrder = tableNumber
+      ? (shopConfig?.tableCatalogCategories || ['popsicles', 'classic', 'liter', 'packs'])
+      : (catalogOrder || ['popsicles', 'classic', 'liter', 'packs']);
+    const activeOrder = configuredOrder.includes('popsicles')
+      ? configuredOrder
+      : ['popsicles', ...configuredOrder];
     return (
       <div className="catalog-grid">
         {activeOrder.map(section => {
+          if (section === 'popsicles') {
+            return (
+              <React.Fragment key="popsicles">
+                {(filter === 'all' || filter === 'popsicles') && activePopsicles.map(popsicle => (
+                  <article key={popsicle.id} className="glass-card product-card popsicle-card">
+                    {popsicle.badge && <span className="product-badge popsicle-badge">{popsicle.badge}</span>}
+                    <div className="product-illustration popsicle-illustration">
+                      {popsicle.image ? (
+                        <img
+                          src={popsicle.image}
+                          alt={`Paleta artesanal ${popsicle.name}`}
+                          width="160"
+                          height="220"
+                          loading="lazy"
+                          decoding="async"
+                        />
+                      ) : <span className="popsicle-placeholder" aria-hidden="true">🍭</span>}
+                    </div>
+                    <div className="product-info">
+                      <div>
+                        <span className="product-kind">PALETA ARTESANAL</span>
+                        <h3>{popsicle.name}</h3>
+                        <p className="product-desc">{popsicle.description}</p>
+                      </div>
+                      <div className="product-price-action">
+                        <div className="price-tag">S/. {Number(popsicle.price || 0).toFixed(2)}<span> / unidad</span></div>
+                        <button
+                          type="button"
+                          className="add-btn"
+                          aria-label={`Agregar paleta ${popsicle.name} al carrito`}
+                          onClick={() => handleAddPopsicleToCart(popsicle)}
+                        >
+                          Agregar
+                        </button>
+                      </div>
+                    </div>
+                  </article>
+                ))}
+              </React.Fragment>
+            );
+          }
           if (section === 'liter') {
             return (
               <React.Fragment key="liter">
@@ -823,7 +880,7 @@ export default function CustomerShop({
         })}
       </div>
     );
-  }, [tableNumber, catalogOrder, filter, literConfig, activeFlavors, activePacks, setView, handleAddClassicToCart, handleAddPackToCart, shopConfig]);
+  }, [tableNumber, catalogOrder, filter, literConfig, activeFlavors, activePacks, activePopsicles, setView, handleAddClassicToCart, handleAddPackToCart, handleAddPopsicleToCart, shopConfig]);
 
   return (
     <div className="customer-shop">
@@ -848,7 +905,7 @@ export default function CustomerShop({
             </p>
             
             <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
-              <button 
+              <button
                 type="button"
                 className="btn btn-primary" 
                 style={{ width: '100%', padding: '12px', fontSize: '0.85rem' }}
@@ -864,7 +921,7 @@ export default function CustomerShop({
                 🔍 Rastrear mi pedido activo
               </button>
               
-              <button 
+              <button
                 type="button"
                 className="btn btn-secondary" 
                 style={{ width: '100%', padding: '12px', fontSize: '0.85rem' }}
@@ -1115,32 +1172,6 @@ export default function CustomerShop({
         </div>
       )}
 
-      <section className="order-paths" aria-label="Formas de elegir tu helado">
-        <article className="order-path-card order-path-card-primary">
-          <span className="order-path-kicker">CREA EL TUYO</span>
-          <h2>Hazlo exactamente como te provoca</h2>
-          <p>Elige base, bolas, toppings y salsas. Tú pones la idea; nosotros la convertimos en helado.</p>
-          <button className="btn btn-primary" onClick={() => setView('customizer')}>
-            Empezar a combinar <span aria-hidden="true">→</span>
-          </button>
-        </article>
-
-        <button type="button" className="order-path-card order-path-card-guide" onClick={() => {
-          setWizardStep(1);
-          setWizardAnswers({ antojo: null, premium: null, topping: null });
-          setWizardResult(null);
-          setShowWizard(true);
-        }}>
-          <span className="order-path-icon" aria-hidden="true">✨</span>
-          <div className="order-path-guide-copy">
-            <span className="order-path-kicker">NO SÉ CUÁL ELEGIR</span>
-            <h3>Descubre tu mezcla ideal</h3>
-            <p>Responde 3 preguntas y recibe una combinación hecha para tu antojo.</p>
-          </div>
-          <span className="order-path-arrow" aria-hidden="true">→</span>
-        </button>
-      </section>
-
       {/* Catálogo */}
       <section id="catalog" className="catalog-section">
         <div className="catalog-heading">
@@ -1150,7 +1181,7 @@ export default function CustomerShop({
             <p className="section-subtitle">Sabores artesanales, packs para compartir y opciones hechas a tu medida.</p>
           </div>
           <span className="catalog-count">
-            {activeFlavors.length + activePacks.length + (literConfig?.active !== false ? 1 : 0)} opciones
+            {activeFlavors.length + activePacks.length + activePopsicles.length + (literConfig?.active !== false ? 1 : 0)} opciones
           </span>
         </div>
 
@@ -1173,6 +1204,15 @@ export default function CustomerShop({
                 aria-pressed={filter === 'classic'}
               >
                 🍦 Helados Simples
+              </button>
+            )}
+            {(!tableNumber || tableCategories.includes('popsicles')) && (
+              <button 
+                className={`filter-btn ${filter === 'popsicles' ? 'active' : ''}`}
+                onClick={() => setFilter('popsicles')}
+                aria-pressed={filter === 'popsicles'}
+              >
+                🍭 Paletas
               </button>
             )}
             {(!tableNumber || tableCategories.includes('liter')) && (
@@ -1198,6 +1238,32 @@ export default function CustomerShop({
 
         {/* Grid de Productos */}
         {renderedCatalog}
+      </section>
+
+      <section className="order-paths" aria-label="Formas de elegir tu helado">
+        <article className="order-path-card order-path-card-primary">
+          <span className="order-path-kicker">CREA EL TUYO</span>
+          <h2>Hazlo exactamente como te provoca</h2>
+          <p>Elige base, bolas, toppings y salsas. Tú pones la idea; nosotros la convertimos en helado.</p>
+          <button className="btn btn-primary" onClick={() => setView('customizer')}>
+            Empezar a combinar <span aria-hidden="true">→</span>
+          </button>
+        </article>
+
+        <button type="button" className="order-path-card order-path-card-guide" onClick={() => {
+          setWizardStep(1);
+          setWizardAnswers({ antojo: null, premium: null, topping: null });
+          setWizardResult(null);
+          setShowWizard(true);
+        }}>
+          <span className="order-path-icon" aria-hidden="true">✨</span>
+          <div className="order-path-guide-copy">
+            <span className="order-path-kicker">NO SÉ CUÁL ELEGIR</span>
+            <h3>Descubre tu mezcla ideal</h3>
+            <p>Responde 3 preguntas y recibe una combinación hecha para tu antojo.</p>
+          </div>
+          <span className="order-path-arrow" aria-hidden="true">→</span>
+        </button>
       </section>
 
       {/* Testimonios y Reseñas Verificadas */}

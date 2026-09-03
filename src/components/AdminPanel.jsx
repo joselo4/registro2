@@ -56,6 +56,8 @@ export default function AdminPanel({
   onUpdateBases,
   packs,
   onUpdatePacks,
+  popsicles = [],
+  onUpdatePopsicles,
   deliveryFee,
   onChangeDeliveryFee,
   shopOpen,
@@ -117,7 +119,7 @@ export default function AdminPanel({
   onUpdateLiterConfig,
   ticketCustomMessage,
   onUpdateTicketCustomMessage,
-  catalogOrder = ['liter', 'classic', 'packs'],
+  catalogOrder = ['popsicles', 'classic', 'liter', 'packs'],
   onUpdateCatalogOrder,
   storeInstagram,
   onChangeStoreInstagram,
@@ -760,6 +762,8 @@ export default function AdminPanel({
             onUpdateRecommendations={onUpdateRecommendations}
             packs={packs}
             onUpdatePacks={onUpdatePacks}
+            popsicles={popsicles}
+            onUpdatePopsicles={onUpdatePopsicles}
             r2Config={r2Config}
             addLog={addLog}
             currentUser={currentUser}

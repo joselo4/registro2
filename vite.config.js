@@ -26,6 +26,13 @@ function localPagesApiPlugin(env) {
         const urlObj = new URL(req.url || '', `http://${req.headers.host || 'localhost'}`)
         const pathname = urlObj.pathname
 
+        if (pathname.includes('.env') || pathname.includes('.git') || (pathname.includes('.well-known') && !pathname.includes('.well-known/security.txt'))) {
+          res.statusCode = 404
+          res.setHeader('Content-Type', 'text/plain')
+          res.end('Not Found')
+          return
+        }
+
         // Block forbidden/arbitrary paths locally
         const forbiddenPaths = ['/admin', '/admin/api', '/dashboard/api']
         if (forbiddenPaths.includes(pathname) || pathname.startsWith('/admin/') || pathname.startsWith('/dashboard/')) {

@@ -19,6 +19,8 @@ export default function InventoryManager({
   onUpdateRecommendations,
   packs,
   onUpdatePacks,
+  popsicles = [],
+  onUpdatePopsicles,
   addLog,
   currentUser,
   showAlert,
@@ -41,7 +43,8 @@ export default function InventoryManager({
     flavor: false,
     topping: false,
     base: false,
-    pack: false
+    pack: false,
+    popsicle: false
   });
 
   const handleImageUpload = async (file, type, targetSetter, currentObj) => {
@@ -97,6 +100,11 @@ export default function InventoryManager({
   const [showAddPack, setShowAddPack] = useState(false);
   const [editingPack, setEditingPack] = useState(null);
   const [newPack, setNewPack] = useState({ name: '', description: '', price: 10.0, cost: 4.00, items: '', discountText: '', badge: '', image: '' });
+
+  // --- Estados CRUD Paletas ---
+  const [showAddPopsicle, setShowAddPopsicle] = useState(false);
+  const [editingPopsicle, setEditingPopsicle] = useState(null);
+  const [newPopsicle, setNewPopsicle] = useState({ name: '', description: '', price: 3.0, cost: 1.2, badge: 'Nueva', image: '' });
 
   // --- CRUD Handlers Sabores ---
   const handleAddFlavorSubmit = (e) => {
@@ -465,6 +473,37 @@ export default function InventoryManager({
     }
   };
 
+  const cleanPopsicle = (item, previous = {}) => ({
+    ...previous,
+    id: previous.id || sanitizeHTML(item.name).toLowerCase().replace(/[^a-z0-9_]/g, '_').replace(/_+/g, '_'),
+    name: sanitizeHTML(item.name),
+    description: sanitizeHTML(item.description),
+    badge: sanitizeHTML(item.badge),
+    price: parseFloat(item.price),
+    cost: parseFloat(item.cost) || 0,
+    image: item.image || '',
+    active: item.active !== false
+  });
+
+  const handleAddPopsicleSubmit = (e) => {
+    e.preventDefault();
+    const item = cleanPopsicle(newPopsicle);
+    if (!item.name || Number.isNaN(item.price) || item.price < 0) return alert('El nombre y un precio válido son obligatorios.');
+    onUpdatePopsicles([...popsicles, item]);
+    setShowAddPopsicle(false);
+    setNewPopsicle({ name: '', description: '', price: 3.0, cost: 1.2, badge: 'Nueva', image: '' });
+    addLog(`Paleta creada: ${item.name} por ${currentUser?.name}.`);
+  };
+
+  const handleEditPopsicleSubmit = (e) => {
+    e.preventDefault();
+    const item = cleanPopsicle(editingPopsicle, editingPopsicle);
+    if (!item.name || Number.isNaN(item.price) || item.price < 0) return alert('El nombre y un precio válido son obligatorios.');
+    onUpdatePopsicles(popsicles.map(p => p.id === item.id ? item : p));
+    setEditingPopsicle(null);
+    addLog(`Paleta actualizada: ${item.name} por ${currentUser?.name}.`);
+  };
+
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
       {/* Subnavegación */}
@@ -474,6 +513,7 @@ export default function InventoryManager({
         <button className={`admin-action-btn ${subTab === 'bases' ? 'active' : ''}`} style={{ padding: '6px 12px', fontSize: '0.8rem', fontWeight: 600, border: 'none', background: subTab === 'bases' ? 'var(--primary-color)' : 'rgba(0,0,0,0.05)', color: subTab === 'bases' ? 'white' : 'inherit', borderRadius: '6px', cursor: 'pointer' }} onClick={() => setSubTab('bases')}>🍨 Envases/Bases</button>
         <button className={`admin-action-btn ${subTab === 'recommendations' ? 'active' : ''}`} style={{ padding: '6px 12px', fontSize: '0.8rem', fontWeight: 600, border: 'none', background: subTab === 'recommendations' ? 'var(--primary-color)' : 'rgba(0,0,0,0.05)', color: subTab === 'recommendations' ? 'white' : 'inherit', borderRadius: '6px', cursor: 'pointer' }} onClick={() => setSubTab('recommendations')}>⭐️ Sugerencias</button>
         <button className={`admin-action-btn ${subTab === 'packs' ? 'active' : ''}`} style={{ padding: '6px 12px', fontSize: '0.8rem', fontWeight: 600, border: 'none', background: subTab === 'packs' ? 'var(--primary-color)' : 'rgba(0,0,0,0.05)', color: subTab === 'packs' ? 'white' : 'inherit', borderRadius: '6px', cursor: 'pointer' }} onClick={() => setSubTab('packs')}>🎁 Combos/Packs</button>
+        <button className={`admin-action-btn ${subTab === 'popsicles' ? 'active' : ''}`} style={{ padding: '6px 12px', fontSize: '0.8rem', fontWeight: 600, border: 'none', background: subTab === 'popsicles' ? 'var(--primary-color)' : 'rgba(0,0,0,0.05)', color: subTab === 'popsicles' ? 'white' : 'inherit', borderRadius: '6px', cursor: 'pointer' }} onClick={() => setSubTab('popsicles')}>🍭 Paletas</button>
       </div>
 
       {/* RENDER SABORES */}
@@ -1257,6 +1297,65 @@ export default function InventoryManager({
                       <button className="admin-action-btn" style={{ color: 'var(--primary-color)', marginRight: '8px' }} onClick={() => setEditingPack(p)}>✏️</button>
                       <button className="admin-action-btn" style={{ color: 'var(--danger)' }} onClick={() => handleDeletePack(p.id)}>🗑️</button>
                     </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      )}
+
+      {subTab === 'popsicles' && (
+        <div className="glass" style={{ padding: '15px' }}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: '12px', marginBottom: '15px' }}>
+            <div>
+              <h4 style={{ fontSize: '1.05rem', margin: 0 }}>Paletas artesanales</h4>
+              <small style={{ color: 'var(--text-light)' }}>Administra sabores, precios, fotos y disponibilidad.</small>
+            </div>
+            <button className="btn btn-primary" style={{ padding: '8px 14px', fontSize: '0.8rem' }} onClick={() => { setEditingPopsicle(null); setShowAddPopsicle(!showAddPopsicle); }}>
+              {showAddPopsicle ? 'Cerrar' : '➕ Nueva Paleta'}
+            </button>
+          </div>
+
+          {(showAddPopsicle || editingPopsicle) && (() => {
+            const item = editingPopsicle || newPopsicle;
+            const setter = editingPopsicle ? setEditingPopsicle : setNewPopsicle;
+            return (
+              <form onSubmit={editingPopsicle ? handleEditPopsicleSubmit : handleAddPopsicleSubmit} className="popsicle-admin-form">
+                <div className="form-group"><label>Nombre</label><input className="form-control" value={item.name} onChange={e => setter({ ...item, name: e.target.value })} required /></div>
+                <div className="form-group"><label>Precio S/.</label><input type="number" min="0" step="0.10" className="form-control" value={item.price} onChange={e => setter({ ...item, price: e.target.value })} required /></div>
+                <div className="form-group"><label>Costo S/.</label><input type="number" min="0" step="0.10" className="form-control" value={item.cost} onChange={e => setter({ ...item, cost: e.target.value })} /></div>
+                <div className="form-group"><label>Etiqueta</label><input className="form-control" value={item.badge || ''} onChange={e => setter({ ...item, badge: e.target.value })} placeholder="Nueva, Tropical, Premium..." /></div>
+                <div className="form-group" style={{ gridColumn: '1 / -1' }}><label>Descripción</label><textarea rows="2" className="form-control" value={item.description || ''} onChange={e => setter({ ...item, description: e.target.value })} /></div>
+                <div className="form-group" style={{ gridColumn: '1 / -1' }}>
+                  <label>Foto del producto</label>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                    {item.image ? <img src={item.image} alt="Vista previa" style={{ width: 46, height: 62, objectFit: 'contain', borderRadius: 8, background: '#fff' }} /> : <span style={{ fontSize: '2rem' }}>🍭</span>}
+                    <input type="file" accept="image/*" style={{ display: 'none' }} id="popsicle-image-upload" onChange={e => handleImageUpload(e.target.files[0], 'popsicle', setter, item)} />
+                    <label htmlFor="popsicle-image-upload" className="btn btn-secondary" style={{ padding: '7px 11px', fontSize: '0.75rem', cursor: 'pointer' }}>
+                      {uploadingState.popsicle ? '⏳ Subiendo...' : '📷 Subir foto'}
+                    </label>
+                  </div>
+                </div>
+                <div style={{ gridColumn: '1 / -1', display: 'flex', gap: 8 }}>
+                  <button type="submit" className="btn btn-primary">{editingPopsicle ? 'Guardar cambios' : 'Guardar paleta'}</button>
+                  {editingPopsicle && <button type="button" className="btn btn-secondary" onClick={() => setEditingPopsicle(null)}>Cancelar</button>}
+                </div>
+              </form>
+            );
+          })()}
+
+          <div className="admin-table-container">
+            <table className="admin-table">
+              <thead><tr><th>Paleta</th><th>Precio</th><th>Costo</th><th>Estado</th><th>Acciones</th></tr></thead>
+              <tbody>
+                {popsicles.map(p => (
+                  <tr key={p.id}>
+                    <td><div style={{ display: 'flex', alignItems: 'center', gap: 9 }}>{p.image ? <img src={p.image} alt="" style={{ width: 34, height: 46, objectFit: 'contain' }} /> : '🍭'}<div><strong>{p.name}</strong><div style={{ color: 'var(--text-light)', fontSize: '.72rem' }}>{p.badge}</div></div></div></td>
+                    <td>S/. {Number(p.price || 0).toFixed(2)}</td>
+                    <td>S/. {Number(p.cost || 0).toFixed(2)}</td>
+                    <td><button className="admin-action-btn" onClick={() => onUpdatePopsicles(popsicles.map(x => x.id === p.id ? { ...x, active: x.active === false } : x))}>{p.active !== false ? '🟢 Activa' : '🔴 Oculta'}</button></td>
+                    <td><button className="admin-action-btn" onClick={() => { setShowAddPopsicle(false); setEditingPopsicle(p); }}>✏️</button><button className="admin-action-btn" style={{ color: 'var(--danger)' }} onClick={() => { if (window.confirm(`¿Eliminar ${p.name}?`)) onUpdatePopsicles(popsicles.filter(x => x.id !== p.id)); }}>🗑️</button></td>
                   </tr>
                 ))}
               </tbody>

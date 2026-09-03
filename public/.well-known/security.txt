@@ -1,0 +1,4 @@
+Contact: mailto:security@pideanda.com
+Contact: https://pideanda.com/contact
+Preferred-Languages: en, es
+Canonical: https://pideanda.com/.well-known/security.txt

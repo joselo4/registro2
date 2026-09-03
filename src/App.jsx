@@ -5,6 +5,7 @@ import {
   INITIAL_BASES, 
   INITIAL_TOPPINGS, 
   INITIAL_PACKS, 
+  INITIAL_POPSICLES,
   INITIAL_ORDERS 
 } from './utils/mockData';
 import { fetchSyncedData, updateSyncedData, subscribeToSync, invalidateSyncCache } from './utils/supabaseSync';
@@ -222,7 +223,7 @@ export default function App() {
   // --- NUEVO: Estado de Ordenamiento del Catálogo de la Carta (Sincronizado) ---
   const [catalogOrder, setCatalogOrder] = useState(() => {
     const saved = localStorage.getItem('helados_catalog_order');
-    return saved ? JSON.parse(saved) : ['liter', 'classic', 'packs'];
+    return saved ? JSON.parse(saved) : ['popsicles', 'classic', 'liter', 'packs'];
   });
 
   // --- Estados de Marca de la Heladería (Sincronizado con LocalStorage) ---
@@ -351,6 +352,11 @@ export default function App() {
   const [packs, setPacks] = useState(() => {
     const saved = localStorage.getItem('helados_packs');
     return saved ? JSON.parse(saved) : INITIAL_PACKS;
+  });
+
+  const [popsicles, setPopsicles] = useState(() => {
+    const saved = localStorage.getItem('helados_popsicles');
+    return saved ? JSON.parse(saved) : INITIAL_POPSICLES;
   });
 
   const [orders, setOrders] = useState(() => {
@@ -577,6 +583,7 @@ export default function App() {
     if (serverData.toppings !== undefined) setToppings(serverData.toppings);
     if (serverData.bases !== undefined) setBases(serverData.bases);
     if (serverData.packs !== undefined) setPacks(serverData.packs);
+    if (serverData.popsicles !== undefined) setPopsicles(serverData.popsicles);
 
     // Combinar órdenes generales e individuales order_PED-XXXX de forma única por ID y ordenar desc
     let initialOrders = serverData.orders || [];
@@ -855,6 +862,7 @@ export default function App() {
           'toppings',
           'bases',
           'packs',
+          'popsicles',
           'catalog_order',
           'liter_config',
           'cart_recommended_pack',
@@ -885,6 +893,7 @@ export default function App() {
   useSyncEffect('toppings', toppings, true);
   useSyncEffect('bases', bases, true);
   useSyncEffect('packs', packs, true);
+  useSyncEffect('popsicles', popsicles, true);
   useSyncEffect('orders', orders, true);
   useSyncEffect('delivery_fee', deliveryFee, false);
   useSyncEffect('shop_open', shopConfig, true);
@@ -1027,6 +1036,9 @@ export default function App() {
           break;
         case 'packs':
           updateStateIfChanged(setPacks, 'packs', value);
+          break;
+        case 'popsicles':
+          updateStateIfChanged(setPopsicles, 'popsicles', value);
           break;
         case 'orders':
           updateStateIfChanged(setOrders, 'orders', value);
@@ -1208,8 +1220,8 @@ export default function App() {
       return;
     }
 
-    if (item.type === 'pack') {
-      const idx = cart.findIndex(i => i.type === 'pack' && i.id === item.id);
+    if (item.type === 'pack' || item.type === 'popsicle') {
+      const idx = cart.findIndex(i => i.type === item.type && i.id === item.id);
       if (idx !== -1) {
         const newCart = [...cart];
         newCart[idx].quantity += 1;
@@ -1473,6 +1485,7 @@ export default function App() {
   }
 
   const totalCartItems = cart.reduce((sum, item) => sum + item.quantity, 0);
+  const cartSubtotal = cart.reduce((sum, item) => sum + (Number(item.price) || 0) * item.quantity, 0);
 
   const toggleTheme = () => {
     setTheme(prev => prev === 'light' ? 'dark' : 'light');
@@ -1651,6 +1664,7 @@ export default function App() {
             toppings={toppings}
             bases={bases}
             packs={packs}
+            popsicles={popsicles}
             onAddToCart={handleAddToCart}
             setView={setView}
             storeName={storeName}
@@ -1776,6 +1790,8 @@ export default function App() {
               onUpdateBases={setBases}
               packs={packs}
               onUpdatePacks={setPacks}
+              popsicles={popsicles}
+              onUpdatePopsicles={setPopsicles}
               deliveryFee={deliveryFee}
               onChangeDeliveryFee={setDeliveryFee}
               shopOpen={effectiveShopOpen}
@@ -2032,10 +2048,11 @@ export default function App() {
               transform: scale(1.05);
             }
           ` }} />
-          <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+          <div className="floating-cart-summary" style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
             <span style={{ fontSize: '1.2rem' }}>🛒</span>
-            <span style={{ fontSize: '0.85rem', fontWeight: 'bold', color: 'var(--text-dark)' }}>
-              Tienes {totalCartItems} {totalCartItems === 1 ? 'helado' : 'helados'} en el carrito
+            <span className="floating-cart-copy" style={{ fontSize: '0.85rem', fontWeight: 'bold', color: 'var(--text-dark)' }}>
+              <small>{totalCartItems} {totalCartItems === 1 ? 'producto' : 'productos'}</small>
+              <strong>S/. {cartSubtotal.toFixed(2)}</strong>
             </span>
           </div>
           <button 
@@ -2052,7 +2069,7 @@ export default function App() {
               margin: 0
             }}
           >
-            Finalizar Compra</button>
+            Ver carrito <span aria-hidden="true">→</span></button>
         </div>
       )}
 

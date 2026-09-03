@@ -83,7 +83,10 @@ export default function SettingsManager({
   const [localWhatsappFooter, setLocalWhatsappFooter] = useState(whatsappFooter);
   const [localQrCustomUrl, setLocalQrCustomUrl] = useState(qrCustomUrl);
   const [localTicketCustomMessage, setLocalTicketCustomMessage] = useState(ticketCustomMessage || '');
-  const [localCatalogOrder, setLocalCatalogOrder] = useState(() => catalogOrder || ['liter', 'classic', 'packs']);
+  const [localCatalogOrder, setLocalCatalogOrder] = useState(() => {
+    const order = catalogOrder || ['popsicles', 'classic', 'liter', 'packs'];
+    return order.includes('popsicles') ? order : ['popsicles', ...order];
+  });
   const [localTrendsInterval, setLocalTrendsInterval] = useState(trendsInterval || 25);
   const [localTrendsDisplayTime, setLocalTrendsDisplayTime] = useState(trendsDisplayTime || 6);
   const [localShopConfig, setLocalShopConfig] = useState(() => shopConfig || {
@@ -170,7 +173,10 @@ export default function SettingsManager({
   useEffect(() => { setLocalWhatsappFooter(whatsappFooter); }, [whatsappFooter]);
   useEffect(() => { setLocalQrCustomUrl(qrCustomUrl); }, [qrCustomUrl]);
   useEffect(() => { setLocalTicketCustomMessage(ticketCustomMessage || ''); }, [ticketCustomMessage]);
-  useEffect(() => { setLocalCatalogOrder(catalogOrder || ['liter', 'classic', 'packs']); }, [catalogOrder]);
+  useEffect(() => {
+    const order = catalogOrder || ['popsicles', 'classic', 'liter', 'packs'];
+    setLocalCatalogOrder(order.includes('popsicles') ? order : ['popsicles', ...order]);
+  }, [catalogOrder]);
   useEffect(() => { setLocalTrendsInterval(trendsInterval || 25); }, [trendsInterval]);
   useEffect(() => { setLocalTrendsDisplayTime(trendsDisplayTime || 6); }, [trendsDisplayTime]);
   useEffect(() => { setLocalStoreHeroImage(storeHeroImage || ''); }, [storeHeroImage]);
@@ -399,7 +405,7 @@ export default function SettingsManager({
 
   const handleToggleTableCategory = (category, checked) => {
     setLocalShopConfig(prev => {
-      const currentCategories = prev.tableCatalogCategories || ['classic', 'liter', 'packs'];
+      const currentCategories = prev.tableCatalogCategories || ['popsicles', 'classic', 'liter', 'packs'];
       let updatedCategories;
       if (checked) {
         if (!currentCategories.includes(category)) {
@@ -1795,7 +1801,16 @@ alter table public.helados_sync enable row level security;`}
                 <label style={{ display: 'flex', alignItems: 'center', gap: '8px', fontSize: '0.75rem', cursor: 'pointer', fontWeight: 500 }}>
                   <input
                     type="checkbox"
-                    checked={(localShopConfig.tableCatalogCategories || ['classic', 'liter', 'packs']).includes('classic')}
+                    checked={(localShopConfig.tableCatalogCategories || ['popsicles', 'classic', 'liter', 'packs']).includes('popsicles')}
+                    onChange={(e) => handleToggleTableCategory('popsicles', e.target.checked)}
+                    style={{ width: '15px', height: '15px' }}
+                  />
+                  <span>🍭 Paletas Artesanales</span>
+                </label>
+                <label style={{ display: 'flex', alignItems: 'center', gap: '8px', fontSize: '0.75rem', cursor: 'pointer', fontWeight: 500 }}>
+                  <input
+                    type="checkbox"
+                    checked={(localShopConfig.tableCatalogCategories || ['popsicles', 'classic', 'liter', 'packs']).includes('classic')}
                     onChange={(e) => handleToggleTableCategory('classic', e.target.checked)}
                     style={{ width: '15px', height: '15px' }}
                   />
@@ -1805,7 +1820,7 @@ alter table public.helados_sync enable row level security;`}
                 <label style={{ display: 'flex', alignItems: 'center', gap: '8px', fontSize: '0.75rem', cursor: 'pointer', fontWeight: 500 }}>
                   <input
                     type="checkbox"
-                    checked={(localShopConfig.tableCatalogCategories || ['classic', 'liter', 'packs']).includes('liter')}
+                    checked={(localShopConfig.tableCatalogCategories || ['popsicles', 'classic', 'liter', 'packs']).includes('liter')}
                     onChange={(e) => handleToggleTableCategory('liter', e.target.checked)}
                     style={{ width: '15px', height: '15px' }}
                   />
@@ -1815,7 +1830,7 @@ alter table public.helados_sync enable row level security;`}
                 <label style={{ display: 'flex', alignItems: 'center', gap: '8px', fontSize: '0.75rem', cursor: 'pointer', fontWeight: 500 }}>
                   <input
                     type="checkbox"
-                    checked={(localShopConfig.tableCatalogCategories || ['classic', 'liter', 'packs']).includes('packs')}
+                    checked={(localShopConfig.tableCatalogCategories || ['popsicles', 'classic', 'liter', 'packs']).includes('packs')}
                     onChange={(e) => handleToggleTableCategory('packs', e.target.checked)}
                     style={{ width: '15px', height: '15px' }}
                   />
@@ -2531,7 +2546,9 @@ alter table public.helados_sync enable row level security;`}
           </p>
           <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
             {localCatalogOrder.map((section, idx) => {
-              const label = section === 'liter' 
+              const label = section === 'popsicles'
+                ? '🍭 Paletas Artesanales'
+                : section === 'liter'
                 ? '🏺 Helado Familiar de 1 Litro' 
                 : section === 'classic' 
                 ? '🍦 Helados Simples / Sabores' 

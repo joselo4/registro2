@@ -60,6 +60,39 @@ export const INITIAL_PACKS = [
   }
 ];
 
+export const INITIAL_POPSICLES = [
+  {
+    id: 'paleta_fresa_crema',
+    name: 'Fresa con Crema',
+    description: 'Paleta artesanal cremosa con fresa natural y un acabado suave de yogur.',
+    price: 3.0,
+    cost: 1.2,
+    image: '/paletas/paleta-fresa-crema.png',
+    badge: 'Nueva',
+    active: true
+  },
+  {
+    id: 'paleta_mango_maracuya',
+    name: 'Mango Maracuyá',
+    description: 'Mango maduro y maracuyá en una paleta fresca, frutal y ligeramente ácida.',
+    price: 3.0,
+    cost: 1.2,
+    image: '/paletas/paleta-mango-maracuya.png',
+    badge: 'Tropical',
+    active: true
+  },
+  {
+    id: 'paleta_lucuma_chocolate',
+    name: 'Lúcuma & Chocolate',
+    description: 'Paleta cremosa de lúcuma bañada en chocolate oscuro con crocante de frutos secos.',
+    price: 3.5,
+    cost: 1.5,
+    image: '/paletas/paleta-lucuma-chocolate.png',
+    badge: 'Premium',
+    active: true
+  }
+];
+
 export const INITIAL_ORDERS = [
   {
     id: 'PED-1001',

@@ -10,6 +10,9 @@
     <!-- SEO: Canonical Link -->
     <link rel="canonical" href="https://www.pideanda.com/" />
 
+    <!-- Security fallback for hosts that cannot attach response headers -->
+    <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-inline' https://static.cloudflareinsights.com https://www.googletagmanager.com https://connect.facebook.net; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; img-src 'self' data: https: https://www.facebook.com; font-src 'self' https://fonts.gstatic.com; connect-src 'self' https://*.supabase.co wss://*.supabase.co https://api.telegram.org https://tile.openstreetmap.org https://cloudflareinsights.com https://www.google-analytics.com https://*.google-analytics.com https://*.analytics.google.com https://www.facebook.com; base-uri 'self'; form-action 'self' https://wa.me">
+
     <!-- Local Business SEO Structured Data -->
     <script type="application/ld+json">
     {
@@ -87,4 +90,3 @@
     <script type="module" src="/src/main.jsx"></script>
   </body>
 </html>
-

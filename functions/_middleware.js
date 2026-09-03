@@ -2,6 +2,14 @@ export async function onRequest(context) {
   const url = new URL(context.request.url);
   const path = url.pathname;
 
+  if (path.includes('.env') || path.includes('.git') || (path.includes('.well-known') && path !== '/.well-known/security.txt')) {
+    return new Response('Not Found', { status: 404 });
+  }
+
+  if (['TRACE', 'TRACK'].includes(context.request.method)) {
+    return new Response('Method Not Allowed', { status: 405 });
+  }
+
   // 1. Block forbidden/arbitrary admin and dashboard paths that are not real pages
   const forbiddenPaths = [
     '/admin',
@@ -68,7 +76,10 @@ export async function onRequest(context) {
             'Access-Control-Max-Age': '86400',
             'X-XSS-Protection': '0',
             'X-Content-Type-Options': 'nosniff',
-            'X-Frame-Options': 'DENY'
+            'X-Frame-Options': 'DENY',
+            'Strict-Transport-Security': 'max-age=31536000; includeSubDomains; preload',
+            'Referrer-Policy': 'strict-origin-when-cross-origin',
+            'Permissions-Policy': 'camera=(), microphone=(), geolocation=()'
           }
         });
       } else {
@@ -77,7 +88,10 @@ export async function onRequest(context) {
           headers: {
             'X-XSS-Protection': '0',
             'X-Content-Type-Options': 'nosniff',
-            'X-Frame-Options': 'DENY'
+            'X-Frame-Options': 'DENY',
+            'Strict-Transport-Security': 'max-age=31536000; includeSubDomains; preload',
+            'Referrer-Policy': 'strict-origin-when-cross-origin',
+            'Permissions-Policy': 'camera=(), microphone=(), geolocation=()'
           }
         });
       }
@@ -91,6 +105,10 @@ export async function onRequest(context) {
     newResponse.headers.set('X-XSS-Protection', '0');
     newResponse.headers.set('X-Content-Type-Options', 'nosniff');
     newResponse.headers.set('X-Frame-Options', 'DENY');
+    newResponse.headers.set('Strict-Transport-Security', 'max-age=31536000; includeSubDomains; preload');
+    newResponse.headers.set('Referrer-Policy', 'strict-origin-when-cross-origin');
+    newResponse.headers.set('Permissions-Policy', 'camera=(), microphone=(), geolocation=()');
+    newResponse.headers.delete('X-Powered-By');
 
     // Inject CORS header to response if origin is allowed
     if (isAllowedOrigin) {
@@ -106,5 +124,9 @@ export async function onRequest(context) {
   newResponse.headers.set('X-XSS-Protection', '0');
   newResponse.headers.set('X-Content-Type-Options', 'nosniff');
   newResponse.headers.set('X-Frame-Options', 'DENY');
+  newResponse.headers.set('Strict-Transport-Security', 'max-age=31536000; includeSubDomains; preload');
+  newResponse.headers.set('Referrer-Policy', 'strict-origin-when-cross-origin');
+  newResponse.headers.set('Permissions-Policy', 'camera=(), microphone=(), geolocation=()');
+  newResponse.headers.delete('X-Powered-By');
   return newResponse;
 }
