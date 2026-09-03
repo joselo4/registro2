@@ -90,7 +90,7 @@ export async function onRequestPost({ request, env }) {
       }
     } else if (kind === 'order') {
       const cleanId = String(orderId || '').trim().toUpperCase();
-      const ORDER_ID_RE = /^PED-[A-Z0-9-]{6,40}$/;
+      const ORDER_ID_RE = /^PED-[A-Z0-9-]{4,40}$/;
       if (!cleanId || !ORDER_ID_RE.test(cleanId)) {
         return json({ error: 'Codigo de pedido invalido.' }, 400);
       }
@@ -119,7 +119,7 @@ export async function onRequestPost({ request, env }) {
       }
     } else if (kind === 'survey') {
       const cleanId = String(orderId || '').trim().toUpperCase();
-      const ORDER_ID_RE = /^PED-[A-Z0-9-]{6,40}$/;
+      const ORDER_ID_RE = /^PED-[A-Z0-9-]{4,40}$/;
       if (!cleanId || !ORDER_ID_RE.test(cleanId)) {
         return json({ error: 'Codigo de pedido invalido.' }, 400);
       }

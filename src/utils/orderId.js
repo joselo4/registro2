@@ -1,13 +1,18 @@
 export const generateOrderId = () => {
-  const timePart = Date.now().toString(36).toUpperCase();
-  const randomBytes = new Uint8Array(3);
+  // Caracteres alfanuméricos legibles (excluye 0, O, 1, I para evitar confusiones al leer o escribir)
+  const chars = '23456789ABCDEFGHJKLMNPQRSTUVWXYZ';
+  const randomBytes = new Uint8Array(5);
   if (globalThis.crypto?.getRandomValues) {
     globalThis.crypto.getRandomValues(randomBytes);
   } else {
-    randomBytes.forEach((_, index) => {
-      randomBytes[index] = Math.floor(Math.random() * 256);
-    });
+    for (let i = 0; i < 5; i++) {
+      randomBytes[i] = Math.floor(Math.random() * 256);
+    }
   }
-  const randomPart = Array.from(randomBytes, byte => byte.toString(36).padStart(2, '0')).join('').toUpperCase();
-  return `PED-${timePart}-${randomPart}`;
+  let code = '';
+  for (let i = 0; i < 5; i++) {
+    code += chars[randomBytes[i] % chars.length];
+  }
+  return `PED-${code}`;
 };
+

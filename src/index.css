@@ -553,6 +553,7 @@ h1, h2, h3, h4, h5, h6 {
   display: grid;
   grid-template-columns: 1fr 1.2fr;
   gap: 40px;
+  align-items: start;
   background: var(--glass-bg);
   padding: 30px;
   margin-bottom: 60px;

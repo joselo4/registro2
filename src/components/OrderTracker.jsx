@@ -331,8 +331,11 @@ export default function OrderTracker({ orderId, orders, setView, storePhone, onC
 
   const handleSearchSubmit = (e) => {
     e.preventDefault();
-    const cleanId = inputVal.trim();
+    let cleanId = inputVal.trim().toUpperCase();
     if (!cleanId) return;
+    if (!cleanId.startsWith('PED-') && !cleanId.startsWith('ORD-') && cleanId.length >= 3) {
+      cleanId = `PED-${cleanId}`;
+    }
     setLoadingOrder(false);
     setActiveSearchId(cleanId);
     setHasSearched(true);
@@ -341,17 +344,46 @@ export default function OrderTracker({ orderId, orders, setView, storePhone, onC
 
   const cleanPhone = String(storePhone || '').replace(/\D/g, '');
 
-  // Render del buscador si no se ha seleccionado o encontrado un pedido válido
-  if (!currentOrder) {
+  const renderSearchForm = (expiredOrder = null) => {
     return (
       <div className="glass" style={{ padding: '30px 20px', maxWidth: '500px', margin: '40px auto', borderRadius: 'var(--radius-lg)' }}>
         <div style={{ textAlign: 'center', marginBottom: '20px' }}>
-          <span style={{ fontSize: '3rem' }}>🔍</span>
-          <h2 style={{ marginTop: '10px', fontSize: '1.5rem' }}>Rastrear mi Pedido</h2>
-          <p style={{ color: 'var(--text-light)', fontSize: '0.85rem', marginTop: '5px' }}>
-            Ingresa el código único de tu compra para ver su estado actual de preparación y envío.
+          <span style={{ fontSize: '3rem' }}>{expiredOrder ? '🛑' : '🔍'}</span>
+          <h2 style={{ marginTop: '10px', fontSize: '1.5rem', color: expiredOrder ? 'var(--danger)' : 'inherit' }}>
+            {expiredOrder ? 'Seguimiento Expirado' : 'Rastrear mi Pedido'}
+          </h2>
+          <p style={{ color: 'var(--text-light)', fontSize: '0.85rem', marginTop: '5px', lineHeight: '1.4' }}>
+            {expiredOrder 
+              ? `El código de seguimiento ${expiredOrder.id} ha superado el límite de 72 horas. Puedes ingresar otro código a continuación o contactar a soporte.`
+              : 'Ingresa el código único de tu compra para ver su estado actual de preparación y envío.'}
           </p>
         </div>
+
+        {expiredOrder && (
+          <div style={{ 
+            marginBottom: '15px',
+            background: 'rgba(231, 76, 60, 0.08)', 
+            color: 'var(--danger)', 
+            padding: '12px', 
+            borderRadius: '12px', 
+            fontSize: '0.82rem', 
+            border: '1px solid rgba(231, 76, 60, 0.2)',
+            display: 'flex',
+            flexDirection: 'column',
+            gap: '8px'
+          }}>
+            <span>¿Tienes alguna duda sobre tu entrega? Nuestro equipo puede ayudarte:</span>
+            <a 
+              href={`https://wa.me/${cleanPhone || '51987654321'}?text=${encodeURIComponent(`Hola, tengo una consulta sobre mi pedido ${expiredOrder.id}`)}`}
+              target="_blank" 
+              rel="noopener noreferrer" 
+              className="btn btn-primary"
+              style={{ background: '#25D366', borderColor: '#25D366', color: 'white', textDecoration: 'none', display: 'inline-flex', alignItems: 'center', justifyContent: 'center', gap: '6px', padding: '8px 12px', fontSize: '0.8rem', borderRadius: '8px' }}
+            >
+              💬 WhatsApp Soporte
+            </a>
+          </div>
+        )}
 
         <form onSubmit={handleSearchSubmit} style={{ display: 'flex', flexDirection: 'column', gap: '15px' }}>
           <div className="form-group">
@@ -359,10 +391,10 @@ export default function OrderTracker({ orderId, orders, setView, storePhone, onC
             <input
               type="text"
               className="form-control"
-              placeholder="Ej: PED-ABC123"
+              placeholder="Ej: PED-7K9A2 o 7K9A2"
               value={inputVal}
               onChange={(e) => setInputVal(e.target.value)}
-              style={{ textTransform: 'lowercase', padding: '12px', fontSize: '1rem' }}
+              style={{ textTransform: 'uppercase', padding: '12px', fontSize: '1rem', letterSpacing: '1px' }}
               required
             />
           </div>
@@ -412,7 +444,7 @@ export default function OrderTracker({ orderId, orders, setView, storePhone, onC
                     onClick={() => {
                       setActiveSearchId(id);
                       setInputVal(id);
-                      setHasSearched(false);
+                      setHasSearched(true);
                       setSearchNonce((value) => value + 1);
                     }}
                     className="btn btn-secondary"
@@ -458,7 +490,7 @@ export default function OrderTracker({ orderId, orders, setView, storePhone, onC
               margin: 0
             }}
             onClick={() => {
-              const waUrl = `https://wa.me/${String(storePhone || '51987654321').replace(/\D/g, '')}?text=${encodeURIComponent('¡Hola! Tengo una consulta sobre el estado de un pedido 🍦')}`;
+              const waUrl = `https://wa.me/${cleanPhone || '51987654321'}?text=${encodeURIComponent('¡Hola! Tengo una consulta sobre el estado de un pedido 🍦')}`;
               const waWindow = window.open(waUrl, '_blank', 'noopener,noreferrer');
               if (waWindow) waWindow.opener = null;
             }}
@@ -471,56 +503,18 @@ export default function OrderTracker({ orderId, orders, setView, storePhone, onC
         </div>
       </div>
     );
+  };
+
+  const isExpired = currentOrder ? isOrderExpired(currentOrder) : false;
+
+  // Render del buscador si no se ha encontrado pedido o si la orden automática expiró sin búsqueda manual
+  if (!currentOrder || (isExpired && !hasSearched)) {
+    return renderSearchForm(null);
   }
 
-  // Render del estado de seguimiento de un pedido ENCONTRADO
-  const orderDate = currentOrder.date ? new Date(currentOrder.date) : null;
-  const now = new Date();
-  const diffHours = (orderDate && !isNaN(orderDate.getTime())) ? (now - orderDate) / (1000 * 60 * 60) : 0;
-  const isExpired = diffHours > 72;
-
-  if (isExpired) {
-    return (
-      <div className="glass tracking-container" style={{ padding: '30px 20px', maxWidth: '500px', margin: '40px auto', borderRadius: 'var(--radius-lg)', textAlign: 'center' }}>
-        <span style={{ fontSize: '3rem' }}>🛑</span>
-        <h2 style={{ marginTop: '10px', fontSize: '1.5rem', color: 'var(--danger)' }}>Seguimiento Expirado</h2>
-        <p style={{ color: 'var(--text-light)', fontSize: '0.9rem', marginTop: '10px', lineHeight: '1.5' }}>
-          El código de seguimiento para el pedido <strong>{currentOrder.id}</strong> ha expirado (límite de 72 horas).
-        </p>
-        <p style={{ color: 'var(--text-light)', fontSize: '0.85rem', marginTop: '5px' }}>
-          Si tienes alguna consulta sobre tu pedido, por favor ponte en contacto con nuestro soporte de WhatsApp.
-        </p>
-        <div style={{ display: 'flex', gap: '12px', justifyContent: 'center', marginTop: '20px', flexWrap: 'wrap' }}>
-          <button className="btn btn-secondary" style={{ flex: '1 1 120px' }} onClick={() => setView('shop')}>
-            🍨 Volver a la Tienda
-          </button>
-          <button 
-            className="btn btn-secondary" 
-            style={{ flex: '1 1 120px' }}
-            onClick={() => {
-              setActiveSearchId('');
-              setFetchedOrder(null);
-              setInputVal('');
-              setHasSearched(false);
-              if (onClearActiveOrder) {
-                onClearActiveOrder();
-              }
-            }}
-          >
-            🔍 Buscar Otro
-          </button>
-          <a 
-            href={`https://wa.me/${String(storePhone || '').replace(/\D/g, '')}?text=Hola,%20tengo%20una%20duda%20sobre%20mi%20pedido%20${currentOrder.id}`} 
-            target="_blank" 
-            rel="noopener noreferrer" 
-            className="btn btn-primary"
-            style={{ background: '#25D366', borderColor: '#25D366', color: 'white', textDecoration: 'none', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '6px', flex: '1 1 120px' }}
-          >
-            💬 WhatsApp Soporte
-          </a>
-        </div>
-      </div>
-    );
+  // Si el usuario ingresó explícitamente un código que expiró
+  if (isExpired && hasSearched) {
+    return renderSearchForm(currentOrder);
   }
 
   const statusNum = getStatusNumber(currentOrder.status);

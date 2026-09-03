@@ -1,6 +1,6 @@
 import { createAdminClient, fail, json, sameOriginRequest } from './_security.js';
 
-const ORDER_ID_RE = /^PED-[A-Z0-9-]{6,40}$/;
+const ORDER_ID_RE = /^PED-[A-Z0-9-]{4,40}$/;
 
 const cleanOrderId = (value) => String(value || '').trim().toUpperCase();
 

@@ -545,6 +545,12 @@ export default function App() {
   const [cart, setCart] = useState([]);
   const [activeOrderId, setActiveOrderId] = useState(() => {
     const saved = localStorage.getItem('helados_active_order_id');
+    const savedTime = localStorage.getItem('helados_active_order_time');
+    if (savedTime && (Date.now() - Number(savedTime)) > 72 * 60 * 60 * 1000) {
+      localStorage.removeItem('helados_active_order_id');
+      localStorage.removeItem('helados_active_order_time');
+      return null;
+    }
     return saved || null;
   });
   
@@ -1203,8 +1209,12 @@ export default function App() {
   useEffect(() => {
     if (activeOrderId) {
       localStorage.setItem('helados_active_order_id', activeOrderId);
+      if (!localStorage.getItem('helados_active_order_time')) {
+        localStorage.setItem('helados_active_order_time', String(Date.now()));
+      }
     } else {
       localStorage.removeItem('helados_active_order_id');
+      localStorage.removeItem('helados_active_order_time');
     }
   }, [activeOrderId]);
 
