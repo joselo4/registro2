@@ -54,6 +54,12 @@ export default function CustomerShop({
 
   const activeFlavors = flavors.filter(f => f.active);
   const activePacks = packs.filter(p => p.active);
+  const activePrices = activeFlavors
+    .map(flavor => Number(flavor.price) || 0)
+    .filter(price => price > 0);
+  const startingPrice = activePrices.length > 0
+    ? Math.min(...activePrices).toFixed(2)
+    : '1.00';
 
   const isTableOccupiedByOther = tableOrdersEnabled && tableNumber && 
     occupiedTables.includes(String(tableNumber));
@@ -936,38 +942,30 @@ export default function CustomerShop({
               </button>
             </div>
           )}
-          <h1>¡Helados Deliciosos desde S/. 1.00!</h1>
-          <p>
-            Bienvenido a <strong>{storeName}</strong>, la mejor heladería artesanal online. Diseña tu helado favorito bola por bola con tus sabores preferidos, toppings y salsas, o elige nuestros combos de descuento.
+          <div className="hero-eyebrow">
+            <span className="hero-live-dot" aria-hidden="true"></span>
+            Helado artesanal · pedido online
+          </div>
+          <h1>
+            Tu antojo, <span>hecho helado.</span>
+          </h1>
+          <p className="hero-description">
+            Elige tus sabores, combínalos con toppings y arma algo totalmente tuyo. En <strong>{storeName}</strong>, pedir tu favorito toma solo unos minutos.
           </p>
           <div className="hero-cta">
-            <button className="btn btn-primary" onClick={() => setView('customizer')}>
-              🎨 Personalizar mi Helado
+            <button className="btn btn-primary hero-primary-cta" onClick={() => setView('customizer')}>
+              Armar mi helado <span aria-hidden="true">→</span>
             </button>
             <button className="btn btn-secondary" onClick={() => {
               const el = document.getElementById('catalog');
               if (el) el.scrollIntoView({ behavior: 'smooth' });
             }}>
-              🍨 Ver Catálogo
+              Ver sabores
             </button>
-            {shopConfig?.locationTrackingEnabled !== false && (
-              <button className="btn btn-secondary" onClick={() => setView('locations')}>
-                📍 Ver carritos
-              </button>
-            )}
+          </div>
+          <div className="hero-quick-links" aria-label="Acciones rápidas">
             <button 
-              className="btn btn-secondary" 
-              style={{ 
-                backgroundColor: '#25D366', 
-                color: 'white', 
-                borderColor: '#25D366', 
-                display: 'inline-flex', 
-                alignItems: 'center', 
-                justifyContent: 'center',
-                gap: '6px',
-                cursor: 'pointer',
-                margin: 0
-              }}
+              className="hero-text-link whatsapp-link" 
               onClick={() => {
                 const waUrl = `https://wa.me/${String(storePhone || '51987654321').replace(/\D/g, '')}?text=${encodeURIComponent('¡Hola! Me gustaría hacer una consulta sobre los helados 🍦')}`;
                 const waWindow = window.open(waUrl, '_blank', 'noopener,noreferrer');
@@ -977,12 +975,35 @@ export default function CustomerShop({
               <svg viewBox="0 0 24 24" width="16" height="16" fill="currentColor" style={{ verticalAlign: 'middle' }}>
                 <path d="M.057 24l1.687-6.163c-1.041-1.804-1.588-3.849-1.587-5.946C.06 5.348 5.397.01 12.008.01c3.202.001 6.212 1.246 8.477 3.514 2.266 2.268 3.507 5.28 3.505 8.484-.004 6.657-5.34 11.997-11.953 11.997-2.005-.001-3.973-.502-5.724-1.455L0 24zm6.59-4.846c1.66.986 3.284 1.447 4.74 1.448 5.4 0 9.792-4.393 9.795-9.79.002-2.615-1.012-5.074-2.855-6.918C16.483 2.05 14.032.99 11.417.99c-5.402 0-9.794 4.393-9.797 9.79-.001 1.733.456 3.238 1.411 4.887L2.03 20.485l4.616-1.331zM16.518 14.1c-.266-.134-1.577-.777-1.821-.866-.245-.09-.423-.134-.6.134-.178.266-.689.866-.844 1.04-.155.178-.312.2-.578.066-.266-.134-1.124-.414-2.141-1.32-.79-.705-1.326-1.577-1.482-1.844-.155-.266-.017-.41.117-.543.12-.12.266-.312.4-.467.135-.156.18-.266.27-.444.09-.178.045-.334-.022-.467-.067-.134-.6-1.446-.823-1.979-.217-.523-.454-.452-.6-.452h-.51c-.178 0-.467.067-.71.334-.244.267-.933.912-.933 2.224 0 1.312.955 2.58 1.088 2.757.135.178 1.88 2.87 4.554 4.024.637.275 1.13.438 1.517.56.64.204 1.22.175 1.68.107.513-.075 1.577-.644 1.8-.1.223-.545.223-1.013.156-1.1zm-.058-.058v.058-.058z"/>
               </svg>
-              <span>Preguntas WhatsApp</span>
+              <span>Preguntar por WhatsApp</span>
             </button>
+            {shopConfig?.locationTrackingEnabled !== false && (
+              <button className="hero-text-link" onClick={() => setView('locations')}>
+                <span aria-hidden="true">📍</span> Ver carritos cercanos
+              </button>
+            )}
+          </div>
+          <div className="hero-proof" aria-label="Beneficios de la tienda">
+            <div className="hero-proof-item">
+              <strong>Desde S/. {startingPrice}</strong>
+              <span>por bola</span>
+            </div>
+            <div className="hero-proof-item">
+              <strong>A tu gusto</strong>
+              <span>sabores y toppings</span>
+            </div>
+            <div className="hero-proof-item">
+              <strong>Pedido simple</strong>
+              <span>elige, arma y disfruta</span>
+            </div>
           </div>
         </div>
         <div className="hero-image-container">
           <div className="hero-circle-bg"></div>
+          <div className="hero-sticker hero-sticker-top" aria-hidden="true">
+            <strong>100%</strong>
+            <span>a tu gusto</span>
+          </div>
           <div className="hero-graphic-premium">
             {storeHeroImage ? (
               <img 
@@ -1068,64 +1089,70 @@ export default function CustomerShop({
               </svg>
             )}
           </div>
+          <div className="hero-sticker hero-sticker-bottom">
+            <span className="hero-sticker-icon" aria-hidden="true">✦</span>
+            <div>
+              <strong>Mezclas que sorprenden</strong>
+              <span>Combina sin límites</span>
+            </div>
+          </div>
         </div>
       </section>
 
       {/* BANNER DELIVERY GRATIS */}
       {!tableNumber && freeDeliveryEnabled && parseFloat(freeDeliveryThreshold || 0) > 0 && (
-        <div 
-          className="glass" 
-          style={{ 
-            padding: '15px 25px', 
-            marginBottom: '30px', 
-            textAlign: 'center', 
-            background: 'linear-gradient(135deg, rgba(46, 204, 113, 0.15) 0%, rgba(52, 152, 219, 0.1) 100%)',
-            borderLeft: '5px solid var(--success)',
-            borderRadius: 'var(--radius-md)'
-          }}
-        >
-          <span style={{ fontSize: '1.1rem' }}>🚚 <strong>Delivery GRATIS</strong> por compras desde <strong>S/. {parseFloat(freeDeliveryThreshold).toFixed(2)}</strong></span>
+        <div className="delivery-banner">
+          <span className="delivery-banner-icon" aria-hidden="true">🚚</span>
+          <div className="delivery-banner-copy">
+            <strong>Delivery gratis desde S/. {parseFloat(freeDeliveryThreshold).toFixed(2)}</strong>
           {deliveryCampaignText && (
-            <p style={{ fontSize: '0.8rem', color: 'var(--text-light)', marginTop: '4px' }}>{deliveryCampaignText}</p>
+              <p>{deliveryCampaignText}</p>
           )}
+          </div>
+          <button type="button" onClick={() => document.getElementById('catalog')?.scrollIntoView({ behavior: 'smooth' })}>
+            Ver carta <span aria-hidden="true">→</span>
+          </button>
         </div>
       )}
 
-      {/* Banner de Personalización */}
-      <section className="glass" style={{ padding: '25px', marginBottom: '40px', textAlign: 'center', background: 'linear-gradient(135deg, rgba(255, 107, 129, 0.08) 0%, rgba(229, 142, 38, 0.08) 100%)' }}>
-        <h2 style={{ fontSize: '1.5rem', marginBottom: '8px' }}>🎨 Arme su helado</h2>
-        <p style={{ color: 'var(--text-light)', marginBottom: '15px', maxWidth: '600px', margin: '0 auto 15px', fontSize: '0.9rem' }}>
-          Elige cono o copa, añade todas las bolas de tus sabores favoritos y decóralo con toppings y jarabes en cada capa. ¡El helado de tus sueños listo en segundos!
-        </p>
-        <button className="btn btn-primary" onClick={() => setView('customizer')}>
-          👉 Diseñar Helado Personalizado
+      <section className="order-paths" aria-label="Formas de elegir tu helado">
+        <article className="order-path-card order-path-card-primary">
+          <span className="order-path-kicker">CREA EL TUYO</span>
+          <h2>Hazlo exactamente como te provoca</h2>
+          <p>Elige base, bolas, toppings y salsas. Tú pones la idea; nosotros la convertimos en helado.</p>
+          <button className="btn btn-primary" onClick={() => setView('customizer')}>
+            Empezar a combinar <span aria-hidden="true">→</span>
+          </button>
+        </article>
+
+        <button type="button" className="order-path-card order-path-card-guide" onClick={() => {
+          setWizardStep(1);
+          setWizardAnswers({ antojo: null, premium: null, topping: null });
+          setWizardResult(null);
+          setShowWizard(true);
+        }}>
+          <span className="order-path-icon" aria-hidden="true">✨</span>
+          <div className="order-path-guide-copy">
+            <span className="order-path-kicker">NO SÉ CUÁL ELEGIR</span>
+            <h3>Descubre tu mezcla ideal</h3>
+            <p>Responde 3 preguntas y recibe una combinación hecha para tu antojo.</p>
+          </div>
+          <span className="order-path-arrow" aria-hidden="true">→</span>
         </button>
       </section>
 
-      {/* Guía de sabores */}
-      <button type="button" className="sabor-omatic-banner" onClick={() => {
-        setWizardStep(1);
-        setWizardAnswers({ antojo: null, premium: null, topping: null });
-        setWizardResult(null);
-        setShowWizard(true);
-      }}>
-        <div className="sabor-omatic-banner-content">
-          <div className="sabor-omatic-banner-title">
-            <span>🧠 Descubre tu helado</span>
-          </div>
-          <div className="sabor-omatic-banner-desc">
-            Responde 3 preguntas rápidas y recibe una combinación de sabores hecha según tu antojo.
-          </div>
-        </div>
-        <span className="btn btn-secondary" style={{ whiteSpace: 'nowrap', margin: 0, padding: '10px 16px' }}>
-          ✨ Iniciar
-        </span>
-      </button>
-
       {/* Catálogo */}
-      <section id="catalog" style={{ scrollMarginTop: '100px' }}>
-        <h2 className="section-title">Nuestra Carta Helada</h2>
-        <p className="section-subtitle">Frescura garantizada y entrega súper rápida hasta tu casa</p>
+      <section id="catalog" className="catalog-section">
+        <div className="catalog-heading">
+          <div>
+            <span className="section-kicker">LA CARTA DE HOY</span>
+            <h2 className="section-title">Elige tu próximo favorito</h2>
+            <p className="section-subtitle">Sabores artesanales, packs para compartir y opciones hechas a tu medida.</p>
+          </div>
+          <span className="catalog-count">
+            {activeFlavors.length + activePacks.length + (literConfig?.active !== false ? 1 : 0)} opciones
+          </span>
+        </div>
 
         {/* Filtros */}
         {(!tableNumber || tableCategories.length > 1) && (
@@ -1134,6 +1161,7 @@ export default function CustomerShop({
               <button 
                 className={`filter-btn ${filter === 'all' ? 'active' : ''}`}
                 onClick={() => setFilter('all')}
+                aria-pressed={filter === 'all'}
               >
                 🍨 Todo
               </button>
@@ -1142,6 +1170,7 @@ export default function CustomerShop({
               <button 
                 className={`filter-btn ${filter === 'classic' ? 'active' : ''}`}
                 onClick={() => setFilter('classic')}
+                aria-pressed={filter === 'classic'}
               >
                 🍦 Helados Simples
               </button>
@@ -1150,6 +1179,7 @@ export default function CustomerShop({
               <button 
                 className={`filter-btn ${filter === 'liter' ? 'active' : ''}`}
                 onClick={() => setFilter('liter')}
+                aria-pressed={filter === 'liter'}
               >
                 🏺 Potes de Litro
               </button>
@@ -1158,6 +1188,7 @@ export default function CustomerShop({
               <button 
                 className={`filter-btn ${filter === 'packs' ? 'active' : ''}`}
                 onClick={() => setFilter('packs')}
+                aria-pressed={filter === 'packs'}
               >
                 🎁 Packs Combos
               </button>

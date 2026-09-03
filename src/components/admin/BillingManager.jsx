@@ -151,6 +151,12 @@ export default function BillingManager({
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [lastResponse, setLastResponse] = useState(null);
 
+  const [editClientDoc, setEditClientDoc] = useState('');
+  const [editClientName, setEditClientName] = useState('');
+  const [editClientAddress, setEditClientAddress] = useState('');
+  const [isSearchingDoc, setIsSearchingDoc] = useState(false);
+  const [isSearchingStoreDoc, setIsSearchingStoreDoc] = useState(false);
+
   useEffect(() => {
     setLocalConfig({ ...DEFAULT_CONFIG, ...withoutSecrets(billingConfig) });
   }, [billingConfig]);
@@ -169,6 +175,70 @@ export default function BillingManager({
   const selectedOrder = billableOrders.find(order => order.id === selectedOrderId) || billableOrders[0] || null;
   const currentSeries = documentType === 'factura' ? localConfig.facturaSeries : localConfig.boletaSeries;
   const currentNumber = documentType === 'factura' ? Number(localConfig.nextFacturaNumber || 1) : Number(localConfig.nextBoletaNumber || 1);
+
+  useEffect(() => {
+    if (selectedOrder) {
+      setEditClientDoc(selectedOrder.customer?.documentNumber || '');
+      setEditClientName(selectedOrder.customer?.name || '');
+      setEditClientAddress(selectedOrder.customer?.address || '');
+    }
+  }, [selectedOrder?.id]);
+
+  const handleSearchDocument = async () => {
+    if (!editClientDoc) return;
+    setIsSearchingDoc(true);
+    try {
+      const isRuc = documentType === 'factura';
+      const endpoint = isRuc ? 'ruc' : 'dni';
+      const response = await fetch(`/api/consulta-doc?tipo=${endpoint}&numero=${editClientDoc}`);
+      
+      if (!response.ok) throw new Error('No se encontró el documento');
+      const data = await response.json();
+      
+      if (data.nombre) {
+        setEditClientName(data.nombre);
+        if (data.direccion) setEditClientAddress(data.direccion);
+        alert('Éxito', 'Autocompletado correctamente', 'success');
+      } else if (data.razonSocial) {
+        setEditClientName(data.razonSocial);
+        if (data.direccion) setEditClientAddress(data.direccion);
+        alert('Éxito', 'Autocompletado correctamente', 'success');
+      } else {
+        throw new Error('Formato inválido');
+      }
+    } catch (err) {
+      alert('Aviso', 'No se pudo autocompletar. Ingrese los datos manualmente.', 'warning');
+    } finally {
+      setIsSearchingDoc(false);
+    }
+  };
+
+  const handleSearchStoreDoc = async () => {
+    if (!localConfig.ruc || localConfig.ruc.length !== 11) {
+      alert('RUC inválido', 'Ingrese el RUC de 11 dígitos de su empresa.', 'warning');
+      return;
+    }
+    setIsSearchingStoreDoc(true);
+    try {
+      const response = await fetch(`/api/consulta-doc?tipo=ruc&numero=${localConfig.ruc}`);
+      if (!response.ok) throw new Error('Error al buscar RUC de empresa');
+      const data = await response.json();
+      
+      let nextConfig = { ...localConfig };
+      if (data.razonSocial || data.nombre) {
+        nextConfig.businessName = data.razonSocial || data.nombre;
+      }
+      if (data.direccion) {
+        nextConfig.businessAddress = data.direccion;
+      }
+      setLocalConfig(nextConfig);
+      alert('Éxito', 'Datos de la empresa autocompletados', 'success');
+    } catch (err) {
+      alert('Aviso', 'No se pudo autocompletar la empresa. Verifique su API token.', 'warning');
+    } finally {
+      setIsSearchingStoreDoc(false);
+    }
+  };
 
   const updateConfigField = (field, value) => {
     setLocalConfig(prev => ({ ...prev, [field]: value }));
@@ -194,10 +264,22 @@ export default function BillingManager({
       alert('Sin pedido', 'Selecciona un pedido para emitir el comprobante.', 'warning');
       return;
     }
+    
+    const orderForBilling = {
+      ...selectedOrder,
+      customer: {
+        ...selectedOrder.customer,
+        name: editClientName || selectedOrder.customer?.name || 'Cliente',
+        address: editClientAddress || selectedOrder.customer?.address || '',
+        documentType: documentType === 'factura' ? '6' : '1',
+        documentNumber: editClientDoc
+      }
+    };
+
     if (documentType === 'factura') {
-      const customerDoc = getCustomerDoc(selectedOrder, documentType);
+      const customerDoc = getCustomerDoc(orderForBilling, documentType);
       if (customerDoc.type !== '6' || customerDoc.number.length !== 11) {
-        alert('RUC requerido', 'Para factura necesitas registrar el RUC del cliente en el pedido o editarlo antes de emitir.', 'warning');
+        alert('RUC requerido', 'Para factura necesitas registrar el RUC de 11 dígitos válido.', 'warning');
         return;
       }
     }
@@ -207,7 +289,7 @@ export default function BillingManager({
     try {
       const session = supabase ? (await supabase.auth.getSession()).data?.session : null;
       const payload = buildNubefactPayload({
-        order: selectedOrder,
+        order: orderForBilling,
         config: localConfig,
         documentType,
         series: currentSeries,
@@ -222,6 +304,7 @@ export default function BillingManager({
         },
         body: JSON.stringify({
           provider: localConfig.provider || 'nubefact',
+          environment: localConfig.environment || 'production',
           payload,
         }),
       });
@@ -288,9 +371,21 @@ export default function BillingManager({
             </select>
           </label>
           <label className="form-group">
-            <span>RUC emisor</span>
-            <input className="form-control" value={localConfig.ruc || ''} onChange={(e) => updateConfigField('ruc', e.target.value)} placeholder="20123456789" />
+            <span>Entorno (Modo)</span>
+            <select className="form-control" value={localConfig.environment || 'production'} onChange={(e) => updateConfigField('environment', e.target.value)}>
+              <option value="production">🚀 Producción (Real)</option>
+              <option value="test">🧪 Pruebas (Beta)</option>
+            </select>
           </label>
+          <div className="form-group">
+            <span style={{ display: 'block', fontSize: '0.8rem', marginBottom: '4px', fontWeight: 600 }}>RUC emisor</span>
+            <div style={{ display: 'flex', gap: '6px' }}>
+              <input className="form-control" value={localConfig.ruc || ''} onChange={(e) => updateConfigField('ruc', e.target.value.replace(/\D/g, ''))} placeholder="20123456789" maxLength={11} />
+              <button className="btn btn-secondary" onClick={handleSearchStoreDoc} disabled={!localConfig.ruc || isSearchingStoreDoc} style={{ padding: '8px', fontSize: '0.8rem' }}>
+                {isSearchingStoreDoc ? '...' : 'Buscar'}
+              </button>
+            </div>
+          </div>
           <label className="form-group">
             <span>Razon social</span>
             <input className="form-control" value={localConfig.businessName || ''} onChange={(e) => updateConfigField('businessName', e.target.value)} placeholder="FRIOSO S.A.C." />
@@ -302,7 +397,8 @@ export default function BillingManager({
           <div className="form-group" style={{ gridColumn: '1 / -1', padding: '12px', border: '1px solid var(--border-color)', borderRadius: 'var(--radius-sm)', background: 'rgba(255,255,255,0.7)' }}>
             <span>Credenciales del proveedor</span>
             <p style={{ margin: '6px 0 0', color: 'var(--text-light)', fontSize: '0.9rem', lineHeight: 1.45 }}>
-              Configura en el servidor las variables NUBEFACT_ENDPOINT y NUBEFACT_TOKEN. El panel nunca guarda el token.
+              Para <strong>Producción</strong>: configura <code>NUBEFACT_ENDPOINT</code> y <code>NUBEFACT_TOKEN</code> en el servidor.<br />
+              Para <strong>Pruebas</strong>: configura <code>NUBEFACT_TEST_ENDPOINT</code> y <code>NUBEFACT_TEST_TOKEN</code>.
             </p>
           </div>
           <label className="form-group">
@@ -373,14 +469,63 @@ export default function BillingManager({
         </div>
 
         {selectedOrder && (
-          <div style={{ marginTop: '12px', padding: '12px', border: '1px solid var(--border-color)', borderRadius: 'var(--radius-sm)', background: 'rgba(255,255,255,0.65)' }}>
-            <strong>{selectedOrder.customer?.name || 'Cliente'}</strong>
-            <div style={{ color: 'var(--text-light)', fontSize: '0.85rem', marginTop: '4px' }}>
-              Total: S/. {Number(selectedOrder.grandTotal || 0).toFixed(2)} - Pago: {selectedOrder.customer?.paymentMethod || 'No indicado'}
+          <div style={{ marginTop: '12px', padding: '15px', border: '1px solid var(--border-color)', borderRadius: 'var(--radius-sm)', background: 'rgba(255,255,255,0.65)' }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '10px', flexWrap: 'wrap', gap: '10px' }}>
+              <strong style={{ fontSize: '1rem', color: 'var(--primary-color)' }}>Datos del Receptor (Editable)</strong>
+              <div style={{ color: 'var(--text-light)', fontSize: '0.85rem' }}>
+                Total: S/. {Number(selectedOrder.grandTotal || 0).toFixed(2)} | Pago: {selectedOrder.customer?.paymentMethod || 'No indicado'}
+              </div>
             </div>
+
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '10px', marginBottom: '10px' }}>
+              <div className="form-group" style={{ margin: 0 }}>
+                <label style={{ fontSize: '0.8rem', fontWeight: 600 }}>DNI / RUC</label>
+                <div style={{ display: 'flex', gap: '6px' }}>
+                  <input
+                    type="tel"
+                    className="form-control"
+                    placeholder={documentType === 'factura' ? '11 dígitos' : '8 dígitos'}
+                    value={editClientDoc}
+                    onChange={(e) => setEditClientDoc(e.target.value.replace(/\D/g, ''))}
+                    maxLength={documentType === 'factura' ? 11 : 8}
+                  />
+                  <button 
+                    className="btn btn-secondary" 
+                    style={{ padding: '8px', minWidth: '70px', fontSize: '0.8rem' }}
+                    onClick={handleSearchDocument}
+                    disabled={!editClientDoc || isSearchingDoc}
+                  >
+                    {isSearchingDoc ? '...' : 'Buscar'}
+                  </button>
+                </div>
+              </div>
+
+              <div className="form-group" style={{ margin: 0 }}>
+                <label style={{ fontSize: '0.8rem', fontWeight: 600 }}>Razón Social / Nombres</label>
+                <input
+                  type="text"
+                  className="form-control"
+                  value={editClientName}
+                  onChange={(e) => setEditClientName(e.target.value)}
+                  placeholder="Nombre del cliente"
+                />
+              </div>
+            </div>
+
+            <div className="form-group" style={{ margin: 0 }}>
+              <label style={{ fontSize: '0.8rem', fontWeight: 600 }}>Dirección Fiscal (Requerido p/ Facturas)</label>
+              <input
+                type="text"
+                className="form-control"
+                value={editClientAddress}
+                onChange={(e) => setEditClientAddress(e.target.value)}
+                placeholder="Dirección"
+              />
+            </div>
+
             {selectedOrder.billing?.status && (
-              <div style={{ color: 'var(--success)', fontSize: '0.85rem', marginTop: '6px', fontWeight: 700 }}>
-                Ya emitido: {selectedOrder.billing.series}-{selectedOrder.billing.number}
+              <div style={{ color: 'var(--success)', fontSize: '0.85rem', marginTop: '12px', fontWeight: 700 }}>
+                ✓ Ya emitido: {selectedOrder.billing.series}-{selectedOrder.billing.number}
               </div>
             )}
           </div>

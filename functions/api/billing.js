@@ -19,8 +19,15 @@ const sanitizePayload = (payload) => {
   return payload;
 };
 
-const getProviderSettings = (env, provider) => {
+const getProviderSettings = (env, provider, environment = 'production') => {
   if (provider !== 'nubefact') return {};
+
+  if (environment === 'test') {
+    return {
+      endpoint: trimText(env.NUBEFACT_TEST_ENDPOINT || env.BILLING_TEST_ENDPOINT, 600),
+      token: trimText(env.NUBEFACT_TEST_TOKEN || env.BILLING_TEST_TOKEN, 1000),
+    };
+  }
 
   return {
     endpoint: trimText(env.NUBEFACT_ENDPOINT || env.BILLING_ENDPOINT, 600),
@@ -38,8 +45,9 @@ export async function onRequestPost({ request, env }) {
 
     const body = await request.json().catch(() => null);
     const provider = trimText(body?.provider || 'nubefact', 40).toLowerCase();
+    const environment = trimText(body?.environment || 'production', 20).toLowerCase();
     const payload = sanitizePayload(body?.payload);
-    const { endpoint, token } = getProviderSettings(env, provider);
+    const { endpoint, token } = getProviderSettings(env, provider, environment);
 
     if (provider !== 'nubefact') return fail(400, 'provider', 'Proveedor de facturacion no soportado.');
     if (!endpoint || !allowedProviderUrl(endpoint)) return fail(503, 'endpoint', 'La ruta de facturacion no esta configurada en el servidor.');

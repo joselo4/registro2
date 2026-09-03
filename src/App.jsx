@@ -1732,6 +1732,7 @@ export default function App() {
             occupiedTables={shopConfig.occupiedTables || []}
             shopConfig={shopConfig}
             trackEvent={trackEvent}
+            billingConfig={billingConfig}
           />
         )}
 

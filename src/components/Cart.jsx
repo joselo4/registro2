@@ -25,7 +25,8 @@ export default function Cart({
   setTableNumber,
   occupiedTables = [],
   shopConfig,
-  trackEvent
+  trackEvent,
+  billingConfig
 }) {
   const alert = (msg) => {
     if (showAlert) {
@@ -58,6 +59,8 @@ export default function Cart({
   const [couponInput, setCouponInput] = useState('');
   const [appliedCoupon, setAppliedCoupon] = useState(null);
   const [couponError, setCouponError] = useState('');
+
+
 
   const cartSubtotal = cart.reduce((sum, item) => sum + (item.price * item.quantity), 0);
   
@@ -493,6 +496,23 @@ export default function Cart({
           )}
           
           <form className="checkout-form" onSubmit={handleSubmit} style={{ gap: '10px', marginTop: '10px' }}>
+            
+            {/* Datos del Emisor (Automático) */}
+            {billingConfig && billingConfig.enabled && billingConfig.ruc && (
+              <div style={{
+                background: 'rgba(0,0,0,0.03)',
+                border: '1px solid var(--border-color)',
+                padding: '10px',
+                borderRadius: '8px',
+                fontSize: '0.75rem',
+                marginBottom: '10px',
+                textAlign: 'center'
+              }}>
+                <span style={{ display: 'block', fontWeight: 'bold', color: 'var(--text-dark)' }}>Emite: {billingConfig.businessName || 'Heladería'}</span>
+                <span style={{ color: 'var(--text-light)' }}>RUC: {billingConfig.ruc}</span>
+              </div>
+            )}
+
             {tableOrdersEnabled && (
               <div className="form-group">
                 <label style={{ fontSize: '0.8rem', fontWeight: 'bold' }}>Tipo de Servicio</label>
@@ -561,7 +581,7 @@ export default function Cart({
                     className="form-control"
                     placeholder="Ej. 987654321"
                     value={phone}
-                    onChange={(e) => setPhone(e.target.value)}
+                    onChange={(e) => setPhone(e.target.value.replace(/\D/g, ''))}
                     style={{ padding: '8px 10px', fontSize: '0.85rem' }}
                     required
                     disabled={!shopOpen}
