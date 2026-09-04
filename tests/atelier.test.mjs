@@ -13,6 +13,7 @@ test('compositions stay inside the stage and connect to each real container open
       assert.ok(coords[0].y+coords[0].r>=base.y);
       assert.ok(coords[0].y<base.lip);
       assert.ok(coords[0].y+coords[0].r-base.lip>=12,'lower scoop must sit visibly behind the front lip');
+      if(base.key.startsWith('cone-')) assert.ok(coords[0].y+coords[0].r-base.lip<=18,'cone must not cover too much of the bottom scoop');
       for(let i=1;i<coords.length;i++) assert.ok(coords.slice(0,i).some(p=>Math.hypot(coords[i].x-p.x,coords[i].y-p.y)<coords[i].r+p.r),'each scoop touches another');
     }
   }

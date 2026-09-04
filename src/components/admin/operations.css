@@ -1,4 +1,15 @@
 .ops{min-width:0}.ops-kicker{font-size:.59rem;font-weight:800;letter-spacing:.17em;color:var(--primary-color)}
+.catalog-tools-filters{display:grid;grid-template-columns:1.5fr 1fr 1fr;gap:12px;margin:20px 0}
+.catalog-tools label{display:flex;flex-direction:column;gap:7px;font-size:.75rem;color:var(--text-light)}
+.catalog-tools input,.catalog-tools select{padding:10px;width:100%;min-width:0;font-size:.78rem}
+.catalog-tools h2{margin-top:10px}.catalog-tools h3{font-size:.95rem;margin-bottom:14px}
+.catalog-tools-table{max-height:370px;overflow:auto}.catalog-tools-table table{width:100%;font-size:.78rem;text-align:left}
+.catalog-tools-table th{position:sticky;top:0;z-index:1;white-space:nowrap}.catalog-tools-table small{display:block;font-size:.7rem;margin-top:5px;color:var(--text-light)}
+.catalog-availability{background:var(--bg-primary);color:var(--success);border:1px solid var(--border-color);border-radius:100px;padding:8px 12px;font-size:.72rem;white-space:nowrap}.catalog-availability.paused{color:var(--primary-color)}
+.catalog-tools-bottom{display:grid;grid-template-columns:1fr 1fr;gap:28px;margin-top:26px;border-top:1px solid var(--border-color);padding-top:24px}.catalog-tools-bottom label{margin-bottom:12px}
+.catalog-price-result{display:block;font-size:.8rem;font-weight:700;line-height:1.6;background:var(--bg-primary);border-radius:10px;padding:13px}
+.catalog-tools-feedback{margin-top:14px;font-size:.8rem;color:var(--primary-color)}.catalog-tools-feedback:empty{display:none}
+@media(max-width:700px){.catalog-tools-filters,.catalog-tools-bottom{grid-template-columns:1fr}.catalog-tools-table table{min-width:480px}.catalog-tools .ops-panel-heading{flex-wrap:wrap}}
 .ops .ops-kpis small,.ops .ops-kpis button,.ops .ops-subtitle,.ops .ops-footnote,.ops .ops-stock-form label,.ops .ops-stock-alerts small,.ops .ops-queue-list small,.ops .ops-order-status {font-size:.75rem}
 .ops-heading{display:flex;align-items:center;justify-content:space-between;gap:18px;margin-bottom:22px}.ops-heading h1{font:400 2.6rem/1.15 Georgia,serif;letter-spacing:-.04em;margin:10px 0}.ops-heading h1 em{color:var(--primary-color)}.ops-heading p{font-size:.72rem;color:var(--text-light);text-transform:capitalize}
 .ops button{cursor:pointer;font-family:var(--font-body)}.ops-outline{background:var(--bg-secondary);border:1px solid var(--border-color);border-radius:100px;padding:10px 15px;font-size:.67rem;color:var(--text-dark)}

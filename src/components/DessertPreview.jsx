@@ -23,6 +23,7 @@ export default function DessertPreview({base, scoops = [], toppings = [], syrup 
   const coords = scoopLayout(visibleScoops.length, b);
   const top = Math.min(b.y, ...coords.map(c => c.y-c.r*1.2))-20;
   const bottom = b.y+b.h+18;
+  const isCone = b.key.startsWith('cone-');
   const frontEdge = b.key === 'waffle-bowl' ? 'M48 280 Q100 315 160 315 Q220 315 272 280 L272 470 H48 Z'
     : b.key === 'cup-eco' ? 'M66 274 Q160 315 254 274 L254 470 H66 Z'
     : b.key === 'cone-artisan' ? 'M105 254 Q160 279 215 254 L215 470 H105 Z'
@@ -34,6 +35,7 @@ export default function DessertPreview({base, scoops = [], toppings = [], syrup 
       <filter id={`${uid}-shadow`} x="-30%" y="-30%" width="160%" height="170%"><feDropShadow dx="0" dy="4" stdDeviation="3" floodColor="#4f2f20" floodOpacity=".19" /></filter>
       <filter id={`${uid}-ground`}><feGaussianBlur stdDeviation="4" /></filter>
       <clipPath id={`${uid}-lip`}><path d={frontEdge} /></clipPath>
+      <clipPath id={`${uid}-cone-seat`}><path d="M0 0 H320 V239 H215 L160 445 L105 239 H0 Z" /></clipPath>
       {visibleScoops.map((scoop, i) => {
         const rgb = flavorColor(scoop).slice(1).match(/.{2}/g).map(v => parseInt(v, 16) / 255);
         return <filter key={i} id={`${uid}-flavor-${i}`} colorInterpolationFilters="sRGB"><feColorMatrix type="saturate" values="0" /><feComponentTransfer><feFuncR type="linear" slope={rgb[0]} /><feFuncG type="linear" slope={rgb[1]} /><feFuncB type="linear" slope={rgb[2]} /></feComponentTransfer></filter>;
@@ -41,6 +43,7 @@ export default function DessertPreview({base, scoops = [], toppings = [], syrup 
     </defs>
     <ellipse cx="160" cy={b.y+b.h-2} rx={b.w*.34} ry="5" fill="#583a25" opacity=".16" filter={`url(#${uid}-ground)`} />
     <g filter={`url(#${uid}-shadow)`}>{container}</g>
+    <g clipPath={isCone ? `url(#${uid}-cone-seat)` : undefined}>
     {visibleScoops.map((scoop, i) => {
       const c = coords[i];
       // Extras belong to their scoop and are occluded by the next scoop.
@@ -59,6 +62,7 @@ export default function DessertPreview({base, scoops = [], toppings = [], syrup 
         })}
       </g>;
     })}
+    </g>
     <g clipPath={`url(#${uid}-lip)`}>{container}</g>
   </svg>;
 }

@@ -21,12 +21,17 @@ Disponible en el administrador; conserva los permisos actuales del personal.
 - Conteo manual de existencias en porciones/unidades, umbral de reposición y pausa/reactivación de productos. Se guarda en el catálogo mediante los mecanismos de sincronización existentes. **No descuenta ventas automáticamente.**
 - Alertas de margen bruto inferior al 50%. Los costos faltantes se muestran como incompletos. El cálculo excluye gastos fijos, transporte y descuentos.
 - Exportación CSV de pedidos creados hoy, incluidos los cancelados, con estado y escape de fórmulas.
+- Catálogo con búsqueda y filtros por categoría/disponibilidad, pausa y reactivación, y exportación de la selección.
+- Lista descargable de reposición basada en los conteos manuales: objetivo de dos veces el mínimo registrado.
+- Simulador de precio por margen bruto, con validación de costos y redondeo a céntimos, sin cambiar precios automáticamente.
+
+Los conos normal y artesanal tienen un encaje menos profundo de las bolas y un recorte lateral en la abertura. Se mantiene la composición del vaso y la copa waffle.
 
 ## Validación
 
 Se añadieron pruebas de geometría, precios, disponibilidad de recomendaciones, fechas de Perú, demanda, márgenes, exportación y renderizado React de 20 combinaciones de envase/cantidad. No se realizaron pedidos reales ni pruebas autenticadas en producción.
 
-Pruebas de lógica: `node --test tests/atelier.test.mjs`.
+Pruebas de lógica: `node --test tests/atelier.test.mjs tests/contrast.test.mjs tests/admin-tools.test.mjs`.
 
 Renderizado sin navegador: compilar `tests/render.test.jsx` con esbuild, JSX automático, plataforma Node, paquetes externos y cargador CSS vacío; ejecutar el resultado con `node --test`.
 
