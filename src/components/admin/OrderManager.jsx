@@ -893,7 +893,7 @@ export default function OrderManager({
                                       <div style="font-weight: bold; font-size: 0.85rem; margin-bottom: 4px;">⚠️ ¡ATENCIÓN COCINA / REPARTO!</div>
                                       <div style="margin-bottom: 8px; font-size: 0.75rem;">Mantener cadena de frío. Entregar con máxima higiene.</div>
                                       ${ticketCustomMessage ? `<div style="margin-top: 6px; font-size: 0.8rem; font-style: italic; font-weight: bold; border-top: 1px dashed #000; padding-top: 6px; color: #111;">${ticketCustomMessage}</div>` : ''}
-                                      <div style="margin-top: 8px; font-size: 0.7rem; color: #555;">Impreso desde Panel Don Helado.</div>
+                                      <div style="margin-top: 8px; font-size: 0.7rem; color: #555;">Impreso desde el panel de Friozo.</div>
                                     </div>
                                   </body>
                                 </html>

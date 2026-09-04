@@ -4,18 +4,19 @@
   --font-title: 'Bricolage Grotesque', sans-serif;
   --font-body: 'Manrope', sans-serif;
 
-  /* Paleta heladeria original: fresa, naranja y texto suave */
-  --bg-primary: hsl(18, 100%, 98%);
-  --bg-secondary: hsl(0, 0%, 100%);
-  --primary-color: hsl(347, 88%, 58%);
-  --primary-hover: hsl(347, 82%, 50%);
-  --secondary-color: hsl(18, 100%, 58%);
-  --secondary-hover: hsl(18, 92%, 50%);
-  --accent-color: hsl(43, 100%, 62%);
-  --heading-color: hsl(338, 29%, 13%);
-  --text-dark: hsl(338, 17%, 21%);
-  --text-light: hsl(338, 10%, 40%);
-  --border-color: hsl(349, 70%, 90%);
+  /* Identidad Friozo: cereza, limón, crema y cacao */
+  --bg-primary: hsl(43, 100%, 97%);
+  --bg-secondary: hsl(48, 100%, 99%);
+  --primary-color: hsl(3, 87%, 56%);
+  --primary-hover: hsl(3, 82%, 48%);
+  --secondary-color: hsl(28, 100%, 50%);
+  --secondary-hover: hsl(25, 96%, 45%);
+  --accent-color: hsl(57, 100%, 54%);
+  --heading-color: hsl(18, 21%, 9%);
+  --text-dark: hsl(18, 17%, 15%);
+  --text-light: hsl(22, 10%, 38%);
+  --border-color: hsl(33, 38%, 82%);
+  --electric-blue: hsl(238, 76%, 60%);
   
   /* Estados */
   --success: hsl(145, 63%, 40%);
@@ -34,9 +35,9 @@
   --color-coco: hsl(196, 34%, 94%);
 
   /* Sombras suaves con calidez de vitrina */
-  --shadow-sm: 0 6px 18px rgba(72, 30, 47, 0.06);
-  --shadow-md: 0 16px 40px rgba(72, 30, 47, 0.1);
-  --shadow-lg: 0 30px 70px rgba(72, 30, 47, 0.16);
+  --shadow-sm: 0 5px 0 rgba(30, 22, 18, 0.09);
+  --shadow-md: 0 12px 0 rgba(30, 22, 18, 0.09);
+  --shadow-lg: 0 28px 70px rgba(38, 22, 14, 0.18);
   --radius-sm: 12px;
   --radius-md: 18px;
   --radius-lg: 30px;
@@ -2221,7 +2222,7 @@ input:checked + .slider:before {
   transform: translateY(-1px);
 }
 
-/* ========================================================================== 
+/* ==========================================================================
    REDISEÑO DE TIENDA 2026 · EXPERIENCIA DE COMPRA
    ========================================================================== */
 
@@ -3506,4 +3507,644 @@ input:checked + .slider:before {
 [data-theme="dark"] .popsicle-card,
 [data-theme="dark"] .catalog-filters {
   background: rgba(36, 27, 32, 0.94) !important;
+}
+
+/* ==========================================================================
+   FRIOZO BRAND RELAUNCH · ANTOJO URBANO
+   ========================================================================== */
+
+body {
+  background-color: var(--bg-primary);
+  background-image:
+    radial-gradient(circle at 14% 7%, rgba(255, 234, 0, 0.17) 0 2px, transparent 2.5px),
+    radial-gradient(circle at 14% 7%, rgba(255, 234, 0, 0.08) 0 23%, transparent 23.5%);
+  background-size: 28px 28px, auto;
+}
+
+::selection {
+  background: var(--accent-color);
+  color: var(--heading-color);
+}
+
+.container {
+  max-width: 1240px;
+}
+
+.navbar {
+  border-bottom: 2px solid var(--heading-color);
+  background: color-mix(in srgb, var(--bg-primary) 94%, transparent);
+  box-shadow: none;
+}
+
+.nav-container {
+  height: 78px;
+}
+
+.logo {
+  overflow: visible;
+  background: none;
+  -webkit-text-fill-color: currentColor;
+  color: var(--heading-color);
+  font-size: 1.68rem;
+  font-weight: 800;
+  letter-spacing: -0.06em;
+}
+
+.logo::after {
+  content: 'ANDAHUAYLAS';
+  margin-left: 3px;
+  padding: 4px 7px;
+  border: 1px solid currentColor;
+  border-radius: 999px;
+  color: var(--primary-color);
+  font: 800 0.52rem/1 var(--font-body);
+  letter-spacing: 0.1em;
+}
+
+.logo-icon {
+  display: grid;
+  width: 38px;
+  height: 38px;
+  place-items: center;
+  border: 2px solid var(--heading-color);
+  border-radius: 12px 12px 12px 3px;
+  background: var(--accent-color);
+  box-shadow: 3px 3px 0 var(--heading-color);
+  animation: none;
+  font-size: 1.55rem;
+  -webkit-text-fill-color: initial;
+}
+
+.nav-btn {
+  border: 1px solid transparent;
+  border-radius: 10px;
+}
+
+.nav-btn:hover:not(.active) {
+  border-color: var(--heading-color);
+  background: var(--accent-color);
+  color: var(--heading-color);
+}
+
+.nav-btn.active {
+  border-color: var(--heading-color);
+  background: var(--heading-color);
+  color: var(--bg-primary);
+}
+
+.customer-shop {
+  padding-top: 28px;
+}
+
+.hero {
+  min-height: 630px;
+  padding: clamp(40px, 5vw, 70px);
+  grid-template-columns: minmax(0, 1fr) minmax(380px, 0.94fr);
+  border: 3px solid var(--heading-color);
+  border-radius: 32px 32px 88px 32px;
+  background:
+    radial-gradient(circle at 13% 18%, rgba(255, 234, 0, 0.13) 0 2px, transparent 2.5px) 0 0 / 26px 26px,
+    linear-gradient(125deg, #181210 0%, #271713 58%, #3b1712 100%);
+  box-shadow: 10px 10px 0 var(--primary-color);
+}
+
+.hero::before {
+  width: 370px;
+  height: 370px;
+  right: -95px;
+  bottom: -115px;
+  border: 55px solid rgba(255, 234, 0, 0.18);
+}
+
+.hero::after {
+  left: 43%;
+  bottom: 32px;
+  width: 190px;
+  background: repeating-linear-gradient(90deg, var(--accent-color) 0 15px, transparent 15px 28px);
+  opacity: 0.42;
+}
+
+.hero-eyebrow {
+  border-color: rgba(255,255,255,0.18);
+  background: rgba(255,255,255,0.08);
+  color: var(--accent-color);
+}
+
+.hero-live-dot {
+  background: var(--accent-color);
+  box-shadow: 0 0 0 5px rgba(255, 234, 0, 0.14);
+}
+
+.hero-text h1 {
+  max-width: 640px;
+  color: #fffaf0;
+  font-size: clamp(3.8rem, 6.7vw, 6.2rem);
+  line-height: 0.88;
+  letter-spacing: -0.078em;
+}
+
+.hero-text h1 span {
+  color: var(--accent-color);
+  transform: rotate(-1deg);
+}
+
+.hero-text h1 span::after {
+  right: -2%;
+  bottom: -10px;
+  height: 12px;
+  background: var(--primary-color);
+  opacity: 1;
+}
+
+.hero-text .hero-description {
+  max-width: 570px;
+  color: rgba(255, 250, 240, 0.76);
+  font-size: 1.08rem;
+}
+
+.hero-text .hero-description strong {
+  color: #fff;
+}
+
+.hero-cta .btn {
+  border: 2px solid var(--heading-color);
+  border-radius: 13px;
+  font-weight: 850;
+}
+
+.hero-primary-cta,
+.hero-cta .btn-primary {
+  background: var(--primary-color);
+  box-shadow: 5px 5px 0 var(--accent-color);
+}
+
+.hero-primary-cta:hover,
+.hero-cta .btn-primary:hover {
+  background: #ff4a3e;
+  box-shadow: 2px 2px 0 var(--accent-color);
+  transform: translate(3px, 3px);
+}
+
+.hero-cta .btn-secondary {
+  border-color: #fffaf0;
+  background: transparent;
+  color: #fffaf0;
+}
+
+.hero-cta .btn-secondary:hover {
+  background: #fffaf0;
+  color: var(--heading-color);
+}
+
+.hero-text-link {
+  color: rgba(255, 250, 240, 0.78);
+}
+
+.hero-text-link:hover,
+.hero-text-link.whatsapp-link {
+  color: var(--accent-color);
+}
+
+.hero-proof {
+  border-color: rgba(255,255,255,0.17);
+}
+
+.hero-proof-item {
+  border-color: rgba(255,255,255,0.17);
+}
+
+.hero-proof-item strong {
+  color: #fffaf0;
+}
+
+.hero-proof-item span {
+  color: rgba(255, 250, 240, 0.6);
+}
+
+.hero-image-container {
+  min-height: 500px;
+}
+
+.hero-circle-bg {
+  width: min(37vw, 455px);
+  height: min(37vw, 455px);
+  border: 3px solid var(--heading-color);
+  background: var(--primary-color);
+  box-shadow: 10px 10px 0 var(--accent-color);
+}
+
+.hero-graphic-premium {
+  max-width: 485px;
+  animation: float-friozo 5.5s ease-in-out infinite;
+}
+
+.hero-graphic-premium img {
+  width: 100%;
+  max-height: 590px !important;
+  object-fit: contain;
+  filter: drop-shadow(0 25px 26px rgba(0, 0, 0, 0.34)) !important;
+  transform: scale(1.18) rotate(2deg);
+}
+
+@keyframes float-friozo {
+  0%, 100% { transform: translateY(2px) rotate(-1deg); }
+  50% { transform: translateY(-12px) rotate(1deg); }
+}
+
+.hero-sticker {
+  border: 2px solid var(--heading-color);
+  background: var(--accent-color);
+  box-shadow: 5px 5px 0 var(--heading-color);
+}
+
+.hero-sticker-top {
+  top: 20px;
+  right: -4px;
+  width: 118px;
+  height: 118px;
+}
+
+.hero-sticker-top strong {
+  color: var(--primary-color);
+  font-size: 1.65rem;
+}
+
+.hero-sticker-bottom {
+  left: -12px;
+  bottom: 22px;
+  background: #fffaf0;
+}
+
+.crave-marquee {
+  position: relative;
+  z-index: 5;
+  overflow: hidden;
+  margin: 5px 20px 34px;
+  border: 2px solid var(--heading-color);
+  background: var(--accent-color);
+  color: var(--heading-color);
+  box-shadow: 5px 5px 0 var(--heading-color);
+  transform: rotate(-1.1deg);
+}
+
+.crave-marquee-track {
+  display: flex;
+  align-items: center;
+  justify-content: space-around;
+  gap: 18px;
+  min-width: max-content;
+  padding: 13px 22px;
+  font-size: 0.74rem;
+  font-weight: 900;
+  letter-spacing: 0.11em;
+}
+
+.crave-marquee b {
+  color: var(--primary-color);
+  font-size: 1rem;
+}
+
+.delivery-banner {
+  border: 2px solid var(--heading-color);
+  border-radius: 16px;
+  background: #fffaf0;
+  box-shadow: 5px 5px 0 var(--heading-color);
+}
+
+.delivery-banner-icon {
+  border: 2px solid var(--heading-color);
+  background: var(--accent-color);
+}
+
+.delivery-banner button {
+  color: var(--primary-color);
+}
+
+.catalog-heading .section-title {
+  max-width: 700px;
+  font-size: clamp(3rem, 5vw, 4.6rem);
+  letter-spacing: -0.075em;
+}
+
+.section-kicker,
+.order-path-kicker {
+  color: var(--primary-color);
+}
+
+.catalog-count,
+.catalog-filters {
+  border: 2px solid var(--heading-color);
+  background: #fffaf0;
+  box-shadow: 4px 4px 0 var(--heading-color);
+}
+
+.filter-btn {
+  border-radius: 9px;
+}
+
+.filter-btn.active {
+  background: var(--primary-color);
+  color: #fff;
+}
+
+.product-card,
+.testimonial-card {
+  border: 2px solid var(--heading-color);
+  border-radius: 18px;
+  background: #fffef8;
+  box-shadow: 5px 5px 0 var(--heading-color);
+}
+
+.product-card::before {
+  border: 1px solid rgba(29, 20, 16, 0.12);
+  border-radius: 12px;
+  background: linear-gradient(145deg, #ffe12c, #fff3a0);
+}
+
+.product-card:nth-child(3n + 2)::before {
+  background: linear-gradient(145deg, #ff7168, #ffd0c6);
+}
+
+.product-card:nth-child(3n + 3)::before {
+  background: linear-gradient(145deg, #7f7aff, #d8d6ff);
+}
+
+.product-card:hover {
+  border-color: var(--heading-color);
+  box-shadow: 9px 9px 0 var(--primary-color);
+  transform: translate(-3px, -3px) rotate(-0.35deg);
+}
+
+.product-badge {
+  border: 1px solid var(--heading-color);
+  border-radius: 7px;
+  background: var(--accent-color);
+  color: var(--heading-color);
+}
+
+.price-tag {
+  color: var(--heading-color);
+}
+
+.add-btn {
+  border: 2px solid var(--heading-color);
+  border-radius: 10px;
+  background: var(--primary-color);
+  box-shadow: 3px 3px 0 var(--heading-color);
+  font-weight: 850;
+}
+
+.add-btn:hover {
+  background: var(--accent-color);
+  color: var(--heading-color);
+  box-shadow: 1px 1px 0 var(--heading-color);
+  transform: translate(2px, 2px);
+}
+
+.order-path-card-primary {
+  border: 3px solid var(--heading-color);
+  background: var(--primary-color);
+  box-shadow: 8px 8px 0 var(--heading-color);
+}
+
+.order-path-card-primary::after {
+  content: 'FRIOZO';
+  right: -25px;
+  bottom: -18px;
+  color: var(--accent-color);
+  font-size: clamp(5rem, 11vw, 10rem);
+  letter-spacing: -0.09em;
+  opacity: 0.2;
+}
+
+.order-path-card-primary .order-path-kicker {
+  color: var(--accent-color);
+}
+
+.order-path-card-primary .btn {
+  border: 2px solid var(--heading-color);
+  border-radius: 10px;
+  background: var(--accent-color);
+  color: var(--heading-color);
+  box-shadow: 4px 4px 0 var(--heading-color);
+}
+
+.order-path-card-guide {
+  border: 3px solid var(--heading-color);
+  border-radius: 24px;
+  background: var(--accent-color);
+  box-shadow: 8px 8px 0 var(--heading-color);
+}
+
+.order-path-icon {
+  background: #fffaf0;
+}
+
+.testimonials-section {
+  border-top: 3px solid var(--heading-color);
+}
+
+.testimonial-badge {
+  color: var(--primary-color);
+}
+
+footer {
+  border-top: 2px solid var(--heading-color) !important;
+  background: var(--heading-color) !important;
+  color: rgba(255,250,240,0.7) !important;
+}
+
+footer a,
+footer button {
+  color: #fffaf0 !important;
+}
+
+[data-theme="dark"] .navbar {
+  background: rgba(25, 18, 16, 0.94);
+}
+
+[data-theme="dark"] .logo,
+[data-theme="dark"] .nav-btn {
+  color: #fffaf0;
+}
+
+[data-theme="dark"] .hero {
+  background:
+    radial-gradient(circle at 13% 18%, rgba(255, 234, 0, 0.13) 0 2px, transparent 2.5px) 0 0 / 26px 26px,
+    linear-gradient(125deg, #100d0c 0%, #28130f 58%, #36130e 100%);
+}
+
+[data-theme="dark"] .catalog-count,
+[data-theme="dark"] .catalog-filters,
+[data-theme="dark"] .product-card,
+[data-theme="dark"] .testimonial-card,
+[data-theme="dark"] .delivery-banner {
+  background: #29211e;
+}
+
+[data-theme="dark"] .order-path-card-primary {
+  background: var(--primary-color);
+  color: #fffaf0;
+}
+
+[data-theme="dark"] .order-path-card-primary h2 {
+  color: #fffaf0;
+}
+
+[data-theme="dark"] .order-path-card-primary p {
+  color: rgba(255, 250, 240, 0.75);
+}
+
+@media (max-width: 1000px) {
+  .hero {
+    grid-template-columns: minmax(0, 1fr) minmax(285px, 0.72fr);
+    padding: 42px 36px;
+  }
+
+  .hero-text h1 {
+    font-size: clamp(3.25rem, 7vw, 4.8rem);
+  }
+
+  .hero-graphic-premium {
+    max-width: 360px;
+  }
+}
+
+@media (max-width: 720px) {
+  .nav-container {
+    height: 66px;
+  }
+
+  .logo {
+    font-size: 1.35rem;
+  }
+
+  .logo::after {
+    display: none;
+  }
+
+  .logo-icon {
+    width: 34px;
+    height: 34px;
+    font-size: 1.3rem;
+  }
+
+  .customer-shop {
+    padding-top: 12px;
+  }
+
+  .hero {
+    display: grid;
+    grid-template-columns: 1fr;
+    padding: 28px 20px 20px;
+    border-radius: 22px 22px 46px 22px;
+    box-shadow: 6px 6px 0 var(--primary-color);
+  }
+
+  .hero-text h1 {
+    max-width: 9ch;
+    font-size: clamp(3rem, 14.2vw, 4rem) !important;
+  }
+
+  .hero-text .hero-description {
+    display: block;
+    font-size: 0.94rem;
+    -webkit-line-clamp: initial;
+  }
+
+  .hero-cta {
+    grid-template-columns: 1.15fr 0.85fr;
+  }
+
+  .hero-quick-links,
+  .hero-proof {
+    display: none !important;
+  }
+
+  .hero-image-container {
+    display: flex !important;
+    min-height: 265px;
+    margin-top: 5px;
+  }
+
+  .hero-circle-bg {
+    width: 245px;
+    height: 245px;
+    box-shadow: 6px 6px 0 var(--accent-color);
+  }
+
+  .hero-graphic-premium {
+    max-width: 265px;
+  }
+
+  .hero-graphic-premium img {
+    max-height: 310px !important;
+    transform: scale(1.12) rotate(2deg);
+  }
+
+  .hero-sticker-top {
+    top: 5px;
+    right: 3px;
+    width: 76px;
+    height: 76px;
+  }
+
+  .hero-sticker-top strong {
+    font-size: 1.05rem;
+  }
+
+  .hero-sticker-top span {
+    font-size: 0.52rem;
+  }
+
+  .hero-sticker-bottom {
+    display: none;
+  }
+
+  .crave-marquee {
+    margin: 0 10px 27px;
+    box-shadow: 3px 3px 0 var(--heading-color);
+  }
+
+  .crave-marquee-track {
+    justify-content: flex-start;
+    gap: 13px;
+    padding: 10px 14px;
+    font-size: 0.64rem;
+  }
+
+  .catalog-heading .section-title {
+    font-size: 2.65rem;
+  }
+
+  .catalog-filters {
+    border-width: 2px;
+    background: color-mix(in srgb, var(--bg-primary) 94%, transparent);
+    box-shadow: 0 5px 0 rgba(29, 20, 16, 0.12);
+  }
+
+  .product-card {
+    border-radius: 14px;
+    box-shadow: 3px 3px 0 var(--heading-color);
+  }
+
+  .order-paths {
+    grid-template-columns: 1fr;
+  }
+
+  .order-path-card-primary,
+  .order-path-card-guide {
+    min-height: 245px;
+    box-shadow: 5px 5px 0 var(--heading-color);
+  }
+
+  footer {
+    padding-bottom: 86px !important;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .hero-graphic-premium {
+    animation: none;
+  }
 }

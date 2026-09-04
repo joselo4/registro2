@@ -384,7 +384,7 @@ export default function LiterCustomizer({ flavors, toppings = [], literConfig, o
               {/* Detalle de etiqueta "1 Litro" */}
               <rect x="75" y="85" width="50" height="28" rx="4" fill="white" stroke="var(--primary-color)" strokeWidth="1" opacity="0.9" />
               <text x="100" y="98" fill="var(--primary-color)" fontSize="8" fontWeight="bold" textAnchor="middle">1 LITRO</text>
-              <text x="100" y="108" fill="var(--text-dark)" fontSize="7" fontWeight="bold" textAnchor="middle">DON HELADO</text>
+              <text x="100" y="108" fill="var(--text-dark)" fontSize="7" fontWeight="bold" textAnchor="middle">FRIOZO</text>
             </g>
           </svg>
 

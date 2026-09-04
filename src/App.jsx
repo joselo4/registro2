@@ -137,6 +137,11 @@ const sanitizeBillingConfig = (config) => {
   return { ...DEFAULT_BILLING_CONFIG, ...safeConfig };
 };
 
+const migrateLegacyBrandText = (value, fallback = '') => {
+  if (typeof value !== 'string' || value.trim() === '') return fallback;
+  return value.replace(/don helado/gi, 'Friozo');
+};
+
 export default function App() {
   const isRemoteUpdate = useRef({});
   const allowCloudWrite = useRef(false);
@@ -199,7 +204,7 @@ export default function App() {
   });
 
   const [whatsappGreeting, setWhatsappGreeting] = useState(() => {
-    return localStorage.getItem('helados_whatsapp_greeting') || '¡Hola Don Helado! 🍦\nAcabo de realizar un pedido:';
+    return migrateLegacyBrandText(localStorage.getItem('helados_whatsapp_greeting'), '¡Hola Friozo! 🍦\nAcabo de realizar un pedido:');
   });
 
   const [whatsappFooter, setWhatsappFooter] = useState(() => {
@@ -228,19 +233,21 @@ export default function App() {
 
   // --- Estados de Marca de la Heladería (Sincronizado con LocalStorage) ---
   const [storeName, setStoreName] = useState(() => {
-    return localStorage.getItem('helados_store_name') || 'Don Helado';
+    return migrateLegacyBrandText(localStorage.getItem('helados_store_name'), 'Friozo');
   });
 
   const [storeLogo, setStoreLogo] = useState(() => {
-    return localStorage.getItem('helados_store_logo') || '🍦';
+    const savedLogo = localStorage.getItem('helados_store_logo');
+    return !savedLogo || savedLogo === '🍦' ? '/favicon.svg' : savedLogo;
   });
 
   const [storeTitle, setStoreTitle] = useState(() => {
-    return localStorage.getItem('helados_store_title') || 'Don Helado - Heladería Online & Delivery de Helados Artesanales';
+    return migrateLegacyBrandText(localStorage.getItem('helados_store_title'), 'Friozo Andahuaylas - Helados artesanales, paletas y delivery');
   });
 
   const [storeFavicon, setStoreFavicon] = useState(() => {
-    return localStorage.getItem('helados_store_favicon') || '🍦';
+    const savedFavicon = localStorage.getItem('helados_store_favicon');
+    return !savedFavicon || savedFavicon === '🍦' ? '/favicon.svg' : savedFavicon;
   });
 
   const [storeHeroImage, setStoreHeroImage] = useState(() => {
@@ -581,10 +588,10 @@ export default function App() {
   // --- Función auxiliar para aplicar los datos sincronizados y combinar las órdenes ---
   const applyLoadedData = (serverData) => {
     setIsCloudSynced(true);
-    if (serverData.store_name !== undefined) setStoreName(serverData.store_name);
-    if (serverData.store_logo !== undefined) setStoreLogo(serverData.store_logo);
-    if (serverData.store_title !== undefined) setStoreTitle(serverData.store_title);
-    if (serverData.store_favicon !== undefined) setStoreFavicon(serverData.store_favicon);
+    if (serverData.store_name !== undefined) setStoreName(migrateLegacyBrandText(serverData.store_name, 'Friozo'));
+    if (serverData.store_logo !== undefined) setStoreLogo(!serverData.store_logo || serverData.store_logo === '🍦' ? '/favicon.svg' : serverData.store_logo);
+    if (serverData.store_title !== undefined) setStoreTitle(migrateLegacyBrandText(serverData.store_title, 'Friozo Andahuaylas - Helados artesanales, paletas y delivery'));
+    if (serverData.store_favicon !== undefined) setStoreFavicon(!serverData.store_favicon || serverData.store_favicon === '🍦' ? '/favicon.svg' : serverData.store_favicon);
     if (serverData.flavors !== undefined) setFlavors(serverData.flavors);
     if (serverData.toppings !== undefined) setToppings(serverData.toppings);
     if (serverData.bases !== undefined) setBases(serverData.bases);
@@ -932,7 +939,7 @@ export default function App() {
 
   // --- Efectos para actualizar el título y favicon dinámicamente ---
   useEffect(() => {
-    const activeTitle = storeTitle || `${storeName || 'Don Helado'} - Heladería Online & Delivery de Helados Artesanales`;
+    const activeTitle = storeTitle || `${storeName || 'Friozo'} - Helados artesanales, paletas y delivery`;
     document.title = activeTitle;
   }, [storeTitle, storeName]);
 
@@ -1354,7 +1361,7 @@ export default function App() {
       return `• ${item.quantity}x *${item.name}*${details}`;
     }).join('\n');
 
-    const message = `🚨 *¡NUEVO PEDIDO EN DON HELADO!* 🚨\n\n` +
+    const message = `🚨 *¡NUEVO PEDIDO EN ${String(storeName || 'FRIOZO').toUpperCase()}!* 🚨\n\n` +
       `*Código:* \`${order.id}\`\n` +
       `*Fecha:* ${dateStr}\n` +
       `*Tipo:* ${typeLabel}\n` +
@@ -1555,8 +1562,8 @@ export default function App() {
                 onClick={(e) => { e.preventDefault(); setView('customizer'); }}
                 style={{ textDecoration: 'none', display: 'inline-flex', alignItems: 'center' }}
               >
-                <span aria-hidden="true">🎨</span>
-                <span>Personalizar</span>
+                <span aria-hidden="true">✦</span>
+                <span>Crear el mío</span>
               </a>
               <a 
                 href="#carrito"
@@ -1565,7 +1572,7 @@ export default function App() {
                 style={{ textDecoration: 'none', display: 'inline-flex', alignItems: 'center' }}
               >
                 <span aria-hidden="true">🛒</span>
-                <span>Carrito</span>
+                <span>Mi pedido</span>
                 {totalCartItems > 0 && <span className="cart-badge">{totalCartItems}</span>}
               </a>
               {locationFeatureVisible && (
@@ -1961,8 +1968,8 @@ export default function App() {
             onClick={(e) => { e.preventDefault(); setView('customizer'); }}
             style={{ textDecoration: 'none' }}
           >
-            <span className="tab-icon">🎨</span>
-            <span className="tab-label">Disenar</span>
+            <span className="tab-icon">✦</span>
+            <span className="tab-label">Crear</span>
           </a>
           <a 
             href="#carrito"
@@ -1976,7 +1983,7 @@ export default function App() {
                 <span className="tab-badge">{totalCartItems}</span>
               )}
             </span>
-            <span className="tab-label">Carrito</span>
+            <span className="tab-label">Pedido</span>
           </a>
           {locationFeatureVisible && (
           <a 

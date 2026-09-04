@@ -882,6 +882,8 @@ export default function CustomerShop({
     );
   }, [tableNumber, catalogOrder, filter, literConfig, activeFlavors, activePacks, activePopsicles, setView, handleAddClassicToCart, handleAddPackToCart, handleAddPopsicleToCart, shopConfig]);
 
+  const resolvedHeroImage = storeHeroImage || '/hero-friozo-v2.png';
+
   return (
     <div className="customer-shop">
       {isTableOccupiedByOther ? (
@@ -1001,23 +1003,23 @@ export default function CustomerShop({
           )}
           <div className="hero-eyebrow">
             <span className="hero-live-dot" aria-hidden="true"></span>
-            Helado artesanal · pedido online
+            Hecho hoy en Andahuaylas · delivery
           </div>
           <h1>
-            Tu antojo, <span>hecho helado.</span>
+            Date el gusto. <span>Sin culpa.</span>
           </h1>
           <p className="hero-description">
-            Elige tus sabores, combínalos con toppings y arma algo totalmente tuyo. En <strong>{storeName}</strong>, pedir tu favorito toma solo unos minutos.
+            Helado artesanal de verdad: cremoso, intenso y cargado como te provoca. En <strong>{storeName}</strong> eliges la base, mezclas tus sabores y lo hacemos solo para ti.
           </p>
           <div className="hero-cta">
             <button className="btn btn-primary hero-primary-cta" onClick={() => setView('customizer')}>
-              Armar mi helado <span aria-hidden="true">→</span>
+              Quiero el mío <span aria-hidden="true">→</span>
             </button>
             <button className="btn btn-secondary" onClick={() => {
               const el = document.getElementById('catalog');
               if (el) el.scrollIntoView({ behavior: 'smooth' });
             }}>
-              Ver sabores
+              Ver antojos
             </button>
           </div>
           <div className="hero-quick-links" aria-label="Acciones rápidas">
@@ -1043,29 +1045,29 @@ export default function CustomerShop({
           <div className="hero-proof" aria-label="Beneficios de la tienda">
             <div className="hero-proof-item">
               <strong>Desde S/. {startingPrice}</strong>
-              <span>por bola</span>
+              <span>placer sin vueltas</span>
             </div>
             <div className="hero-proof-item">
-              <strong>A tu gusto</strong>
-              <span>sabores y toppings</span>
+              <strong>Hecho para ti</strong>
+              <span>mezcla sin reglas</span>
             </div>
             <div className="hero-proof-item">
-              <strong>Pedido simple</strong>
-              <span>elige, arma y disfruta</span>
+              <strong>Listo en minutos</strong>
+              <span>pide, recibe, disfruta</span>
             </div>
           </div>
         </div>
         <div className="hero-image-container">
           <div className="hero-circle-bg"></div>
           <div className="hero-sticker hero-sticker-top" aria-hidden="true">
-            <strong>100%</strong>
-            <span>a tu gusto</span>
+            <strong>WOW!</strong>
+            <span>antojo real</span>
           </div>
           <div className="hero-graphic-premium">
-            {storeHeroImage ? (
+            {resolvedHeroImage ? (
               <img 
-                src={storeHeroImage} 
-                alt="Helados Deliciosos" 
+                src={resolvedHeroImage}
+                alt="Cono Friozo con tres bolas de helado artesanal, frutas y chocolate"
                 style={{ 
                   width: '100%', 
                   height: 'auto', 
@@ -1149,12 +1151,21 @@ export default function CustomerShop({
           <div className="hero-sticker hero-sticker-bottom">
             <span className="hero-sticker-icon" aria-hidden="true">✦</span>
             <div>
-              <strong>Mezclas que sorprenden</strong>
-              <span>Combina sin límites</span>
+              <strong>Cremoso. Crujiente. Brutal.</strong>
+              <span>Tu mezcla, tus reglas</span>
             </div>
           </div>
         </div>
       </section>
+
+      <div className="crave-marquee" aria-label="Beneficios de Friozo">
+        <div className="crave-marquee-track">
+          <span>HECHO EN ANDAHUAYLAS</span><b>✦</b>
+          <span>MEZCLAS A TU GUSTO</span><b>✦</b>
+          <span>DELIVERY RÁPIDO</span><b>✦</b>
+          <span>CREMOSIDAD BRUTAL</span><b>✦</b>
+        </div>
+      </div>
 
       {/* BANNER DELIVERY GRATIS */}
       {!tableNumber && freeDeliveryEnabled && parseFloat(freeDeliveryThreshold || 0) > 0 && (
@@ -1176,9 +1187,9 @@ export default function CustomerShop({
       <section id="catalog" className="catalog-section">
         <div className="catalog-heading">
           <div>
-            <span className="section-kicker">LA CARTA DE HOY</span>
-            <h2 className="section-title">Elige tu próximo favorito</h2>
-            <p className="section-subtitle">Sabores artesanales, packs para compartir y opciones hechas a tu medida.</p>
+            <span className="section-kicker">TU PRÓXIMO ANTOJO</span>
+            <h2 className="section-title">¿Cuál te provoca?</h2>
+            <p className="section-subtitle">Paletas frutales, helados cremosos y mezclas sin miedo. Elige uno o inventa el tuyo.</p>
           </div>
           <span className="catalog-count">
             {activeFlavors.length + activePacks.length + activePopsicles.length + (literConfig?.active !== false ? 1 : 0)} opciones
@@ -1242,11 +1253,11 @@ export default function CustomerShop({
 
       <section className="order-paths" aria-label="Formas de elegir tu helado">
         <article className="order-path-card order-path-card-primary">
-          <span className="order-path-kicker">CREA EL TUYO</span>
-          <h2>Hazlo exactamente como te provoca</h2>
-          <p>Elige base, bolas, toppings y salsas. Tú pones la idea; nosotros la convertimos en helado.</p>
+          <span className="order-path-kicker">CERO HELADOS ABURRIDOS</span>
+          <h2>Tu antojo no viene de fábrica.</h2>
+          <p>Elige base, bolas, toppings y salsas. Tú rompes las reglas; nosotros lo hacemos irresistible.</p>
           <button className="btn btn-primary" onClick={() => setView('customizer')}>
-            Empezar a combinar <span aria-hidden="true">→</span>
+            Crear mi mezcla <span aria-hidden="true">→</span>
           </button>
         </article>
 
@@ -1258,9 +1269,9 @@ export default function CustomerShop({
         }}>
           <span className="order-path-icon" aria-hidden="true">✨</span>
           <div className="order-path-guide-copy">
-            <span className="order-path-kicker">NO SÉ CUÁL ELEGIR</span>
-            <h3>Descubre tu mezcla ideal</h3>
-            <p>Responde 3 preguntas y recibe una combinación hecha para tu antojo.</p>
+            <span className="order-path-kicker">DÉJATE TENTAR</span>
+            <h3>Te encontramos la mezcla perfecta</h3>
+            <p>Tres preguntas. Una recomendación peligrosamente rica.</p>
           </div>
           <span className="order-path-arrow" aria-hidden="true">→</span>
         </button>
@@ -1269,8 +1280,9 @@ export default function CustomerShop({
       {/* Testimonios y Reseñas Verificadas */}
       {!tableNumber && testimonials && testimonials.length > 0 && (
         <section className="testimonials-section">
-          <h2 className="section-title">Lo Que Dicen Nuestros Clientes</h2>
-          <p className="section-subtitle">Opiniones reales de amantes del helado artesanal</p>
+          <span className="section-kicker">AMOR A PRIMERA CUCHARADA</span>
+          <h2 className="section-title">La gente vuelve por esto</h2>
+          <p className="section-subtitle">Experiencias reales de quienes ya cayeron en la tentación.</p>
           
           <div className="testimonials-grid">
             {testimonials.map((item, idx) => {
