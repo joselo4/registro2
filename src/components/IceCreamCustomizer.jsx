@@ -264,6 +264,7 @@ export default function IceCreamCustomizer({
   const scoopCoords = getScoopLayout(selectedScoops.length);
   const selectedBaseVisual = getBaseVisual(selectedBase);
   const selectedBaseVisualKey = selectedBaseVisual.split('/').pop()?.replace('.png', '') || 'cup-eco';
+  const compositionShiftY = ['cup-eco', 'waffle-bowl'].includes(selectedBaseVisualKey) ? 70 : 0;
 
   // Renderizado dinámico de la salsa en cascada natural y brillante
   const renderSyrupFlowSVG = () => {
@@ -529,9 +530,9 @@ export default function IceCreamCustomizer({
           animation: base-settle-in 0.5s cubic-bezier(0.16, 1, 0.3, 1) both;
         }
         .photo-base-layer.base-cone-classic {
-          left: 15px;
-          width: 300px;
-          height: 260px;
+          left: 25px;
+          width: 280px;
+          height: 200px;
           object-fit: fill;
         }
         .photo-base-layer.base-cone-artisan {
@@ -730,7 +731,7 @@ export default function IceCreamCustomizer({
                     key={`${scoop.id || 'sabor'}-${idx}-${selectedScoops.length}`}
                     style={{
                       left: `${(coord.x / 300) * 100}%`,
-                      top: `${(coord.y / 360) * 100}%`,
+                      top: `${((coord.y + compositionShiftY) / 360) * 100}%`,
                       width: `${(size / 300) * 100}%`,
                       '--scoop-color': scoop.color || '#f4c76b',
                       animationDelay: `${idx * 55}ms`
@@ -969,28 +970,30 @@ export default function IceCreamCustomizer({
               })}
               </g>
 
-              {/* -------------------- 3. BARQUILLO PIRULÍN DECORATIVO ARTESANAL -------------------- */}
-              {selectedScoops.length >= 1 && (
-                <g transform="translate(195, 110) rotate(26)" filter="url(#artisanDropShadow)">
-                  {/* Tubo de barquillo crujiente */}
-                  <rect x="0" y="0" width="11" height="78" rx="5" fill="url(#waferGrad)" stroke="#874312" strokeWidth="0.8" />
-                  {/* Espirales de chocolate */}
-                  <g stroke="#3a1608" strokeWidth="2" opacity="0.75" strokeLinecap="round">
-                    <line x1="1" y1="12" x2="10" y2="18" />
-                    <line x1="1" y1="26" x2="10" y2="32" />
-                    <line x1="1" y1="40" x2="10" y2="46" />
-                    <line x1="1" y1="54" x2="10" y2="60" />
-                    <line x1="1" y1="68" x2="10" y2="74" />
+              <g transform={`translate(0 ${compositionShiftY})`}>
+                {/* -------------------- 3. BARQUILLO PIRULÍN DECORATIVO ARTESANAL -------------------- */}
+                {selectedScoops.length >= 1 && (
+                  <g transform="translate(195, 110) rotate(26)" filter="url(#artisanDropShadow)">
+                    {/* Tubo de barquillo crujiente */}
+                    <rect x="0" y="0" width="11" height="78" rx="5" fill="url(#waferGrad)" stroke="#874312" strokeWidth="0.8" />
+                    {/* Espirales de chocolate */}
+                    <g stroke="#3a1608" strokeWidth="2" opacity="0.75" strokeLinecap="round">
+                      <line x1="1" y1="12" x2="10" y2="18" />
+                      <line x1="1" y1="26" x2="10" y2="32" />
+                      <line x1="1" y1="40" x2="10" y2="46" />
+                      <line x1="1" y1="54" x2="10" y2="60" />
+                      <line x1="1" y1="68" x2="10" y2="74" />
+                    </g>
+                    <circle cx="5.5" cy="5" r="4.2" fill="#240c04" />
                   </g>
-                  <circle cx="5.5" cy="5" r="4.2" fill="#240c04" />
-                </g>
-              )}
+                )}
 
-              {/* -------------------- 4. SALSA Y JARABE EN CASCADA -------------------- */}
-              {renderSyrupFlowSVG()}
+                {/* -------------------- 4. SALSA Y JARABE EN CASCADA -------------------- */}
+                {renderSyrupFlowSVG()}
 
-              {/* -------------------- 5. TOPPINGS SÓLIDOS -------------------- */}
-              {renderToppingsSVG()}
+                {/* -------------------- 5. TOPPINGS SÓLIDOS -------------------- */}
+                {renderToppingsSVG()}
+              </g>
               </svg>
             </div>
           </div>
