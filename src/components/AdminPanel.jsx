@@ -5,7 +5,6 @@ import { updateSyncedData } from '../utils/supabaseSync';
 import SettingsManager from './admin/SettingsManager';
 import InventoryManager from './admin/InventoryManager';
 import FinanceManager from './admin/FinanceManager';
-import BillingManager from './admin/BillingManager';
 import OrderManager from './admin/OrderManager';
 import DashboardView from './admin/DashboardView';
 import UserManager from './admin/UserManager';
@@ -111,8 +110,6 @@ export default function AdminPanel({
   onUpdateCartRecommendedPack,
   staffPermissions = {},
   onUpdateStaffPermissions,
-  billingConfig,
-  onUpdateBillingConfig,
   r2Config,
   onUpdateR2Config,
   literConfig,
@@ -167,7 +164,7 @@ export default function AdminPanel({
   };
 
   // --- Estados de UI ---
-  const [activeTab, setActiveTab] = useState('orders'); // orders, inventory, packs, users, finance, billing, settings, stats, surveys
+  const [activeTab, setActiveTab] = useState('orders'); // orders, inventory, packs, users, finance, settings, stats, surveys
 
   useEffect(() => {
     window.scrollTo(0, 0);
@@ -342,7 +339,7 @@ export default function AdminPanel({
 
   useEffect(() => {
     if (currentUser && !isTabAllowed(activeTab)) {
-      const fallbackTab = ['orders', 'inventory', 'packs', 'users', 'finance', 'billing', 'locations', 'settings', 'stats', 'surveys', 'table_orders']
+      const fallbackTab = ['orders', 'inventory', 'packs', 'users', 'finance', 'locations', 'settings', 'stats', 'surveys', 'table_orders']
         .find((tabId) => isTabAllowed(tabId));
       if (fallbackTab) setActiveTab(fallbackTab);
     }
@@ -696,11 +693,6 @@ export default function AdminPanel({
               💵 Caja y Finanzas
             </button>
           )}
-          {isTabAllowed('billing') && (
-            <button className={`sidebar-btn ${activeTab === 'billing' ? 'active' : ''}`} onClick={() => setActiveTab('billing')}>
-              🧾 Facturacion
-            </button>
-          )}
           {isTabAllowed('stats') && (
             <button className={`sidebar-btn ${activeTab === 'stats' ? 'active' : ''}`} onClick={() => setActiveTab('stats')}>
               📈 Meta e Ingresos
@@ -792,18 +784,6 @@ export default function AdminPanel({
             expenses={expenses}
             onUpdateExpenses={onUpdateExpenses}
             packs={packs}
-            addLog={addLog}
-            currentUser={currentUser}
-            showAlert={showAlert}
-          />
-        )}
-
-        {activeTab === 'billing' && (
-          <BillingManager
-            orders={orders}
-            onUpdateOrders={onUpdateOrders}
-            billingConfig={billingConfig}
-            onUpdateBillingConfig={onUpdateBillingConfig}
             addLog={addLog}
             currentUser={currentUser}
             showAlert={showAlert}

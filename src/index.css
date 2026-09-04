@@ -3550,17 +3550,6 @@ body {
   letter-spacing: -0.06em;
 }
 
-.logo::after {
-  content: 'ANDAHUAYLAS';
-  margin-left: 3px;
-  padding: 4px 7px;
-  border: 1px solid currentColor;
-  border-radius: 999px;
-  color: var(--primary-color);
-  font: 800 0.52rem/1 var(--font-body);
-  letter-spacing: 0.1em;
-}
-
 .logo-icon {
   display: grid;
   width: 38px;
@@ -4017,10 +4006,6 @@ footer button {
 
   .logo {
     font-size: 1.35rem;
-  }
-
-  .logo::after {
-    display: none;
   }
 
   .logo-icon {

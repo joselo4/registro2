@@ -1003,7 +1003,7 @@ export default function CustomerShop({
           )}
           <div className="hero-eyebrow">
             <span className="hero-live-dot" aria-hidden="true"></span>
-            Hecho hoy en Andahuaylas · delivery
+            Hecho hoy · delivery
           </div>
           <h1>
             Date el gusto. <span>Sin culpa.</span>
@@ -1160,7 +1160,7 @@ export default function CustomerShop({
 
       <div className="crave-marquee" aria-label="Beneficios de Friozo">
         <div className="crave-marquee-track">
-          <span>HECHO EN ANDAHUAYLAS</span><b>✦</b>
+          <span>HECHO AL MOMENTO</span><b>✦</b>
           <span>MEZCLAS A TU GUSTO</span><b>✦</b>
           <span>DELIVERY RÁPIDO</span><b>✦</b>
           <span>CREMOSIDAD BRUTAL</span><b>✦</b>

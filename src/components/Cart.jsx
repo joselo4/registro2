@@ -25,8 +25,7 @@ export default function Cart({
   setTableNumber,
   occupiedTables = [],
   shopConfig,
-  trackEvent,
-  billingConfig
+  trackEvent
 }) {
   const alert = (msg) => {
     if (showAlert) {
@@ -497,22 +496,6 @@ export default function Cart({
           
           <form className="checkout-form" onSubmit={handleSubmit} style={{ gap: '10px', marginTop: '10px' }}>
             
-            {/* Datos del Emisor (Automático) */}
-            {billingConfig && billingConfig.enabled && billingConfig.ruc && (
-              <div style={{
-                background: 'rgba(0,0,0,0.03)',
-                border: '1px solid var(--border-color)',
-                padding: '10px',
-                borderRadius: '8px',
-                fontSize: '0.75rem',
-                marginBottom: '10px',
-                textAlign: 'center'
-              }}>
-                <span style={{ display: 'block', fontWeight: 'bold', color: 'var(--text-dark)' }}>Emite: {billingConfig.businessName || 'Heladería'}</span>
-                <span style={{ color: 'var(--text-light)' }}>RUC: {billingConfig.ruc}</span>
-              </div>
-            )}
-
             {tableOrdersEnabled && (
               <div className="form-group">
                 <label style={{ fontSize: '0.8rem', fontWeight: 'bold' }}>Tipo de Servicio</label>

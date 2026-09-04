@@ -4,7 +4,7 @@ import { updateSyncedData } from '../utils/supabaseSync';
 export default function OrderTracker({ orderId, orders, setView, storePhone, onClearActiveOrder }) {
   const TRACKING_WINDOW_HOURS = 72;
   const showDetailedTracker = true;
-  const [inputVal, setInputVal] = useState('');
+  const [inputVal, setInputVal] = useState(orderId || '');
   const [activeSearchId, setActiveSearchId] = useState(orderId || '');
   const [searchNonce, setSearchNonce] = useState(0);
   const [hasSearched, setHasSearched] = useState(false);
@@ -15,6 +15,7 @@ export default function OrderTracker({ orderId, orders, setView, storePhone, onC
   // --- NUEVOS ESTADOS PARA BÚSQUEDA EN LA NUBE ---
   const [fetchedOrder, setFetchedOrder] = useState(null);
   const [loadingOrder, setLoadingOrder] = useState(false);
+  const requestSequenceRef = useRef(0);
 
   // --- ESTADOS Y LÓGICA PARA LA ENCUESTA DE SATISFACCIÓN ---
   const [rating, setRating] = useState(0);
@@ -194,51 +195,57 @@ export default function OrderTracker({ orderId, orders, setView, storePhone, onC
 
   // Efecto para buscar pedido en Supabase de forma segura e independiente (por privacidad de egress)
   useEffect(() => {
-    if (!activeSearchId) return;
+    if (!activeSearchId) {
+      setLoadingOrder(false);
+      return;
+    }
 
     const searchUpper = activeSearchId.trim().toUpperCase();
     const local = orders.find(o => o.id.toUpperCase() === searchUpper);
     setFetchedOrder(local || null);
 
     let cancelled = false;
+    const requestSequence = ++requestSequenceRef.current;
     const failSafeTimer = setTimeout(() => {
-      if (!cancelled) setLoadingOrder(false);
-    }, 12000);
+      if (!cancelled && requestSequence === requestSequenceRef.current) setLoadingOrder(false);
+    }, 9000);
 
-    const fetchFromSupabase = async () => {
-      setLoadingOrder(true);
+    const fetchFromSupabase = async ({ showLoading = false } = {}) => {
+      if (showLoading) setLoadingOrder(true);
       try {
-        const response = await fetch(`/api/order?id=${encodeURIComponent(searchUpper)}`);
+        const response = await fetchWithTimeout(`/api/order?id=${encodeURIComponent(searchUpper)}`, {}, 8000);
         const payload = await response.json().catch(() => ({}));
 
-        if (cancelled) return;
+        if (cancelled || requestSequence !== requestSequenceRef.current) return;
 
         if (response.ok && payload.order) {
           setFetchedOrder(payload.order);
           saveToRecentOrders(searchUpper);
         }
       } catch (err) {
-        if (!cancelled) {
+        if (!cancelled && requestSequence === requestSequenceRef.current) {
           console.warn("Error fetching order from cloud tracker:", err);
         }
       } finally {
-        if (!cancelled) {
+        if (showLoading && !cancelled && requestSequence === requestSequenceRef.current) {
           setLoadingOrder(false);
         }
       }
     };
 
-    fetchFromSupabase();
+    fetchFromSupabase({ showLoading: !local });
 
     // Suscribirse únicamente al canal en tiempo real de este pedido específico (cero filtración de datos)
-    const refreshTimer = setInterval(fetchFromSupabase, 5000);
+    // Las actualizaciones silenciosas no vuelven a bloquear el formulario con un indicador permanente.
+    const refreshTimer = setInterval(() => fetchFromSupabase(), 10000);
 
     return () => {
       cancelled = true;
+      requestSequenceRef.current += 1;
       clearTimeout(failSafeTimer);
       clearInterval(refreshTimer);
     };
-  }, [activeSearchId, searchNonce, orders]);
+  }, [activeSearchId, searchNonce]);
 
   // Efecto para animar y reproducir sonido cuando cambia el estado del pedido tracked
   useEffect(() => {
@@ -399,7 +406,7 @@ export default function OrderTracker({ orderId, orders, setView, storePhone, onC
             />
           </div>
 
-          {loadingOrder && (
+          {loadingOrder && activeSearchId && (
             <div style={{ textAlign: 'center', fontSize: '0.85rem', color: 'var(--primary-color)', fontWeight: 'bold' }}>
               ⏳ Buscando en la nube...
             </div>

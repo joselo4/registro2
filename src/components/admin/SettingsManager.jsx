@@ -786,7 +786,7 @@ export default function SettingsManager({
               name="store-title"
               type="text"
               className="form-control"
-              placeholder="Ej: Friozo Andahuaylas - Helados artesanales y delivery"
+              placeholder="Ej: Friozo - Helados artesanales y delivery"
               value={localStoreTitle}
               onChange={(e) => setLocalStoreTitle(e.target.value)}
             />

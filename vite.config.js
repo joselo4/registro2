@@ -6,7 +6,6 @@ import { onRequestPost as handleR2Post } from './functions/api/r2.js'
 import { onRequestGet as handleOrderGet, onRequestPost as handleOrderPost } from './functions/api/order.js'
 import { onRequestPost as handleTableCallPost } from './functions/api/table-call.js'
 import { onRequestPost as handleTelegramPost } from './functions/api/telegram.js'
-import { onRequestPost as handleBillingPost } from './functions/api/billing.js'
 
 const apiRoutes = {
   '/api/admin-auth-user': { POST: handleAdminAuthUser },
@@ -15,7 +14,6 @@ const apiRoutes = {
   '/api/order': { GET: handleOrderGet, POST: handleOrderPost },
   '/api/table-call': { POST: handleTableCallPost },
   '/api/telegram': { POST: handleTelegramPost },
-  '/api/billing': { POST: handleBillingPost },
 }
 
 function localPagesApiPlugin(env) {
@@ -76,8 +74,6 @@ function localPagesApiPlugin(env) {
                 SUPABASE_SERVICE_ROLE_KEY: env.SUPABASE_SERVICE_ROLE_KEY || env.VITE_SUPABASE_ANON_KEY,
                 TELEGRAM_BOT_TOKEN: env.TELEGRAM_BOT_TOKEN,
                 TELEGRAM_CHAT_ID: env.TELEGRAM_CHAT_ID,
-                NUBEFACT_ENDPOINT: env.NUBEFACT_ENDPOINT || env.BILLING_ENDPOINT,
-                NUBEFACT_TOKEN: env.NUBEFACT_TOKEN || env.BILLING_TOKEN,
                 R2_ACCOUNT_ID: env.R2_ACCOUNT_ID,
                 R2_ACCESS_KEY_ID: env.R2_ACCESS_KEY_ID,
                 R2_SECRET_ACCESS_KEY: env.R2_SECRET_ACCESS_KEY,
