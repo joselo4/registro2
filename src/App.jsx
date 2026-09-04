@@ -551,6 +551,11 @@ export default function App() {
       setView('tracker');
     }
 
+    const viewParam = params.get('view');
+    if (viewParam) {
+      setView(viewParam);
+    }
+
     const mesaParam = params.get('mesa') || params.get('table');
     if (mesaParam) {
       setTableNumber(mesaParam);
@@ -1205,7 +1210,7 @@ export default function App() {
   const handleAddToCart = (item) => {
     if (!effectiveShopOpen) {
       alert(`Lo sentimos, ${storeName} se encuentra CERRADO temporalmente en este momento.`);
-      return;
+      return false;
     }
 
     if (item.type === 'pack' || item.type === 'popsicle') {
@@ -1215,7 +1220,7 @@ export default function App() {
         newCart[idx].quantity += 1;
         setCart(newCart);
         alert(`Se incrementó la cantidad del ${item.name} en el carrito.`);
-        return;
+        return true;
       }
     } else if (item.type === 'custom') {
       const idx = cart.findIndex(i => {
@@ -1236,7 +1241,7 @@ export default function App() {
         newCart[idx].quantity += 1;
         setCart(newCart);
         alert(`Se incrementó la cantidad de tu helado personalizado idéntico.`);
-        return;
+        return true;
       }
     } else if (item.type === 'liter') {
       const idx = cart.findIndex(i => {
@@ -1252,12 +1257,13 @@ export default function App() {
         newCart[idx].quantity += 1;
         setCart(newCart);
         alert(`Se incrementó la cantidad de tu helado de 1 Litro idéntico.`);
-        return;
+        return true;
       }
     }
 
     setCart([...cart, item]);
     alert("¡Helado añadido al carrito exitosamente!");
+    return true;
   };
 
   const handleUpdateCartQuantity = (index, newQty) => {
@@ -1425,8 +1431,9 @@ export default function App() {
 
     // Actualizar el pedido individual en la nube para que el cliente reciba la actualización en tiempo real en su rastreador
     if (updatedOrder) {
-      await updateSyncedData(`order_${cleanOrderId}`, updatedOrder);
+      return await updateSyncedData(`order_${cleanOrderId}`, updatedOrder);
     }
+    return false;
   };
 
   async function handleLogout() {

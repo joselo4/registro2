@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useMemo, useCallback, useRef } from 'react';
+import DessertPreview from './DessertPreview';
 import { updateSyncedData } from '../utils/supabaseSync';
 
 export default function CustomerShop({ 
@@ -174,7 +175,7 @@ export default function CustomerShop({
 
   // --- Estados y Lógica para Tendencias en Vivo (FOMO) ---
   const [currentTrend, setCurrentTrend] = useState(null);
-  const [dismissedTrend, setDismissedTrend] = useState(false);
+  const [dismissedTrend, setDismissedTrend] = useState(true);
   const [isToastDismissing, setIsToastDismissing] = useState(false);
 
   const generateFlavorGuideCombination = (answers) => {
@@ -275,7 +276,7 @@ export default function CustomerShop({
     trendDataRef.current = { activeFlavors, activePacks, literConfig };
   }, [activeFlavors, activePacks, literConfig]);
 
-  // Simular tendencias en vivo sin locación geográfica (Seguridad y Privacidad)
+  // Rotación de sugerencias de carta; no representa ventas reales
   useEffect(() => {
     if (dismissedTrend || tableNumber) return;
 
@@ -283,15 +284,14 @@ export default function CustomerShop({
       const { activeFlavors, activePacks, literConfig } = trendDataRef.current;
       const eventTypes = ['custom', 'pack', 'liter'];
       const randomType = eventTypes[Math.floor(Math.random() * eventTypes.length)];
-      const names = ['Sofía', 'Mateo', 'Valentina', 'Santiago', 'Camila', 'Sebastián', 'Isabella', 'Alejandro', 'Valeria', 'Diego', 'Mariana', 'Lucas', 'Gabriela', 'Nicolás', 'Lucía', 'Samuel', 'Daniela', 'Joaquín', 'Andrea', 'Matías'];
-      const clientName = names[Math.floor(Math.random() * names.length)];
+
 
       if (randomType === 'custom' && activeFlavors.length > 0) {
         const flavor1 = activeFlavors[Math.floor(Math.random() * activeFlavors.length)];
         const flavor2 = activeFlavors[Math.floor(Math.random() * activeFlavors.length)];
         const hasDouble = Math.random() > 0.4;
         
-        let desc = `${clientName} armó: Helado Simple de ${flavor1.name} 🍦`;
+        let desc = `Prueba: Helado Simple de ${flavor1.name} 🍦`;
         let itemToTry = {
           type: 'custom',
           base: { id: 'cono', name: 'Cono de Galleta Crujiente', price: 0.0 },
@@ -303,7 +303,7 @@ export default function CustomerShop({
         };
 
         if (hasDouble && flavor1.id !== flavor2.id) {
-          desc = `${clientName} armó: Helado Doble de ${flavor1.name} y ${flavor2.name} 🍦`;
+          desc = `Prueba: Helado Doble de ${flavor1.name} y ${flavor2.name} 🍦`;
           itemToTry = {
             type: 'custom',
             base: { id: 'cono', name: 'Cono de Galleta Crujiente', price: 0.0 },
@@ -321,7 +321,7 @@ export default function CustomerShop({
         return {
           id: Date.now(),
           icon: '🍦',
-          title: 'Pedido Reciente',
+          title: 'Una idea para tu próximo antojo',
           desc,
           item: itemToTry
         };
@@ -330,8 +330,8 @@ export default function CustomerShop({
         return {
           id: Date.now(),
           icon: '🎁',
-          title: 'Combo Vendido',
-          desc: `¡${clientName} compró un ${pack.name}! 🚀`,
+          title: 'Para disfrutar en compañía',
+          desc: `${pack.name}: para compartir.`,
           item: {
             type: 'pack',
             id: pack.id,
@@ -348,7 +348,7 @@ export default function CustomerShop({
           id: Date.now(),
           icon: '🏺',
           title: 'Familiar 1 Litro',
-          desc: `${clientName} ordenó: 1 Litro de Helado sabor ${flavor.name} 🏺`,
+          desc: `Para llevar: 1 Litro de Helado sabor ${flavor.name} 🏺`,
           item: {
             type: 'liter',
             price: literConfig?.price || 15.0,
@@ -420,106 +420,6 @@ export default function CustomerShop({
   };
 
   // Helper for dynamic premium toppings per flavor in the shop catalog
-  const renderDynamicToppings = (flavorId) => {
-    switch (flavorId) {
-      case 'fresa':
-        return (
-          <g>
-            {/* Semillas de fresa natural */}
-            <ellipse cx="40" cy="38" rx="0.8" ry="1.5" fill="#80001a" opacity="0.6" transform="rotate(15 40 38)" />
-            <ellipse cx="48" cy="32" rx="0.8" ry="1.5" fill="#80001a" opacity="0.6" transform="rotate(-10 48 32)" />
-            <ellipse cx="58" cy="36" rx="0.8" ry="1.5" fill="#80001a" opacity="0.6" transform="rotate(25 58 36)" />
-            <ellipse cx="62" cy="46" rx="0.8" ry="1.5" fill="#80001a" opacity="0.6" transform="rotate(-15 62 46)" />
-            <ellipse cx="38" cy="48" rx="0.8" ry="1.5" fill="#80001a" opacity="0.6" transform="rotate(5 38 48)" />
-            <ellipse cx="50" cy="50" rx="0.8" ry="1.5" fill="#80001a" opacity="0.6" transform="rotate(-5 50 50)" />
-            {/* Hojita de menta decorativa */}
-            <path d="M 50 22 C 45 15, 50 10, 50 10 C 50 10, 55 15, 50 22 Z" fill="#2ed573" />
-            <path d="M 49 22 C 45 16, 48 12, 48 12 C 48 12, 52 16, 49 22 Z" fill="#26af5f" />
-          </g>
-        );
-      case 'vainilla':
-        return (
-          <g>
-            {/* Puntos de vaina de vainilla */}
-            <circle cx="42" cy="34" r="0.6" fill="#3d3d3d" opacity="0.6" />
-            <circle cx="56" cy="38" r="0.6" fill="#3d3d3d" opacity="0.5" />
-            <circle cx="48" cy="46" r="0.6" fill="#3d3d3d" opacity="0.6" />
-            <circle cx="36" cy="44" r="0.6" fill="#3d3d3d" opacity="0.5" />
-            <circle cx="62" cy="42" r="0.6" fill="#3d3d3d" opacity="0.6" />
-            {/* Salsa de caramelo suave */}
-            <path d="M 33 34 Q 45 42 50 34 T 67 38" fill="none" stroke="#d5822b" strokeWidth="1.5" strokeLinecap="round" opacity="0.85" />
-          </g>
-        );
-      case 'mango':
-        return (
-          <g>
-            {/* Veteado de salsa de mango */}
-            <path d="M 30 38 Q 42 26 50 38 T 68 40" fill="none" stroke="#ffa502" strokeWidth="2" strokeLinecap="round" opacity="0.95" />
-            <path d="M 34 46 Q 48 38 64 48" fill="none" stroke="#ffa502" strokeWidth="2.5" strokeLinecap="round" opacity="0.95" />
-            {/* Cubito de mango */}
-            <rect x="46" y="16" width="8" height="8" rx="2" fill="#ffa502" transform="rotate(20 50 20)" stroke="#ff7f50" strokeWidth="0.6" />
-            <rect x="47" y="17" width="6" height="6" rx="1.5" fill="#ffbe76" transform="rotate(20 50 20)" />
-          </g>
-        );
-      case 'maracuya':
-        return (
-          <g>
-            {/* Pulpa dorada y pepitas negras de maracuyá */}
-            <path d="M 32 35 Q 46 22 66 32" fill="none" stroke="#ffa502" strokeWidth="2.5" strokeLinecap="round" opacity="0.9" />
-            <path d="M 38 48 Q 50 38 62 48" fill="none" stroke="#ffa502" strokeWidth="2" strokeLinecap="round" opacity="0.9" />
-            <path d="M 42 32 C 40 32, 40 35, 43 35 C 44 35, 44 32, 42 32" fill="#2d3436" />
-            <path d="M 52 38 C 50 38, 50 41, 53 41 C 54 41, 54 38, 52 38" fill="#2d3436" />
-            <path d="M 58 46 C 56 46, 56 49, 59 49 C 60 49, 60 46, 58 46" fill="#2d3436" />
-          </g>
-        );
-      case 'menta':
-        return (
-          <g>
-            {/* Chispitas de chocolate crocante */}
-            <rect x="36" y="32" width="3" height="3" fill="#2d1d0f" rx="0.5" transform="rotate(15 36 32)" />
-            <rect x="48" y="38" width="2.5" height="2.5" fill="#2d1d0f" rx="0.5" transform="rotate(45 48 38)" />
-            <rect x="58" y="30" width="3" height="3" fill="#2d1d0f" rx="0.5" transform="rotate(10 58 30)" />
-            <rect x="62" y="44" width="2.5" height="2.5" fill="#2d1d0f" rx="0.5" transform="rotate(30 62 44)" />
-            <rect x="42" y="46" width="3" height="3" fill="#2d1d0f" rx="0.5" transform="rotate(80 42 46)" />
-            <rect x="52" y="48" width="2.8" height="2.8" fill="#2d1d0f" rx="0.5" transform="rotate(-15 52 48)" />
-          </g>
-        );
-      case 'lucuma':
-        return (
-          <g>
-            {/* Hilos de chocolate fudge oscuro sobre lúcuma */}
-            <path d="M 30 36 Q 44 48 50 32 T 68 38" fill="none" stroke="#2d1d0f" strokeWidth="2" strokeLinecap="round" opacity="0.9" />
-            <path d="M 33 46 Q 50 38 65 48" fill="none" stroke="#2d1d0f" strokeWidth="2" strokeLinecap="round" opacity="0.9" />
-          </g>
-        );
-      case 'chocolate':
-        return (
-          <g>
-            {/* Drip brilloso de chocolate belga */}
-            <path d="M 32 35 Q 46 22 66 32" fill="none" stroke="#1e172e" strokeWidth="2.5" strokeLinecap="round" opacity="0.8" />
-            <path d="M 46 24 Q 50 38 52 46 Q 53 50 50 50 Q 47 50 48 46 Z" fill="#1e172e" />
-            <path d="M 36 28 Q 38 36 39 42 Q 40 45 38 45 Q 36 45 37 42 Z" fill="#1e172e" />
-            <path d="M 49 40 Q 50 45 49 47" stroke="white" strokeWidth="0.5" opacity="0.4" strokeLinecap="round" />
-          </g>
-        );
-      case 'coco':
-        return (
-          <g>
-            {/* Coco rallado espolvoreado */}
-            <line x1="38" y1="32" x2="43" y2="34" stroke="#ffffff" strokeWidth="1.2" strokeLinecap="round" />
-            <line x1="48" y1="36" x2="52" y2="35" stroke="#ffffff" strokeWidth="1.2" strokeLinecap="round" />
-            <line x1="58" y1="32" x2="61" y2="36" stroke="#ffffff" strokeWidth="1.2" strokeLinecap="round" />
-            <line x1="35" y1="44" x2="40" y2="46" stroke="#ffffff" strokeWidth="1.2" strokeLinecap="round" />
-            <line x1="52" y1="48" x2="56" y2="46" stroke="#ffffff" strokeWidth="1.2" strokeLinecap="round" />
-            <line x1="60" y1="44" x2="64" y2="42" stroke="#ffffff" strokeWidth="1.2" strokeLinecap="round" />
-            <line x1="44" y1="42" x2="48" y2="44" stroke="#ffffff" strokeWidth="1.2" strokeLinecap="round" />
-          </g>
-        );
-      default:
-        return null;
-    }
-  };
-
   // Un helado clásico rápido es un helado simple de 1 bola en Cono
   const handleAddClassicToCart = useCallback((flavor) => {
     const customItem = {
@@ -686,71 +586,7 @@ export default function CustomerShop({
                             loading="lazy"
                           />
                         ) : (
-                          <svg viewBox="0 0 100 120" width="90" height="108" style={{ display: 'block' }}>
-                            <defs>
-                              <filter id={`sh-${flavor.id}`} x="-10%" y="-10%" width="120%" height="120%">
-                                <feDropShadow dx="0" dy="3" stdDeviation="3" floodOpacity="0.15" />
-                              </filter>
-                              <radialGradient id={`specular-${flavor.id}`} cx="30%" cy="30%" r="60%" fx="30%" fy="30%">
-                                <stop offset="0%" stopColor="#ffffff" stopOpacity="0.8"/>
-                                <stop offset="50%" stopColor="#ffffff" stopOpacity="0.2"/>
-                                <stop offset="100%" stopColor="#ffffff" stopOpacity="0"/>
-                              </radialGradient>
-                              <radialGradient id={`shadow-${flavor.id}`} cx="70%" cy="70%" r="70%">
-                                <stop offset="0%" stopColor="#000000" stopOpacity="0.35"/>
-                                <stop offset="100%" stopColor="#000000" stopOpacity="0"/>
-                              </radialGradient>
-                              
-                              <linearGradient id={`coneGrad-${flavor.id}`} x1="0" y1="0" x2="1" y2="1">
-                                <stop offset="0%" stopColor="#f3a683"/>
-                                <stop offset="50%" stopColor="#cf8a4f"/>
-                                <stop offset="100%" stopColor="#8d5624"/>
-                              </linearGradient>
-                              
-                              <linearGradient id={`coneShadow-${flavor.id}`} x1="0" y1="0" x2="1" y2="0">
-                                <stop offset="0%" stopColor="#ffffff" stopOpacity="0.3" />
-                                <stop offset="50%" stopColor="#ffffff" stopOpacity="0" />
-                                <stop offset="100%" stopColor="#000000" stopOpacity="0.45" />
-                              </linearGradient>
-                              
-                              <clipPath id={`cone-clip-${flavor.id}`}>
-                                <path d="M32 63 L50 110 L68 63 Z" />
-                              </clipPath>
-                            </defs>
-                            
-                            {/* Sombra base */}
-                            <ellipse cx="50" cy="114" rx="20" ry="3.5" fill="rgba(0,0,0,0.08)" />
-                            
-                            {/* Cono Waffle */}
-                            <g filter={`url(#sh-${flavor.id})`}>
-                              {/* Base Cone styled with clipPath */}
-                              <g clipPath={`url(#cone-clip-${flavor.id})`}>
-                                <path d="M32 63 L50 110 L68 63 Z" fill={`url(#coneGrad-${flavor.id})`} />
-                                {/* Waffle Grid */}
-                                <path d="M 10 30 L 80 100 M 10 40 L 80 110 M 10 20 L 80 90 M 10 10 L 80 80 M 10 50 L 80 120 M 10 0 L 80 70" stroke="#7a4b1c" strokeWidth="0.8" opacity="0.3" />
-                                <path d="M 90 30 L 20 100 M 90 40 L 20 110 M 90 20 L 20 90 M 90 10 L 20 80 M 90 50 L 20 120 M 90 0 L 20 70" stroke="#7a4b1c" strokeWidth="0.8" opacity="0.3" />
-                                {/* Cone 3D shadow overlay */}
-                                <path d="M32 63 L50 110 L68 63 Z" fill={`url(#coneShadow-${flavor.id})`} />
-                              </g>
-                              {/* Outline borders */}
-                              <path d="M32 63 L50 110 L68 63 Z" fill="none" stroke="#7a4b1c" strokeWidth="1" opacity="0.6" />
-                            </g>
-                            
-                            {/* Bola de Helado con brillo 3D y faldón realista */}
-                            <g filter={`url(#sh-${flavor.id})`}>
-                              <circle cx="50" cy="46" r="24" fill={flavor.color} />
-                              <circle cx="50" cy="46" r="24" fill={`url(#shadow-${flavor.id})`} />
-                              <circle cx="50" cy="46" r="24" fill={`url(#specular-${flavor.id})`} />
-                              <ellipse cx="42" cy="38" rx="8" ry="4" fill="white" opacity="0.25" transform="rotate(-15, 42, 38)" />
-                              
-                              {/* Dynamic Toppings */}
-                              {renderDynamicToppings(flavor.id)}
-                              
-                              {/* Wavy Gelato faldón at the bottom of the scoop */}
-                              <path d="M 25 58 Q 31 66 37 60 Q 43 67 50 61 Q 57 67 63 60 Q 69 66 75 58 Q 50 72 25 58 Z" fill={flavor.color} />
-                              <path d="M 25 58 Q 31 66 37 60 Q 43 67 50 61 Q 57 67 63 60 Q 69 66 75 58 Q 50 72 25 58 Z" fill={`url(#shadow-${flavor.id})`} opacity="0.3" />
-                            </g>
-                          </svg>
+                          <DessertPreview compact base={{id: "cono", name: "Cono"}} scoops={[flavor]} />
                         )}
                       </div>
 
@@ -1003,17 +839,17 @@ export default function CustomerShop({
           )}
           <div className="hero-eyebrow">
             <span className="hero-live-dot" aria-hidden="true"></span>
-            Hecho hoy · delivery
+            PEQUEÑOS MOMENTOS · GRANDES ANTOJOS
           </div>
           <h1>
-            Date el gusto. <span>Sin culpa.</span>
+            La vida pide <span>otro helado.</span>
           </h1>
           <p className="hero-description">
-            Helado artesanal de verdad: cremoso, intenso y cargado como te provoca. En <strong>{storeName}</strong> eliges la base, mezclas tus sabores y lo hacemos solo para ti.
+            Una bola de tu favorito. Otra de ese que querías probar. En <strong>{storeName}</strong>, los mejores momentos se sirven a tu gusto.
           </p>
           <div className="hero-cta">
             <button className="btn btn-primary hero-primary-cta" onClick={() => setView('customizer')}>
-              Quiero el mío <span aria-hidden="true">→</span>
+              Crear mi helado <span aria-hidden="true">→</span>
             </button>
             <button className="btn btn-secondary" onClick={() => {
               const el = document.getElementById('catalog');
@@ -1060,8 +896,8 @@ export default function CustomerShop({
         <div className="hero-image-container">
           <div className="hero-circle-bg"></div>
           <div className="hero-sticker hero-sticker-top" aria-hidden="true">
-            <strong>WOW!</strong>
-            <span>antojo real</span>
+            <strong>Artesanal</strong>
+            <span>A TU GUSTO</span>
           </div>
           <div className="hero-graphic-premium">
             {resolvedHeroImage ? (
@@ -1151,8 +987,8 @@ export default function CustomerShop({
           <div className="hero-sticker hero-sticker-bottom">
             <span className="hero-sticker-icon" aria-hidden="true">✦</span>
             <div>
-              <strong>Cremoso. Crujiente. Brutal.</strong>
-              <span>Tu mezcla, tus reglas</span>
+              <strong>Un poquito de felicidad.</strong>
+              <span>El toque final lo eliges tú</span>
             </div>
           </div>
         </div>
@@ -1163,7 +999,7 @@ export default function CustomerShop({
           <span>HECHO AL MOMENTO</span><b>✦</b>
           <span>MEZCLAS A TU GUSTO</span><b>✦</b>
           <span>DELIVERY RÁPIDO</span><b>✦</b>
-          <span>CREMOSIDAD BRUTAL</span><b>✦</b>
+          <span>UNA CUCHARADA MÁS</span><b>✦</b>
         </div>
       </div>
 

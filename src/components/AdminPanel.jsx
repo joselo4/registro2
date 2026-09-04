@@ -7,6 +7,7 @@ import InventoryManager from './admin/InventoryManager';
 import FinanceManager from './admin/FinanceManager';
 import OrderManager from './admin/OrderManager';
 import DashboardView from './admin/DashboardView';
+import OperationsCenter from './admin/OperationsCenter';
 import UserManager from './admin/UserManager';
 import TableOrderManager from './admin/TableOrderManager';
 import CartLocationsView from './CartLocationsView';
@@ -164,7 +165,7 @@ export default function AdminPanel({
   };
 
   // --- Estados de UI ---
-  const [activeTab, setActiveTab] = useState('orders'); // orders, inventory, packs, users, finance, settings, stats, surveys
+  const [activeTab, setActiveTab] = useState('operations');
 
   useEffect(() => {
     window.scrollTo(0, 0);
@@ -668,6 +669,7 @@ export default function AdminPanel({
           </div>
         )}
         <div className="sidebar-menu">
+          {isAdminUser(currentUser) && <button className={`sidebar-btn ${activeTab === 'operations' ? 'active' : ''}`} onClick={() => setActiveTab('operations')}>◉ Centro de operaciones</button>}
           {isTabAllowed('orders') && (
             <button className={`sidebar-btn ${activeTab === 'orders' ? 'active' : ''}`} onClick={() => setActiveTab('orders')}>
               📋 Pedidos ({orders.filter(o => o.status === 'Pendiente').length})
@@ -723,6 +725,13 @@ export default function AdminPanel({
 
       {/* Contenido de pestaÃ±a activa */}
       <div className="admin-content">
+        {activeTab === 'operations' && isAdminUser(currentUser) && <OperationsCenter orders={orders} salesGoal={salesGoal} shopOpen={shopOpen} onNavigate={setActiveTab} onUpdateOrderStatus={onUpdateOrderStatus} groups={[
+          {key:'flavors',name:'Sabores',items:flavors,update:onUpdateFlavors},
+          {key:'bases',name:'Envases',items:bases,update:onUpdateBases},
+          {key:'toppings',name:'Toppings y salsas',items:toppings,update:onUpdateToppings},
+          {key:'popsicles',name:'Paletas',items:popsicles,update:onUpdatePopsicles},
+          {key:'packs',name:'Packs',items:packs,update:onUpdatePacks}
+        ]} />}
         {(activeTab === 'orders' || activeTab === 'surveys') && (
           <OrderManager
             orders={orders}
