@@ -1,5 +1,11 @@
 import { useId } from 'react';
 import { baseVisual, flavorColor, scoopLayout, toppingCell } from '../utils/dessert';
+import './dessert-preview.css';
+
+export function BasePhoto({base, className = ''}) {
+  const visual = baseVisual(base);
+  return <svg className={`base-photo ${className}`} viewBox={visual.crop} role="img" aria-label={base?.name || 'Envase'}><image href={`/customizer/${visual.key}.png`} width="1280" height="1280" /></svg>;
+}
 
 export function ToppingPhoto({ topping, className = '' }) {
   const cell = toppingCell(topping);
@@ -13,23 +19,32 @@ export function ScoopPhoto({ flavor, className = '' }) {
 export default function DessertPreview({base, scoops = [], toppings = [], syrup = null, compact = false}) {
   const uid = useId().replace(/:/g, '');
   const b = baseVisual(base);
-  const coords = scoopLayout(scoops.length, b.shift);
+  const visibleScoops = scoops.slice(0,5);
+  const coords = scoopLayout(visibleScoops.length, b);
+  const top = Math.min(b.y, ...coords.map(c => c.y-c.r*1.2))-20;
+  const bottom = b.y+b.h+18;
+  const frontEdge = b.key === 'waffle-bowl' ? 'M48 280 Q100 315 160 315 Q220 315 272 280 L272 470 H48 Z'
+    : b.key === 'cup-eco' ? 'M66 274 Q160 315 254 274 L254 470 H66 Z'
+    : b.key === 'cone-artisan' ? 'M105 254 Q160 279 215 254 L215 470 H105 Z'
+    : 'M105 250 Q160 270 215 250 L215 470 H105 Z';
   const sauceColor = /fresa|sauce/.test(`${syrup?.id}`) ? '#a6373d' : /manjar|caramel/.test(`${syrup?.id}`) ? '#b47940' : '#45251c';
   const container = <svg x={b.x} y={b.y} width={b.w} height={b.h} viewBox={b.crop} preserveAspectRatio="none"><image href={`/customizer/${b.key}.png`} width="1280" height="1280" /></svg>;
-  return <svg className={`dessert-preview ${compact ? 'compact' : ''}`} viewBox={compact ? '68 135 184 320' : '0 0 320 470'} role="img" aria-label={`${scoops.map(s => s.name || 'Helado').join(', ') || 'Envase vacío'} en ${base?.name || 'cono'}${toppings.length ? `. Extras: ${toppings.map(t => t.name || 'Topping').join(', ')}` : ''}${syrup ? `. ${syrup.name || 'Salsa'}` : ''}`}>
+  return <svg className={`dessert-preview ${compact ? 'compact' : ''}`} viewBox={`${compact ? 35 : 0} ${top} ${compact ? 250 : 320} ${bottom-top}`} role="img" aria-label={`${visibleScoops.map(s => s.name || 'Helado').join(', ') || 'Envase vacío'} en ${base?.name || 'cono'}${toppings.length ? `. Extras: ${toppings.map(t => t.name || 'Topping').join(', ')}` : ''}${syrup ? `. ${syrup.name || 'Salsa'}` : ''}`}>
     <defs>
       <filter id={`${uid}-shadow`} x="-30%" y="-30%" width="160%" height="170%"><feDropShadow dx="0" dy="4" stdDeviation="3" floodColor="#4f2f20" floodOpacity=".19" /></filter>
-      <clipPath id={`${uid}-lip`}><rect x="0" y={b.lip} width="320" height="220" /></clipPath>
-      {scoops.map((scoop, i) => {
+      <filter id={`${uid}-ground`}><feGaussianBlur stdDeviation="4" /></filter>
+      <clipPath id={`${uid}-lip`}><path d={frontEdge} /></clipPath>
+      {visibleScoops.map((scoop, i) => {
         const rgb = flavorColor(scoop).slice(1).match(/.{2}/g).map(v => parseInt(v, 16) / 255);
         return <filter key={i} id={`${uid}-flavor-${i}`} colorInterpolationFilters="sRGB"><feColorMatrix type="saturate" values="0" /><feComponentTransfer><feFuncR type="linear" slope={rgb[0]} /><feFuncG type="linear" slope={rgb[1]} /><feFuncB type="linear" slope={rgb[2]} /></feComponentTransfer></filter>;
       })}
     </defs>
+    <ellipse cx="160" cy={b.y+b.h-2} rx={b.w*.34} ry="5" fill="#583a25" opacity=".16" filter={`url(#${uid}-ground)`} />
     <g filter={`url(#${uid}-shadow)`}>{container}</g>
-    {scoops.map((scoop, i) => {
+    {visibleScoops.map((scoop, i) => {
       const c = coords[i];
       // Extras belong to their scoop and are occluded by the next scoop.
-      const extras = toppings.filter((_, ti) => ti % scoops.length === (scoops.length - 1 - i));
+      const extras = toppings.filter((_, ti) => ti % visibleScoops.length === (visibleScoops.length - 1 - i));
       const size = c.r * 2.4;
       return <g key={`${scoop.id}-${i}`}>
         <image x={c.x-size/2} y={c.y-size/2} width={size} height={size} href="/customizer/gelato-scoop-neutral.png" filter={`url(#${uid}-flavor-${i})`} />

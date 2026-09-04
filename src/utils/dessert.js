@@ -21,9 +21,15 @@ export function baseVisual(base) {
   return { key: 'cone-classic', crop: '405 235 450 900', x: 105, y: 230, w: 110, h: 215, lip: 254, shift: 0 };
 }
 // Centers share the real opening coordinates of the photographed containers.
-export function scoopLayout(count, shift = 0) {
-  const layouts = [[], [[160,210,55]], [[154,218,49],[166,153,47]], [[134,218,44],[184,219,44],[158,159,46]], [[135,219,42],[184,221,42],[136,162,41],[184,162,41]], [[136,222,40],[184,222,40],[137,167,39],[183,167,39],[160,113,41]]];
-  return (layouts[Math.min(5, Math.max(0, count))] || []).map(([x,y,r]) => ({x,y:y+shift,r}));
+export function scoopLayout(count, container = 0) {
+  const key = typeof container === 'object' ? container.key : container === 35 ? 'waffle-bowl' : container === 32 ? 'cup-eco' : 'cone-classic';
+  const wide = key === 'waffle-bowl' || key === 'cup-eco';
+  // Wide vessels use a broad nest, with the lower scoops seated behind the rim.
+  const layouts = wide
+    ? [[], [[160,278,66]], [[123,279,51],[196,279,51]], [[122,282,49],[197,282,49],[160,223,50]], [[119,283,45],[197,283,45],[130,230,46],[188,230,46]], [[105,284,43],[160,287,43],[213,284,43],[133,230,48],[190,230,48]]]
+    : [[], [[160,226,59]], [[156,237,52],[166,177,51]], [[134,237,47],[182,237,47],[158,182,49]], [[136,239,44],[182,239,44],[135,189,46],[183,189,46]], [[137,239,43],[182,239,43],[137,190,43],[182,190,43],[160,143,45]]];
+  const isCup = key === 'cup-eco';
+  return (layouts[Math.min(5, Math.max(0, count))] || []).map(([x,y,r]) => ({x:isCup ? 160+(x-160)*.83 : x,y:isCup ? y-8 : y,r:isCup ? r*.92 : r}));
 }
 export function toppingCell(topping) {
   const name = `${topping?.id} ${topping?.name}`.toLowerCase();

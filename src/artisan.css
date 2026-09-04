@@ -9,7 +9,11 @@
   --accent-color: #e7bd77;
   --heading-color: #34251f;
   --text-dark: #382a25;
-  --text-light: #76665e;
+  --text-light: #594b43;
+  --success: #216b47;
+  --warning: #855509;
+  --danger: #b32636;
+  --info: #246182;
   --border-color: #e7ddd0;
   --glass-bg: #fffdf9;
   --glass-border: #e7ddd0;
@@ -23,8 +27,9 @@
 [data-theme="dark"] {
   --bg-primary: #211b19; --bg-secondary: #2c2420; --glass-bg: #2c2420;
   --glass-border: #4d3e36; --heading-color: #fff2e4; --text-dark: #f3e6d9;
-  --text-light: #c2afa1; --border-color: #4d3e36;
+  --text-light: #d7c7ba; --border-color: #6e594c;
   --primary-color: #ee9aaa; --primary-hover: #f8b2bf; --secondary-color: #dab693;
+  --success: #8dd3aa; --warning: #f1c576; --danger: #ffacb8; --info: #a5d3ed;
 }
 body { background: var(--bg-primary); background-image: none; }
 body::before, body::after { background-image: none !important; }
@@ -47,6 +52,25 @@ button:disabled { cursor: not-allowed; opacity: .45; }
 .hero-text h1 { font-family: Georgia, 'Times New Roman', serif; font-size: clamp(3.8rem, 6vw, 5.7rem); font-weight: 400; line-height: 1.02; letter-spacing: -.065em; max-width: 9ch; }
 .hero-text h1 span { color: var(--primary-color); font-style: italic; text-shadow: none; }
 .hero-text h1 span::after { content: none; }
+.hero .hero-text h1 { color: var(--heading-color); }
+.hero .hero-text .hero-description { color: var(--text-light); }
+.hero .hero-text .hero-description strong { color: var(--heading-color); }
+.hero .hero-cta .btn-secondary { color: var(--heading-color); border-color: var(--text-light); background: transparent; }
+.hero .hero-cta .btn-secondary:hover { color: var(--bg-primary); background: var(--heading-color); }
+.hero .hero-cta .btn-primary { color: #fff; background: #a7354b; border-color: #86273a; }
+.hero .hero-cta .btn-primary:hover { color: #fff; background: #86273a; }
+.hero .hero-text-link, .hero .hero-text-link.whatsapp-link { color: var(--primary-color); }
+.hero .hero-proof-item strong { color: var(--heading-color); }
+.hero .hero-proof-item span { color: var(--text-light); }
+.hero .hero-proof-item { border-color: var(--border-color); }
+.hero .hero-sticker-top { display: flex; flex-direction: column; align-items: center; justify-content: center; }
+.hero .hero-sticker-top strong { font-size: 1.1rem; }
+input::placeholder, textarea::placeholder { color: var(--text-light); opacity: 1; }
+.order-path-card-guide, .order-path-card-guide h2, .order-path-card-guide p { color: #34251f; }
+.order-path-card-guide .btn { color: #34251f; border-color: #79503b; }
+.delivery-banner button { color: #29472b; }
+.catalog-filters .filter-btn:not(.active) { color: var(--text-dark); }
+.hero-proof-item span, .hero-quick-links .hero-text-link { font-size: .75rem; }
 .hero-eyebrow { background: transparent; padding: 0; border: none; letter-spacing: .15em; text-transform: uppercase; font-size: .68rem; box-shadow: none; color: var(--primary-color); margin-bottom: 24px; }
 .hero-live-dot { background: var(--primary-color); box-shadow: none; animation: none; }
 .hero-text .hero-description { font-size: .96rem; max-width: 420px; line-height: 1.85; margin-top: 24px; }

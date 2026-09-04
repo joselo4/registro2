@@ -1,6 +1,7 @@
 /* eslint-disable react-hooks/set-state-in-effect */
 import { useState, useEffect } from 'react';
 import { uploadToR2 } from '../../utils/r2Client';
+import { BasePhoto } from '../DessertPreview';
 
 // --- FUNCIONES DE SANITIZACIÓN ---
 const sanitizeHTML = (text) => {
@@ -862,11 +863,7 @@ export default function InventoryManager({
               <div className="form-group" style={{ gridColumn: 'span 2' }}>
                 <label style={{ display: 'block', marginBottom: '4px', fontSize: '0.8rem', fontWeight: 'bold' }}>Imagen de Envase (R2)</label>
                 <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-                  {newBase.image ? (
-                    <img src={newBase.image} alt="Base Preview" style={{ width: '40px', height: '40px', objectFit: 'cover', borderRadius: '6px' }} />
-                  ) : (
-                    <span style={{ fontSize: '1.5rem' }}>🍧</span>
-                  )}
+                  <BasePhoto base={newBase} className="admin-base-photo" />
                   <div style={{ flex: 1 }}>
                     <input type="file" accept="image/*" style={{ display: 'none' }} id="new-base-image-upload" onChange={(e) => handleImageUpload(e.target.files[0], 'base', setNewBase, newBase)} />
                     <label htmlFor="new-base-image-upload" className="btn btn-secondary" style={{ padding: '6px 10px', fontSize: '0.75rem', cursor: 'pointer' }}>
@@ -892,11 +889,7 @@ export default function InventoryManager({
               <div className="form-group" style={{ gridColumn: 'span 2' }}>
                 <label style={{ display: 'block', marginBottom: '4px', fontSize: '0.8rem', fontWeight: 'bold' }}>Imagen de Envase (R2)</label>
                 <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-                  {editingBase.image ? (
-                    <img src={editingBase.image} alt="Base Preview" style={{ width: '40px', height: '40px', objectFit: 'cover', borderRadius: '6px' }} />
-                  ) : (
-                    <span style={{ fontSize: '1.5rem' }}>🍧</span>
-                  )}
+                  <BasePhoto base={editingBase} className="admin-base-photo" />
                   <div style={{ flex: 1 }}>
                     <input type="file" accept="image/*" style={{ display: 'none' }} id="edit-base-image-upload" onChange={(e) => handleImageUpload(e.target.files[0], 'base', setEditingBase, editingBase)} />
                     <label htmlFor="edit-base-image-upload" className="btn btn-secondary" style={{ padding: '6px 10px', fontSize: '0.75rem', cursor: 'pointer' }}>
@@ -930,8 +923,7 @@ export default function InventoryManager({
                   <tr key={b.id}>
                     <td>
                       <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                        <span style={{ fontSize: '1.2rem' }}>{b.icon || '🍨'}</span>
-                        {b.image && <img src={b.image} alt={b.name} style={{ width: '24px', height: '24px', objectFit: 'cover', borderRadius: '4px' }} />}
+                        <BasePhoto base={b} className="admin-base-photo" />
                         <span>{b.name}</span>
                       </div>
                     </td>

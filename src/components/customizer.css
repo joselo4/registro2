@@ -11,13 +11,13 @@
 .atelier-layout {display:grid;grid-template-columns:minmax(280px,.78fr) minmax(0,1.22fr);gap:34px;align-items:start}
 .atelier-preview-column {position:sticky;top:95px;min-width:0}
 .atelier-stage {background:#eee3d5;border-radius:22px;padding:21px 22px 18px;overflow:hidden}
-.atelier-stage-label {display:flex;justify-content:space-between;align-items:center;font-size:.57rem;letter-spacing:.12em;color:#795744}
+.atelier-stage-label {display:flex;justify-content:space-between;align-items:center;font-size:.68rem;letter-spacing:.08em;color:#543b2d}
 .atelier-stage-label span:last-child {border:1px solid #cdb9a5;border-radius:100px;padding:6px 9px;letter-spacing:.03em}
 .dessert-preview {width:100%;max-height:410px;display:block;overflow:visible}
 .dessert-preview.compact {height:195px;width:135px}
 .atelier-stage-caption {text-align:center;display:flex;flex-direction:column;gap:5px;color:#513b2e}
 .atelier-stage-caption span {font:1.4rem Georgia,serif}
-.atelier-stage-caption small {font-size:.61rem;color:#816d5e}
+.atelier-stage-caption small {font-size:.75rem;color:#59483b}
 .atelier-receipt {margin-top:15px;padding:20px 2px}
 .atelier-receipt-heading {display:flex;justify-content:space-between;align-items:center;gap:10px;margin-bottom:15px}
 .atelier-receipt h2 {font:1.25rem Georgia,serif}
@@ -101,6 +101,14 @@
 .atelier-preset-list>button>span {font-size:.65rem;color:var(--text-light);flex:1}
 .atelier-preset-list b {font-size:.75rem;display:flex;justify-content:space-between;flex-wrap:wrap;gap:8px}
 .atelier-preset-list b span {font-size:.65rem;color:var(--primary-color)}
+.atelier .atelier-panel-heading>span, .atelier .atelier-eyebrow { font-size: .7rem; }
+.atelier .atelier-panel-heading p, .atelier .atelier-live, .atelier .atelier-allergen-note { font-size: .8rem; }
+.atelier .atelier-base small, .atelier .atelier-unit-price small, .atelier .atelier-extras-heading>span, .atelier .atelier-receipt dl, .atelier .atelier-receipt-heading button { font-size: .75rem; }
+.atelier .atelier-flavor h3 { font-size: .82rem; }
+.atelier .atelier-families button, .atelier .atelier-flavor-tools input, .atelier .atelier-add-flavor, .atelier .atelier-syrups span, .atelier .atelier-topping>span { font-size: .75rem; }
+.atelier .atelier-topping strong, .atelier .atelier-syrups strong { font-size: .76rem; }
+.atelier .atelier-quantity button:disabled, .atelier .atelier-add-flavor:disabled { opacity: 1; color: var(--text-light); background: var(--bg-primary); }
+.atelier .atelier-checkout>button, .ops .ops-stock-form button { color: #fff; background: #a7354b; }
 [data-theme="dark"] .atelier-stage {background:#49382d}
 [data-theme="dark"] .atelier-stage-label,[data-theme="dark"] .atelier-stage-caption,[data-theme="dark"] .atelier-stage-caption small {color:#e9d6bd}
 @media(max-width:950px){.atelier-layout{gap:20px;grid-template-columns:minmax(245px,.7fr) minmax(0,1.3fr)}.atelier-controls{padding:19px}.atelier-steps{gap:6px}.atelier-steps button{font-size:.62rem;gap:5px}.atelier-inspiration{grid-template-columns:1fr}}

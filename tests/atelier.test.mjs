@@ -7,15 +7,23 @@ test('compositions stay inside the stage and connect to each real container open
   for(const id of ['cono','cono-artesanal','vaso','waffle']) {
     const base=baseVisual({id});
     for(let count=1;count<=5;count++) {
-      const coords=scoopLayout(count,base.shift);
+      const coords=scoopLayout(count,base);
       assert.equal(coords.length,count);
       for(const c of coords) { assert.ok(c.x-c.r>0 && c.x+c.r<320); assert.ok(c.y-c.r>0 && c.y+c.r<470); }
       assert.ok(coords[0].y+coords[0].r>=base.y);
       assert.ok(coords[0].y<base.lip);
+      assert.ok(coords[0].y+coords[0].r-base.lip>=12,'lower scoop must sit visibly behind the front lip');
       for(let i=1;i<coords.length;i++) assert.ok(coords.slice(0,i).some(p=>Math.hypot(coords[i].x-p.x,coords[i].y-p.y)<coords[i].r+p.r),'each scoop touches another');
     }
   }
   assert.deepEqual(scoopLayout(0),[]);
+});
+test('five scoops in a bowl form a wider, lower nest than five scoops in a cone',()=>{
+  const bowl=scoopLayout(5,baseVisual({id:'waffle'}));
+  const cone=scoopLayout(5,baseVisual({id:'cono'}));
+  const width=coords=>Math.max(...coords.map(c=>c.x+c.r))-Math.min(...coords.map(c=>c.x-c.r));
+  assert.ok(width(bowl)>width(cone)*1.3);
+  assert.equal(bowl.filter(c=>c.y>270).length,3);
 });
 test('prices use current catalog numbers and never concatenate string prices',()=>{
   assert.equal(creationTotal({price:'1.5'},[{price:'2'},{price:2}],[{price:'.5'}],{price:'.5'}),6.5);

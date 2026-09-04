@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import CartItemPreview from './CartItemPreview';
 import { generateOrderId } from '../utils/orderId';
 
 export default function Cart({ 
@@ -393,17 +394,7 @@ export default function Cart({
           {cart.map((item, index) => (
             <div key={index} className="glass-card cart-item" style={{ padding: '10px 14px' }}>
               <div className="cart-item-info">
-                <div style={{ fontSize: '1.8rem', display: 'flex', alignItems: 'center', justifyContent: 'center', width: '32px', height: '32px' }}>
-                  {item.type === 'liter' && literConfig?.image ? (
-                    <img src={literConfig.image} alt="1 Litro" width="32" height="32" style={{ width: '100%', height: '100%', objectFit: 'contain' }} />
-                  ) : (item.type === 'pack' || item.type === 'popsicle') && item.image ? (
-                    <img src={item.image} alt={item.name} width="32" height="32" style={{ width: '100%', height: '100%', objectFit: 'cover', borderRadius: '4px' }} />
-                  ) : item.type === 'custom' && item.base?.image ? (
-                    <img src={item.base.image} alt={item.name} width="32" height="32" style={{ width: '100%', height: '100%', objectFit: 'contain' }} />
-                  ) : (
-                    item.type === 'custom' ? (item.base.icon || (item.base.id === 'cono' ? '🍦' : '🍧')) : (item.type === 'liter' ? '🏺' : item.type === 'popsicle' ? '🍭' : '🎁')
-                  )}
-                </div>
+                <CartItemPreview item={item} literConfig={literConfig} />
                 <div className="cart-item-details">
                   <h4 style={{ fontSize: '0.95rem' }}>{item.name}</h4>
                   {renderItemDetails(item)}
@@ -452,9 +443,9 @@ export default function Cart({
             type="button"
             className="btn btn-secondary"
             style={{
-              backgroundColor: '#25D366',
+              backgroundColor: '#176b3d',
               color: 'white',
-              borderColor: '#25D366',
+              borderColor: '#176b3d',
               width: '100%',
               fontSize: '0.8rem',
               padding: '8px',
