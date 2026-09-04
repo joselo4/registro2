@@ -47,18 +47,6 @@ const GUMMY_BEARS = [
   { dx: 18, dy: 6, color: '#1e90ff' }
 ];
 
-const getGelatoScoopPath = ({ x, y, r }, variant = 0) => {
-  const lean = variant % 2 === 0 ? -0.04 : 0.04;
-  return `M ${x - r * 0.92} ${y + r * 0.38}
-    C ${x - r * 1.04} ${y - r * 0.06}, ${x - r * 0.83} ${y - r * 0.68}, ${x - r * 0.38} ${y - r * 0.86}
-    C ${x - r * 0.06} ${y - r * (1.08 + lean)}, ${x + r * 0.42} ${y - r * 0.94}, ${x + r * 0.64} ${y - r * 0.63}
-    C ${x + r * 1.02} ${y - r * 0.38}, ${x + r * 1.04} ${y + r * 0.12}, ${x + r * 0.88} ${y + r * 0.42}
-    Q ${x + r * 0.7} ${y + r * 0.72}, ${x + r * 0.46} ${y + r * 0.57}
-    Q ${x + r * 0.25} ${y + r * 0.82}, ${x} ${y + r * 0.6}
-    Q ${x - r * 0.26} ${y + r * 0.84}, ${x - r * 0.48} ${y + r * 0.57}
-    Q ${x - r * 0.72} ${y + r * 0.73}, ${x - r * 0.92} ${y + r * 0.38} Z`;
-};
-
 export default function IceCreamCustomizer({
   bases = [],
   flavors = [],
@@ -220,36 +208,36 @@ export default function IceCreamCustomizer({
   // Coordenadas gourmet para 1 a 5 bolas de helado dispuestas armónicamente (nunca desbordan)
   const getScoopLayout = (count) => {
     if (count === 1) {
-      return [{ x: 150, y: 178, r: 49, order: 0 }];
+      return [{ x: 150, y: 168, r: 46, order: 0 }];
     }
     if (count === 2) {
       return [
-        { x: 126, y: 176, r: 43, order: 0 },
-        { x: 174, y: 176, r: 43, order: 1 }
+        { x: 150, y: 182, r: 43, order: 0 },
+        { x: 150, y: 122, r: 41, order: 1 }
       ];
     }
     if (count === 3) {
       return [
-        { x: 124, y: 180, r: 42, order: 0 },
-        { x: 176, y: 180, r: 42, order: 1 },
-        { x: 150, y: 129, r: 43, order: 2 }
+        { x: 128, y: 178, r: 39, order: 0 },
+        { x: 172, y: 178, r: 39, order: 1 },
+        { x: 150, y: 118, r: 40, order: 2 }
       ];
     }
     if (count === 4) {
       return [
-        { x: 116, y: 183, r: 38, order: 0 },
-        { x: 150, y: 190, r: 39, order: 1 },
-        { x: 184, y: 183, r: 38, order: 2 },
-        { x: 150, y: 137, r: 41, order: 3 }
+        { x: 126, y: 184, r: 37, order: 0 },
+        { x: 174, y: 184, r: 37, order: 1 },
+        { x: 132, y: 134, r: 36, order: 2 },
+        { x: 168, y: 126, r: 37, order: 3 }
       ];
     }
     if (count >= 5) {
       return [
-        { x: 112, y: 186, r: 37, order: 0 },
-        { x: 150, y: 192, r: 38, order: 1 },
-        { x: 188, y: 186, r: 37, order: 2 },
-        { x: 130, y: 139, r: 39, order: 3 },
-        { x: 170, y: 139, r: 39, order: 4 }
+        { x: 124, y: 190, r: 35, order: 0 },
+        { x: 176, y: 190, r: 35, order: 1 },
+        { x: 128, y: 144, r: 35, order: 2 },
+        { x: 172, y: 144, r: 35, order: 3 },
+        { x: 150, y: 94, r: 36, order: 4 }
       ];
     }
     return [];
@@ -412,7 +400,7 @@ export default function IceCreamCustomizer({
       <style dangerouslySetInnerHTML={{ __html: `
         .icecream-customizer-wrapper {
           display: grid;
-          grid-template-columns: 390px 1fr;
+          grid-template-columns: 360px 1fr;
           gap: 28px;
           align-items: start;
         }
@@ -568,11 +556,11 @@ export default function IceCreamCustomizer({
           
           {/* Escenario de la ilustración del helado */}
           <div style={{
-            background: 'radial-gradient(circle at 50% 42%, #fffef8 0 28%, #ffe9c8 68%, #ffd86e 100%)',
+            background: 'radial-gradient(circle at 50% 45%, #ffffff 0%, #fff6f0 100%)',
             borderRadius: '24px',
-            border: '2px solid var(--heading-color)',
-            boxShadow: '6px 6px 0 var(--heading-color)',
-            padding: '16px 14px 12px',
+            border: '1px solid rgba(255, 107, 129, 0.15)',
+            boxShadow: '0 8px 24px rgba(0, 0, 0, 0.04)',
+            padding: '16px 12px 10px',
             display: 'flex',
             flexDirection: 'column',
             alignItems: 'center',
@@ -602,8 +590,8 @@ export default function IceCreamCustomizer({
               viewBox="0 0 300 360"
               style={{
                 width: '100%',
-                maxHeight: '355px',
-                height: '355px',
+                maxHeight: '310px',
+                height: '310px',
                 display: 'block',
                 overflow: 'visible'
               }}
@@ -658,15 +646,10 @@ export default function IceCreamCustomizer({
                   <stop offset="40%" stopColor="#f0b27a" />
                   <stop offset="100%" stopColor="#935116" />
                 </linearGradient>
-
-                <pattern id="wafflePattern" width="18" height="18" patternUnits="userSpaceOnUse" patternTransform="rotate(45)">
-                  <path d="M 0 0 V 18 M 9 0 V 18" stroke="#713007" strokeWidth="1.25" opacity="0.72" />
-                  <path d="M 0 0 H 18 M 0 9 H 18" stroke="#ffda72" strokeWidth="0.9" opacity="0.58" />
-                </pattern>
               </defs>
 
               {/* Sombra de apoyo en el suelo */}
-              <ellipse cx="150" cy="338" rx="82" ry="10" fill="rgba(44,22,10,0.2)" filter="url(#floorBlur)" />
+              <ellipse cx="150" cy="336" rx="72" ry="9" fill="rgba(0,0,0,0.12)" filter="url(#floorBlur)" />
 
               {/* -------------------- 1. BASES DEL HELADO -------------------- */}
 
@@ -677,11 +660,6 @@ export default function IceCreamCustomizer({
                   <path
                     d="M 98 198 Q 124 268 150 330 Q 176 268 202 198 Z"
                     fill="url(#waffleConeGrad)"
-                  />
-                  <path
-                    d="M 101 201 Q 125 268 150 327 Q 175 268 199 201 Z"
-                    fill="url(#wafflePattern)"
-                    opacity="0.5"
                   />
                   {/* Textura de rejilla de waffle horneado (rombos en perspectiva cilíndrica) */}
                   <g opacity="0.48" stroke="#8a410b" strokeWidth="1.3" fill="none">
@@ -727,8 +705,8 @@ export default function IceCreamCustomizer({
                   <ellipse cx="150" cy="214" rx="54" ry="7" fill="#4a2213" opacity="0.25" />
 
                   {/* Emblema central de heladería */}
-                  <circle cx="150" cy="268" r="19" fill="#fff8e8" stroke="#1d1511" strokeWidth="1.5" />
-                  <text x="150" y="275" fontSize="20" fontWeight="900" fontFamily="var(--font-title)" fill="#ef3d32" textAnchor="middle">F</text>
+                  <circle cx="150" cy="268" r="18" fill="white" opacity="0.95" />
+                  <text x="150" y="274" fontSize="17" textAnchor="middle">🍧</text>
                   <path d="M 116 304 Q 150 312 184 304" stroke="rgba(255,255,255,0.4)" strokeWidth="2" fill="none" />
                 </g>
               )}
@@ -739,11 +717,6 @@ export default function IceCreamCustomizer({
                   <path
                     d="M 72 210 Q 94 222 116 212 Q 134 222 150 212 Q 166 222 184 212 Q 206 222 228 210 Q 212 312 150 316 Q 88 312 72 210 Z"
                     fill="url(#waffleConeGrad)"
-                  />
-                  <path
-                    d="M 77 216 Q 150 232 223 216 Q 205 305 150 310 Q 95 305 77 216 Z"
-                    fill="url(#wafflePattern)"
-                    opacity="0.46"
                   />
                   {/* Rejilla de waffle de la copa */}
                   <g opacity="0.45" stroke="#8a410b" strokeWidth="1.3" fill="none">
@@ -780,7 +753,6 @@ export default function IceCreamCustomizer({
                 const coord = scoopCoords[idx];
                 if (!coord) return null;
                 const { x, y, r } = coord;
-                const scoopPath = getGelatoScoopPath(coord, idx);
 
                 return (
                   <g
@@ -800,14 +772,14 @@ export default function IceCreamCustomizer({
                       filter="url(#floorBlur)"
                     />
 
-                    {/* Forma orgánica de gelato: evita el aspecto de círculos apilados */}
-                    <path d={scoopPath} fill={scoop.color} filter="url(#artisanDropShadow)" />
+                    {/* Esfera principal del helado */}
+                    <circle cx={x} cy={y} r={r} fill={scoop.color} />
 
-                    {/* Sombreado 3D para darle volumen cremoso */}
-                    <path d={scoopPath} fill="url(#scoop3DShadow)" />
+                    {/* Sombreado 3D para darle volumen esférico real */}
+                    <circle cx={x} cy={y} r={r} fill="url(#scoop3DShadow)" />
 
                     {/* Brillo especular suave para aspecto fresco y cremoso */}
-                    <path d={scoopPath} fill="url(#scoopSpecular)" />
+                    <circle cx={x} cy={y} r={r} fill="url(#scoopSpecular)" />
 
                     {/* Pliegues cremosos característicos del helado artesanal */}
                     <path
@@ -825,7 +797,7 @@ export default function IceCreamCustomizer({
                       fill="none"
                     />
 
-                    {/* Borde de cuchara sutil */}
+                    {/* Falda ondulada en la base de la bola (acabado de cuchara de helado) */}
                     <path
                       d={`M ${x - r + 3} ${y + r * 0.55}
                          Q ${x - r * 0.55} ${y + r * 0.82} ${x - r * 0.25} ${y + r * 0.6}
@@ -834,22 +806,11 @@ export default function IceCreamCustomizer({
                          Q ${x + r * 0.4} ${y + r * 0.38} ${x} ${y + r * 0.4}
                          Q ${x - r * 0.4} ${y + r * 0.38} ${x - r + 3} ${y + r * 0.55} Z`}
                       fill={scoop.color}
-                      opacity="0.48"
+                      opacity="0.95"
                     />
                   </g>
                 );
               })}
-
-              {/* El borde delantero integra visualmente el gelato con su envase */}
-              {selectedBase.id === 'cono' && (
-                <path d="M 101 199 Q 150 216 199 199" stroke="#7f3709" strokeWidth="5" strokeLinecap="round" fill="none" opacity="0.9" />
-              )}
-              {selectedBase.id === 'vaso' && (
-                <path d="M 92 211 Q 150 226 208 211" stroke="#ffffff" strokeWidth="7" strokeLinecap="round" fill="none" />
-              )}
-              {selectedBase.id === 'waffle' && (
-                <path d="M 76 211 Q 150 229 224 211" stroke="#8a410b" strokeWidth="6" strokeLinecap="round" fill="none" opacity="0.85" />
-              )}
 
               {/* -------------------- 3. BARQUILLO PIRULÍN DECORATIVO ARTESANAL -------------------- */}
               {selectedScoops.length >= 1 && (
@@ -1060,9 +1021,9 @@ export default function IceCreamCustomizer({
                           )}
 
                           {base.image ? (
-                            <img src={base.image} alt={base.name} style={{ width: '74px', height: '62px', objectFit: 'contain', filter: 'drop-shadow(0 7px 7px rgba(43, 22, 10, 0.18))' }} />
+                            <img src={base.image} alt={base.name} style={{ width: '48px', height: '48px', objectFit: 'contain' }} />
                           ) : (
-                            <span style={{ fontSize: '3rem', lineHeight: '1', filter: 'drop-shadow(0 6px 6px rgba(43, 22, 10, 0.16))' }}>{base.icon || '🍨'}</span>
+                            <span style={{ fontSize: '2.4rem', lineHeight: '1' }}>{base.icon || '🍨'}</span>
                           )}
 
                           <strong style={{ fontSize: '0.88rem', color: 'var(--text-dark)' }}>{base.name}</strong>
