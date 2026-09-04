@@ -47,6 +47,24 @@ const GUMMY_BEARS = [
   { dx: 18, dy: 6, color: '#1e90ff' }
 ];
 
+const CUSTOMIZER_ASSETS = {
+  coneClassic: '/customizer/cone-classic.png',
+  coneArtisan: '/customizer/cone-artisan.png',
+  cupEco: '/customizer/cup-eco.png',
+  waffleBowl: '/customizer/waffle-bowl.png',
+  scoop: '/customizer/gelato-scoop-neutral.png'
+};
+
+const getBaseVisual = (base) => {
+  const searchable = `${base?.id || ''} ${base?.name || ''}`.toLowerCase();
+
+  if (searchable.includes('vaso') || searchable.includes('eco')) return CUSTOMIZER_ASSETS.cupEco;
+  if (searchable.includes('waffle') || searchable.includes('copa')) return CUSTOMIZER_ASSETS.waffleBowl;
+  if (searchable.includes('normal') || searchable.includes('clasico') || searchable.includes('clásico')) return CUSTOMIZER_ASSETS.coneClassic;
+  if (searchable.includes('cono') || searchable.includes('galleta')) return CUSTOMIZER_ASSETS.coneArtisan;
+  return base?.image || CUSTOMIZER_ASSETS.cupEco;
+};
+
 export default function IceCreamCustomizer({
   bases = [],
   flavors = [],
@@ -244,6 +262,8 @@ export default function IceCreamCustomizer({
   };
 
   const scoopCoords = getScoopLayout(selectedScoops.length);
+  const selectedBaseVisual = getBaseVisual(selectedBase);
+  const selectedBaseVisualKey = selectedBaseVisual.split('/').pop()?.replace('.png', '') || 'cup-eco';
 
   // Renderizado dinámico de la salsa en cascada natural y brillante
   const renderSyrupFlowSVG = () => {
@@ -466,9 +486,121 @@ export default function IceCreamCustomizer({
           background: rgba(255, 107, 129, 0.05);
         }
         @keyframes scoop-drop-in {
-          0% { transform: translateY(-40px) scale(0.85); opacity: 0; }
-          70% { transform: translateY(4px) scale(1.04); }
+          0% { transform: translate(-50%, -105%) rotate(-8deg) scale(0.62); opacity: 0; }
+          64% { transform: translate(-50%, -43%) rotate(2deg) scale(1.06); opacity: 1; }
+          82% { transform: translate(-50%, -53%) rotate(-1deg) scale(0.98); }
+          100% { transform: translate(-50%, -50%) rotate(0) scale(1); opacity: 1; }
+        }
+        @keyframes base-settle-in {
+          0% { transform: translateY(18px) scale(0.92); opacity: 0; }
+          70% { transform: translateY(-3px) scale(1.02); opacity: 1; }
           100% { transform: translateY(0) scale(1); opacity: 1; }
+        }
+        @keyframes dessert-breathe {
+          0%, 100% { transform: translateY(0); }
+          50% { transform: translateY(-3px); }
+        }
+        .photo-dessert-stage {
+          width: min(100%, 330px);
+          height: 330px;
+          position: relative;
+          isolation: isolate;
+          animation: dessert-breathe 5.8s ease-in-out infinite;
+        }
+        .photo-dessert-stage::after {
+          content: '';
+          position: absolute;
+          z-index: 0;
+          left: 50%;
+          bottom: 9px;
+          width: 54%;
+          height: 18px;
+          transform: translateX(-50%);
+          border-radius: 50%;
+          background: rgba(65, 32, 12, 0.2);
+          filter: blur(9px);
+        }
+        .photo-base-layer {
+          position: absolute;
+          z-index: 3;
+          bottom: 0;
+          object-position: center bottom;
+          filter: drop-shadow(0 13px 11px rgba(62, 31, 12, 0.2));
+          animation: base-settle-in 0.5s cubic-bezier(0.16, 1, 0.3, 1) both;
+        }
+        .photo-base-layer.base-cone-classic {
+          left: 15px;
+          width: 300px;
+          height: 260px;
+          object-fit: fill;
+        }
+        .photo-base-layer.base-cone-artisan {
+          left: 35px;
+          width: 260px;
+          height: 190px;
+          object-fit: fill;
+        }
+        .photo-base-layer.base-cup-eco,
+        .photo-base-layer.base-waffle-bowl {
+          left: 15px;
+          width: 300px;
+          height: 300px;
+          object-fit: contain;
+        }
+        .photo-scoop-layer {
+          position: absolute;
+          z-index: 2;
+          aspect-ratio: 1;
+          transform: translate(-50%, -50%);
+          animation: scoop-drop-in 0.58s cubic-bezier(0.22, 0.86, 0.24, 1.18) both;
+          filter: drop-shadow(0 7px 5px rgba(57, 27, 13, 0.2));
+        }
+        .photo-scoop-color,
+        .photo-scoop-texture {
+          position: absolute;
+          inset: 0;
+          width: 100%;
+          height: 100%;
+        }
+        .photo-scoop-color {
+          background: radial-gradient(circle at 31% 24%, #ffffff 0 5%, var(--scoop-color) 35%, color-mix(in srgb, var(--scoop-color), #2b1308 18%) 100%);
+          -webkit-mask: url('${CUSTOMIZER_ASSETS.scoop}') center / contain no-repeat;
+          mask: url('${CUSTOMIZER_ASSETS.scoop}') center / contain no-repeat;
+        }
+        .photo-scoop-texture {
+          object-fit: contain;
+          opacity: 0.46;
+          filter: grayscale(1) contrast(1.2);
+          mix-blend-mode: multiply;
+          pointer-events: none;
+        }
+        .photo-dessert-overlay {
+          position: absolute;
+          z-index: 4;
+          inset: 0;
+          width: 100%;
+          height: 100%;
+          overflow: visible;
+          pointer-events: none;
+        }
+        .base-product-thumb {
+          width: 82px;
+          height: 72px;
+          object-fit: contain;
+          filter: drop-shadow(0 6px 5px rgba(50, 25, 10, 0.17));
+          transition: transform 0.25s ease;
+        }
+        button:hover > .base-product-thumb {
+          transform: translateY(-3px) scale(1.04);
+        }
+        @media (prefers-reduced-motion: reduce) {
+          .photo-dessert-stage,
+          .photo-base-layer,
+          .photo-scoop-layer,
+          .base-product-thumb {
+            animation: none !important;
+            transition: none !important;
+          }
         }
       ` }} />
 
@@ -585,17 +717,39 @@ export default function IceCreamCustomizer({
               <span>{selectedScoops.length} de 5 bolas • {selectedBase.name}</span>
             </div>
 
-            {/* SVG ILUSTRATIVO PROFESIONAL Y APETECIBLE */}
-            <svg
-              viewBox="0 0 300 360"
-              style={{
-                width: '100%',
-                maxHeight: '310px',
-                height: '310px',
-                display: 'block',
-                overflow: 'visible'
-              }}
-            >
+            {/* Composición fotográfica por capas: envase, bolas y extras */}
+            <div className="photo-dessert-stage" aria-label={`Vista previa: ${selectedScoops.length} bolas en ${selectedBase.name}`}>
+              {selectedScoops.map((scoop, idx) => {
+                const coord = scoopCoords[idx];
+                if (!coord) return null;
+                const size = Math.max(82, coord.r * 2.42);
+
+                return (
+                  <div
+                    className="photo-scoop-layer"
+                    key={`${scoop.id || 'sabor'}-${idx}-${selectedScoops.length}`}
+                    style={{
+                      left: `${(coord.x / 300) * 100}%`,
+                      top: `${(coord.y / 360) * 100}%`,
+                      width: `${(size / 300) * 100}%`,
+                      '--scoop-color': scoop.color || '#f4c76b',
+                      animationDelay: `${idx * 55}ms`
+                    }}
+                  >
+                    <span className="photo-scoop-color" aria-hidden="true" />
+                    <img className="photo-scoop-texture" src={CUSTOMIZER_ASSETS.scoop} alt="" aria-hidden="true" />
+                  </div>
+                );
+              })}
+
+              <img
+                key={selectedBaseVisual}
+                className={`photo-base-layer base-${selectedBaseVisualKey}`}
+                src={selectedBaseVisual}
+                alt={selectedBase.name}
+              />
+
+              <svg className="photo-dessert-overlay" viewBox="0 0 300 360" aria-hidden="true">
               <defs>
                 {/* Sombra de caída suave en el suelo */}
                 <filter id="floorBlur" x="-30%" y="-30%" width="160%" height="160%">
@@ -648,6 +802,8 @@ export default function IceCreamCustomizer({
                 </linearGradient>
               </defs>
 
+              {/* El render anterior se conserva oculto como respaldo para datos personalizados. */}
+              <g style={{ display: 'none' }}>
               {/* Sombra de apoyo en el suelo */}
               <ellipse cx="150" cy="336" rx="72" ry="9" fill="rgba(0,0,0,0.12)" filter="url(#floorBlur)" />
 
@@ -811,6 +967,7 @@ export default function IceCreamCustomizer({
                   </g>
                 );
               })}
+              </g>
 
               {/* -------------------- 3. BARQUILLO PIRULÍN DECORATIVO ARTESANAL -------------------- */}
               {selectedScoops.length >= 1 && (
@@ -834,7 +991,8 @@ export default function IceCreamCustomizer({
 
               {/* -------------------- 5. TOPPINGS SÓLIDOS -------------------- */}
               {renderToppingsSVG()}
-            </svg>
+              </svg>
+            </div>
           </div>
 
           {/* TARJETA COMPACTA: RESUMEN DE TU RECETA */}
@@ -1020,11 +1178,11 @@ export default function IceCreamCustomizer({
                             }}>✓</span>
                           )}
 
-                          {base.image ? (
-                            <img src={base.image} alt={base.name} style={{ width: '48px', height: '48px', objectFit: 'contain' }} />
-                          ) : (
-                            <span style={{ fontSize: '2.4rem', lineHeight: '1' }}>{base.icon || '🍨'}</span>
-                          )}
+                          <img
+                            className="base-product-thumb"
+                            src={getBaseVisual(base)}
+                            alt={base.name}
+                          />
 
                           <strong style={{ fontSize: '0.88rem', color: 'var(--text-dark)' }}>{base.name}</strong>
                           <span style={{ fontSize: '0.78rem', color: 'var(--primary-color)', fontWeight: 'bold' }}>
