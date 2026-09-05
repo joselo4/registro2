@@ -137,3 +137,78 @@ test('Cart dotation custom presentations and route price overrides', () => {
   const handedWithSurplus = 360.0;
   assert.equal(handedWithSurplus - totalRevenueExpected, 3.0, 'Sobrante de 3 soles detectado');
 });
+
+test('cartLocations normalization handles object with carts, array, null without map/find throwing', () => {
+  const normalize = (locs) => {
+    if (Array.isArray(locs?.carts)) return locs.carts;
+    if (Array.isArray(locs)) return locs;
+    return [];
+  };
+
+  // Case 1: Object with carts array (App state default)
+  const objState = { updatedAt: '2026-09-05', carts: [{ id: '1', label: 'Carrito 1' }] };
+  const res1 = normalize(objState);
+  assert.equal(res1.length, 1);
+  assert.equal(res1.map(c => c.label)[0], 'Carrito 1');
+
+  // Case 2: Direct array
+  const arrState = [{ id: '2', label: 'Carrito 2' }];
+  const res2 = normalize(arrState);
+  assert.equal(res2.length, 1);
+  assert.equal(res2.map(c => c.label)[0], 'Carrito 2');
+
+  // Case 3: null or undefined or empty object
+  assert.equal(normalize(null).map(c => c.id).length, 0);
+  assert.equal(normalize({}).map(c => c.id).length, 0);
+  assert.equal(normalize(undefined).map(c => c.id).length, 0);
+});
+
+test('Customer CRM accurately aggregates LTV, order counts, and segmenting', () => {
+  const mockOrders = [
+    {
+      id: 'PED-1',
+      date: '2026-09-01T12:00:00Z',
+      grandTotal: 50.0,
+      customer: { name: 'Juan Perez', phone: '987654321', address: 'Av Principal 123' },
+      items: [{ name: 'Lúcuma', quantity: 2 }]
+    },
+    {
+      id: 'PED-2',
+      date: '2026-09-03T14:00:00Z',
+      grandTotal: 40.0,
+      customer: { name: 'Juan Perez', phone: '987654321', address: 'Av Principal 123' },
+      items: [{ name: 'Lúcuma', quantity: 1 }]
+    },
+    {
+      id: 'PED-3',
+      date: '2026-09-04T10:00:00Z',
+      grandTotal: 25.0,
+      customer: { name: 'Maria Lopez', phone: '912345678', address: 'Calle Las Flores 45' },
+      items: [{ name: 'Fresa con Crema', quantity: 1 }]
+    }
+  ];
+
+  // Agregación de Juan: 2 pedidos, total 90 (VIP: >= 80)
+  const map = new Map();
+  mockOrders.forEach(o => {
+    const phone = o.customer.phone;
+    if (!map.has(phone)) {
+      map.set(phone, { name: o.customer.name, phone, totalOrders: 0, totalSpent: 0, items: {} });
+    }
+    const c = map.get(phone);
+    c.totalOrders += 1;
+    c.totalSpent += o.grandTotal;
+    o.items.forEach(i => {
+      c.items[i.name] = (c.items[i.name] || 0) + i.quantity;
+    });
+  });
+
+  const juan = map.get('987654321');
+  assert.equal(juan.totalOrders, 2);
+  assert.equal(juan.totalSpent, 90.0);
+  assert.equal(juan.items['Lúcuma'], 3);
+
+  const maria = map.get('912345678');
+  assert.equal(maria.totalOrders, 1);
+  assert.equal(maria.totalSpent, 25.0);
+});

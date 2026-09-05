@@ -1,6 +1,6 @@
 import { json, sameOriginRequest, createAdminClient, getAuthenticatedUser, isTrustedAdmin } from './_security.js';
 
-const allowedKinds = new Set(['order', 'table_call', 'survey', 'support', 'test']);
+const allowedKinds = new Set(['order', 'table_call', 'survey', 'support', 'test', 'daily_report']);
 const allowedParseModes = new Set(['Markdown', 'MarkdownV2', 'HTML']);
 const telegramTimeoutMs = 8000;
 

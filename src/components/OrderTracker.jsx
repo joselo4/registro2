@@ -190,10 +190,13 @@ export default function OrderTracker({ orderId, orders, setView, storePhone, onC
 
   // Ubicación exclusiva en vivo del repartidor asignado a este pedido
   const assignedDriverLocation = useMemo(() => {
-    if (!currentOrder?.assignedDriver || !cartLocations || cartLocations.length === 0) return null;
+    const cartsList = Array.isArray(cartLocations?.carts)
+      ? cartLocations.carts
+      : (Array.isArray(cartLocations) ? cartLocations : []);
+    if (!currentOrder?.assignedDriver || cartsList.length === 0) return null;
     const driverEmail = String(currentOrder.assignedDriver.email || '').toLowerCase().trim();
     const driverId = String(currentOrder.assignedDriver.id || '').trim();
-    return cartLocations.find(c => {
+    return cartsList.find(c => {
       const cEmail = String(c.email || '').toLowerCase().trim();
       const cId = String(c.id || '').trim();
       return (driverEmail && cEmail === driverEmail) || (driverId && cId === driverId);

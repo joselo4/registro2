@@ -67,7 +67,7 @@ export const INITIAL_POPSICLES = [
     description: 'Paleta artesanal cremosa con fresa natural y un acabado suave de yogur.',
     price: 3.0,
     cost: 1.2,
-    image: '/paletas/paleta-fresa-crema.png',
+    image: '/paletas/paleta-fresa-crema.webp',
     badge: 'Nueva',
     active: true
   },
@@ -77,7 +77,7 @@ export const INITIAL_POPSICLES = [
     description: 'Mango maduro y maracuyá en una paleta fresca, frutal y ligeramente ácida.',
     price: 3.0,
     cost: 1.2,
-    image: '/paletas/paleta-mango-maracuya.png',
+    image: '/paletas/paleta-mango-maracuya.webp',
     badge: 'Tropical',
     active: true
   },
@@ -87,7 +87,7 @@ export const INITIAL_POPSICLES = [
     description: 'Paleta cremosa de lúcuma bañada en chocolate oscuro con crocante de frutos secos.',
     price: 3.5,
     cost: 1.5,
-    image: '/paletas/paleta-lucuma-chocolate.png',
+    image: '/paletas/paleta-lucuma-chocolate.webp',
     badge: 'Premium',
     active: true
   }

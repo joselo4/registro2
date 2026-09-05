@@ -25,10 +25,10 @@ const isAdminUser = (user) => {
 const getDefaultAllowedTabsForRole = (role) => {
   const normalizedRole = normalizeText(role);
   if (normalizedRole.includes('admin')) {
-    return ['orders', 'kds', 'cash_register', 'cart_dispatch', 'table_orders', 'inventory', 'packs', 'users', 'finance', 'audit_log', 'settings', 'stats', 'surveys', 'locations'];
+    return ['orders', 'crm', 'kds', 'cash_register', 'cart_dispatch', 'table_orders', 'inventory', 'packs', 'users', 'finance', 'audit_log', 'settings', 'stats', 'surveys', 'locations'];
   }
   if (normalizedRole.includes('vendedor')) {
-    return ['orders', 'inventory', 'surveys', 'table_orders', 'locations', 'cash_register', 'cart_dispatch'];
+    return ['orders', 'crm', 'inventory', 'surveys', 'table_orders', 'locations', 'cash_register', 'cart_dispatch'];
   }
   if (normalizedRole.includes('cocina')) {
     return ['orders', 'kds'];
@@ -37,7 +37,7 @@ const getDefaultAllowedTabsForRole = (role) => {
     return ['orders', 'locations'];
   }
   if (normalizedRole.includes('cajero')) {
-    return ['orders', 'finance', 'cash_register'];
+    return ['orders', 'crm', 'finance', 'cash_register'];
   }
   if (normalizedRole.includes('mozo') || normalizedRole.includes('salon')) {
     return ['table_orders'];
@@ -461,6 +461,7 @@ export default function UserManager({
             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(130px, 1fr))', gap: '8px', fontSize: '0.78rem' }}>
               {[
                 { id: 'orders', label: '📦 Pedidos' },
+                { id: 'crm', label: '📇 CRM Clientes' },
                 { id: 'kds', label: '👨‍🍳 KDS Cocina' },
                 { id: 'cash_register', label: '💵 Caja Chica / Z' },
                 { id: 'cart_dispatch', label: '🍦 Cierre Carritos' },

@@ -500,7 +500,9 @@ export default function CustomerShop({
               <React.Fragment key="popsicles">
                 {(filter === 'all' || filter === 'popsicles') && activePopsicles.map(popsicle => (
                   <article key={popsicle.id} className="glass-card product-card popsicle-card">
-                    {popsicle.badge && <span className="product-badge popsicle-badge">{popsicle.badge}</span>}
+                    <span className="product-badge popsicle-badge">
+                      {popsicle.badge || '🍭 100% Natural'}
+                    </span>
                     <div className="product-illustration popsicle-illustration">
                       {popsicle.image ? (
                         <img
@@ -527,7 +529,7 @@ export default function CustomerShop({
                           aria-label={`Agregar paleta ${popsicle.name} al carrito`}
                           onClick={() => handleAddPopsicleToCart(popsicle)}
                         >
-                          Agregar
+                          + Agregar
                         </button>
                       </div>
                     </div>
@@ -578,10 +580,10 @@ export default function CustomerShop({
                         </div>
                         <button 
                           className="add-btn" 
-                          style={{ backgroundColor: 'var(--primary-color)', fontSize: '0.75rem', width: 'auto', padding: '6px 12px', borderRadius: '12px' }}
+                          style={{ backgroundColor: 'var(--primary-color)', fontSize: '0.75rem', width: 'auto', padding: '8px 14px', borderRadius: '12px' }}
                           onClick={() => setView('liter-customizer')}
                         >
-                          🎨 Armar
+                          🎨 Personalizar
                         </button>
                       </div>
                     </div>
@@ -598,8 +600,15 @@ export default function CustomerShop({
                   const isPopular = flavor.isPopular === true;
                   return (
                     <div key={flavor.id} className="glass-card product-card">
-                      {isPopular && <span className="product-badge badge-popular">🔥 El Más Pedido</span>}
-                      {flavor.isPremium && !isPopular && <span className="product-badge badge-premium">✨ Premium</span>}
+                      {isPopular ? (
+                        <span className="product-badge badge-popular">🔥 El Más Pedido</span>
+                      ) : flavor.isPremium ? (
+                        <span className="product-badge badge-premium">✨ Premium</span>
+                      ) : (
+                        <span className="product-badge" style={{ backgroundColor: 'rgba(230, 126, 34, 0.12)', color: '#d35400', border: '1px solid rgba(230, 126, 34, 0.2)' }}>
+                          🍦 Artesanal
+                        </span>
+                      )}
                       
                       <div className="product-illustration" style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', minHeight: '120px' }}>
                         {flavor.image ? (
@@ -632,7 +641,7 @@ export default function CustomerShop({
                             title="Añadir helado simple de 1 bola al carrito"
                             onClick={() => handleAddClassicToCart(flavor)}
                           >
-                            Agregar
+                            + Agregar
                           </button>
                         </div>
                       </div>
@@ -729,7 +738,7 @@ export default function CustomerShop({
                             title="Añadir pack al carrito"
                             onClick={() => handleAddPackToCart(pack)}
                           >
-                            Agregar
+                            + Agregar Pack
                           </button>
                         </div>
                       </div>

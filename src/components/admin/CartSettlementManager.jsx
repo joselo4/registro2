@@ -21,11 +21,17 @@ export default function CartSettlementManager({
   const [activeTab, setActiveTab] = useState('settlement'); // 'settlement' | 'catalog' | 'routes' | 'history' | 'alerts'
 
   // Lista de carritos disponibles
+  const cartsList = useMemo(() => {
+    if (Array.isArray(cartLocations?.carts)) return cartLocations.carts;
+    if (Array.isArray(cartLocations)) return cartLocations;
+    return [];
+  }, [cartLocations]);
+
   const availableCarts = useMemo(() => {
-    const list = (cartLocations || []).map(c => c.label || c.name || `Carrito ${c.id}`).filter(Boolean);
+    const list = cartsList.map(c => c.label || c.name || `Carrito ${c.id}`).filter(Boolean);
     if (list.length === 0) return ['Carrito 1 - Malecón', 'Carrito 2 - Plaza Principal', 'Carrito 3 - Parque Central'];
     return Array.from(new Set(list));
-  }, [cartLocations]);
+  }, [cartsList]);
 
   const [selectedCartLabel, setSelectedCartLabel] = useState(() => availableCarts[0] || 'Carrito 1');
   const [vendorName, setVendorName] = useState(currentUser?.name || '');
@@ -947,7 +953,7 @@ export default function CartSettlementManager({
 
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))', gap: '14px' }}>
             {availableCarts.map(cartLabel => {
-              const locationObj = (cartLocations || []).find(c => (c.label || c.name || `Carrito ${c.id}`) === cartLabel);
+              const locationObj = cartsList.find(c => (c.label || c.name || `Carrito ${c.id}`) === cartLabel);
               const config = cartConfigs[cartLabel] || {};
 
               return (

@@ -12,7 +12,7 @@ export const DEFAULT_PROMOTION = {
   link: '',
   terms: '',
   coupon: '',
-  image: '/paletas/paleta-fresa-crema.png',
+  image: '/paletas/paleta-fresa-crema.webp',
   imageAlt: 'Paleta de fresa con crema',
   background: '#ffcf32',
   textColor: '#492117',

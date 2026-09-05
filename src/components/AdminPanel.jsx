@@ -15,6 +15,7 @@ import KitchenDisplaySystem from './admin/KitchenDisplaySystem';
 import CashRegisterManager from './admin/CashRegisterManager';
 import CartSettlementManager from './admin/CartSettlementManager';
 import AuditLogManager from './admin/AuditLogManager';
+import CustomerCRM from './admin/CustomerCRM';
 import './admin/operations.css';
 
 // --- FUNCIONES DE SANITIZACIÃ“N Y SEGURIDAD ---
@@ -181,9 +182,31 @@ export default function AdminPanel({
     window.scrollTo(0, 0);
   }, [activeTab]);
 
-  // --- Estados de AutenticaciÃ³n y Seguridad ---
-  const [emailInput, setEmailInput] = useState('');
-  const [passwordInput, setPasswordInput] = useState('');
+  // --- Estados de Autenticación y Seguridad ---
+  const [rememberMe, setRememberMe] = useState(() => {
+    return localStorage.getItem('friozo_operator_remember') === 'true';
+  });
+  const [emailInput, setEmailInput] = useState(() => {
+    try {
+      const saved = localStorage.getItem('friozo_saved_operator_login');
+      if (saved) {
+        const parsed = JSON.parse(saved);
+        return parsed.user || '';
+      }
+    } catch {}
+    return '';
+  });
+  const [passwordInput, setPasswordInput] = useState(() => {
+    try {
+      const saved = localStorage.getItem('friozo_saved_operator_login');
+      if (saved) {
+        const parsed = JSON.parse(saved);
+        return parsed.pass || '';
+      }
+    } catch {}
+    return '';
+  });
+  const [showPassword, setShowPassword] = useState(false);
   const [authError, setAuthError] = useState('');
 
   const [loginAttempts, setLoginAttempts] = useState(() => {
@@ -351,17 +374,17 @@ export default function AdminPanel({
     }
 
     const role = normalizeText(currentUser.role);
-    if (role.includes('vendedor')) return ['orders', 'inventory', 'surveys', 'table_orders', 'locations', 'cash_register', 'cart_dispatch'].includes(tabId);
+    if (role.includes('vendedor')) return ['orders', 'crm', 'inventory', 'surveys', 'table_orders', 'locations', 'cash_register', 'cart_dispatch'].includes(tabId);
     if (role.includes('cocina')) return ['orders', 'kds'].includes(tabId);
     if (role.includes('repartidor') || role.includes('delivery')) return ['orders', 'locations'].includes(tabId);
-    if (role.includes('cajero')) return ['orders', 'finance', 'cash_register'].includes(tabId);
+    if (role.includes('cajero')) return ['orders', 'crm', 'finance', 'cash_register'].includes(tabId);
     if (role.includes('mozo') || role.includes('salon')) return ['table_orders'].includes(tabId);
     return false;
   };
 
   useEffect(() => {
     if (currentUser && !isTabAllowed(activeTab)) {
-      const fallbackTab = ['operations', 'orders', 'kds', 'cash_register', 'cart_dispatch', 'table_orders', 'inventory', 'packs', 'users', 'finance', 'audit_log', 'locations', 'settings', 'stats', 'surveys']
+      const fallbackTab = ['operations', 'orders', 'crm', 'kds', 'cash_register', 'cart_dispatch', 'table_orders', 'inventory', 'packs', 'users', 'finance', 'audit_log', 'locations', 'settings', 'stats', 'surveys']
         .find((tabId) => isTabAllowed(tabId));
       if (fallbackTab) setActiveTab(fallbackTab);
     }
@@ -392,6 +415,13 @@ export default function AdminPanel({
     const handleLoginSuccess = (userObj, isSupabase) => {
       setLoginAttempts(0);
       setLockoutUntil(0);
+      if (rememberMe) {
+        localStorage.setItem('friozo_saved_operator_login', JSON.stringify({ user: userInput, pass: passwordSanitized }));
+        localStorage.setItem('friozo_operator_remember', 'true');
+      } else {
+        localStorage.removeItem('friozo_saved_operator_login');
+        localStorage.setItem('friozo_operator_remember', 'false');
+      }
       sessionStorage.setItem('helados_admin_login_timestamp', Date.now().toString());
       setIsLoggedIn(true);
       setCurrentUser(userObj);
@@ -590,15 +620,53 @@ export default function AdminPanel({
           </div>
 
           <div className="form-group">
-            <label>Contrasena de Acceso</label>
+            <label>Contraseña de Acceso</label>
+            <div style={{ position: 'relative', display: 'flex', alignItems: 'center' }}>
+              <input
+                type={showPassword ? "text" : "password"}
+                className="form-control"
+                placeholder="Contraseña"
+                value={passwordInput}
+                onChange={(e) => setPasswordInput(e.target.value)}
+                style={{ paddingRight: '42px' }}
+                required
+              />
+              <button
+                type="button"
+                onClick={() => setShowPassword(prev => !prev)}
+                aria-label={showPassword ? "Ocultar contraseña" : "Ver contraseña"}
+                title={showPassword ? "Ocultar contraseña" : "Ver contraseña"}
+                style={{
+                  position: 'absolute',
+                  right: '10px',
+                  background: 'transparent',
+                  border: 'none',
+                  cursor: 'pointer',
+                  padding: '4px',
+                  fontSize: '1.1rem',
+                  lineHeight: 1,
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  color: 'var(--text-light)'
+                }}
+              >
+                {showPassword ? '👁️‍🗨️' : '👁️'}
+              </button>
+            </div>
+          </div>
+
+          <div style={{ display: 'flex', alignItems: 'center', gap: '8px', fontSize: '0.84rem' }}>
             <input
-              type="password"
-              className="form-control"
-              placeholder="Contrasena"
-              value={passwordInput}
-              onChange={(e) => setPasswordInput(e.target.value)}
-              required
+              type="checkbox"
+              id="rememberOperatorCreds"
+              checked={rememberMe}
+              onChange={(e) => setRememberMe(e.target.checked)}
+              style={{ cursor: 'pointer', width: '16px', height: '16px' }}
             />
+            <label htmlFor="rememberOperatorCreds" style={{ cursor: 'pointer', margin: 0, userSelect: 'none', color: 'var(--text-dark)', fontWeight: 500 }}>
+              Recordar contraseña en este dispositivo
+            </label>
           </div>
 
           {authError && (
@@ -692,6 +760,11 @@ export default function AdminPanel({
           {isTabAllowed('orders') && (
             <button className={`sidebar-btn ${activeTab === 'orders' ? 'active' : ''}`} onClick={() => setActiveTab('orders')}>
               📋 Pedidos ({orders.filter(o => o.status === 'Pendiente').length})
+            </button>
+          )}
+          {isTabAllowed('crm') && (
+            <button className={`sidebar-btn ${activeTab === 'crm' ? 'active' : ''}`} onClick={() => setActiveTab('crm')}>
+              📇 CRM Clientes
             </button>
           )}
           {(shopConfig?.kdsEnabled !== false) && isTabAllowed('kds') && (
@@ -841,6 +914,14 @@ export default function AdminPanel({
             logs={auditLogs && auditLogs.length > 0 ? auditLogs : (logs || [])}
             currentUser={currentUser}
             storeName={storeName}
+          />
+        )}
+
+        {activeTab === 'crm' && (
+          <CustomerCRM
+            orders={orders}
+            storeName={storeName}
+            showAlert={showAlert}
           />
         )}
         
