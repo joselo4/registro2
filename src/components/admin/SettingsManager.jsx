@@ -3,6 +3,8 @@ import { supabase } from '../../utils/supabaseClient';
 import { uploadToR2 } from '../../utils/r2Client';
 import { updateMultipleSyncedData } from '../../utils/supabaseSync';
 import { DEFAULT_SMS_TEMPLATES, ORDER_STATUSES, normalizeSmsTemplates } from '../../utils/orderMessaging';
+import PromotionEditor from './PromotionEditor';
+import { DEFAULT_PROMOTION, normalizePromotion, validatePromotion } from '../../utils/promotion';
 
 // --- FUNCIONES DE SANITIZACIÓN ---
 const sanitizeHTML = (text) => {
@@ -202,6 +204,9 @@ export default function SettingsManager({
   }, [literConfig]);
 
   const handleSaveSettings = () => {
+    const promotion = normalizePromotion(localShopConfig.promotion);
+    const promotionError = validatePromotion({ ...DEFAULT_PROMOTION, ...localShopConfig.promotion });
+    if (promotionError) { alert(promotionError); return; }
     // Sanitizar URLs para evitar enlaces HTTP inseguros (mixed content) en HTTPS
     const sanitizedLogo = localStoreLogo.toLowerCase().startsWith('http') ? sanitizeUrlToHTTPS(localStoreLogo) : localStoreLogo.trim();
     const sanitizedFavicon = localStoreFavicon.toLowerCase().startsWith('http') ? sanitizeUrlToHTTPS(localStoreFavicon) : localStoreFavicon.trim();
@@ -248,6 +253,7 @@ export default function SettingsManager({
     if (onChangeShopConfig) {
       onChangeShopConfig({
         ...localShopConfig,
+        promotion,
         smsTemplates: normalizeSmsTemplates(localShopConfig.smsTemplates)
       });
     }
@@ -722,6 +728,11 @@ export default function SettingsManager({
   return (
     <div style={{ maxWidth: '650px', display: 'flex', flexDirection: 'column', gap: '20px' }}>
       <h3>Ajustes de la Heladería</h3>
+      <PromotionEditor
+        value={localShopConfig.promotion}
+        onChange={patch => setLocalShopConfig(prev => ({ ...prev, promotion: { ...DEFAULT_PROMOTION, ...prev.promotion, ...patch } }))}
+        onUpload={(file, onUploaded) => handleImageUpload(file, 'promotion', onUploaded)}
+      />
       
       <div className="glass" style={{ padding: '20px', display: 'flex', flexDirection: 'column', gap: '15px' }}>
         

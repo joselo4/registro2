@@ -1,5 +1,7 @@
 import React, { useState, useEffect, useMemo, useCallback, useRef } from 'react';
 import DessertPreview from './DessertPreview';
+import PromotionBanner from './PromotionBanner';
+import { normalizePromotion } from '../utils/promotion';
 import { updateSyncedData } from '../utils/supabaseSync';
 
 export default function CustomerShop({ 
@@ -32,8 +34,8 @@ export default function CustomerShop({
   trackEvent
 }) {
   const tableCategories = useMemo(() => {
-    return shopConfig?.tableCatalogCategories || ['popsicles', 'classic', 'liter', 'packs'];
-  }, [shopConfig?.tableCatalogCategories]);
+    return shopConfig.tableCatalogCategories || ['popsicles', 'classic', 'liter', 'packs'];
+  }, [shopConfig.tableCatalogCategories]);
 
   const handleAddToCartWrapped = useCallback((item) => {
     onAddToCart(item);
@@ -53,6 +55,14 @@ export default function CustomerShop({
     }
     return 'all';
   });
+
+  const promotion = normalizePromotion(shopConfig.promotion);
+  const handlePromotionAction = (action) => {
+    if (action === 'customizer') { setView('customizer'); return; }
+    const category = ['popsicles', 'classic', 'liter', 'packs'].includes(action) ? action : 'all';
+    setFilter(tableNumber && category !== 'all' && !tableCategories.includes(category) ? 'all' : category);
+    document.getElementById('catalog')?.scrollIntoView({ behavior: 'smooth' });
+  };
 
   const activeFlavors = flavors.filter(f => f.active);
   const activePacks = packs.filter(p => p.active);
@@ -776,6 +786,7 @@ export default function CustomerShop({
       ) : (
         <>
           {/* Hero Section */}
+          {promotion.position === 'above-hero' && <PromotionBanner promotion={promotion} tableNumber={tableNumber} onAction={handlePromotionAction} />}
           <section className="hero">
         <div className="hero-text">
           {tableOrdersEnabled && tableNumber && occupiedTables.includes(String(tableNumber)) && localStorage.getItem('helados_active_order_table') === String(tableNumber) && (
@@ -839,23 +850,23 @@ export default function CustomerShop({
           )}
           <div className="hero-eyebrow">
             <span className="hero-live-dot" aria-hidden="true"></span>
-            PEQUEÑOS MOMENTOS · GRANDES ANTOJOS
+            HELADOS, FRUTA Y MUCHA FELICIDAD
           </div>
           <h1>
-            La vida pide <span>otro helado.</span>
+            Qué rico <span>caer en la tentación.</span>
           </h1>
           <p className="hero-description">
-            Una bola de tu favorito. Otra de ese que querías probar. En <strong>{storeName}</strong>, los mejores momentos se sirven a tu gusto.
+            Cremoso, frutal, con extra de chocolate. En <strong>{storeName}</strong> tu antojo manda. Elige tus sabores y ponle el toque que más te provoca.
           </p>
           <div className="hero-cta">
             <button className="btn btn-primary hero-primary-cta" onClick={() => setView('customizer')}>
-              Crear mi helado <span aria-hidden="true">→</span>
+              Quiero mi helado <span aria-hidden="true">→</span>
             </button>
             <button className="btn btn-secondary" onClick={() => {
               const el = document.getElementById('catalog');
               if (el) el.scrollIntoView({ behavior: 'smooth' });
             }}>
-              Ver antojos
+              Explorar la carta
             </button>
           </div>
           <div className="hero-quick-links" aria-label="Acciones rápidas">
@@ -888,8 +899,8 @@ export default function CustomerShop({
               <span>mezcla sin reglas</span>
             </div>
             <div className="hero-proof-item">
-              <strong>Listo en minutos</strong>
-              <span>pide, recibe, disfruta</span>
+              <strong>Pide desde aquí</strong>
+              <span>sigue tu pedido en vivo</span>
             </div>
           </div>
         </div>
@@ -904,6 +915,8 @@ export default function CustomerShop({
               <img 
                 src={resolvedHeroImage}
                 alt="Cono Friozo con tres bolas de helado artesanal, frutas y chocolate"
+                fetchPriority="high"
+                decoding="async"
                 style={{ 
                   width: '100%', 
                   height: 'auto', 
@@ -998,7 +1011,7 @@ export default function CustomerShop({
         <div className="crave-marquee-track">
           <span>HECHO AL MOMENTO</span><b>✦</b>
           <span>MEZCLAS A TU GUSTO</span><b>✦</b>
-          <span>DELIVERY RÁPIDO</span><b>✦</b>
+          <span>CHOCOLATE SIN TIMIDEZ</span><b>✦</b>
           <span>UNA CUCHARADA MÁS</span><b>✦</b>
         </div>
       </div>
@@ -1020,6 +1033,7 @@ export default function CustomerShop({
       )}
 
       {/* Catálogo */}
+      {promotion.position === 'above-catalog' && <PromotionBanner promotion={promotion} tableNumber={tableNumber} onAction={handlePromotionAction} />}
       <section id="catalog" className="catalog-section">
         <div className="catalog-heading">
           <div>

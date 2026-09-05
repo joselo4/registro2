@@ -1,4 +1,5 @@
-import { useState } from 'react';
+import { useRef, useState } from 'react';
+import { sendSupportMessage } from '../utils/supportMessaging';
 
 export default function LiveChatTelegramBridge({ 
   storePhone, 
@@ -13,6 +14,8 @@ export default function LiveChatTelegramBridge({
   const [message, setMessage] = useState('');
   const [sending, setSending] = useState(false);
   const [sent, setSent] = useState(false);
+  const [sendError, setSendError] = useState('');
+  const sendingRef = useRef(false);
 
   if (view === 'admin') return null;
 
@@ -30,14 +33,14 @@ export default function LiveChatTelegramBridge({
 
   const handleSendMessage = async (e) => {
     e.preventDefault();
-    if (sending) return;
+    if (sendingRef.current) return;
 
     // Sanitización básica de inputs (evitar inyección HTML/XSS)
     const cleanName = name.replace(/<[^>]*>/g, '').trim();
     const cleanPhone = phone.replace(/[^0-9+\s-]/g, '').trim();
     const cleanMessage = message.replace(/<[^>]*>/g, '').trim();
 
-    if (!cleanPhone || cleanPhone.length < 7) {
+    if (cleanPhone.replace(/\D/g, '').length < 7) {
       triggerAlert("El número de teléfono es obligatorio y debe tener al menos 7 dígitos.");
       return;
     }
@@ -47,50 +50,19 @@ export default function LiveChatTelegramBridge({
       return;
     }
 
+    sendingRef.current = true;
     setSending(true);
-    const textMsg = `💬 *¡NUEVO MENSAJE DE CLIENTE!* 💬\n\n` +
-      `*Cliente:* ${cleanName || 'Anónimo'}\n` +
-      `*WhatsApp:* ${cleanPhone}\n` +
-      `*Mensaje:* ${cleanMessage}\n\n` +
-      `_Enviado desde el chat en vivo de la heladería._`;
+    setSendError('');
 
     try {
-      const response = await fetch('/api/telegram', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          text: textMsg,
-          name: cleanName,
-          phone: cleanPhone,
-          message: cleanMessage,
-          parse_mode: 'Markdown',
-          kind: 'support'
-        })
-      });
-
-      if (response.ok) {
-        setSent(true);
-        setMessage('');
-        setPhone('');
-        setTimeout(() => {
-          setSent(false);
-          setIsOpen(false);
-        }, 3000);
-      } else {
-        const cleanStorePhone = String(storePhone || '').replace(/\D/g, '');
-        const waMessage = `Hola, mi nombre es ${cleanName || 'Cliente'} (Teléfono: ${cleanPhone}). Tengo una consulta sobre ${storeName || 'helados'}:\n\n${cleanMessage}`;
-        const waUrl = `https://wa.me/${cleanStorePhone}?text=${encodeURIComponent(waMessage)}`;
-        const waWindow = window.open(waUrl, '_blank', 'noopener,noreferrer');
-        if (waWindow) waWindow.opener = null;
-        setIsOpen(false);
-        setMessage('');
-        setPhone('');
-      }
+      await sendSupportMessage({ name: cleanName, phone: cleanPhone, message: cleanMessage });
+      setSent(true);
+      setMessage('');
     } catch (err) {
-      console.error("Error al enviar mensaje a Telegram:", err);
-      triggerAlert("Error de conexión. Inténtalo de nuevo.");
+      setSendError(err?.message || 'No pudimos conectar. Conservamos tu consulta para que puedas reintentar.');
     } finally {
       setSending(false);
+      sendingRef.current = false;
     }
   };
 
@@ -217,41 +189,49 @@ export default function LiveChatTelegramBridge({
       ` }} />
 
       {/* Burbuja flotante */}
-      <div 
+      <button type="button"
         className="live-chat-bubble"
         onClick={() => setIsOpen(!isOpen)}
-        title="Chat de soporte en vivo"
+        title="Consultar sobre mi pedido"
+        aria-label={isOpen ? 'Cerrar chat' : 'Consultar sobre mi pedido'}
+        aria-expanded={isOpen}
+        aria-controls="support-chat"
       >
         {isOpen ? '✕' : '💬'}
-      </div>
+      </button>
 
       {/* Ventana de chat */}
       {isOpen && (
-        <div className="live-chat-window">
+        <div className="live-chat-window" id="support-chat" role="region" aria-label="Consulta sobre tu pedido">
           <div className="live-chat-header">
-            <h4>🍦 Chat en Vivo</h4>
-            <button className="live-chat-close" onClick={() => setIsOpen(false)}>✕</button>
+            <h4>Hablemos de tu antojo</h4>
+            <button className="live-chat-close" aria-label="Cerrar chat" onClick={() => setIsOpen(false)}>✕</button>
           </div>
           
           {sent ? (
-            <div className="live-chat-success">
+            <div className="live-chat-success" role="status">
               <span className="live-chat-success-icon">✅</span>
               <strong style={{ fontSize: '0.9rem', color: 'var(--text-dark)' }}>¡Mensaje Enviado!</strong>
               <p style={{ fontSize: '0.75rem', color: 'var(--text-light)', margin: 0 }}>
-                Tu mensaje ha sido enviado al administrador a través del puente de soporte. Te responderemos muy pronto.
+                Recibimos tu consulta. Te responderemos al WhatsApp que indicaste.
               </p>
+              <button type="button" className="btn btn-secondary" onClick={() => setSent(false)}>Enviar otra consulta</button>
             </div>
           ) : (
             <div className="live-chat-body">
               <p className="live-chat-welcome">
-                ¿Tienes alguna consulta o inconveniente con tu pedido? Escríbenos directamente y un administrador te atenderá de inmediato.
+                ¿Una duda antes de pedir? Déjanos tu consulta y te responderemos por WhatsApp.
               </p>
               
               <form className="live-chat-form" onSubmit={handleSendMessage}>
                 <div className="form-group" style={{ marginBottom: 0 }}>
-                  <label>Tu Nombre (Opcional)</label>
+                  <label htmlFor="support-name">Tu nombre (opcional)</label>
                   <input
                     type="text"
+                    id="support-name"
+                    autoComplete="name"
+                    maxLength={80}
+                    disabled={sending}
                     className="form-control"
                     placeholder="Ej: Carlos"
                     style={{ fontSize: '0.8rem', padding: '6px 10px' }}
@@ -261,9 +241,13 @@ export default function LiveChatTelegramBridge({
                 </div>
 
                 <div className="form-group" style={{ marginBottom: 0 }}>
-                  <label>Tu Teléfono / WhatsApp (Obligatorio)</label>
+                  <label htmlFor="support-phone">Tu WhatsApp</label>
                   <input
                     type="tel"
+                    id="support-phone"
+                    autoComplete="tel"
+                    maxLength={20}
+                    disabled={sending}
                     className="form-control"
                     placeholder="Ej: +51 987 654 321"
                     style={{ fontSize: '0.8rem', padding: '6px 10px' }}
@@ -274,8 +258,11 @@ export default function LiveChatTelegramBridge({
                 </div>
                 
                 <div className="form-group" style={{ marginBottom: 0 }}>
-                  <label>Tu Mensaje</label>
+                  <label htmlFor="support-message">Tu consulta</label>
                   <textarea
+                    id="support-message"
+                    maxLength={1000}
+                    disabled={sending}
                     className="form-control"
                     rows="3"
                     placeholder="Escribe tu consulta aquí..."
@@ -292,8 +279,12 @@ export default function LiveChatTelegramBridge({
                   style={{ width: '100%', padding: '8px', fontSize: '0.8rem', marginTop: '5px', cursor: 'pointer' }}
                   disabled={sending}
                 >
-                  {sending ? 'Enviando...' : '🚀 Enviar Mensaje'}
+                  {sending ? 'Enviando tu consulta…' : sendError ? 'Reintentar envío' : 'Enviar consulta →'}
                 </button>
+                {sending && <p role="status" className="live-chat-welcome">Esperando confirmación de entrega…</p>}
+                {sendError && <div className="live-chat-feedback" role="alert">{sendError}
+                  {String(storePhone || '').replace(/\D/g, '').length >= 7 && <a className="live-chat-fallback" target="_blank" rel="noopener noreferrer" href={`https://wa.me/${String(storePhone).replace(/\D/g, '')}?text=${encodeURIComponent(`Hola, soy ${name || 'Cliente'} (${phone}). Mi consulta sobre ${storeName || 'helados'}: ${message}`)}`}>Continuar por WhatsApp ↗</a>}
+                </div>}
               </form>
             </div>
           )}

@@ -27,20 +27,20 @@ const sendTelegramMessage = async ({ token, chatId, text, parseMode }) => {
   const controller = new AbortController();
   const timeout = setTimeout(() => controller.abort('Telegram API timeout'), telegramTimeoutMs);
 
-  let response;
   try {
-    response = await fetch(`https://api.telegram.org/bot${token}/sendMessage`, {
+    const response = await fetch(`https://api.telegram.org/bot${token}/sendMessage`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(body),
       signal: controller.signal,
     });
+    // Keep the timeout active until the response body is read, not just the headers.
+    const { payload, rawText } = await readTelegramPayload(response);
+    if (controller.signal.aborted) throw new Error('Telegram API timeout');
+    return { response, payload, rawText };
   } finally {
     clearTimeout(timeout);
   }
-
-  const { payload, rawText } = await readTelegramPayload(response);
-  return { response, payload, rawText };
 };
 
 export async function onRequestGet({ request, env }) {
@@ -142,18 +142,20 @@ export async function onRequestPost({ request, env }) {
       const cleanPhone = String(phone || '').replace(/[^0-9+\s-]/g, '').trim().slice(0, 20);
       const cleanMessage = String(message || '').replace(/<[^>]*>/g, '').trim().slice(0, 1000);
 
-      if (!cleanPhone || cleanPhone.length < 7) {
+      if (cleanPhone.replace(/\D/g, '').length < 7) {
         return json({ error: 'El número de teléfono es obligatorio y debe ser válido.' }, 400);
       }
       if (!cleanMessage) {
         return json({ error: 'El mensaje de soporte no puede estar vacío.' }, 400);
       }
 
-      finalText = `💬 *¡NUEVO MENSAJE DE CLIENTE!* 💬\n\n` +
-        `*Cliente:* ${cleanName}\n` +
-        `*Teléfono:* ${cleanPhone}\n` +
-        `*Mensaje:* ${cleanMessage}\n\n` +
-        `_Enviado desde el chat en vivo de la heladería._`;
+      // Customer text is plain text: underscores, brackets and asterisks must
+      // never cause a failed parse and a second round trip to Telegram.
+      finalText = `💬 ¡NUEVO MENSAJE DE CLIENTE!\n\n` +
+        `Cliente: ${cleanName}\n` +
+        `Teléfono: ${cleanPhone}\n` +
+        `Mensaje: ${cleanMessage}\n\n` +
+        `Responder al WhatsApp del cliente: https://wa.me/${cleanPhone.replace(/\D/g, '')}`;
     }
 
     if (!finalText || typeof finalText !== 'string') {
@@ -163,7 +165,7 @@ export async function onRequestPost({ request, env }) {
       return json({ error: 'El mensaje es demasiado largo.' }, 413);
     }
 
-    const safeParseMode = allowedParseModes.has(parse_mode) ? parse_mode : 'Markdown';
+    const safeParseMode = kind === 'support' ? null : (allowedParseModes.has(parse_mode) ? parse_mode : 'Markdown');
 
     const token = String(env.TELEGRAM_BOT_TOKEN || '').trim();
     const chatId = String(env.TELEGRAM_CHAT_ID || '').trim();
@@ -179,7 +181,7 @@ export async function onRequestPost({ request, env }) {
       parseMode: safeParseMode,
     });
 
-    if (!response.ok && markdownParseError(payload.description)) {
+    if (safeParseMode && !response.ok && markdownParseError(payload.description)) {
       ({ response, payload, rawText } = await sendTelegramMessage({
         token,
         chatId,
@@ -188,7 +190,7 @@ export async function onRequestPost({ request, env }) {
       }));
     }
 
-    if (!response.ok || payload.ok === false) {
+    if (!response.ok || payload.ok !== true) {
       const telegramError =
         payload.description ||
         rawText ||
@@ -203,6 +205,9 @@ export async function onRequestPost({ request, env }) {
 
     return json({ ok: true });
   } catch (err) {
+    if (err?.name === 'AbortError' || /timeout/i.test(String(err?.message || err))) {
+      return json({ error: 'Telegram está tardando en confirmar la entrega. Puedes continuar por WhatsApp.' }, 504);
+    }
     return json({ error: err?.message || String(err) || 'Error inesperado.' }, 500);
   }
 }
