@@ -12,12 +12,13 @@ export async function sendSupportMessage({ name, phone, message }, { fetchImpl =
     if (controller.signal.aborted) throw new DOMException('Tiempo agotado', 'AbortError');
     if (!response.ok || payload.ok !== true) {
       throw new Error(response.status === 504
-        ? 'Telegram está tardando en confirmar la entrega. Tu consulta sigue aquí; puedes continuar por WhatsApp.'
-        : 'No pudimos confirmar el envío. Tu consulta sigue aquí; puedes reintentar o continuar por WhatsApp.');
+        ? 'Telegram está tardando en confirmar la entrega. Tu consulta sigue aquí; espera un momento antes de reintentar.'
+        : 'No pudimos confirmar el envío a Telegram. Tu consulta sigue aquí; puedes reintentar.');
     }
     return payload;
   } catch (error) {
     if (controller.signal.aborted) throw new Error('La conexión está tardando demasiado. No pudimos confirmar la entrega; conservamos tu consulta.', { cause: error });
+    if (error instanceof TypeError) throw new Error('No pudimos conectar con Telegram. Comprueba tu conexión y reintenta; conservamos tu consulta.', { cause: error });
     throw error;
   } finally { clearTimeout(timer); }
 }

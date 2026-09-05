@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useMemo, useCallback, useRef } from 'react';
 import DessertPreview from './DessertPreview';
 import PromotionBanner from './PromotionBanner';
+import WelcomePromotion from './WelcomePromotion';
 import { normalizePromotion } from '../utils/promotion';
 import { updateSyncedData } from '../utils/supabaseSync';
 
@@ -29,6 +30,7 @@ export default function CustomerShop({
   occupiedTables = [],
   cart = [],
   shopConfig = {},
+  promotionReady = true,
   testimonials = [],
   storeHeroImage = '',
   trackEvent
@@ -786,6 +788,7 @@ export default function CustomerShop({
       ) : (
         <>
           {/* Hero Section */}
+          <WelcomePromotion promotion={promotion} tableNumber={tableNumber} onAction={handlePromotionAction} ready={promotionReady} />
           {promotion.position === 'above-hero' && <PromotionBanner promotion={promotion} tableNumber={tableNumber} onAction={handlePromotionAction} />}
           <section className="hero">
         <div className="hero-text">

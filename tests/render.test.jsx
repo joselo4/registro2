@@ -7,6 +7,19 @@ import IceCreamCustomizer from '../src/components/IceCreamCustomizer.jsx';
 import OperationsCenter from '../src/components/admin/OperationsCenter.jsx';
 import PromotionBanner from '../src/components/PromotionBanner.jsx';
 import PromotionEditor from '../src/components/admin/PromotionEditor.jsx';
+import WelcomePromotion from '../src/components/WelcomePromotion.jsx';
+
+test('welcome announcement respects activation, schedule and loading state', () => {
+  for (const props of [{promotion:{enabled:false}}, {promotion:{showWelcome:false}}, {ready:false}, {promotion:{endsAt:'2000-01-01T00:00:00Z'}}]) {
+    assert.equal(renderToStaticMarkup(<WelcomePromotion {...props} />), '');
+  }
+  const html = renderToStaticMarkup(<WelcomePromotion promotion={{offerLabel:'2×1', originalPrice:'S/ 20', salePrice:'S/ 10'}} />);
+  assert.ok(html.includes('<dialog'));
+  assert.ok(html.includes('Cerrar promoción'));
+  assert.ok(html.includes('2×1'));
+  assert.ok(html.includes('<s>S/ 20</s>'));
+  assert.ok(html.includes('S/ 10'));
+});
 
 test('banner renders customer content safely and respects disabled state', () => {
   assert.equal(renderToStaticMarkup(<PromotionBanner promotion={{enabled:false}} />), '');

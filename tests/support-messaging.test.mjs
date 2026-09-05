@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { onRequestPost } from '../functions/api/telegram.js';
+import { onRequestGet, onRequestPost } from '../functions/api/telegram.js';
 import { sendSupportMessage } from '../src/utils/supportMessaging.js';
 
 const env = { TELEGRAM_BOT_TOKEN: 'test-token', TELEGRAM_CHAT_ID: 'test-chat' };
@@ -50,4 +50,24 @@ test('timeout covers the response body as well as connection setup', async () =>
     ok: true,
     json: () => new Promise((_resolve, reject) => signal.addEventListener('abort', () => reject(new DOMException('Aborted', 'AbortError')))),
   }) }), /conservamos tu consulta/);
+});
+
+test('connection errors are understandable and never offer WhatsApp', async () => {
+  await assert.rejects(sendSupportMessage(details, { fetchImpl: async () => { throw new TypeError('Failed to fetch'); } }), error => {
+    assert.ok(error.message.includes('No pudimos conectar con Telegram'));
+    assert.ok(!/WhatsApp|Failed to fetch/.test(error.message));
+    return true;
+  });
+});
+test('Telegram diagnostics verify credentials without sending messages or returning private metadata', async t => {
+  const calls = [];
+  t.mock.method(globalThis, 'fetch', async url => {
+    calls.push(url);
+    return Response.json({ok:true,result:{id:12345,title:'Private chat'}});
+  });
+  const response = await onRequestGet({request:new Request('https://shop.test/api/telegram?verify=1'),env});
+  assert.equal(response.status,200);
+  assert.deepEqual(await response.json(), {ok:true,botValid:true,destinationAccessible:true});
+  assert.equal(calls.length,2);
+  assert.ok(calls.every(url => !url.includes('sendMessage')));
 });

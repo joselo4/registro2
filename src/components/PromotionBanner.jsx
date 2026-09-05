@@ -21,8 +21,13 @@ export default function PromotionBanner({ promotion, tableNumber, onAction, prev
     }}>
       <div className="promotion-copy">
         {p.eyebrow && <span className="promotion-eyebrow">{p.eyebrow}</span>}
+        {p.offerLabel && <span className="promotion-offer-label">{p.offerLabel}</span>}
         <h2>{p.title}</h2>
         {p.description && <p>{p.description}</p>}
+        {(p.originalPrice || p.salePrice) && <div className="promotion-prices">
+          {p.originalPrice && <span>Antes <s>{p.originalPrice}</s></span>}
+          {p.salePrice && <strong>{p.salePrice}</strong>}
+        </div>}
         <div className="promotion-actions">
           {p.buttonText && (p.action === 'link' && p.link
             ? <a className="promotion-button" href={preview ? undefined : p.link} aria-disabled={preview || undefined}>{p.buttonText} <span aria-hidden="true">↗</span></a>

@@ -2,8 +2,6 @@ import { useRef, useState } from 'react';
 import { sendSupportMessage } from '../utils/supportMessaging';
 
 export default function LiveChatTelegramBridge({ 
-  storePhone, 
-  storeName, 
   view, 
   hasFloatingCart,
   showAlert
@@ -204,7 +202,7 @@ export default function LiveChatTelegramBridge({
       {isOpen && (
         <div className="live-chat-window" id="support-chat" role="region" aria-label="Consulta sobre tu pedido">
           <div className="live-chat-header">
-            <h4>Hablemos de tu antojo</h4>
+            <h4>Atención por Telegram</h4>
             <button className="live-chat-close" aria-label="Cerrar chat" onClick={() => setIsOpen(false)}>✕</button>
           </div>
           
@@ -213,14 +211,14 @@ export default function LiveChatTelegramBridge({
               <span className="live-chat-success-icon">✅</span>
               <strong style={{ fontSize: '0.9rem', color: 'var(--text-dark)' }}>¡Mensaje Enviado!</strong>
               <p style={{ fontSize: '0.75rem', color: 'var(--text-light)', margin: 0 }}>
-                Recibimos tu consulta. Te responderemos al WhatsApp que indicaste.
+                Tu consulta llegó al Telegram de la tienda. El equipo tiene tus datos de contacto para atenderte.
               </p>
               <button type="button" className="btn btn-secondary" onClick={() => setSent(false)}>Enviar otra consulta</button>
             </div>
           ) : (
             <div className="live-chat-body">
               <p className="live-chat-welcome">
-                ¿Una duda antes de pedir? Déjanos tu consulta y te responderemos por WhatsApp.
+                ¿Una duda antes de pedir? Envía tu consulta directamente al Telegram de la tienda, sin salir de esta página.
               </p>
               
               <form className="live-chat-form" onSubmit={handleSendMessage}>
@@ -241,7 +239,7 @@ export default function LiveChatTelegramBridge({
                 </div>
 
                 <div className="form-group" style={{ marginBottom: 0 }}>
-                  <label htmlFor="support-phone">Tu WhatsApp</label>
+                  <label htmlFor="support-phone">Tu teléfono de contacto</label>
                   <input
                     type="tel"
                     id="support-phone"
@@ -279,12 +277,10 @@ export default function LiveChatTelegramBridge({
                   style={{ width: '100%', padding: '8px', fontSize: '0.8rem', marginTop: '5px', cursor: 'pointer' }}
                   disabled={sending}
                 >
-                  {sending ? 'Enviando tu consulta…' : sendError ? 'Reintentar envío' : 'Enviar consulta →'}
+                  {sending ? 'Enviando a Telegram…' : sendError ? 'Reintentar en Telegram' : 'Enviar a Telegram →'}
                 </button>
                 {sending && <p role="status" className="live-chat-welcome">Esperando confirmación de entrega…</p>}
-                {sendError && <div className="live-chat-feedback" role="alert">{sendError}
-                  {String(storePhone || '').replace(/\D/g, '').length >= 7 && <a className="live-chat-fallback" target="_blank" rel="noopener noreferrer" href={`https://wa.me/${String(storePhone).replace(/\D/g, '')}?text=${encodeURIComponent(`Hola, soy ${name || 'Cliente'} (${phone}). Mi consulta sobre ${storeName || 'helados'}: ${message}`)}`}>Continuar por WhatsApp ↗</a>}
-                </div>}
+                {sendError && <div className="live-chat-feedback" role="alert">{sendError}</div>}
               </form>
             </div>
           )}

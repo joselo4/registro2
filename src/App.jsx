@@ -1655,6 +1655,7 @@ export default function App() {
         <React.Suspense fallback={<div className="glass" style={{ padding: '40px', textAlign: 'center', fontFamily: 'var(--font-title)', color: 'var(--primary-color)', fontSize: '1.2rem', fontWeight: 'bold' }}>Cargando...</div>}>
           {view === 'shop' && (
           <CustomerShop 
+            promotionReady={isSyncLoaded}
             flavors={flavors}
             toppings={toppings}
             bases={bases}

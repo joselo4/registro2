@@ -48,6 +48,28 @@ export async function onRequestGet({ request, env }) {
     return json({ error: 'Origen no permitido.' }, 403);
   }
 
+  if (new URL(request.url).searchParams.get('verify') === '1') {
+    const token = String(env.TELEGRAM_BOT_TOKEN || '').trim();
+    const chatId = String(env.TELEGRAM_CHAT_ID || '').trim();
+    if (!token || !chatId) return json({ ok: false, error: 'Telegram no está configurado.' }, 503);
+    try {
+      // Read-only diagnostics: verify the bot and its configured destination.
+      // Never send a test message or expose credentials or chat metadata here.
+      const responses = await Promise.all([
+        fetch(`https://api.telegram.org/bot${token}/getMe`, { signal: AbortSignal.timeout(telegramTimeoutMs) }),
+        fetch(`https://api.telegram.org/bot${token}/getChat`, {
+          method: 'POST', headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ chat_id: chatId }), signal: AbortSignal.timeout(telegramTimeoutMs),
+        }),
+      ]);
+      const results = await Promise.all(responses.map(response => response.json()));
+      const botValid = responses[0].ok && results[0].ok === true;
+      const destinationAccessible = responses[1].ok && results[1].ok === true;
+      return json({ ok: botValid && destinationAccessible, botValid, destinationAccessible }, botValid && destinationAccessible ? 200 : 502);
+    } catch {
+      return json({ ok: false, error: 'No se pudo comprobar la conexión con Telegram.' }, 502);
+    }
+  }
   return json({
     ok: true,
     route: '/api/telegram',
@@ -155,7 +177,7 @@ export async function onRequestPost({ request, env }) {
         `Cliente: ${cleanName}\n` +
         `Teléfono: ${cleanPhone}\n` +
         `Mensaje: ${cleanMessage}\n\n` +
-        `Responder al WhatsApp del cliente: https://wa.me/${cleanPhone.replace(/\D/g, '')}`;
+        `Enviado desde la web de la tienda.`;
     }
 
     if (!finalText || typeof finalText !== 'string') {
@@ -206,7 +228,7 @@ export async function onRequestPost({ request, env }) {
     return json({ ok: true });
   } catch (err) {
     if (err?.name === 'AbortError' || /timeout/i.test(String(err?.message || err))) {
-      return json({ error: 'Telegram está tardando en confirmar la entrega. Puedes continuar por WhatsApp.' }, 504);
+      return json({ error: 'Telegram está tardando en confirmar la entrega. Espera un momento antes de reintentar.' }, 504);
     }
     return json({ error: err?.message || String(err) || 'Error inesperado.' }, 500);
   }

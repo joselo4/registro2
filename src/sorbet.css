@@ -108,6 +108,7 @@ textarea:focus-visible { outline: 3px solid var(--primary-color); outline-offset
 .live-chat-window .live-chat-feedback { font-size: .875rem; line-height: 1.5; color: var(--danger); }
 .live-chat-window .live-chat-fallback { display: block; color: var(--primary-color); font-weight: 800; margin-top: 8px; }
 .live-chat-window .live-chat-header { background: #a4163d; }
+.live-chat-window .live-chat-header h4 { color: #ffffff; }
 .live-chat-window { max-height: calc(100dvh - 190px); overflow-y: auto; }
 [data-theme="dark"] body { background-image: radial-gradient(ellipse at 0 15%, #621a4270, transparent 50%), radial-gradient(ellipse at 100% 50%, #78502140, transparent 45%); }
 [data-theme="dark"] .customer-shop .hero { background: #492536; border-color: #7b425b; }

@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { supabase } from '../../utils/supabaseClient';
-import { uploadToR2 } from '../../utils/r2Client';
+import { uploadToR2, compressToWebP } from '../../utils/r2Client';
 import { updateMultipleSyncedData } from '../../utils/supabaseSync';
 import { DEFAULT_SMS_TEMPLATES, ORDER_STATUSES, normalizeSmsTemplates } from '../../utils/orderMessaging';
 import PromotionEditor from './PromotionEditor';
@@ -731,7 +731,30 @@ export default function SettingsManager({
       <PromotionEditor
         value={localShopConfig.promotion}
         onChange={patch => setLocalShopConfig(prev => ({ ...prev, promotion: { ...DEFAULT_PROMOTION, ...prev.promotion, ...patch } }))}
-        onUpload={(file, onUploaded) => handleImageUpload(file, 'promotion', onUploaded)}
+        onUpload={async (file, onUploaded) => {
+          if (!['image/jpeg', 'image/png', 'image/webp'].includes(file.type) || file.size > 10000000) throw new Error('Elige una imagen JPG, PNG o WebP de hasta 10 MB.');
+          const blob = await compressToWebP(file, 900, 0.8);
+          if (blob.size > 280000) throw new Error('Esta imagen es muy pesada. Elige una imagen más pequeña.');
+          const image = await new Promise((resolve, reject) => {
+            const reader = new FileReader();
+            reader.onload = () => resolve(reader.result);
+            reader.onerror = () => reject(new Error('No se pudo leer la imagen.'));
+            reader.readAsDataURL(blob);
+          });
+          onUploaded(image);
+        }}
+        onSave={async () => {
+          const draft = { ...DEFAULT_PROMOTION, ...localShopConfig.promotion };
+          const error = validatePromotion(draft);
+          if (error) throw new Error(error);
+          const promotion = normalizePromotion(draft);
+          const nextConfig = { ...shopConfig, promotion };
+          const saved = await updateMultipleSyncedData([{ key: 'shop_open', value: nextConfig }]);
+          if (!saved) throw new Error('No se pudo guardar en la nube. Revisa tu conexión y tu sesión de administrador.');
+          setLocalShopConfig(prev => ({ ...prev, promotion }));
+          onChangeShopConfig?.(nextConfig);
+          addLog(`Promoción ${promotion.enabled ? 'activada' : 'desactivada'} por ${currentUser?.name || 'Administrador'}.`);
+        }}
       />
       
       <div className="glass" style={{ padding: '20px', display: 'flex', flexDirection: 'column', gap: '15px' }}>

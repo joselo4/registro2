@@ -38,3 +38,12 @@ test('campaign survives settings serialization including explicit blank fields',
   const restored = normalizePromotion(JSON.parse(JSON.stringify(settings)).promotion);
   assert.equal(restored.coupon, 'VERANO'); assert.equal(restored.image, ''); assert.equal(restored.buttonText, ''); assert.equal(restored.radius, 0);
 });
+
+test('uploaded raster image survives saving while executable data URLs are blocked', () => {
+  const image = 'data:image/webp;base64,UklGRg==';
+  assert.equal(normalizePromotion({image}).image, image);
+  assert.equal(safePromotionUrl(image), '');
+  assert.equal(safePromotionUrl('data:image/svg+xml;base64,PHN2Zz4=', {image:true}), '');
+  assert.equal(safePromotionUrl('data:image/png;base64,'+'A'.repeat(400000), {image:true}), '');
+  assert.equal(normalizePromotion({showWelcome:false}).showWelcome, false);
+});

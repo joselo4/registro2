@@ -5,7 +5,7 @@ import { onRequestPost as handleR2Upload } from './functions/api/r2-upload.js'
 import { onRequestPost as handleR2Post } from './functions/api/r2.js'
 import { onRequestGet as handleOrderGet, onRequestPost as handleOrderPost } from './functions/api/order.js'
 import { onRequestPost as handleTableCallPost } from './functions/api/table-call.js'
-import { onRequestPost as handleTelegramPost } from './functions/api/telegram.js'
+import { onRequestGet as handleTelegramGet, onRequestPost as handleTelegramPost } from './functions/api/telegram.js'
 
 const apiRoutes = {
   '/api/admin-auth-user': { POST: handleAdminAuthUser },
@@ -13,7 +13,7 @@ const apiRoutes = {
   '/api/r2': { POST: handleR2Post },
   '/api/order': { GET: handleOrderGet, POST: handleOrderPost },
   '/api/table-call': { POST: handleTableCallPost },
-  '/api/telegram': { POST: handleTelegramPost },
+  '/api/telegram': { GET: handleTelegramGet, POST: handleTelegramPost },
 }
 
 function localPagesApiPlugin(env) {

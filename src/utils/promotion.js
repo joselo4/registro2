@@ -1,5 +1,9 @@
 export const DEFAULT_PROMOTION = {
   enabled: true,
+  showWelcome: true,
+  offerLabel: '',
+  originalPrice: '',
+  salePrice: '',
   eyebrow: 'HOY SE VALE UN ANTOJO',
   title: 'Tu combinación. Tu momento feliz.',
   description: 'Fruta, chocolate y ese topping que lo cambia todo. Prepara tu helado favorito a tu manera.',
@@ -16,7 +20,7 @@ export const DEFAULT_PROMOTION = {
   buttonTextColor: '#ffffff',
   layout: 'image-right',
   imageFit: 'contain',
-  position: 'above-catalog',
+  position: 'above-hero',
   audience: 'all',
   titleSize: 40,
   height: 260,
@@ -27,6 +31,7 @@ export const DEFAULT_PROMOTION = {
 
 export function safePromotionUrl(value, { image = false } = {}) {
   const url = String(value || '').trim();
+  if (image && url.length <= 400000 && /^data:image\/(?:webp|png|jpeg);base64,[a-z0-9+/]+=*$/i.test(url)) return url;
   if (!url || /[\s\\]/.test(url) || [...url].some(char => char.charCodeAt(0) < 32)) return '';
   if (/^\/(?!\/)/.test(url)) return url;
   if (!image && /^#[a-z][\w-]*$/i.test(url)) return url;
@@ -36,7 +41,7 @@ export function safePromotionUrl(value, { image = false } = {}) {
 export function normalizePromotion(value = {}) {
   const result = { ...DEFAULT_PROMOTION };
   if (!value || typeof value !== 'object') return result;
-  for (const key of ['eyebrow', 'title', 'description', 'buttonText', 'terms', 'coupon', 'imageAlt']) {
+  for (const key of ['eyebrow', 'title', 'description', 'buttonText', 'terms', 'coupon', 'imageAlt', 'offerLabel', 'originalPrice', 'salePrice']) {
     if (typeof value[key] === 'string') result[key] = value[key].slice(0, key === 'description' || key === 'terms' ? 500 : 120);
   }
   for (const key of ['background', 'textColor', 'buttonColor', 'buttonTextColor']) {
@@ -57,6 +62,7 @@ export function normalizePromotion(value = {}) {
     if (value[key] && Number.isFinite(Date.parse(value[key]))) result[key] = new Date(value[key]).toISOString();
   }
   if (typeof value.enabled === 'boolean') result.enabled = value.enabled;
+  if (typeof value.showWelcome === 'boolean') result.showWelcome = value.showWelcome;
   if ('image' in value) result.image = safePromotionUrl(value.image, { image: true });
   result.link = safePromotionUrl(value.link);
   return result;
