@@ -51,15 +51,15 @@ const isAdminUser = (user) => {
 };
 
 export default function AdminPanel({
-  orders,
+  orders = [],
   onUpdateOrderStatus,
-  flavors,
+  flavors = [],
   onUpdateFlavors,
-  toppings,
+  toppings = [],
   onUpdateToppings,
-  bases,
+  bases = [],
   onUpdateBases,
-  packs,
+  packs = [],
   onUpdatePacks,
   popsicles = [],
   onUpdatePopsicles,
@@ -77,7 +77,7 @@ export default function AdminPanel({
   onChangeDeliveryCampaignText,
   storePhone,
   onChangeStorePhone,
-  staffUsers,
+  staffUsers = [],
   onUpdateStaffUsers,
   soundEnabled,
   onToggleSoundEnabled,
@@ -86,15 +86,15 @@ export default function AdminPanel({
   currentUser,
   setCurrentUser,
   onLogout,
-  storeName,
+  storeName = 'Friozo',
   onChangeStoreName,
-  storeLogo,
+  storeLogo = '🍦',
   onChangeStoreLogo,
   storeTitle,
   onChangeStoreTitle,
   storeFavicon,
   onChangeStoreFavicon,
-  coupons,
+  coupons = [],
   onUpdateCoupons,
   tableCalls = [],
   onUpdateTableCalls,
@@ -107,18 +107,18 @@ export default function AdminPanel({
   onChangeWhatsappFooter,
   qrCustomUrl,
   onChangeQrCustomUrl,
-  recommendations,
+  recommendations = [],
   onUpdateRecommendations,
-  expenses,
+  expenses = [],
   onUpdateExpenses,
   onUpdateOrders,
   cartRecommendedPack,
   onUpdateCartRecommendedPack,
   staffPermissions = {},
   onUpdateStaffPermissions,
-  r2Config,
+  r2Config = {},
   onUpdateR2Config,
-  literConfig,
+  literConfig = {},
   onUpdateLiterConfig,
   ticketCustomMessage,
   onUpdateTicketCustomMessage,
@@ -131,17 +131,17 @@ export default function AdminPanel({
   whatsappContactMessage,
   onChangeWhatsappContactMessage,
   showAlert,
-  trendsInterval,
+  trendsInterval = 25,
   onChangeTrendsInterval,
-  trendsDisplayTime,
+  trendsDisplayTime = 4,
   onChangeTrendsDisplayTime,
-  shopConfig,
+  shopConfig = {},
   onChangeShopConfig,
   tableOrdersEnabled,
   waiterTakerEnabled,
-  cartLocations,
+  cartLocations = [],
   onUpdateCartLocations,
-  testimonials,
+  testimonials = [],
   onUpdateTestimonials,
   storeHeroImage,
   onChangeStoreHeroImage,
@@ -222,7 +222,7 @@ export default function AdminPanel({
   };
 
   // --- Detector de Nuevos Pedidos (Alerta Sonora) ---
-  const prevOrdersCount = useRef(orders.length);
+  const prevOrdersCount = useRef((orders || []).length);
 
   const playNewOrderSound = () => {
     if (!soundEnabled) return;
@@ -260,23 +260,27 @@ export default function AdminPanel({
   };
 
   useEffect(() => {
-    if (orders.length > prevOrdersCount.current) {
-      const latestOrder = orders[0];
+    const ordersList = orders || [];
+    if (ordersList.length > (prevOrdersCount.current || 0)) {
+      const latestOrder = ordersList[0];
       if (latestOrder && latestOrder.status === 'Pendiente') {
         playNewOrderSound();
-        addLog(`Nuevo pedido recibido: ${latestOrder.id} por el cliente ${latestOrder.customer.name}.`);
-        if (canUseNotifications && window.Notification.permission === 'granted') {
-          new window.Notification(`🍦 ¡Nuevo Pedido en ${storeName}!`, {
-            body: `Cliente: ${latestOrder.customer.name} - Total: S/. ${latestOrder.grandTotal.toFixed(2)}`
-          });
+        const clientName = latestOrder.customer?.name || 'Cliente';
+        addLog(`Nuevo pedido recibido: ${latestOrder.id} por el cliente ${clientName}.`);
+        if (canUseNotifications && window.Notification?.permission === 'granted') {
+          try {
+            new window.Notification(`🍦 ¡Nuevo Pedido en ${storeName}!`, {
+              body: `Cliente: ${clientName} - Total: S/. ${Number(latestOrder.grandTotal || 0).toFixed(2)}`
+            });
+          } catch {}
         }
       }
     }
-    prevOrdersCount.current = orders.length;
+    prevOrdersCount.current = ordersList.length;
   }, [orders, soundEnabled, canUseNotifications, storeName]);
 
   // --- Detector de Nuevos Llamados en Mesa (Alerta Sonora y Visual) ---
-  const prevCallsCount = useRef(tableCalls.filter(c => !c.resolved).length);
+  const prevCallsCount = useRef((tableCalls || []).filter(c => !c.resolved).length);
 
   const playCallWaiterSound = () => {
     if (!soundEnabled) return;
@@ -306,16 +310,18 @@ export default function AdminPanel({
   };
 
   useEffect(() => {
-    const activeCalls = tableCalls.filter(c => !c.resolved);
-    if (activeCalls.length > prevCallsCount.current) {
+    const activeCalls = (tableCalls || []).filter(c => !c.resolved);
+    if (activeCalls.length > (prevCallsCount.current || 0)) {
       playCallWaiterSound();
       const latestCall = activeCalls[activeCalls.length - 1];
       if (latestCall) {
-        addLog(`ðŸ›Žï¸ Mesa ${latestCall.table} solicita atenciÃ³n: ${latestCall.request}`);
-        if (canUseNotifications && window.Notification.permission === 'granted') {
-          new window.Notification(`🛎️ ¡Mesa ${latestCall.table} solicita atención!`, {
-            body: `Solicitud: ${latestCall.request}`
-          });
+        addLog(`🛎️ Mesa ${latestCall.table} solicita atención: ${latestCall.request || ''}`);
+        if (canUseNotifications && window.Notification?.permission === 'granted') {
+          try {
+            new window.Notification(`🛎️ ¡Mesa ${latestCall.table} solicita atención!`, {
+              body: `Solicitud: ${latestCall.request || ''}`
+            });
+          } catch {}
         }
       }
     }
@@ -323,8 +329,10 @@ export default function AdminPanel({
   }, [tableCalls, soundEnabled, canUseNotifications]);
 
   useEffect(() => {
-    if (isLoggedIn && canUseNotifications && window.Notification.permission === 'default') {
-      window.Notification.requestPermission().catch(() => {});
+    if (isLoggedIn && canUseNotifications && window.Notification?.permission === 'default') {
+      try {
+        window.Notification?.requestPermission?.().catch?.(() => {});
+      } catch {}
     }
   }, [isLoggedIn, canUseNotifications]);
 
