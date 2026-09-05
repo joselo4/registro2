@@ -11,6 +11,11 @@ import OperationsCenter from './admin/OperationsCenter';
 import UserManager from './admin/UserManager';
 import TableOrderManager from './admin/TableOrderManager';
 import CartLocationsView from './CartLocationsView';
+import KitchenDisplaySystem from './admin/KitchenDisplaySystem';
+import CashRegisterManager from './admin/CashRegisterManager';
+import CartSettlementManager from './admin/CartSettlementManager';
+import AuditLogManager from './admin/AuditLogManager';
+import './admin/operations.css';
 
 // --- FUNCIONES DE SANITIZACIÃ“N Y SEGURIDAD ---
 const sanitizeHTML = (text) => {
@@ -146,7 +151,12 @@ export default function AdminPanel({
   onChangeGoogleAnalyticsId,
   realtimeStatus,
   onRefreshCarts,
-  isVendorApp
+  isVendorApp,
+  cashRegisterShifts = [],
+  onUpdateCashRegisterShifts,
+  cartSettlements = [],
+  onUpdateCartSettlements,
+  auditLogs = []
 }) {
   const canUseNotifications =
     typeof window !== 'undefined' &&
@@ -333,14 +343,17 @@ export default function AdminPanel({
     }
 
     const role = normalizeText(currentUser.role);
-    if (role.includes('vendedor')) return ['orders', 'inventory', 'surveys', 'table_orders', 'locations'].includes(tabId);
-    if (role.includes('cocina')) return ['orders'].includes(tabId);
+    if (role.includes('vendedor')) return ['orders', 'inventory', 'surveys', 'table_orders', 'locations', 'cash_register', 'cart_dispatch'].includes(tabId);
+    if (role.includes('cocina')) return ['orders', 'kds'].includes(tabId);
+    if (role.includes('repartidor') || role.includes('delivery')) return ['orders', 'locations'].includes(tabId);
+    if (role.includes('cajero')) return ['orders', 'finance', 'cash_register'].includes(tabId);
+    if (role.includes('mozo') || role.includes('salon')) return ['table_orders'].includes(tabId);
     return false;
   };
 
   useEffect(() => {
     if (currentUser && !isTabAllowed(activeTab)) {
-      const fallbackTab = ['orders', 'inventory', 'packs', 'users', 'finance', 'locations', 'settings', 'stats', 'surveys', 'table_orders']
+      const fallbackTab = ['operations', 'orders', 'kds', 'cash_register', 'cart_dispatch', 'table_orders', 'inventory', 'packs', 'users', 'finance', 'audit_log', 'locations', 'settings', 'stats', 'surveys']
         .find((tabId) => isTabAllowed(tabId));
       if (fallbackTab) setActiveTab(fallbackTab);
     }
@@ -673,6 +686,21 @@ export default function AdminPanel({
               📋 Pedidos ({orders.filter(o => o.status === 'Pendiente').length})
             </button>
           )}
+          {(shopConfig?.kdsEnabled !== false) && isTabAllowed('kds') && (
+            <button className={`sidebar-btn ${activeTab === 'kds' ? 'active' : ''}`} onClick={() => setActiveTab('kds')}>
+              👨‍🍳 KDS Cocina ({orders.filter(o => ['Pendiente', 'Preparando', 'Por Corroborar'].includes(o.status)).length})
+            </button>
+          )}
+          {(shopConfig?.cashRegisterEnabled !== false) && isTabAllowed('cash_register') && (
+            <button className={`sidebar-btn ${activeTab === 'cash_register' ? 'active' : ''}`} onClick={() => setActiveTab('cash_register')}>
+              💵 Arqueo / Cierre Z
+            </button>
+          )}
+          {(shopConfig?.cartSettlementEnabled !== false) && isTabAllowed('cart_dispatch') && (
+            <button className={`sidebar-btn ${activeTab === 'cart_dispatch' ? 'active' : ''}`} onClick={() => setActiveTab('cart_dispatch')}>
+              🍦 Cierre Carritos
+            </button>
+          )}
           {isTabAllowed('inventory') && (
             <button className={`sidebar-btn ${activeTab === 'inventory' ? 'active' : ''}`} onClick={() => setActiveTab('inventory')}>
               🍦 Carta Helada
@@ -690,7 +718,12 @@ export default function AdminPanel({
           )}
           {isTabAllowed('finance') && (
             <button className={`sidebar-btn ${activeTab === 'finance' ? 'active' : ''}`} onClick={() => setActiveTab('finance')}>
-              💵 Caja y Finanzas
+              📊 Finanzas y Gastos
+            </button>
+          )}
+          {(shopConfig?.auditLogEnabled !== false) && isTabAllowed('audit_log') && (
+            <button className={`sidebar-btn ${activeTab === 'audit_log' ? 'active' : ''}`} onClick={() => setActiveTab('audit_log')}>
+              🛡️ Auditoría
             </button>
           )}
           {isTabAllowed('stats') && (
@@ -740,12 +773,58 @@ export default function AdminPanel({
             bases={bases}
             packs={packs}
             storeName={storeName}
+            storePhone={storePhone}
             ticketCustomMessage={ticketCustomMessage}
             addLog={addLog}
             currentUser={currentUser}
             showAlert={showAlert}
             shopConfig={shopConfig}
             activeSubTab={activeTab === 'orders' ? 'orders' : 'surveys'}
+            staffUsers={staffUsers}
+          />
+        )}
+
+        {activeTab === 'kds' && (
+          <KitchenDisplaySystem
+            orders={orders}
+            onUpdateOrderStatus={onUpdateOrderStatus}
+            storeName={storeName}
+            addLog={addLog}
+            currentUser={currentUser}
+            soundEnabled={soundEnabled}
+          />
+        )}
+
+        {activeTab === 'cash_register' && (
+          <CashRegisterManager
+            orders={orders}
+            currentUser={currentUser}
+            storeName={storeName}
+            shifts={cashRegisterShifts}
+            onUpdateShifts={onUpdateCashRegisterShifts}
+            addLog={addLog}
+            showAlert={showAlert}
+          />
+        )}
+
+        {activeTab === 'cart_dispatch' && (
+          <CartSettlementManager
+            currentUser={currentUser}
+            storeName={storeName}
+            staffUsers={staffUsers}
+            cartLocations={cartLocations}
+            settlements={cartSettlements}
+            onUpdateSettlements={onUpdateCartSettlements}
+            addLog={addLog}
+            showAlert={showAlert}
+          />
+        )}
+
+        {activeTab === 'audit_log' && (
+          <AuditLogManager
+            logs={auditLogs && auditLogs.length > 0 ? auditLogs : (logs || [])}
+            currentUser={currentUser}
+            storeName={storeName}
           />
         )}
         

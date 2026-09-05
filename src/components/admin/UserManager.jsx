@@ -25,15 +25,24 @@ const isAdminUser = (user) => {
 const getDefaultAllowedTabsForRole = (role) => {
   const normalizedRole = normalizeText(role);
   if (normalizedRole.includes('admin')) {
-    return ['orders', 'inventory', 'packs', 'users', 'finance', 'settings', 'stats', 'surveys', 'table_orders', 'locations'];
+    return ['orders', 'kds', 'cash_register', 'cart_dispatch', 'table_orders', 'inventory', 'packs', 'users', 'finance', 'audit_log', 'settings', 'stats', 'surveys', 'locations'];
   }
   if (normalizedRole.includes('vendedor')) {
-    return ['orders', 'inventory', 'surveys', 'table_orders', 'locations'];
+    return ['orders', 'inventory', 'surveys', 'table_orders', 'locations', 'cash_register', 'cart_dispatch'];
   }
   if (normalizedRole.includes('cocina')) {
-    return ['orders'];
+    return ['orders', 'kds'];
   }
-  return [];
+  if (normalizedRole.includes('repartidor') || normalizedRole.includes('delivery')) {
+    return ['orders', 'locations'];
+  }
+  if (normalizedRole.includes('cajero')) {
+    return ['orders', 'finance', 'cash_register'];
+  }
+  if (normalizedRole.includes('mozo') || normalizedRole.includes('salon')) {
+    return ['table_orders'];
+  }
+  return ['orders'];
 };
 
 const withTimeout = (promise, ms, label) => {
@@ -390,6 +399,9 @@ export default function UserManager({
               <option value="Administrador">Administrador</option>
               <option value="Vendedor">Vendedor</option>
               <option value="Cocina">Cocina / Preparador</option>
+              <option value="Repartidor">Repartidor / Delivery</option>
+              <option value="Cajero">Cajero</option>
+              <option value="Mozo">Mozo / Salón</option>
             </select>
           </div>
           <div className="form-group"><label>Contraseña</label><input type="password" className="form-control" value={newUser.password} onChange={(e) => setNewUser({ ...newUser, password: e.target.value })} required /></div>
@@ -436,24 +448,32 @@ export default function UserManager({
               <option value="Administrador">Administrador</option>
               <option value="Vendedor">Vendedor</option>
               <option value="Cocina">Cocina / Preparador</option>
+              <option value="Repartidor">Repartidor / Delivery</option>
+              <option value="Cajero">Cajero</option>
+              <option value="Mozo">Mozo / Salón</option>
             </select>
           </div>
           
           <div className="form-group">
             <label style={{ fontWeight: 'bold', fontSize: '0.8rem', display: 'block', marginBottom: '5px' }}>
-              Ventanas y Modulos Autorizados:
+              Ventanas y Módulos Autorizados:
             </label>
             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(130px, 1fr))', gap: '8px', fontSize: '0.78rem' }}>
               {[
-                { id: 'orders', label: 'Pedidos' },
-                { id: 'inventory', label: 'Carta Helada' },
-                { id: 'packs', label: 'Packs Combos' },
-                { id: 'users', label: 'Personal / Staff' },
-                { id: 'finance', label: 'Caja y Finanzas' },
-                { id: 'settings', label: 'Ajustes Tienda' },
-                { id: 'stats', label: 'Meta e Ingresos' },
-                { id: 'locations', label: 'Carritos / Ubicacion' },
-                { id: 'surveys', label: 'Encuestas' }
+                { id: 'orders', label: '📦 Pedidos' },
+                { id: 'kds', label: '👨‍🍳 KDS Cocina' },
+                { id: 'cash_register', label: '💵 Caja Chica / Z' },
+                { id: 'cart_dispatch', label: '🍦 Cierre Carritos' },
+                { id: 'table_orders', label: '🍽️ Mesas y Salón' },
+                { id: 'inventory', label: '🍨 Carta Helada' },
+                { id: 'packs', label: '🎁 Packs Combos' },
+                { id: 'finance', label: '📊 Finanzas y Gastos' },
+                { id: 'audit_log', label: '🛡️ Auditoría' },
+                { id: 'locations', label: '📍 Carritos / GPS' },
+                { id: 'users', label: '👥 Personal / Staff' },
+                { id: 'settings', label: '⚙️ Ajustes Tienda' },
+                { id: 'stats', label: '📈 Metas e Ingresos' },
+                { id: 'surveys', label: '⭐ Encuestas' }
               ].map(tab => {
                 const isChecked = editingUser.allowedTabs.includes(tab.id);
                 return (

@@ -379,7 +379,16 @@ export default function App() {
       sunday: { enabled: true, open: '09:00', close: '22:00' }
     },
     tableOrdersEnabled: true,
-    waiterTakerEnabled: true
+    waiterTakerEnabled: true,
+    kdsEnabled: true,
+    cashRegisterEnabled: true,
+    cartSettlementEnabled: true,
+    expressWaiterEnabled: true,
+    splitBillEnabled: true,
+    telegramDailyReportEnabled: false,
+    telegramDailyReportHour: '22:00',
+    auditLogEnabled: true,
+    escposPrintEnabled: true
   };
 
   const [shopConfig, setShopConfig] = useState(() => {
@@ -420,6 +429,82 @@ export default function App() {
 
   const effectiveShopOpen = isShopOpenCurrently(shopConfig);
   const locationFeatureVisible = shopConfig.locationTrackingEnabled !== false;
+
+  // --- Estados de Operaciones Avanzadas (Caja Chica, Liquidaciones y Auditoría) ---
+  const [cashRegisterShifts, setCashRegisterShifts] = useState(() => {
+    try {
+      const saved = localStorage.getItem('helados_cash_register_shifts');
+      return saved ? JSON.parse(saved) : [];
+    } catch {
+      return [];
+    }
+  });
+
+  const [cartSettlements, setCartSettlements] = useState(() => {
+    try {
+      const saved = localStorage.getItem('helados_cart_settlements');
+      return saved ? JSON.parse(saved) : [];
+    } catch {
+      return [];
+    }
+  });
+
+  const [auditLogs, setAuditLogs] = useState(() => {
+    try {
+      const saved = localStorage.getItem('helados_audit_logs');
+      return saved ? JSON.parse(saved) : [];
+    } catch {
+      return [];
+    }
+  });
+
+  useEffect(() => {
+    try {
+      localStorage.setItem('helados_cash_register_shifts', JSON.stringify(cashRegisterShifts));
+    } catch {}
+  }, [cashRegisterShifts]);
+
+  useEffect(() => {
+    try {
+      localStorage.setItem('helados_cart_settlements', JSON.stringify(cartSettlements));
+    } catch {}
+  }, [cartSettlements]);
+
+  // Temporizador para Reporte Nocturno Automático a Telegram
+  const lastTelegramReportDateRef = useRef('');
+  useEffect(() => {
+    if (!shopConfig?.telegramDailyReportEnabled) return;
+    const targetHour = shopConfig.telegramDailyReportHour || '22:00';
+
+    const checkAndSendReport = async () => {
+      try {
+        const now = new Date();
+        const limaTimeStr = now.toLocaleTimeString('es-PE', {
+          timeZone: 'America/Lima',
+          hour: '2-digit',
+          minute: '2-digit',
+          hour12: false
+        });
+        const todayDateStr = now.toLocaleDateString('es-PE', {
+          timeZone: 'America/Lima'
+        });
+
+        if (limaTimeStr === targetHour && lastTelegramReportDateRef.current !== todayDateStr) {
+          lastTelegramReportDateRef.current = todayDateStr;
+          const { sendDailySalesReportToTelegram } = await import('./utils/telegramDailyReport');
+          await sendDailySalesReportToTelegram({
+            orders: orders || [],
+            storeName: storeName || 'Friozo'
+          });
+        }
+      } catch (err) {
+        console.warn('[Telegram Daily Report] Error:', err);
+      }
+    };
+
+    const interval = setInterval(checkAndSendReport, 45000);
+    return () => clearInterval(interval);
+  }, [shopConfig?.telegramDailyReportEnabled, shopConfig?.telegramDailyReportHour, orders, storeName]);
 
   // --- Configuración Dinámica y Gestión de Usuarios ---
   const [freeDeliveryThreshold, setFreeDeliveryThreshold] = useState(() => {
@@ -1765,6 +1850,7 @@ export default function App() {
               storePhone={storePhone}
               telegramToken={telegramToken}
               telegramChatId={telegramChatId}
+              cartLocations={cartLocations}
               onClearActiveOrder={() => {
                 setActiveOrderId(null);
                 localStorage.removeItem('helados_active_order_id');
@@ -1885,6 +1971,11 @@ export default function App() {
               realtimeStatus={realtimeStatus}
               onRefreshCarts={handleRefreshCarts}
               isVendorApp={isVendorApp}
+              cashRegisterShifts={cashRegisterShifts}
+              onUpdateCashRegisterShifts={setCashRegisterShifts}
+              cartSettlements={cartSettlements}
+              onUpdateCartSettlements={setCartSettlements}
+              auditLogs={auditLogs}
             />
         )}
         </React.Suspense>

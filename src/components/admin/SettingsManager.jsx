@@ -5,6 +5,7 @@ import { updateMultipleSyncedData } from '../../utils/supabaseSync';
 import { DEFAULT_SMS_TEMPLATES, ORDER_STATUSES, normalizeSmsTemplates } from '../../utils/orderMessaging';
 import PromotionEditor from './PromotionEditor';
 import { DEFAULT_PROMOTION, DEFAULT_POPUP_PROMOTION, DEFAULT_WEB_PROMOTION, normalizePromotion, validatePromotion } from '../../utils/promotion';
+import { sendDailySalesReportToTelegram } from '../../utils/telegramDailyReport';
 
 // --- FUNCIONES DE SANITIZACIÓN ---
 const sanitizeHTML = (text) => {
@@ -514,6 +515,28 @@ export default function SettingsManager({
         error: `Fallo al enviar mensaje: ${err.message || err}` 
       });
       addLog(`Error probando bot de Telegram: ${err.message || err}`);
+    }
+  };
+
+  const [sendingManualTelegramReport, setSendingManualTelegramReport] = useState(false);
+
+  const handleSendTelegramSummaryNow = async () => {
+    setSendingManualTelegramReport(true);
+    try {
+      const res = await sendDailySalesReportToTelegram({
+        orders: orders || [],
+        storeName: localStoreName || storeName || 'Friozo'
+      });
+      if (res.success) {
+        alert("¡Reporte diario de ventas enviado con éxito a Telegram! 🚀");
+        if (addLog) addLog(`Reporte manual de ventas enviado a Telegram por ${currentUser?.name || 'Administrador'}.`);
+      } else {
+        alert(`Error al enviar reporte a Telegram: ${res.error || 'Respuesta no exitosa'}`);
+      }
+    } catch (e) {
+      alert(`Error al enviar reporte: ${e.message || e}`);
+    } finally {
+      setSendingManualTelegramReport(false);
     }
   };
 
@@ -1564,6 +1587,206 @@ export default function SettingsManager({
                 {telegramTestStatus.error}
               </span>
             )}
+          </div>
+        </div>
+
+        {/* 🛠️ MÓDULOS Y HERRAMIENTAS OPERATIVAS */}
+        <div className="glass" style={{ borderLeft: '4px solid #f39c12', padding: '18px', background: 'rgba(243, 156, 18, 0.03)', borderRadius: '8px', marginBottom: '15px' }}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '8px' }}>
+            <strong style={{ display: 'flex', alignItems: 'center', gap: '8px', fontSize: '1rem', color: 'var(--text-dark)' }}>
+              🛠️ Módulos y Herramientas Operativas
+            </strong>
+            <span style={{ fontSize: '0.72rem', background: 'rgba(243, 156, 18, 0.15)', color: '#d35400', padding: '2px 8px', borderRadius: '12px', fontWeight: 'bold' }}>
+              Personalizable
+            </span>
+          </div>
+          <p style={{ fontSize: '0.75rem', color: 'var(--text-light)', marginTop: '2px', marginBottom: '15px' }}>
+            Activa o desactiva de manera individual cada utilidad según las necesidades del negocio.
+          </p>
+
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '14px' }}>
+            {/* KDS Cocina */}
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderBottom: '1px solid rgba(0,0,0,0.05)', paddingBottom: '10px' }}>
+              <div>
+                <strong style={{ fontSize: '0.85rem', display: 'block' }}>👨‍🍳 Pantalla KDS para Cocina</strong>
+                <span style={{ fontSize: '0.72rem', color: 'var(--text-light)' }}>
+                  Semáforo por tiempo (&lt;5m verde, 5-10m amarillo, &gt;10m rojo) y avisos sonoros de nuevos pedidos.
+                </span>
+              </div>
+              <label className="toggle-switch">
+                <input
+                  type="checkbox"
+                  checked={localShopConfig.kdsEnabled !== false}
+                  onChange={(e) => setLocalShopConfig(prev => ({ ...prev, kdsEnabled: e.target.checked }))}
+                />
+                <span className="slider"></span>
+              </label>
+            </div>
+
+            {/* Arqueo Caja Chica */}
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderBottom: '1px solid rgba(0,0,0,0.05)', paddingBottom: '10px' }}>
+              <div>
+                <strong style={{ fontSize: '0.85rem', display: 'block' }}>💵 Arqueo y Cierre Z de Caja Chica</strong>
+                <span style={{ fontSize: '0.72rem', color: 'var(--text-light)' }}>
+                  Apertura con fondo inicial, registro de egresos menores, conteo ciego de billetes/monedas y Cierre Z.
+                </span>
+              </div>
+              <label className="toggle-switch">
+                <input
+                  type="checkbox"
+                  checked={localShopConfig.cashRegisterEnabled !== false}
+                  onChange={(e) => setLocalShopConfig(prev => ({ ...prev, cashRegisterEnabled: e.target.checked }))}
+                />
+                <span className="slider"></span>
+              </label>
+            </div>
+
+            {/* Cierre y Liquidación de Carritos */}
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderBottom: '1px solid rgba(0,0,0,0.05)', paddingBottom: '10px' }}>
+              <div>
+                <strong style={{ fontSize: '0.85rem', display: 'block' }}>🍦 Liquidación Diaria de Carritos (Carga vs Retorno)</strong>
+                <span style={{ fontSize: '0.72rem', color: 'var(--text-light)' }}>
+                  Control de stock entregado en la mañana vs no vendido devuelto, cuadre de dinero a rendir y botón "Sin Stock".
+                </span>
+              </div>
+              <label className="toggle-switch">
+                <input
+                  type="checkbox"
+                  checked={localShopConfig.cartSettlementEnabled !== false}
+                  onChange={(e) => setLocalShopConfig(prev => ({ ...prev, cartSettlementEnabled: e.target.checked }))}
+                />
+                <span className="slider"></span>
+              </label>
+            </div>
+
+            {/* Modo Comandero Exprés */}
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderBottom: '1px solid rgba(0,0,0,0.05)', paddingBottom: '10px' }}>
+              <div>
+                <strong style={{ fontSize: '0.85rem', display: 'block' }}>⚡ Modo Comandero Exprés para Mozos</strong>
+                <span style={{ fontSize: '0.72rem', color: 'var(--text-light)' }}>
+                  Acceso rápido de 1 toque a los productos más pedidos en salón para agilizar la atención de mesas.
+                </span>
+              </div>
+              <label className="toggle-switch">
+                <input
+                  type="checkbox"
+                  checked={localShopConfig.expressWaiterEnabled !== false}
+                  onChange={(e) => setLocalShopConfig(prev => ({ ...prev, expressWaiterEnabled: e.target.checked }))}
+                />
+                <span className="slider"></span>
+              </label>
+            </div>
+
+            {/* División de Cuenta (Split Bill) */}
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderBottom: '1px solid rgba(0,0,0,0.05)', paddingBottom: '10px' }}>
+              <div>
+                <strong style={{ fontSize: '0.85rem', display: 'block' }}>🧮 Calculadora de División de Cuenta (Split Bill)</strong>
+                <span style={{ fontSize: '0.72rem', color: 'var(--text-light)' }}>
+                  Permite dividir el ticket de una mesa entre 2 a 6 comensales automáticamente con 1 clic.
+                </span>
+              </div>
+              <label className="toggle-switch">
+                <input
+                  type="checkbox"
+                  checked={localShopConfig.splitBillEnabled !== false}
+                  onChange={(e) => setLocalShopConfig(prev => ({ ...prev, splitBillEnabled: e.target.checked }))}
+                />
+                <span className="slider"></span>
+              </label>
+            </div>
+
+            {/* Impresión Térmica ESC/POS */}
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderBottom: '1px solid rgba(0,0,0,0.05)', paddingBottom: '10px' }}>
+              <div>
+                <strong style={{ fontSize: '0.85rem', display: 'block' }}>🧾 Impresión Térmica ESC/POS (58mm / 80mm)</strong>
+                <span style={{ fontSize: '0.72rem', color: 'var(--text-light)' }}>
+                  Tickets compactos para cocina, despacho de delivery y tiras de Cierre Z.
+                </span>
+              </div>
+              <label className="toggle-switch">
+                <input
+                  type="checkbox"
+                  checked={localShopConfig.escposPrintEnabled !== false}
+                  onChange={(e) => setLocalShopConfig(prev => ({ ...prev, escposPrintEnabled: e.target.checked }))}
+                />
+                <span className="slider"></span>
+              </label>
+            </div>
+
+            {/* Bitácora de Auditoría */}
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderBottom: '1px solid rgba(0,0,0,0.05)', paddingBottom: '10px' }}>
+              <div>
+                <strong style={{ fontSize: '0.85rem', display: 'block' }}>🛡️ Registro y Auditoría de Operaciones</strong>
+                <span style={{ fontSize: '0.72rem', color: 'var(--text-light)' }}>
+                  Historial inmutable de cancelaciones, arqueos, liquidaciones y cambios de personal.
+                </span>
+              </div>
+              <label className="toggle-switch">
+                <input
+                  type="checkbox"
+                  checked={localShopConfig.auditLogEnabled !== false}
+                  onChange={(e) => setLocalShopConfig(prev => ({ ...prev, auditLogEnabled: e.target.checked }))}
+                />
+                <span className="slider"></span>
+              </label>
+            </div>
+
+            {/* Reporte Nocturno Automático a Telegram */}
+            <div style={{ background: 'rgba(0, 136, 204, 0.04)', padding: '12px', borderRadius: '8px', border: '1px solid rgba(0, 136, 204, 0.2)' }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '8px' }}>
+                <div>
+                  <strong style={{ fontSize: '0.85rem', color: '#0088cc', display: 'block' }}>
+                    🌙 Reporte Nocturno Automático de Ventas a Telegram
+                  </strong>
+                  <span style={{ fontSize: '0.72rem', color: 'var(--text-light)' }}>
+                    Envía el cuadre del día (total vendido, métodos de pago, pedidos y ticket promedio) a la hora configurada.
+                  </span>
+                </div>
+                <label className="toggle-switch">
+                  <input
+                    type="checkbox"
+                    checked={localShopConfig.telegramDailyReportEnabled === true}
+                    onChange={(e) => setLocalShopConfig(prev => ({ ...prev, telegramDailyReportEnabled: e.target.checked }))}
+                  />
+                  <span className="slider"></span>
+                </label>
+              </div>
+
+              {localShopConfig.telegramDailyReportEnabled && (
+                <div style={{ display: 'flex', gap: '15px', alignItems: 'center', marginTop: '10px', flexWrap: 'wrap' }}>
+                  <div className="form-group" style={{ marginBottom: 0 }}>
+                    <label style={{ fontSize: '0.75rem', fontWeight: 600 }}>Hora de Envío Automático (Hora Perú):</label>
+                    <input
+                      type="time"
+                      className="form-control"
+                      style={{ fontSize: '0.8rem', padding: '4px 8px', width: '130px' }}
+                      value={localShopConfig.telegramDailyReportHour || '22:00'}
+                      onChange={(e) => setLocalShopConfig(prev => ({ ...prev, telegramDailyReportHour: e.target.value }))}
+                    />
+                  </div>
+                  <div style={{ alignSelf: 'flex-end' }}>
+                    <button
+                      type="button"
+                      className="btn btn-sm"
+                      onClick={handleSendTelegramSummaryNow}
+                      disabled={sendingManualTelegramReport}
+                      style={{
+                        background: '#0088cc',
+                        color: '#fff',
+                        fontSize: '0.75rem',
+                        padding: '6px 12px',
+                        borderRadius: '6px',
+                        border: 'none',
+                        cursor: 'pointer',
+                        fontWeight: 600
+                      }}
+                    >
+                      {sendingManualTelegramReport ? '⏳ Enviando...' : '🚀 Enviar Resumen de Ventas Ahora'}
+                    </button>
+                  </div>
+                </div>
+              )}
+            </div>
           </div>
         </div>
 

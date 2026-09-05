@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { buildSmsHref, formatOrderStatusMessage, normalizeSmsTemplates } from '../../utils/orderMessaging';
+import { printThermalTicket } from '../../utils/escposTicket';
 
 // --- FUNCIONES DE SANITIZACIÓN ---
 const sanitizeHTML = (text) => {
@@ -16,12 +17,14 @@ export default function OrderManager({
   bases,
   packs,
   storeName,
+  storePhone,
   ticketCustomMessage,
   addLog,
   currentUser,
   showAlert,
   shopConfig,
-  activeSubTab: activeSubTabProp
+  activeSubTab: activeSubTabProp,
+  staffUsers = []
 }) {
   const alert = (msg) => {
     if (showAlert) {
@@ -75,6 +78,26 @@ export default function OrderManager({
     onUpdateOrderStatus(order.id, newStatus);
     addLog(logText);
     openStatusSms(order, newStatus);
+  };
+
+  const handleAssignDriver = (order, driverIdentifier) => {
+    const selectedUser = (staffUsers || []).find(u => String(u.id || u.email) === String(driverIdentifier));
+    const assignedDriver = selectedUser ? {
+      id: selectedUser.id || selectedUser.email,
+      name: selectedUser.name || selectedUser.email,
+      email: selectedUser.email,
+      phone: selectedUser.phone || ''
+    } : null;
+
+    const updated = {
+      ...order,
+      assignedDriver,
+      updatedAt: new Date().toISOString()
+    };
+    onUpdateOrders(orders.map(o => o.id === order.id ? updated : o));
+    if (addLog) {
+      addLog(`Repartidor ${assignedDriver ? assignedDriver.name : 'desasignado'} para pedido ${order.id}`);
+    }
   };
 
   // --- Estados de Edición de Pedidos ---
@@ -696,13 +719,69 @@ export default function OrderManager({
                     </td>
                   </tr>
                 ) : (
-                  displayedOrders.map(order => (
-                    <tr key={order.id}>
+                  displayedOrders.map(order => {
+                    const isDelivery = order.customer?.orderType === 'Delivery' || (order.deliveryFee > 0);
+                    return (
+                    <tr key={order.id} style={isDelivery ? { background: 'rgba(255, 68, 31, 0.02)' } : {}}>
                       <td>
-                        <strong>{order.id}</strong>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '6px', flexWrap: 'wrap' }}>
+                          <strong>{order.id}</strong>
+                          {isDelivery && (
+                            <span className="badge badge-delivery" style={{
+                              background: 'var(--delivery-color, #FF441F)',
+                              color: '#fff',
+                              fontSize: '0.65rem',
+                              fontWeight: 700,
+                              padding: '2px 6px',
+                              borderRadius: '4px',
+                              display: 'inline-flex',
+                              alignItems: 'center',
+                              gap: '3px'
+                            }}>
+                              🛵 DELIVERY
+                            </span>
+                          )}
+                          {order.customer?.orderType === 'Mesa' && (
+                            <span className="badge" style={{
+                              background: '#3498db',
+                              color: '#fff',
+                              fontSize: '0.65rem',
+                              fontWeight: 700,
+                              padding: '2px 6px',
+                              borderRadius: '4px'
+                            }}>
+                              🍽️ Mesa {order.customer?.tableNumber || ''}
+                            </span>
+                          )}
+                        </div>
                         <div style={{ fontSize: '0.7rem', color: 'var(--text-light)', marginTop: '2px' }}>
                           {new Date(order.date).toLocaleDateString('es-PE')} {new Date(order.date).toLocaleTimeString('es-PE', { hour: '2-digit', minute: '2-digit', hour12: true })}
                         </div>
+                        {isDelivery && (
+                          <div style={{ marginTop: '5px' }}>
+                            <select
+                              aria-label="Asignar repartidor"
+                              value={order.assignedDriver?.id || order.assignedDriver?.email || ''}
+                              onChange={(e) => handleAssignDriver(order, e.target.value)}
+                              style={{
+                                fontSize: '0.72rem',
+                                padding: '2px 4px',
+                                borderRadius: '4px',
+                                border: '1px solid var(--delivery-color, #FF441F)',
+                                background: 'var(--bg-secondary, #fff)',
+                                color: 'var(--text-dark)',
+                                maxWidth: '150px'
+                              }}
+                            >
+                              <option value="">🛵 Asignar repartidor...</option>
+                              {staffUsers.map(u => (
+                                <option key={u.id || u.email} value={u.id || u.email}>
+                                  {u.name || u.email}
+                                </option>
+                              ))}
+                            </select>
+                          </div>
+                        )}
                       </td>
                       <td>
                         <div style={{ fontWeight: 600, fontSize: '0.85rem' }}>{order.customer.name}</div>
@@ -767,6 +846,23 @@ export default function OrderManager({
                           >
                             💬 Chat
                           </a>
+                          <button
+                            type="button"
+                            className="admin-action-btn"
+                            style={{ color: 'var(--delivery-color, #FF441F)', fontWeight: 600 }}
+                            title="Imprimir ticket térmico ESC/POS (58mm / 80mm)"
+                            onClick={() => {
+                              printThermalTicket({
+                                type: isDelivery ? 'delivery' : 'comanda',
+                                order,
+                                storeName: storeName || 'Friozo',
+                                storePhone: storePhone || '',
+                                ticketCustomMessage: ticketCustomMessage || ''
+                              });
+                            }}
+                          >
+                            🧾 Térmica ESC/POS
+                          </button>
                           <button
                             type="button"
                             className="admin-action-btn"
@@ -914,7 +1010,8 @@ export default function OrderManager({
                         </div>
                       </td>
                     </tr>
-                  ))
+                    );
+                  })
                 )}
               </tbody>
             </table>

@@ -45,6 +45,12 @@ export default function TableOrderManager({
   const [literScoops, setLiterScoops] = useState([]);
   const [showLiterCustomizer, setShowLiterCustomizer] = useState(false);
 
+  // División de cuenta (Split Bill)
+  const [showSplitBill, setShowSplitBill] = useState(false);
+  const [splitPeopleCount, setSplitPeopleCount] = useState(2);
+  // Modo Comandero Exprés para Mozos
+  const [expressMode, setExpressMode] = useState(false);
+
   // Método de pago para cierre de mesa
   const [checkoutPaymentMethod, setCheckoutPaymentMethod] = useState('Yape');
 
@@ -823,6 +829,32 @@ export default function TableOrderManager({
           </div>
         )}
 
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '10px' }}>
+          <span style={{ fontSize: '0.85rem', fontWeight: 'bold', color: 'var(--text-dark)' }}>
+            🍽️ Mapa de Mesas y Barra
+          </span>
+          <button
+            type="button"
+            className="btn btn-sm"
+            onClick={() => setExpressMode(!expressMode)}
+            style={{
+              fontSize: '0.72rem',
+              padding: '4px 10px',
+              borderRadius: '20px',
+              border: expressMode ? '2px solid #f39c12' : '1px solid var(--border-color)',
+              background: expressMode ? '#f39c12' : 'var(--bg-secondary)',
+              color: expressMode ? '#fff' : 'var(--text-dark)',
+              fontWeight: 700,
+              cursor: 'pointer',
+              display: 'inline-flex',
+              alignItems: 'center',
+              gap: '4px'
+            }}
+          >
+            ⚡ {expressMode ? 'Modo Exprés Activo' : 'Comandero Exprés'}
+          </button>
+        </div>
+
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(110px, 1fr))', gap: '12px' }}>
           {renderTablesGrid()}
         </div>
@@ -1105,6 +1137,15 @@ export default function TableOrderManager({
                       <button
                         type="button"
                         className="btn btn-secondary"
+                        style={{ padding: '8px 12px', fontSize: '0.75rem', background: 'rgba(52, 152, 219, 0.1)', color: '#2980b9', border: '1px solid rgba(52, 152, 219, 0.3)' }}
+                        onClick={() => setShowSplitBill(!showSplitBill)}
+                        title="Dividir la cuenta entre comensales"
+                      >
+                        🧮 Dividir ({splitPeopleCount})
+                      </button>
+                      <button
+                        type="button"
+                        className="btn btn-secondary"
                         style={{ padding: '8px 12px', fontSize: '0.75rem' }}
                         onClick={() => handleConvertToTakeout(activeOrder)}
                       >
@@ -1123,6 +1164,65 @@ export default function TableOrderManager({
                         🔓 Liberar
                       </button>
                     </div>
+
+                    {showSplitBill && (
+                      <div style={{
+                        background: 'rgba(52, 152, 219, 0.07)',
+                        border: '1px solid rgba(52, 152, 219, 0.3)',
+                        padding: '12px',
+                        borderRadius: '8px',
+                        margin: '10px 0'
+                      }}>
+                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '8px' }}>
+                          <strong style={{ fontSize: '0.82rem', color: '#2980b9' }}>🧮 División de Cuenta (Split Bill)</strong>
+                          <button
+                            type="button"
+                            onClick={() => setShowSplitBill(false)}
+                            style={{ background: 'none', border: 'none', cursor: 'pointer', fontSize: '0.8rem' }}
+                          >
+                            ✕
+                          </button>
+                        </div>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '10px', flexWrap: 'wrap' }}>
+                          <span style={{ fontSize: '0.75rem', fontWeight: 600 }}>Comensales:</span>
+                          <div style={{ display: 'flex', gap: '4px' }}>
+                            {[2, 3, 4, 5, 6].map(num => (
+                              <button
+                                key={num}
+                                type="button"
+                                onClick={() => setSplitPeopleCount(num)}
+                                style={{
+                                  padding: '4px 10px',
+                                  fontSize: '0.75rem',
+                                  borderRadius: '4px',
+                                  border: splitPeopleCount === num ? '1.5px solid #2980b9' : '1px solid var(--border-color)',
+                                  background: splitPeopleCount === num ? '#2980b9' : '#fff',
+                                  color: splitPeopleCount === num ? '#fff' : '#333',
+                                  cursor: 'pointer',
+                                  fontWeight: 600
+                                }}
+                              >
+                                {num}
+                              </button>
+                            ))}
+                          </div>
+                        </div>
+                        <div style={{
+                          background: '#fff',
+                          padding: '10px',
+                          borderRadius: '6px',
+                          border: '1px dashed #2980b9',
+                          textAlign: 'center'
+                        }}>
+                          <div style={{ fontSize: '0.75rem', color: 'var(--text-light)' }}>
+                            Monto total: S/. {activeOrder.grandTotal.toFixed(2)} ÷ {splitPeopleCount} personas
+                          </div>
+                          <div style={{ fontSize: '1.25rem', fontWeight: 'bold', color: '#2980b9', marginTop: '4px' }}>
+                            S/. {(activeOrder.grandTotal / splitPeopleCount).toFixed(2)} <span style={{ fontSize: '0.75rem', fontWeight: 'normal', color: '#555' }}>cada uno</span>
+                          </div>
+                        </div>
+                      </div>
+                    )}
  
                     <div className="table-actions-row">
                       <select
