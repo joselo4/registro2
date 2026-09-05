@@ -2,7 +2,7 @@ import React, { useState, useEffect, useMemo, useCallback, useRef } from 'react'
 import DessertPreview from './DessertPreview';
 import PromotionBanner from './PromotionBanner';
 import WelcomePromotion from './WelcomePromotion';
-import { normalizePromotion } from '../utils/promotion';
+import { normalizePromotion, DEFAULT_POPUP_PROMOTION, DEFAULT_WEB_PROMOTION } from '../utils/promotion';
 import { updateSyncedData } from '../utils/supabaseSync';
 
 export default function CustomerShop({ 
@@ -58,7 +58,22 @@ export default function CustomerShop({
     return 'all';
   });
 
-  const promotion = normalizePromotion(shopConfig.promotion);
+  const popupPromotion = normalizePromotion(
+    shopConfig.popupPromotion || (shopConfig.promotion ? {
+      ...shopConfig.promotion,
+      enabled: shopConfig.promotion.showWelcome ?? shopConfig.promotion.enabled ?? true
+    } : {}),
+    DEFAULT_POPUP_PROMOTION
+  );
+
+  const webPromotion = normalizePromotion(
+    shopConfig.webPromotion ? shopConfig.webPromotion : {
+      ...(shopConfig.promotion || {}),
+      enabled: false
+    },
+    DEFAULT_WEB_PROMOTION
+  );
+
   const handlePromotionAction = (action) => {
     if (action === 'customizer') { setView('customizer'); return; }
     const category = ['popsicles', 'classic', 'liter', 'packs'].includes(action) ? action : 'all';
@@ -787,9 +802,12 @@ export default function CustomerShop({
         </div>
       ) : (
         <>
-          {/* Hero Section */}
-          <WelcomePromotion promotion={promotion} tableNumber={tableNumber} onAction={handlePromotionAction} ready={promotionReady} />
-          {promotion.position === 'above-hero' && <PromotionBanner promotion={promotion} tableNumber={tableNumber} onAction={handlePromotionAction} />}
+          {/* Pop-up Banner Emergente de Bienvenida al ingresar */}
+          <WelcomePromotion promotion={popupPromotion} tableNumber={tableNumber} onAction={handlePromotionAction} ready={promotionReady} />
+          {/* Banner Fijo en la Tienda Web (Solo si está activado) */}
+          {webPromotion.enabled && webPromotion.position === 'above-hero' && (
+            <PromotionBanner promotion={webPromotion} tableNumber={tableNumber} onAction={handlePromotionAction} />
+          )}
           <section className="hero">
         <div className="hero-text">
           {tableOrdersEnabled && tableNumber && occupiedTables.includes(String(tableNumber)) && localStorage.getItem('helados_active_order_table') === String(tableNumber) && (
@@ -1035,8 +1053,10 @@ export default function CustomerShop({
         </div>
       )}
 
-      {/* Catálogo */}
-      {promotion.position === 'above-catalog' && <PromotionBanner promotion={promotion} tableNumber={tableNumber} onAction={handlePromotionAction} />}
+      {/* Banner Fijo en la Tienda Web (Antes del catálogo, solo si está activado) */}
+      {webPromotion.enabled && webPromotion.position === 'above-catalog' && (
+        <PromotionBanner promotion={webPromotion} tableNumber={tableNumber} onAction={handlePromotionAction} />
+      )}
       <section id="catalog" className="catalog-section">
         <div className="catalog-heading">
           <div>

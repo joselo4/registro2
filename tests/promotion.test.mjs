@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { DEFAULT_PROMOTION, normalizePromotion, isPromotionVisible, safePromotionUrl, validatePromotion } from '../src/utils/promotion.js';
+import { DEFAULT_PROMOTION, DEFAULT_POPUP_PROMOTION, DEFAULT_WEB_PROMOTION, normalizePromotion, isPromotionVisible, safePromotionUrl, validatePromotion } from '../src/utils/promotion.js';
 
 test('campaign starts and ends at the configured instant across timezone offsets', () => {
   const p = { startsAt: '2026-09-05T12:00:00-05:00', endsAt: '2026-09-05T14:00:00-05:00' };
@@ -46,4 +46,21 @@ test('uploaded raster image survives saving while executable data URLs are block
   assert.equal(safePromotionUrl('data:image/svg+xml;base64,PHN2Zz4=', {image:true}), '');
   assert.equal(safePromotionUrl('data:image/png;base64,'+'A'.repeat(400000), {image:true}), '');
   assert.equal(normalizePromotion({showWelcome:false}).showWelcome, false);
+});
+
+test('popup and web promotions operate with independent defaults and settings', () => {
+  const popup = normalizePromotion({ title: 'Bienvenido a Friozo' }, DEFAULT_POPUP_PROMOTION);
+  const web = normalizePromotion({ title: 'Oferta en tienda', enabled: true, position: 'above-catalog' }, DEFAULT_WEB_PROMOTION);
+
+  assert.equal(popup.enabled, true);
+  assert.equal(popup.title, 'Bienvenido a Friozo');
+  assert.equal(isPromotionVisible(popup), true);
+
+  assert.equal(web.enabled, true);
+  assert.equal(web.title, 'Oferta en tienda');
+  assert.equal(web.position, 'above-catalog');
+
+  const defaultWeb = normalizePromotion({}, DEFAULT_WEB_PROMOTION);
+  assert.equal(defaultWeb.enabled, false);
+  assert.equal(isPromotionVisible(defaultWeb), false);
 });

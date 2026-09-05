@@ -29,6 +29,22 @@ export const DEFAULT_PROMOTION = {
   endsAt: '',
 };
 
+export const DEFAULT_POPUP_PROMOTION = {
+  ...DEFAULT_PROMOTION,
+  enabled: true,
+  eyebrow: '¡BIENVENIDO A FRIOZO!',
+  title: '¡Pide online y disfruta lo artesanal!',
+  description: 'Descubre nuestros helados hechos a mano, paletas frutales y combinaciones únicas.',
+  buttonText: 'Ver la carta',
+  action: 'catalog',
+};
+
+export const DEFAULT_WEB_PROMOTION = {
+  ...DEFAULT_PROMOTION,
+  enabled: false,
+  position: 'above-hero',
+};
+
 export function safePromotionUrl(value, { image = false } = {}) {
   const url = String(value || '').trim();
   if (image && url.length <= 400000 && /^data:image\/(?:webp|png|jpeg);base64,[a-z0-9+/]+=*$/i.test(url)) return url;
@@ -38,8 +54,8 @@ export function safePromotionUrl(value, { image = false } = {}) {
   try { return new URL(url).protocol === 'https:' ? url : ''; } catch { return ''; }
 }
 
-export function normalizePromotion(value = {}) {
-  const result = { ...DEFAULT_PROMOTION };
+export function normalizePromotion(value = {}, baseDefaults = DEFAULT_PROMOTION) {
+  const result = { ...DEFAULT_PROMOTION, ...baseDefaults };
   if (!value || typeof value !== 'object') return result;
   for (const key of ['eyebrow', 'title', 'description', 'buttonText', 'terms', 'coupon', 'imageAlt', 'offerLabel', 'originalPrice', 'salePrice']) {
     if (typeof value[key] === 'string') result[key] = value[key].slice(0, key === 'description' || key === 'terms' ? 500 : 120);

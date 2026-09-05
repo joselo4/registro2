@@ -4,7 +4,7 @@ import { uploadToR2, compressToWebP } from '../../utils/r2Client';
 import { updateMultipleSyncedData } from '../../utils/supabaseSync';
 import { DEFAULT_SMS_TEMPLATES, ORDER_STATUSES, normalizeSmsTemplates } from '../../utils/orderMessaging';
 import PromotionEditor from './PromotionEditor';
-import { DEFAULT_PROMOTION, normalizePromotion, validatePromotion } from '../../utils/promotion';
+import { DEFAULT_PROMOTION, DEFAULT_POPUP_PROMOTION, DEFAULT_WEB_PROMOTION, normalizePromotion, validatePromotion } from '../../utils/promotion';
 
 // --- FUNCIONES DE SANITIZACIÓN ---
 const sanitizeHTML = (text) => {
@@ -729,8 +729,33 @@ export default function SettingsManager({
     <div style={{ maxWidth: '650px', display: 'flex', flexDirection: 'column', gap: '20px' }}>
       <h3>Ajustes de la Heladería</h3>
       <PromotionEditor
-        value={localShopConfig.promotion}
-        onChange={patch => setLocalShopConfig(prev => ({ ...prev, promotion: { ...DEFAULT_PROMOTION, ...prev.promotion, ...patch } }))}
+        popupValue={localShopConfig.popupPromotion || (localShopConfig.promotion ? {
+          ...localShopConfig.promotion,
+          enabled: localShopConfig.promotion.showWelcome ?? localShopConfig.promotion.enabled ?? true
+        } : undefined)}
+        webValue={localShopConfig.webPromotion || (localShopConfig.promotion ? {
+          ...localShopConfig.promotion,
+          enabled: false
+        } : undefined)}
+        onPopupChange={patch => setLocalShopConfig(prev => ({
+          ...prev,
+          popupPromotion: {
+            ...DEFAULT_POPUP_PROMOTION,
+            ...(prev.popupPromotion || (prev.promotion ? {
+              ...prev.promotion,
+              enabled: prev.promotion.showWelcome ?? prev.promotion.enabled ?? true
+            } : {})),
+            ...patch
+          }
+        }))}
+        onWebChange={patch => setLocalShopConfig(prev => ({
+          ...prev,
+          webPromotion: {
+            ...DEFAULT_WEB_PROMOTION,
+            ...(prev.webPromotion || (prev.promotion ? { ...prev.promotion, enabled: false } : {})),
+            ...patch
+          }
+        }))}
         onUpload={async (file, onUploaded) => {
           if (!['image/jpeg', 'image/png', 'image/webp'].includes(file.type) || file.size > 10000000) throw new Error('Elige una imagen JPG, PNG o WebP de hasta 10 MB.');
           const blob = await compressToWebP(file, 900, 0.8);
@@ -744,16 +769,43 @@ export default function SettingsManager({
           onUploaded(image);
         }}
         onSave={async () => {
-          const draft = { ...DEFAULT_PROMOTION, ...localShopConfig.promotion };
-          const error = validatePromotion(draft);
-          if (error) throw new Error(error);
-          const promotion = normalizePromotion(draft);
-          const nextConfig = { ...shopConfig, promotion };
+          const popupDraft = {
+            ...DEFAULT_POPUP_PROMOTION,
+            ...(localShopConfig.popupPromotion || (localShopConfig.promotion ? {
+              ...localShopConfig.promotion,
+              enabled: localShopConfig.promotion.showWelcome ?? localShopConfig.promotion.enabled ?? true
+            } : {}))
+          };
+          const webDraft = {
+            ...DEFAULT_WEB_PROMOTION,
+            ...(localShopConfig.webPromotion || (localShopConfig.promotion ? { ...localShopConfig.promotion, enabled: false } : {}))
+          };
+
+          const popupError = validatePromotion(popupDraft);
+          if (popupError) throw new Error(`[Pop-up emergente] ${popupError}`);
+          const webError = validatePromotion(webDraft);
+          if (webError) throw new Error(`[Banner en la web] ${webError}`);
+
+          const popupPromotion = normalizePromotion(popupDraft, DEFAULT_POPUP_PROMOTION);
+          const webPromotion = normalizePromotion(webDraft, DEFAULT_WEB_PROMOTION);
+
+          const nextConfig = {
+            ...shopConfig,
+            popupPromotion,
+            webPromotion,
+            promotion: { ...webPromotion, showWelcome: popupPromotion.enabled }
+          };
+
           const saved = await updateMultipleSyncedData([{ key: 'shop_open', value: nextConfig }]);
           if (!saved) throw new Error('No se pudo guardar en la nube. Revisa tu conexión y tu sesión de administrador.');
-          setLocalShopConfig(prev => ({ ...prev, promotion }));
+          setLocalShopConfig(prev => ({
+            ...prev,
+            popupPromotion,
+            webPromotion,
+            promotion: nextConfig.promotion
+          }));
           onChangeShopConfig?.(nextConfig);
-          addLog(`Promoción ${promotion.enabled ? 'activada' : 'desactivada'} por ${currentUser?.name || 'Administrador'}.`);
+          addLog(`Promociones guardadas (Pop-up: ${popupPromotion.enabled ? 'Activado' : 'Desactivado'}, Web: ${webPromotion.enabled ? 'Activado' : 'Desactivado'}) por ${currentUser?.name || 'Administrador'}.`);
         }}
       />
       
