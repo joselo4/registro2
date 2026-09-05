@@ -730,7 +730,7 @@ export default function CustomerShop({
     );
   }, [tableNumber, catalogOrder, filter, literConfig, activeFlavors, activePacks, activePopsicles, setView, handleAddClassicToCart, handleAddPackToCart, handleAddPopsicleToCart, shopConfig]);
 
-  const resolvedHeroImage = storeHeroImage || '/hero-friozo-v2.png';
+  const resolvedHeroImage = storeHeroImage || '/hero-friozo-v2.webp';
 
   return (
     <div className="customer-shop">

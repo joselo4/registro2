@@ -2,6 +2,12 @@ export async function onRequest(context) {
   const url = new URL(context.request.url);
   const path = url.pathname;
 
+  // 0. Canonical domain redirect: ensure www.pideanda.com
+  if (url.hostname === 'pideanda.com') {
+    url.hostname = 'www.pideanda.com';
+    return Response.redirect(url.toString(), 301);
+  }
+
   if (path.includes('.env') || path.includes('.git') || (path.includes('.well-known') && path !== '/.well-known/security.txt')) {
     return new Response('Not Found', { status: 404 });
   }
@@ -78,7 +84,7 @@ export async function onRequest(context) {
             'X-Frame-Options': 'DENY',
             'Strict-Transport-Security': 'max-age=31536000; includeSubDomains; preload',
             'Referrer-Policy': 'strict-origin-when-cross-origin',
-            'Permissions-Policy': 'camera=(), microphone=(), geolocation=()'
+            'Permissions-Policy': 'camera=(), microphone=(), geolocation=(self)'
           }
         });
       } else {
@@ -90,7 +96,7 @@ export async function onRequest(context) {
             'X-Frame-Options': 'DENY',
             'Strict-Transport-Security': 'max-age=31536000; includeSubDomains; preload',
             'Referrer-Policy': 'strict-origin-when-cross-origin',
-            'Permissions-Policy': 'camera=(), microphone=(), geolocation=()'
+            'Permissions-Policy': 'camera=(), microphone=(), geolocation=(self)'
           }
         });
       }
@@ -106,7 +112,7 @@ export async function onRequest(context) {
     newResponse.headers.set('X-Frame-Options', 'DENY');
     newResponse.headers.set('Strict-Transport-Security', 'max-age=31536000; includeSubDomains; preload');
     newResponse.headers.set('Referrer-Policy', 'strict-origin-when-cross-origin');
-    newResponse.headers.set('Permissions-Policy', 'camera=(), microphone=(), geolocation=()');
+    newResponse.headers.set('Permissions-Policy', 'camera=(), microphone=(), geolocation=(self)');
     newResponse.headers.delete('X-Powered-By');
 
     // Inject CORS header to response if origin is allowed
@@ -125,7 +131,7 @@ export async function onRequest(context) {
   newResponse.headers.set('X-Frame-Options', 'DENY');
   newResponse.headers.set('Strict-Transport-Security', 'max-age=31536000; includeSubDomains; preload');
   newResponse.headers.set('Referrer-Policy', 'strict-origin-when-cross-origin');
-  newResponse.headers.set('Permissions-Policy', 'camera=(), microphone=(), geolocation=()');
+  newResponse.headers.set('Permissions-Policy', 'camera=(), microphone=(), geolocation=(self)');
   newResponse.headers.delete('X-Powered-By');
   return newResponse;
 }

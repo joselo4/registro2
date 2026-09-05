@@ -535,8 +535,9 @@ export default function Cart({
             {!needsTable && (
               <>
                 <div className="form-group">
-                  <label style={{ fontSize: '0.8rem' }}>¿Tu Nombre?</label>
+                  <label htmlFor="cart-customer-name" style={{ fontSize: '0.8rem' }}>¿Tu Nombre?</label>
                   <input
+                    id="cart-customer-name"
                     type="text"
                     className="form-control"
                     placeholder="Ej. Carlos Mendoza"
@@ -549,8 +550,9 @@ export default function Cart({
                 </div>
 
                 <div className="form-group">
-                  <label style={{ fontSize: '0.8rem' }}>WhatsApp / Teléfono</label>
+                  <label htmlFor="cart-customer-phone" style={{ fontSize: '0.8rem' }}>WhatsApp / Teléfono</label>
                   <input
+                    id="cart-customer-phone"
                     type="tel"
                     className="form-control"
                     placeholder="Ej. 987654321"
@@ -566,7 +568,7 @@ export default function Cart({
 
             {needsTable && (
               <div className="form-group">
-                <label style={{ fontSize: '0.8rem', fontWeight: 'bold' }}>Número de Mesa</label>
+                <label htmlFor="cart-table-select" style={{ fontSize: '0.8rem', fontWeight: 'bold' }}>Número de Mesa</label>
                 {tableNumber ? (
                   <div style={{
                     padding: '10px 14px',
@@ -583,6 +585,7 @@ export default function Cart({
                   </div>
                 ) : (
                   <select
+                    id="cart-table-select"
                     className="form-control"
                     value={localTableNumber || ''}
                     onChange={(e) => {
@@ -618,8 +621,9 @@ export default function Cart({
 
             {orderType === 'Delivery' && (
               <div className="form-group">
-                <label style={{ fontSize: '0.8rem' }}>Dirección de Entrega</label>
+                <label htmlFor="cart-delivery-address" style={{ fontSize: '0.8rem' }}>Dirección de Entrega</label>
                 <input
+                  id="cart-delivery-address"
                   type="text"
                   className="form-control"
                   placeholder="Ej. Jr. Tarapacá 489, Magdalena"
@@ -682,10 +686,11 @@ export default function Cart({
 
             {/* Campo de Cupón de Descuento */}
             <div className="form-group" style={{ borderTop: '1px solid var(--border-color)', paddingTop: '10px', marginTop: '10px' }}>
-              <label style={{ fontSize: '0.8rem', display: 'block', marginBottom: '4px', fontWeight: 600 }}>🎟️ ¿Tienes un Cupón de Descuento?</label>
+              <label htmlFor="cart-coupon-input" style={{ fontSize: '0.8rem', display: 'block', marginBottom: '4px', fontWeight: 600 }}>🎟️ ¿Tienes un Cupón de Descuento?</label>
               {!appliedCoupon ? (
                 <div style={{ display: 'flex', gap: '6px' }}>
                   <input
+                    id="cart-coupon-input"
                     type="text"
                     className="form-control"
                     placeholder="Ej. VERANO10"
