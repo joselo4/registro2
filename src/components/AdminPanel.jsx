@@ -514,9 +514,9 @@ export default function AdminPanel({
       <div className="glass admin-login-container" style={{ maxWidth: '400px', width: '90%', margin: '40px auto', padding: '25px', borderRadius: 'var(--radius-lg)' }}>
         <div style={{ textAlign: 'center', marginBottom: '20px' }}>
           <span style={{ fontSize: '3rem' }}>🔒</span>
-          <h2 style={{ marginTop: '10px' }}>Acceso Administrativo</h2>
+          <h2 style={{ marginTop: '10px' }}>{isVendorApp ? "Friozo Operadores" : "Acceso Administrativo"}</h2>
           <p style={{ fontSize: '0.85rem', color: 'var(--text-light)', marginTop: '4px', marginBottom: isVendorApp ? '15px' : '4px' }}>
-            {supabase ? "Conectado a la base de datos Supabase." : "Ingresa con tu usuario o clave maestra."}
+            {isVendorApp ? "Panel exclusivo para operadores y despacho." : (supabase ? "Conectado a la base de datos Supabase." : "Ingresa con tu usuario o clave maestra.")}
           </p>
           {isVendorApp && (
             <div style={{ display: 'flex', justifyContent: 'center', marginTop: '10px' }}>
@@ -528,10 +528,10 @@ export default function AdminPanel({
                 fontWeight: 'bold',
                 padding: '4px 10px',
                 borderRadius: '12px',
-                backgroundColor: realtimeStatus === 'connected' ? 'rgba(46, 204, 113, 0.1)' :
+                backgroundColor: isCloudSynced ? 'rgba(46, 204, 113, 0.1)' :
                                  realtimeStatus === 'error' ? 'rgba(231, 76, 60, 0.1)' :
                                  'rgba(241, 196, 15, 0.1)',
-                color: realtimeStatus === 'connected' ? 'var(--success)' :
+                color: isCloudSynced ? 'var(--success)' :
                        realtimeStatus === 'error' ? 'var(--danger)' :
                        'var(--secondary-color)',
               }}>
@@ -540,14 +540,14 @@ export default function AdminPanel({
                   width: '6px',
                   height: '6px',
                   borderRadius: '50%',
-                  background: realtimeStatus === 'connected' ? '#2ecc71' :
+                  background: isCloudSynced ? '#2ecc71' :
                               realtimeStatus === 'error' ? '#e74c3c' :
                               '#f1c40f',
-                  boxShadow: realtimeStatus === 'connected' ? '0 0 6px rgba(46, 204, 113, 0.6)' :
+                  boxShadow: isCloudSynced ? '0 0 6px rgba(46, 204, 113, 0.6)' :
                              realtimeStatus === 'error' ? '0 0 6px rgba(231, 76, 60, 0.6)' :
                              '0 0 6px rgba(241, 196, 15, 0.6)'
                 }} />
-                {realtimeStatus === 'connected' ? 'Tiempo Real En Línea' :
+                {isCloudSynced ? 'Sincronizado (Supabase)' :
                  realtimeStatus === 'error' ? 'Tiempo Real Desconectado' :
                  'Conectando Tiempo Real...'}
               </div>
@@ -610,25 +610,23 @@ export default function AdminPanel({
           color: isCloudSynced ? 'var(--success)' : 'var(--secondary-color)',
           width: 'fit-content'
         }}>
-          {isCloudSynced && (
-            <span 
-              style={{
-                display: 'inline-block',
-                width: '6px',
-                height: '6px',
-                borderRadius: '50%',
-                background: realtimeStatus === 'connected' ? '#2ecc71' :
-                            realtimeStatus === 'error' ? '#e74c3c' :
-                            '#f1c40f',
-                boxShadow: realtimeStatus === 'connected' ? '0 0 6px rgba(46, 204, 113, 0.6)' :
-                           realtimeStatus === 'error' ? '0 0 6px rgba(231, 76, 60, 0.6)' :
-                           '0 0 6px rgba(241, 196, 15, 0.6)'
-              }}
-              title={realtimeStatus === 'connected' ? 'Tiempo Real: Conectado' :
-                     realtimeStatus === 'error' ? 'Tiempo Real: Desconectado' :
-                     'Tiempo Real: Conectando...'}
-            />
-          )}
+          <span 
+            style={{
+              display: 'inline-block',
+              width: '7px',
+              height: '7px',
+              borderRadius: '50%',
+              background: isCloudSynced 
+                ? (realtimeStatus === 'error' ? '#e74c3c' : '#2ecc71')
+                : '#f1c40f',
+              boxShadow: isCloudSynced 
+                ? (realtimeStatus === 'error' ? '0 0 6px rgba(231, 76, 60, 0.6)' : '0 0 6px rgba(46, 204, 113, 0.6)')
+                : '0 0 6px rgba(241, 196, 15, 0.6)'
+            }}
+            title={isCloudSynced 
+              ? (realtimeStatus === 'connected' ? 'Sincronizado con Supabase (Tiempo Real Activo)' : realtimeStatus === 'error' ? 'Supabase Conectado (Error de Tiempo Real)' : 'Sincronizado con Supabase') 
+              : 'Modo Local (Offline)'}
+          />
           <span>{isCloudSynced ? 'Sincronizado (Supabase)' : 'Modo Local (Offline)'}</span>
         </div>
 

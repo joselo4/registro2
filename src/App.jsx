@@ -131,10 +131,9 @@ export default function App() {
   const [isSyncLoaded, setIsSyncLoaded] = useState(false);
   const [realtimeStatus, setRealtimeStatus] = useState('connecting'); // 'connecting' | 'connected' | 'error'
   const isVendorApp = typeof window !== 'undefined' && (
-    Capacitor.isNativePlatform?.() ||
-    window.matchMedia?.('(display-mode: standalone)').matches ||
-    window.navigator?.standalone ||
-    new URLSearchParams(window.location.search).get('mode') === 'vendor'
+    Boolean(Capacitor?.isNativePlatform?.()) ||
+    new URLSearchParams(window.location.search).get('mode') === 'vendor' ||
+    new URLSearchParams(window.location.search).get('app') === 'operator'
   );
 
   const [customAlert, setCustomAlert] = useState(null); // { title: string, message: string, type: 'info' | 'warning' | 'error' | 'success', onClose?: () => void }
@@ -519,6 +518,13 @@ export default function App() {
     window.scrollTo(0, 0);
   }, [view]);
 
+  // Si es la aplicación exclusiva para operadores, forzar la vista de administración
+  useEffect(() => {
+    if (isVendorApp && view !== 'admin') {
+      setView('admin');
+    }
+  }, [isVendorApp, view]);
+
   useEffect(() => {
     if (!locationFeatureVisible && view === 'locations' && !isVendorApp) {
       setView('shop');
@@ -544,6 +550,10 @@ export default function App() {
 
   // --- NUEVO: Rastrear automáticamente desde la URL (?track=PED-XXXX) ---
   useEffect(() => {
+    if (isVendorApp) {
+      setView('admin');
+      return;
+    }
     const params = new URLSearchParams(window.location.search);
     const trackId = params.get('track') || params.get('orderId');
     if (trackId) {
@@ -564,7 +574,7 @@ export default function App() {
       setTableNumber(null);
       localStorage.removeItem('helados_table_number');
     }
-  }, []);
+  }, [isVendorApp]);
 
   // --- Función auxiliar para aplicar los datos sincronizados y combinar las órdenes ---
   const applyLoadedData = (serverData) => {
@@ -1137,6 +1147,8 @@ export default function App() {
         setRealtimeStatus('connected');
       } else if (status === 'CHANNEL_ERROR' || status === 'TIMED_OUT' || err) {
         setRealtimeStatus('error');
+      } else if (status === 'CLOSED') {
+        // No alterar a 'connecting' si se cerró por desmontaje/reconexión
       } else {
         setRealtimeStatus('connecting');
       }
@@ -1500,14 +1512,14 @@ export default function App() {
           <a 
             href="#" 
             className="logo" 
-            onClick={(e) => { e.preventDefault(); setView(isVendorApp ? 'admin' : 'shop'); }}
+            onClick={(e) => { e.preventDefault(); if (!isVendorApp) setView('shop'); }}
             onDoubleClick={handleLogoDoubleClick}
-            title="Doble clic para administrar"
-            style={{ cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '8px' }}
+            title={isVendorApp ? "Friozo Operadores" : "Doble clic para administrar"}
+            style={{ cursor: isVendorApp ? 'default' : 'pointer', display: 'flex', alignItems: 'center', gap: '8px' }}
           >
             {renderLogo(storeLogo)}
-            <span>{storeName}</span>
-            {tableNumber && (
+            <span>{isVendorApp ? 'Friozo Operadores' : storeName}</span>
+            {tableNumber && !isVendorApp && (
               <span style={{
                 background: 'var(--primary-color)',
                 color: 'white',
@@ -1636,7 +1648,7 @@ export default function App() {
 
       {/* Contenido Principal */}
       <main className="container" style={{ paddingBottom: '80px', flex: 1 }}>
-        {!effectiveShopOpen && view !== 'admin' && (
+        {!isVendorApp && !effectiveShopOpen && view !== 'admin' && (
           <div className="glass" style={{
             background: 'rgba(231, 76, 60, 0.15)',
             border: '1px solid rgba(231, 76, 60, 0.3)',

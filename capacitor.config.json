@@ -1,6 +1,6 @@
 {
-  "appId": "com.friozoperu.carritos",
-  "appName": "Friozo peru",
+  "appId": "com.donhelado.carritos",
+  "appName": "Friozo Operadores",
   "webDir": "dist",
   "server": {
     "androidScheme": "https"
