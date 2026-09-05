@@ -7,6 +7,7 @@ export const printThermalTicket = ({
   type = 'comanda', // 'comanda' | 'delivery' | 'cierre_z'
   order = null,
   shift = null,
+  settlement = null,
   storeName = 'Friozo',
   storePhone = '',
   ticketCustomMessage = ''
@@ -119,6 +120,50 @@ export const printThermalTicket = ({
         <div class="center footer">FIRMA CAJERO / RESPONSABLE</div>
         <br/><br/>
         <div class="center">_________________________________</div>
+      </div>
+    `;
+  } else if (type === 'cart_settlement') {
+    if (!settlement) return;
+    contentHtml = `
+      <div class="ticket">
+        <div class="center bold title">${storeName.toUpperCase()}</div>
+        <div class="center subtitle">🍦 LIQUIDACIÓN DIARIA DE CARRITO</div>
+        <div class="divider"></div>
+        <div class="row"><span>LIQ ID:</span> <b>${settlement.id || 'LIQ-001'}</b></div>
+        <div class="row"><span>FECHA/HORA:</span> <span>${nowStr}</span></div>
+        <div class="row"><span>CARRITO:</span> <b>${settlement.cartLabel || 'Carrito'}</b></div>
+        <div class="row"><span>VENDEDOR:</span> <b>${settlement.vendorName || 'Vendedor'}</b></div>
+        ${settlement.routeName ? `<div class="row"><span>RUTA:</span> <span>${settlement.routeName}</span></div>` : ''}
+        <div class="divider"></div>
+        <div class="bold section-title">DETALLE CARGA VS RETORNO:</div>
+        <div class="row bold" style="font-size:10px; border-bottom:1px dashed #000; padding-bottom:3px; margin-bottom:4px;">
+          <span>ITEM</span>
+          <span>CRG/RET/VND</span>
+          <span>SUBTOTAL</span>
+        </div>
+        ${(settlement.details || []).map(d => `
+          <div class="row" style="font-size:10.5px; padding:2px 0;">
+            <span style="max-width:110px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">${d.name} (S/${Number(d.price).toFixed(2)})</span>
+            <span>${d.loaded}/${d.returned}/<b>${d.sold}</b></span>
+            <b>S/${Number(d.subtotal).toFixed(2)}</b>
+          </div>
+        `).join('')}
+        <div class="divider"></div>
+        <div class="row total"><span>TOTAL UNIDADES VENDIDAS:</span> <b>${settlement.totalUnits || 0} u.</b></div>
+        <div class="row total"><span>TOTAL A RENDIR:</span> <b>S/ ${(settlement.totalAmount || 0).toFixed(2)}</b></div>
+        ${settlement.paymentDetails ? `
+          <div class="divider"></div>
+          <div class="row"><span>Efectivo entregado:</span> <span>S/ ${(settlement.paymentDetails.cash || 0).toFixed(2)}</span></div>
+          <div class="row"><span>Yape / Plin rendido:</span> <span>S/ ${(settlement.paymentDetails.yape || 0).toFixed(2)}</span></div>
+          <div class="row" style="font-weight:bold; color:${(settlement.paymentDetails.diff || 0) >= 0 ? '#27ae60' : '#c0392b'};">
+            <span>Diferencia:</span> <span>${(settlement.paymentDetails.diff || 0) >= 0 ? `+S/ ${(settlement.paymentDetails.diff || 0).toFixed(2)}` : `-S/ ${Math.abs(settlement.paymentDetails.diff || 0).toFixed(2)}`}</span>
+          </div>
+        ` : ''}
+        ${settlement.notes ? `<div class="divider"></div><div class="notes"><b>Obs:</b> ${settlement.notes}</div>` : ''}
+        <div class="divider"></div>
+        <div class="center footer" style="font-size:9.5px;">FIRMA VENDEDOR &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; FIRMA SUPERVISOR</div>
+        <br/><br/>
+        <div class="center">______________ &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; ______________</div>
       </div>
     `;
   }

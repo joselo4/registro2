@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useRef, useMemo } from 'react';
 import { updateSyncedData } from '../utils/supabaseSync';
+import { supabase } from '../utils/supabaseClient';
 
 export default function OrderTracker({ orderId, orders, setView, storePhone, onClearActiveOrder, cartLocations = [] }) {
   const TRACKING_WINDOW_HOURS = 72;
@@ -14,6 +15,10 @@ export default function OrderTracker({ orderId, orders, setView, storePhone, onC
 
   // --- NUEVOS ESTADOS PARA BÚSQUEDA EN LA NUBE ---
   const [fetchedOrder, setFetchedOrder] = useState(null);
+  const fetchedOrderRef = useRef(fetchedOrder);
+  useEffect(() => {
+    fetchedOrderRef.current = fetchedOrder;
+  }, [fetchedOrder]);
   const [loadingOrder, setLoadingOrder] = useState(false);
   const requestSequenceRef = useRef(0);
 
@@ -234,8 +239,37 @@ export default function OrderTracker({ orderId, orders, setView, storePhone, onC
         if (response.ok && payload.order) {
           setFetchedOrder(payload.order);
           saveToRecentOrders(searchUpper);
+          return;
+        }
+
+        // Fallback directo a Supabase en caso de entorno estático sin worker
+        if (supabase && (!response.ok || !payload.order)) {
+          const { data } = await supabase
+            .from('helados_sync')
+            .select('value')
+            .eq('key', `order_${searchUpper}`)
+            .maybeSingle();
+
+          if (!cancelled && requestSequence === requestSequenceRef.current && data?.value) {
+            setFetchedOrder(data.value);
+            saveToRecentOrders(searchUpper);
+          }
         }
       } catch (err) {
+        if (supabase && !cancelled && requestSequence === requestSequenceRef.current) {
+          try {
+            const { data } = await supabase
+              .from('helados_sync')
+              .select('value')
+              .eq('key', `order_${searchUpper}`)
+              .maybeSingle();
+
+            if (!cancelled && requestSequence === requestSequenceRef.current && data?.value) {
+              setFetchedOrder(data.value);
+              saveToRecentOrders(searchUpper);
+            }
+          } catch {}
+        }
         if (!cancelled && requestSequence === requestSequenceRef.current) {
           console.warn("Error fetching order from cloud tracker:", err);
         }
@@ -248,9 +282,14 @@ export default function OrderTracker({ orderId, orders, setView, storePhone, onC
 
     fetchFromSupabase({ showLoading: !local });
 
-    // Suscribirse únicamente al canal en tiempo real de este pedido específico (cero filtración de datos)
-    // Las actualizaciones silenciosas no vuelven a bloquear el formulario con un indicador permanente.
-    const refreshTimer = setInterval(() => fetchFromSupabase(), 10000);
+    // Suscribirse únicamente al canal en tiempo real de este pedido específico
+    // Polling inteligente: solo si la pestaña está activa y el pedido no ha concluido
+    const refreshTimer = setInterval(() => {
+      if (typeof document !== 'undefined' && document.hidden) return;
+      const currentSt = fetchedOrderRef.current?.status;
+      if (currentSt === 'Entregado' || currentSt === 'Cancelado') return;
+      fetchFromSupabase();
+    }, 10000);
 
     return () => {
       cancelled = true;

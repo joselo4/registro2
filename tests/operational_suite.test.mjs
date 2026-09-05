@@ -98,3 +98,42 @@ test('Split Bill per person formula', () => {
   const perPerson = Number((grandTotal / people).toFixed(2));
   assert.equal(perPerson, 23.75);
 });
+
+test('Cart dotation custom presentations and route price overrides', () => {
+  // Simulación de dotación personalizada por carrito
+  const cartDotation = [
+    { id: 'pop_1', name: 'Paleta Rellena Maracuyá', price: 6.0, loaded: 30, returned: 5 }, // Precio estándar 5 subido a 6 en playa/ruta
+    { id: 'cust_101', name: 'Vaso 2 Bolas Especial Malecón', price: 12.0, loaded: 15, returned: 3 }, // Presentación agregada solo para este carrito
+    { id: 'cust_102', name: 'Agua Mineral Helada 500ml', price: 3.5, loaded: 20, returned: 2 } // Bebida extra
+  ];
+
+  let totalUnitsSold = 0;
+  let totalRevenueExpected = 0;
+
+  cartDotation.forEach(item => {
+    const sold = Math.max(0, (item.loaded || 0) - (item.returned || 0));
+    totalUnitsSold += sold;
+    totalRevenueExpected += sold * (item.price || 0);
+  });
+
+  // Sold: (30 - 5 = 25) + (15 - 3 = 12) + (20 - 2 = 18) = 55 unidades
+  assert.equal(totalUnitsSold, 55);
+
+  // Revenue: (25 * 6.0) + (12 * 12.0) + (18 * 3.5) = 150 + 144 + 63 = 357.0
+  assert.equal(totalRevenueExpected, 357.0);
+
+  // Verificación de rendición combinada Efectivo + Yape
+  const handedCash = 257.0;
+  const handedYape = 100.0;
+  const totalHandedIn = handedCash + handedYape;
+  const diff = totalHandedIn - totalRevenueExpected;
+  assert.equal(diff, 0.0, 'Cuadre debe ser exacto');
+
+  // Caso con faltante
+  const handedWithShortage = 340.0;
+  assert.equal(handedWithShortage - totalRevenueExpected, -17.0, 'Faltante de 17 soles detectado');
+
+  // Caso con sobrante (propina o redondeo)
+  const handedWithSurplus = 360.0;
+  assert.equal(handedWithSurplus - totalRevenueExpected, 3.0, 'Sobrante de 3 soles detectado');
+});

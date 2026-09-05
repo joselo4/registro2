@@ -813,8 +813,16 @@ export default function AdminPanel({
             storeName={storeName}
             staffUsers={staffUsers}
             cartLocations={cartLocations}
+            onUpdateCartLocations={onUpdateCartLocations}
             settlements={cartSettlements}
             onUpdateSettlements={onUpdateCartSettlements}
+            popsicles={popsicles}
+            flavors={flavors}
+            packs={packs}
+            bases={bases}
+            literConfig={literConfig}
+            shopConfig={shopConfig}
+            onChangeShopConfig={onChangeShopConfig}
             addLog={addLog}
             showAlert={showAlert}
           />

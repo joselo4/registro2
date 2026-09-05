@@ -470,10 +470,15 @@ export default function App() {
     } catch {}
   }, [cartSettlements]);
 
-  // Temporizador para Reporte Nocturno Automático a Telegram
+  // Temporizador para Reporte Nocturno Automático a Telegram (Solo para staff/admin)
   const lastTelegramReportDateRef = useRef('');
+  const ordersForReportRef = useRef(orders);
   useEffect(() => {
-    if (!shopConfig?.telegramDailyReportEnabled) return;
+    ordersForReportRef.current = orders;
+  }, [orders]);
+
+  useEffect(() => {
+    if (!isLoggedIn || !shopConfig?.telegramDailyReportEnabled) return;
     const targetHour = shopConfig.telegramDailyReportHour || '22:00';
 
     const checkAndSendReport = async () => {
@@ -493,7 +498,7 @@ export default function App() {
           lastTelegramReportDateRef.current = todayDateStr;
           const { sendDailySalesReportToTelegram } = await import('./utils/telegramDailyReport');
           await sendDailySalesReportToTelegram({
-            orders: orders || [],
+            orders: ordersForReportRef.current || [],
             storeName: storeName || 'Friozo'
           });
         }
@@ -504,7 +509,7 @@ export default function App() {
 
     const interval = setInterval(checkAndSendReport, 45000);
     return () => clearInterval(interval);
-  }, [shopConfig?.telegramDailyReportEnabled, shopConfig?.telegramDailyReportHour, orders, storeName]);
+  }, [isLoggedIn, shopConfig?.telegramDailyReportEnabled, shopConfig?.telegramDailyReportHour, storeName]);
 
   // --- Configuración Dinámica y Gestión de Usuarios ---
   const [freeDeliveryThreshold, setFreeDeliveryThreshold] = useState(() => {
@@ -1244,7 +1249,7 @@ export default function App() {
         supabase.removeChannel(activeChannel);
       }
     };
-  }, [isLoggedIn, isSyncLoaded, tableNumber, view]);
+  }, [isLoggedIn, isSyncLoaded, tableNumber]);
 
   // Calcular automáticamente la lista de mesas ocupadas a partir de pedidos activos
   useEffect(() => {
