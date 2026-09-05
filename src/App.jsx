@@ -136,6 +136,10 @@ export default function App() {
     new URLSearchParams(window.location.search).get('app') === 'operator'
   );
 
+  // --- Estados de Seguridad y Sesión Centralizados en App.jsx ---
+  const [isLoggedIn, setIsLoggedIn] = useState(false);
+  const [currentUser, setCurrentUser] = useState(null);
+
   const [customAlert, setCustomAlert] = useState(null); // { title: string, message: string, type: 'info' | 'warning' | 'error' | 'success', onClose?: () => void }
 
   const showAlert = (title, message, type = 'info', onClose = null) => {
@@ -550,11 +554,6 @@ export default function App() {
     const saved = localStorage.getItem('helados_sound_enabled');
     return saved ? JSON.parse(saved) : true;
   });
-
-  // --- NUEVO: Estado de Seguridad Centralizado en App.jsx ---
-  const [isLoggedIn, setIsLoggedIn] = useState(false);
-
-  const [currentUser, setCurrentUser] = useState(null);
 
   // --- Estados de Integración de Notificaciones (Telegram) ---
   const [telegramToken, setTelegramToken] = useState('');
