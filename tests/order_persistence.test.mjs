@@ -172,7 +172,7 @@ test('Android HTTPS localhost is allowed while unrelated browser origins are rej
   assert.equal(sameOriginRequest(new Request('https://www.pideanda.com/api/order', { headers: { Origin: 'https://other.test' } })), false);
 });
 
-for (const method of ['Yape', 'Plin', 'Efectivo', 'Transferencia']) {
+for (const method of ['Yape', 'Plin', 'Efectivo', 'Transferencia', 'Tarjeta']) {
   test(`payment on arrival: ${method} persists unpaid, reaches dispatch and requires collection`, async () => {
     const user = { id: 'driver', app_metadata: { role: 'Repartidor' } };
     const db = database([], { user });
@@ -195,7 +195,7 @@ for (const method of ['Yape', 'Plin', 'Efectivo', 'Transferencia']) {
 test('driver records a changed collection method without permission to alter customer or total', async () => {
   const user = { id: 'driver', app_metadata: { role: 'Repartidor' } };
   const previous = fixture({ status: 'En camino', paymentVerified: false, assignedDriver: { id: 'driver' }, customer: { name: 'Cliente', paymentMethod: 'Yape', paymentTiming: 'Al llegar' } });
-  for (const method of ['Yape', 'Plin', 'Efectivo', 'Transferencia']) {
+  for (const method of ['Yape', 'Plin', 'Efectivo', 'Transferencia', 'Tarjeta']) {
     const next = { ...previous, status: 'Entregado', paymentVerified: true, customer: { ...previous.customer, paymentMethod: method } };
     const db = database([{ key: `order_${previous.id}`, value: previous, updated_at: null }], { user });
     const response = await post(db, next, { action: 'update', previous });
@@ -210,4 +210,33 @@ test('driver records a changed collection method without permission to alter cus
   assert.equal(allowedOrderChange(user, prepaid, { ...prepaid, status: 'Entregado', paymentVerified: true }), false);
   const paid = { ...previous, paymentVerified: true };
   assert.equal(allowedOrderChange(user, paid, { ...paid, paymentVerified: false }), false);
+});
+
+test('disabled methods reject new orders, allow reactivation and preserve retry receipts', async () => {
+  const config = { key: 'shop_open', value: { paymentMethods: { Tarjeta: false } } };
+  const db = database([config]);
+  const draft = fixture({ customer: { name: 'Cliente', phone: '999999999', paymentMethod: 'Tarjeta', paymentTiming: 'Al llegar' } });
+  assert.equal((await post(db, draft)).status, 400);
+  assert.ok(!db.rows.has('order_' + draft.id));
+  db.rows.get('shop_open').value.paymentMethods.Tarjeta = true;
+  const created = await post(db, draft);
+  assert.equal(created.status, 200);
+  db.rows.get('shop_open').value.paymentMethods.Tarjeta = false;
+  const retry = await post(db, draft);
+  assert.equal(retry.status, 200);
+  assert.equal((await retry.json()).order.customer.paymentMethod, 'Tarjeta');
+});
+
+test('all disabled methods block new orders and disabled methods cannot replace an existing method', async () => {
+  const methods = ['Yape', 'Plin', 'Efectivo', 'Transferencia', 'Tarjeta'];
+  const config = { key: 'shop_open', value: { paymentMethods: Object.fromEntries(methods.map(method => [method, false])) } };
+  for (const method of methods) {
+    assert.equal((await post(database([config]), fixture({ customer: { name: 'Cliente', phone: '999999999', paymentMethod: method } }))).status, 400);
+  }
+  const user = { id: 'driver', app_metadata: { role: 'Repartidor' } };
+  const previous = fixture({ status: 'En camino', paymentVerified: false, assignedDriver: { id: 'driver' }, customer: { name: 'Cliente', paymentMethod: 'Yape', paymentTiming: 'Al llegar' } });
+  const db = database([config, { key: 'order_' + previous.id, value: previous, updated_at: null }], { user });
+  const next = { ...previous, paymentVerified: true, status: 'Entregado', customer: { ...previous.customer, paymentMethod: 'Tarjeta' } };
+  assert.equal((await post(db, next, { action: 'update', previous })).status, 400);
+  assert.equal((await post(db, { ...next, customer: previous.customer }, { action: 'update', previous })).status, 200);
 });

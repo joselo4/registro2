@@ -35,7 +35,7 @@ test('driver sees only ready assigned orders and never starts a pending preparat
   assert.ok(html.includes('Iniciar Reparto'));
 });
 
-for (const method of ['Yape', 'Plin', 'Efectivo', 'Transferencia']) {
+for (const method of ['Yape', 'Plin', 'Efectivo', 'Transferencia', 'Tarjeta']) {
   test(`driver warns about unpaid ${method} on arrival and shows all collection methods`, () => {
     const delivery = order('En camino');
     delivery.customer = { ...delivery.customer, paymentMethod: method, paymentTiming: 'Al llegar' };
@@ -43,7 +43,7 @@ for (const method of ['Yape', 'Plin', 'Efectivo', 'Transferencia']) {
     assert.ok(html.includes('SOLICITAR PAGO ANTES DE ENTREGAR'));
     assert.ok(html.includes('Confirmar cobro y entrega'));
     assert.ok(html.includes('S/. 10.00'));
-    for (const option of ['Yape', 'Plin', 'Efectivo', 'Transferencia']) assert.ok(html.includes(`value="${option}"`));
+    for (const option of ['Yape', 'Plin', 'Efectivo', 'Transferencia', 'Tarjeta']) assert.ok(html.includes(`value="${option}"`));
     assert.ok(!html.includes('PAGO CONFIRMADO'));
     const paidHtml = renderToStaticMarkup(<DriverDeliveryPanel {...props} currentUser={{ id: 'driver' }} orders={[{ ...delivery, paymentVerified: true }]} />);
     assert.ok(paidHtml.includes('No volver a cobrar'));

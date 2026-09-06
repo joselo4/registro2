@@ -2,6 +2,14 @@ import { createAdminClient, fail, json, sameOriginRequest } from './_security.js
 import { saveOrderChange, fetchAllSyncRows } from '../../src/utils/orderRepository.js';
 import { mergeOrders } from '../../src/utils/orderLifecycle.js';
 import { orderStaffRole, driverOwnsOrder, allowedOrderChange } from './_orderAccess.js';
+import { getEnabledPaymentMethods } from '../../src/utils/paymentMethods.js';
+
+async function validatePaymentAvailability(client, previous, next) {
+  if (previous && previous.customer?.paymentMethod === next.customer?.paymentMethod) return null;
+  const { data, error } = await client.from('helados_sync').select('value').eq('key', 'shop_open').maybeSingle();
+  if (error) throw new Error('No se pudo consultar los métodos de pago. Intenta nuevamente.');
+  return getEnabledPaymentMethods(data?.value).includes(next.customer?.paymentMethod) ? null : 'Este método de pago ya no está disponible. Selecciona otro método activo.';
+}
 
 const ORDER_ID_RE = /^PED-[A-Z0-9-]{4,40}$/;
 
@@ -117,6 +125,8 @@ export async function onRequestPost({ request, env }, makeClient = createAdminCl
       if (!isPlainObject(body.order) || !/^(PED|FIS|ORD)-[A-Z0-9-]{3,40}$/.test(body.order.id) || JSON.stringify(body).length > 150000) return fail(400, 'input', 'Pedido inválido.');
       if (!allowedOrderChange(user, body.previous, body.order)) return fail(403, 'auth', 'Tu rol no permite este cambio de pedido.');
       try {
+        const paymentError = await validatePaymentAvailability(client, body.previous, body.order);
+        if (paymentError) return fail(400, 'payment', paymentError);
         const order = await saveOrderChange(client, body.previous, body.order);
         return json({ ok: true, order });
       } catch (error) { return fail(409, 'update', error.message || 'No se pudo guardar el pedido.'); }
@@ -149,6 +159,8 @@ export async function onRequestPost({ request, env }, makeClient = createAdminCl
     } else {
       const validationError = validateOrderForCreate(order);
       if (validationError) return fail(400, 'input', validationError);
+      const paymentError = await validatePaymentAvailability(adminClient, null, order);
+      if (paymentError) return fail(400, 'payment', paymentError);
       if (cleanOrderId(order.id) !== id) return fail(400, 'input', 'Los códigos del pedido no coinciden.');
       const { data: legacy, error: legacyError } = await adminClient.from('helados_sync').select('value').eq('key', 'orders').maybeSingle();
       if (legacyError) return fail(502, 'read', 'No se pudo validar el historial.');

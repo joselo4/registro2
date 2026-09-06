@@ -2,8 +2,10 @@ import React, { useState, useEffect } from 'react';
 import CartItemPreview from './CartItemPreview';
 import { trackingUrl } from '../utils/apiClient';
 import { generateOrderId } from '../utils/orderId';
-import { DELIVERY_PAYMENT_METHODS, paymentDescription } from '../utils/orderLifecycle';
+import { paymentDescription } from '../utils/orderLifecycle';
 import { validateOrderInput } from '../utils/orderValidation';
+
+import { getEnabledPaymentMethods, selectPaymentMethod } from '../utils/paymentMethods';
 
 export { validateOrderInput };
 
@@ -51,7 +53,9 @@ export default function Cart({
   const [name, setName] = useState(() => localStorage.getItem('last_customer_name') || '');
   const [phone, setPhone] = useState(() => localStorage.getItem('last_customer_phone') || '');
   const [address, setAddress] = useState(() => localStorage.getItem('last_customer_address') || '');
-  const [paymentMethod, setPaymentMethod] = useState('Yape');
+  const [selectedPaymentMethod, setPaymentMethod] = useState('Yape');
+  const enabledPaymentMethods = getEnabledPaymentMethods(shopConfig);
+  const paymentMethod = selectPaymentMethod(selectedPaymentMethod, enabledPaymentMethods);
   const [paymentTiming, setPaymentTiming] = useState('Al llegar');
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [sendToWhatsApp, setSendToWhatsApp] = useState(true);
@@ -199,7 +203,7 @@ export default function Cart({
           phone: finalPhone, 
           address: finalAddress, 
           paymentMethod,
-          paymentTiming: paymentMethod === 'Efectivo' || orderType === 'Delivery' && paymentTiming === 'Al llegar' ? 'Al llegar' : 'Anticipado',
+          paymentTiming: ['Efectivo', 'Tarjeta'].includes(paymentMethod) || orderType === 'Delivery' && paymentTiming === 'Al llegar' ? 'Al llegar' : 'Anticipado',
           orderType,
           tableNumber: activeMesaNumber
         },
@@ -759,7 +763,7 @@ export default function Cart({
             <div className="form-group">
               <label style={{ fontSize: '0.8rem' }}>Forma de Pago</label>
               <div className="payment-options" style={{ gap: '6px', flexWrap: 'wrap' }}>
-                {DELIVERY_PAYMENT_METHODS.map(method => (
+                {enabledPaymentMethods.map(method => (
                   <button key={method} type="button" className={`payment-btn ${paymentMethod === method ? 'selected' : ''}`}
                     aria-pressed={paymentMethod === method} disabled={!shopOpen}
                     onClick={() => { setPaymentMethod(method); setValidationErrors(prev => ({ ...prev, paymentMethod: '' })); }}
@@ -768,7 +772,7 @@ export default function Cart({
                   </button>
                 ))}
               </div>
-              {orderType === 'Delivery' && paymentMethod !== 'Efectivo' && (
+              {paymentMethod && orderType === 'Delivery' && !['Efectivo', 'Tarjeta'].includes(paymentMethod) && (
                 <div style={{ marginTop: '10px' }}>
                   <label htmlFor="cart-payment-timing">¿Cuándo pagarás?</label>
                   <select id="cart-payment-timing" className="form-control" value={paymentTiming} disabled={!shopOpen} onChange={event => setPaymentTiming(event.target.value)}>
@@ -777,9 +781,11 @@ export default function Cart({
                   </select>
                 </div>
               )}
-              {(paymentMethod === 'Efectivo' || orderType === 'Delivery' && paymentTiming === 'Al llegar') && (
+              {paymentMethod && (['Efectivo', 'Tarjeta'].includes(paymentMethod) || orderType === 'Delivery' && paymentTiming === 'Al llegar') && (
                 <p style={{ fontSize: '0.875rem', margin: '8px 0' }}>Pago al llegar: pagarás con {paymentMethod} al recibir tu pedido. El repartidor confirmará el cobro antes de completar la entrega.</p>
               )}
+              {!enabledPaymentMethods.length && <p role="alert">No hay métodos de pago disponibles. Intenta más tarde.</p>}
+              {paymentMethod === 'Tarjeta' && <p>Pago con tarjeta al recibir el pedido, mediante POS.</p>}
               {validationErrors.paymentMethod && (
                 <span style={{ color: 'var(--danger, #e74c3c)', fontSize: '0.72rem', fontWeight: 600, display: 'block', marginTop: '3px' }}>
                   ⚠️ {validationErrors.paymentMethod}
@@ -878,7 +884,7 @@ export default function Cart({
               type="submit" 
               className="btn btn-primary" 
               style={{ width: '100%', marginTop: '10px', padding: '10px', fontSize: '0.9rem', opacity: (isSubmitting || !shopOpen) ? 0.6 : 1, cursor: (isSubmitting || !shopOpen) ? 'not-allowed' : 'pointer' }}
-              disabled={isSubmitting || !shopOpen}
+              disabled={isSubmitting || !shopOpen || !paymentMethod}
             >
               {!shopOpen ? '🔒 Tienda Cerrada (Fuera de Horario)' : isSubmitting ? '⏳ Procesando Pedido...' : '🚀 Confirmar y Enviar Pedido'}
             </button>

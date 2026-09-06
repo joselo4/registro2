@@ -1,9 +1,11 @@
+import { PAYMENT_METHODS } from './paymentMethods.js';
+
 export const ORDER_STATUSES = ['Por Corroborar', 'Pendiente', 'Preparando', 'Listo', 'En camino', 'Entregado', 'Cancelado'];
 export const isDeliveryOrder = order => order?.customer?.orderType === 'Delivery' || Number(order?.deliveryFee) > 0;
 export const isTableOrder = order => ['Mesa', 'Mesa_Llevar'].includes(order?.customer?.orderType);
-export const DELIVERY_PAYMENT_METHODS = ['Yape', 'Plin', 'Efectivo', 'Transferencia'];
+export const DELIVERY_PAYMENT_METHODS = PAYMENT_METHODS;
 export const isDigitalPayment = order => /yape|plin|transferencia/i.test(order?.customer?.paymentMethod || '');
-export const isPaymentOnArrival = order => order?.customer?.paymentTiming === 'Al llegar' || /efectivo/i.test(order?.customer?.paymentMethod || '');
+export const isPaymentOnArrival = order => order?.customer?.paymentTiming === 'Al llegar' || /efectivo|tarjeta/i.test(order?.customer?.paymentMethod || '');
 export const requiresAdvancePayment = order => isDigitalPayment(order) && !isPaymentOnArrival(order);
 export const paymentDescription = order => `${order?.customer?.paymentMethod || 'Por definir'} · ${isPaymentOnArrival(order) ? 'Pago al llegar' : 'Pago anticipado'}`;
 export const orderFreshness = order => Date.parse(order?.updatedAt || order?.statusHistory?.at(-1)?.timestamp || order?.date) || 0;

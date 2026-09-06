@@ -51,3 +51,9 @@ Las pruebas de guardado utilizan una base simulada con inserciones únicas y act
 En delivery, Yape, Plin y transferencia permiten elegir pago al llegar (opción inicial) o anticipado; el efectivo se cobra al entregar. La modalidad se conserva en el pedido y se incluye en WhatsApp y seguimiento. Los pedidos digitales antiguos sin modalidad conservan la validación anticipada.
 
 El repartidor ve el importe pendiente y selecciona el medio recibido: Yape, Plin, efectivo o transferencia. Debe confirmar el dinero recibido o el abono real antes de completar la entrega. Al guardar se registra el medio utilizado y el pago confirmado; cancelar el aviso o fallar el guardado conserva el pedido pendiente. Un pago ya confirmado no vuelve a solicitarse. El servidor solo permite al repartidor confirmar cobros al llegar de sus pedidos asignados, al completar la entrega.
+
+## Métodos de pago disponibles
+
+Admin → Ajustes → Métodos de pago permite activar o desactivar Yape, Plin, efectivo, transferencia y tarjeta con **Guardar métodos de pago**. El cambio se guarda en la configuración compartida de la tienda; las nuevas selecciones del carrito, ventas rápidas y cobros respetan la disponibilidad. Si todos se desactivan, se impiden nuevos pedidos. Los pedidos existentes conservan el método acordado y los reintentos recuperan el comprobante original. El servidor rechaza nuevos pedidos y cambios a métodos desactivados.
+
+Tarjeta es un cobro presencial mediante POS al recibir el pedido. El repartidor debe verificar que la operación esté aprobada antes de confirmar cobro y entrega. No se capturan números de tarjeta ni se procesa un cargo en línea.

@@ -1,5 +1,6 @@
 import { useState, useMemo, useEffect, useRef } from 'react';
-import { DELIVERY_PAYMENT_METHODS, isPaymentOnArrival } from '../../utils/orderLifecycle';
+import { getCollectionPaymentMethods, selectPaymentMethod } from '../../utils/paymentMethods';
+import { isPaymentOnArrival } from '../../utils/orderLifecycle';
 import { buildWhatsAppHref } from '../../utils/orderMessaging';
 import { notifyOperationalEvent, playCashReminderSound, triggerDeviceVibration } from '../../utils/appAudioNotifications';
 
@@ -8,6 +9,7 @@ export default function DriverDeliveryPanel({
   onUpdateOrderStatus,
   currentUser = {},
   storeName = 'Friozo',
+  shopConfig,
   showAlert
 }) {
   const [collectionMethods, setCollectionMethods] = useState({});
@@ -83,21 +85,22 @@ export default function DriverDeliveryPanel({
   const handleCompleteDelivery = async (order) => {
     if (savingOrderId || !onUpdateOrderStatus) return;
     const needsCollection = !order.paymentVerified;
-    const method = collectionMethods[order.id] || order.customer?.paymentMethod;
+    const methods = getCollectionPaymentMethods(shopConfig, order);
+    const method = selectPaymentMethod(collectionMethods[order.id] || order.customer?.paymentMethod, methods);
     const totalStr = Number(order.grandTotal || 0).toFixed(2);
     const clientName = order.customer?.name || 'el cliente';
     if (needsCollection && !isPaymentOnArrival(order)) {
       showAlert?.('Pago pendiente de validar', 'Solicita a caja que verifique el pago anticipado antes de completar la entrega.', 'warning');
       return;
     }
-    if (needsCollection && !DELIVERY_PAYMENT_METHODS.includes(method)) {
-      showAlert?.('Selecciona el medio de pago', 'Indica si recibiste Yape, Plin, efectivo o transferencia.', 'warning');
+    if (needsCollection && !methods.includes(method)) {
+      showAlert?.('Selecciona el medio de pago', 'Indica si recibiste Yape, Plin, efectivo, transferencia o tarjeta.', 'warning');
       return;
     }
     if (needsCollection) {
       playCashReminderSound();
       triggerDeviceVibration([200, 100, 200, 100, 300]);
-      const message = `SOLICITAR PAGO AL LLEGAR\n\nPedido: #${order.id}\nCliente: ${clientName}\nMonto: S/. ${totalStr}\nMedio de cobro: ${method}\n\n${method === 'Efectivo' ? 'Recibe y cuenta el dinero.' : 'Verifica que el abono haya ingresado a la cuenta de la tienda.'}\n\n¿Confirmas que ya recibiste el pago completo y entregaste el pedido?`;
+      const message = `SOLICITAR PAGO AL LLEGAR\n\nPedido: #${order.id}\nCliente: ${clientName}\nMonto: S/. ${totalStr}\nMedio de cobro: ${method}\n\n${method === 'Efectivo' ? 'Recibe y cuenta el dinero.' : method === 'Tarjeta' ? 'Verifica que el POS confirme la operación aprobada por el total.' : 'Verifica que el abono haya ingresado a la cuenta de la tienda.'}\n\n¿Confirmas que ya recibiste el pago completo y entregaste el pedido?`;
       if (!window.confirm(message)) return;
     } else if (!window.confirm(`¿Confirmas que entregaste el pedido #${order.id} a ${clientName}? El pago ya está confirmado; no vuelvas a cobrar.`)) return;
 
@@ -211,6 +214,7 @@ export default function DriverDeliveryPanel({
               const address = customer.address || 'Sin dirección';
               const reference = customer.reference;
               const needsCollection = !order.paymentVerified;
+              const methods = getCollectionPaymentMethods(shopConfig, order);
               const cleanPhone = String(customer.phone || '').replace(/\D/g, '');
               const destinationQuery = encodeURIComponent(`${address}, Andahuaylas, Peru`);
               const mapsUrl = `https://www.google.com/maps/dir/?api=1&destination=${destinationQuery}`;
@@ -274,16 +278,16 @@ export default function DriverDeliveryPanel({
                     </strong>
                     <strong style={{ display: 'block', marginTop: '6px', fontSize: '1.25rem' }}>S/. {Number(order.grandTotal || 0).toFixed(2)}</strong>
                     <p style={{ fontSize: '0.875rem', margin: '8px 0' }}>
-                      {needsCollection ? (isPaymentOnArrival(order) ? 'Pago al llegar. Solicita el pago por Yape, Plin, efectivo o transferencia y confirma que recibiste el total para dar como entregado.' : 'Pago anticipado pendiente de validación. Solicita a caja que lo verifique antes de completar la entrega.') : `Pagado por ${customer.paymentMethod}. No volver a cobrar al cliente.`}
+                      {needsCollection ? (isPaymentOnArrival(order) ? 'Pago al llegar. Solicita el pago por uno de los medios disponibles y confirma que recibiste el total para dar como entregado.' : 'Pago anticipado pendiente de validación. Solicita a caja que lo verifique antes de completar la entrega.') : `Pagado por ${customer.paymentMethod}. No volver a cobrar al cliente.`}
                     </p>
                     {needsCollection && isPaymentOnArrival(order) && (
                       <label style={{ display: 'block', fontSize: '0.875rem', fontWeight: 700 }}>
                         Medio de cobro recibido
-                        <select aria-label={`Medio de cobro del pedido ${order.id}`} value={collectionMethods[order.id] || customer.paymentMethod || ''}
+                        <select aria-label={`Medio de cobro del pedido ${order.id}`} value={selectPaymentMethod(collectionMethods[order.id] || customer.paymentMethod, methods)}
                           disabled={Boolean(savingOrderId)} onChange={event => setCollectionMethods(previous => ({ ...previous, [order.id]: event.target.value }))}
                           style={{ display: 'block', width: '100%', padding: '10px', marginTop: '6px', fontSize: '1rem', background: '#fff', color: '#1e293b', border: '1px solid #cbd5e1', borderRadius: '6px' }}>
                           <option value="" disabled>Seleccionar medio de pago</option>
-                          {DELIVERY_PAYMENT_METHODS.map(method => <option key={method} value={method}>{method}</option>)}
+                          {methods.map(method => <option key={method} value={method}>{method}</option>)}
                         </select>
                       </label>
                     )}

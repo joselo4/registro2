@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { buildSmsHref, formatOrderStatusMessage, normalizeSmsTemplates, formatDriverDispatchMessage, buildWhatsAppHref } from '../../utils/orderMessaging';
+import { getCollectionPaymentMethods } from '../../utils/paymentMethods';
 import { isDigitalPayment, isPaymentOnArrival, requiresAdvancePayment } from '../../utils/orderLifecycle';
 import { getOrderStageInfo } from '../../utils/orderValidation';
 import { printThermalTicket } from '../../utils/escposTicket';
@@ -408,14 +409,10 @@ export default function OrderManager({
                   customer: { ...editingOrder.customer, paymentMethod: e.target.value }
                 })}
               >
-                <option value="Yape">Yape</option>
-                <option value="Plin">Plin</option>
-                <option value="Efectivo">Efectivo</option>
-                <option value="Transferencia">Transferencia</option>
-                <option value="Tarjeta">Tarjeta</option>
+                {getCollectionPaymentMethods(shopConfig, orders.find(order => order.id === editingOrder.id)).map(method => <option key={method} value={method}>{method}</option>)}
               </select>
             </div>
-            {editingOrder.customer.orderType === 'Delivery' && editingOrder.customer.paymentMethod !== 'Efectivo' && (
+            {editingOrder.customer.orderType === 'Delivery' && !['Efectivo', 'Tarjeta'].includes(editingOrder.customer.paymentMethod) && (
               <div className="form-group">
                 <label htmlFor="order-payment-timing">Modalidad de pago</label>
                 <select id="order-payment-timing" className="form-control" value={editingOrder.customer.paymentTiming || 'Anticipado'}
@@ -1097,7 +1094,7 @@ export default function OrderManager({
                           )}
 
                           {isPaymentOnArrival(order) && <span style={{ fontSize: '0.875rem', fontWeight: 700 }}>Pago al llegar · {order.paymentVerified ? 'Cobrado' : 'Pendiente de cobro'}</span>}
-                          {order.customer?.paymentMethod === 'Transferencia' && <span>Transferencia</span>}
+                          {['Transferencia', 'Tarjeta'].includes(order.customer?.paymentMethod) && <span>{order.customer.paymentMethod}</span>}
                           {isDigitalPayment(order) ? (
                             order.paymentVerified ? (
                               <button

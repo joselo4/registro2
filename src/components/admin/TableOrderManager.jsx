@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { updateSyncedData } from '../../utils/supabaseSync';
+import { getEnabledPaymentMethods, getCollectionPaymentMethods, selectPaymentMethod } from '../../utils/paymentMethods';
 import { nextOrderStatus, orderStatusLabel } from '../../utils/orderLifecycle';
 import { generateOrderId } from '../../utils/orderId';
 import { buildSmsHref, formatOrderStatusMessage, normalizeSmsTemplates } from '../../utils/orderMessaging';
@@ -54,7 +55,8 @@ export default function TableOrderManager({
   const [expressMode, setExpressMode] = useState(false);
 
   // Método de pago para cierre de mesa
-  const [checkoutPaymentMethod, setCheckoutPaymentMethod] = useState('Yape');
+  const [selectedPaymentMethod, setCheckoutPaymentMethod] = useState('Yape');
+  const enabledPaymentMethods = getEnabledPaymentMethods(shopConfig);
 
   const openStatusSms = (order, newStatus) => {
     if (shopConfig?.smsNotificationsEnabled !== true) return;
@@ -288,6 +290,7 @@ export default function TableOrderManager({
   const handleCreateOrderSubmit = async (e) => {
     e.preventDefault();
     if (!selectedTable) return;
+    if (!enabledPaymentMethods.length) { alert('No hay métodos de pago activos. Activa uno en Ajustes.', 'error'); return; }
     if (newOrderItems.length === 0) {
       alert("Debes agregar al menos un producto al pedido.", 'error');
       return;
@@ -316,7 +319,7 @@ export default function TableOrderManager({
         name: finalClient,
         phone: newOrderPhone.trim() || 'Sin teléfono',
         address: finalAddress,
-        paymentMethod: 'Efectivo',
+        paymentMethod: selectPaymentMethod('Efectivo', enabledPaymentMethods),
         orderType: finalOrderType,
         tableNumber: finalTableNumber
       },
@@ -401,6 +404,7 @@ export default function TableOrderManager({
 
   // Cierre y Cobro de Mesa
   const handleCheckoutTable = async (activeOrder) => {
+    if (!checkoutPaymentMethod) { alert('No hay métodos de pago activos. Activa uno en Ajustes.', 'error'); return; }
     if (activeOrder.status !== 'Entregado') { alert('Primero completa la preparación y entrega del pedido. Después podrás cobrar y liberar la mesa.', 'error'); return; }
     if (!window.confirm('¿Confirmas el cobro de S/ ' + Number(activeOrder.grandTotal || 0).toFixed(2) + ' vía ' + checkoutPaymentMethod + '?')) return;
     let orderVal = null;
@@ -698,6 +702,9 @@ export default function TableOrderManager({
   const activeOrder = selectedTable === 'Barra'
     ? orders.find(o => o.id === selectedBarraOrderId && o.customer?.orderType === 'Barra' && o.status !== 'Cancelado' && !o.tablePaid)
     : (selectedTable ? getActiveTableOrder(selectedTable) : null);
+
+  const checkoutMethods = getCollectionPaymentMethods(shopConfig, activeOrder);
+  const checkoutPaymentMethod = selectPaymentMethod(selectedPaymentMethod, checkoutMethods);
 
   return (
     <div className="table-order-manager-layout">
@@ -1076,9 +1083,8 @@ export default function TableOrderManager({
                         onChange={(e) => setCheckoutPaymentMethod(e.target.value)}
                         style={{ fontSize: '0.8rem', padding: '6px', marginTop: '4px' }}
                       >
-                        <option value="Yape">📱 Yape</option>
-                        <option value="Plin">💸 Plin</option>
-                        <option value="Efectivo">💵 Efectivo / Tarjeta</option>
+                        {!checkoutMethods.length && <option value="">Sin métodos activos</option>}
+                        {checkoutMethods.map(method => <option key={method} value={method}>{method}</option>)}
                       </select>
                     </div>
                     <div className="table-actions-row">

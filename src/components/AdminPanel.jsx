@@ -863,6 +863,7 @@ export default function AdminPanel({
 
         {activeTab === 'driver_panel' && isTabAllowed('driver_panel') && (
           <DriverDeliveryPanel
+            shopConfig={shopConfig}
             orders={orders}
             onUpdateOrderStatus={onUpdateOrderStatus}
             currentUser={currentUser}
@@ -991,6 +992,7 @@ export default function AdminPanel({
 
         {activeTab === 'finance' && (
           <FinanceManager
+            shopConfig={shopConfig}
             orders={orders}
             onUpdateOrders={onUpdateOrders}
             expenses={expenses}

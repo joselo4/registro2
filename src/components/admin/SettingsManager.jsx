@@ -3,6 +3,7 @@ import { supabase } from '../../utils/supabaseClient';
 import { uploadToR2, compressToWebP } from '../../utils/r2Client';
 import { updateMultipleSyncedData } from '../../utils/supabaseSync';
 import { DEFAULT_SMS_TEMPLATES, ORDER_STATUSES, normalizeSmsTemplates } from '../../utils/orderMessaging';
+import PaymentMethodsSettings from './PaymentMethodsSettings';
 import PromotionEditor from './PromotionEditor';
 import { DEFAULT_PROMOTION, DEFAULT_POPUP_PROMOTION, DEFAULT_WEB_PROMOTION, normalizePromotion, validatePromotion } from '../../utils/promotion';
 import { sendDailySalesReportToTelegram } from '../../utils/telegramDailyReport';
@@ -753,6 +754,16 @@ export default function SettingsManager({
   return (
     <div style={{ maxWidth: '650px', display: 'flex', flexDirection: 'column', gap: '20px' }}>
       <h3>Ajustes de la Heladería</h3>
+      <PaymentMethodsSettings
+        value={localShopConfig.paymentMethods}
+        onChange={paymentMethods => setLocalShopConfig(previous => ({ ...previous, paymentMethods }))}
+        onSave={async () => {
+          const nextConfig = { ...shopConfig, paymentMethods: localShopConfig.paymentMethods || {} };
+          if (!await updateMultipleSyncedData([{ key: 'shop_open', value: nextConfig }])) throw new Error('No se pudo guardar.');
+          onChangeShopConfig?.(nextConfig);
+          addLog?.('Métodos de pago actualizados por ' + (currentUser?.name || 'Administrador'));
+        }}
+      />
       <PromotionEditor
         popupValue={localShopConfig.popupPromotion || (localShopConfig.promotion ? {
           ...localShopConfig.promotion,

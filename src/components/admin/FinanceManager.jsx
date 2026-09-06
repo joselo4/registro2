@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import { getEnabledPaymentMethods, selectPaymentMethod } from '../../utils/paymentMethods';
 
 // --- FUNCIONES DE SANITIZACIÓN ---
 const sanitizeHTML = (text) => {
@@ -14,7 +15,8 @@ export default function FinanceManager({
   packs,
   addLog,
   currentUser,
-  showAlert
+  showAlert,
+  shopConfig
 }) {
   const alert = (msg) => {
     if (showAlert) {
@@ -36,7 +38,9 @@ export default function FinanceManager({
   const [quickSaleProduct, setQuickSaleProduct] = useState('libre');
   const [quickSaleAmount, setQuickSaleAmount] = useState('');
   const [quickSaleName, setQuickSaleName] = useState('');
-  const [quickSalePaymentMethod, setQuickSalePaymentMethod] = useState('Efectivo');
+  const [selectedPaymentMethod, setQuickSalePaymentMethod] = useState('Efectivo');
+  const enabledPaymentMethods = getEnabledPaymentMethods(shopConfig);
+  const quickSalePaymentMethod = selectPaymentMethod(selectedPaymentMethod, enabledPaymentMethods);
   const [quickSaleSubmitting, setQuickSaleSubmitting] = useState(false);
 
   // --- Estados de Gastos ---
@@ -121,6 +125,7 @@ export default function FinanceManager({
   const handleAddPhysicalSale = async (e) => {
     e.preventDefault();
     if (quickSaleSubmitting) return;
+    if (!quickSalePaymentMethod) { alert('No hay métodos de pago activos. Activa uno en Ajustes.'); return; }
 
     const amountVal = parseFloat(quickSaleAmount) || 0;
     if (amountVal <= 0) {
@@ -358,8 +363,9 @@ export default function FinanceManager({
 
             <div className="form-group">
               <label>Método de Pago</label>
+              {!quickSalePaymentMethod && <p role="alert">No hay métodos de pago activos.</p>}
               <div className="payment-options" style={{ gap: '6px' }}>
-                {['Efectivo', 'Yape', 'Plin', 'Tarjeta'].map(method => (
+                {enabledPaymentMethods.map(method => (
                   <button
                     key={method}
                     type="button"
