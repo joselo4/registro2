@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { buildSmsHref, formatOrderStatusMessage, normalizeSmsTemplates } from '../../utils/orderMessaging';
+import { buildSmsHref, formatOrderStatusMessage, normalizeSmsTemplates, formatDriverDispatchMessage, buildWhatsAppHref } from '../../utils/orderMessaging';
 import { printThermalTicket } from '../../utils/escposTicket';
 
 // --- FUNCIONES DE SANITIZACIÓN ---
@@ -55,6 +55,7 @@ export default function OrderManager({
   const [dateEnd, setDateEnd] = useState('');
   const [ratingFilter, setRatingFilter] = useState('all'); // all, low, high
   const [ordersLimit, setOrdersLimit] = useState(20); // 20, 40, 60, all
+  const [driverFilter, setDriverFilter] = useState('all'); // all, unassigned, driverIdentifier
 
   const openStatusSms = (order, newStatus) => {
     if (shopConfig?.smsNotificationsEnabled !== true) return;
@@ -97,6 +98,32 @@ export default function OrderManager({
     onUpdateOrders(orders.map(o => o.id === order.id ? updated : o));
     if (addLog) {
       addLog(`Repartidor ${assignedDriver ? assignedDriver.name : 'desasignado'} para pedido ${order.id}`);
+    }
+  };
+
+  const handleDispatchToDriverWhatsApp = (order) => {
+    const assigned = order.assignedDriver;
+    if (!assigned) {
+      alert("Primero asigna un repartidor a este pedido.");
+      return;
+    }
+    const driverUser = (staffUsers || []).find(u => String(u.id || u.email) === String(assigned.id || assigned.email));
+    let targetPhone = driverUser?.phone || assigned.phone || '';
+    if (!targetPhone) {
+      targetPhone = window.prompt(`Ingresa el número de WhatsApp del repartidor (${assigned.name || 'Repartidor'}):`, '987654321');
+    }
+    if (!targetPhone) return;
+
+    const message = formatDriverDispatchMessage({
+      order,
+      storeName,
+      driverName: assigned.name
+    });
+    const href = buildWhatsAppHref(targetPhone, message);
+    const win = window.open(href, '_blank', 'noopener,noreferrer');
+    if (win) win.opener = null;
+    if (addLog) {
+      addLog(`Hoja de ruta despachada por WhatsApp a ${assigned.name} para pedido ${order.id}`);
     }
   };
 
@@ -518,6 +545,17 @@ export default function OrderManager({
     });
   }
 
+  // Filtrar por repartidor asignado
+  if (driverFilter !== 'all') {
+    filtered = filtered.filter(o => {
+      if (driverFilter === 'unassigned') {
+        return !o.assignedDriver;
+      }
+      const dId = String(o.assignedDriver?.id || o.assignedDriver?.email || '');
+      return dId === driverFilter;
+    });
+  }
+
   const todayStr = new Date().toDateString();
   const kpis = {
     toCorroborate: orders.filter(o => o.status === 'Por Corroborar').length,
@@ -719,6 +757,55 @@ export default function OrderManager({
                 ))}
               </div>
             </div>
+
+            <div style={{ 
+              display: 'flex', 
+              gap: '8px', 
+              alignItems: 'center', 
+              flexWrap: 'wrap', 
+              padding: '10px', 
+              background: 'rgba(0,0,0,0.02)', 
+              borderRadius: 'var(--radius-sm)',
+              border: '1px solid var(--border-color)',
+              height: '100%'
+            }}>
+              <span style={{ fontSize: '0.8rem', fontWeight: 'bold', color: 'var(--text-dark)' }}>🛵 Repartidor:</span>
+              <select
+                value={driverFilter}
+                onChange={(e) => setDriverFilter(e.target.value)}
+                style={{
+                  fontSize: '0.75rem',
+                  padding: '4px 8px',
+                  borderRadius: '4px',
+                  border: '1px solid var(--border-color)',
+                  background: 'var(--bg-secondary, #fff)',
+                  color: 'var(--text-dark)',
+                  flex: 1
+                }}
+              >
+                <option value="all">Todos los repartidores</option>
+                <option value="unassigned">⚠️ Sin repartidor asignado</option>
+                {staffUsers.map(u => (
+                  <option key={u.id || u.email} value={u.id || u.email}>
+                    🛵 {u.name || u.email} {u.role ? `(${u.role})` : ''}
+                  </option>
+                ))}
+              </select>
+            </div>
+          </div>
+
+          {/* Banner Informativo de Finalidad de Repartidores */}
+          <div style={{
+            padding: '10px 14px',
+            background: 'linear-gradient(135deg, rgba(255, 68, 31, 0.08) 0%, rgba(255, 68, 31, 0.02) 100%)',
+            borderRadius: '8px',
+            borderLeft: '4px solid var(--delivery-color, #FF441F)',
+            marginBottom: '14px',
+            fontSize: '0.8rem',
+            color: 'var(--text-dark)',
+            lineHeight: 1.5
+          }}>
+            <strong>🛵 Finalidad de Asignar Repartidores:</strong> Al asignar un motorizado a un pedido delivery, éste se añade a su pantalla móvil (<em>pestaña Mis Repartos</em>), se habilita su señal GPS en vivo para el cliente en el rastreador y puedes despacharle la hoja de ruta con 1 toque al WhatsApp con el botón <strong>📲 Despachar</strong>.
           </div>
 
           <div style={{ display: 'flex', gap: '5px', overflowX: 'auto', paddingBottom: '6px', marginBottom: '15px' }}>
@@ -842,7 +929,7 @@ export default function OrderManager({
                           </span>
                         </div>
                         {isDelivery && (
-                          <div style={{ marginTop: '5px' }}>
+                          <div style={{ marginTop: '5px', display: 'flex', alignItems: 'center', gap: '4px', flexWrap: 'wrap' }}>
                             <select
                               aria-label="Asignar repartidor"
                               value={order.assignedDriver?.id || order.assignedDriver?.email || ''}
@@ -854,16 +941,39 @@ export default function OrderManager({
                                 border: '1px solid var(--delivery-color, #FF441F)',
                                 background: 'var(--bg-secondary, #fff)',
                                 color: 'var(--text-dark)',
-                                maxWidth: '150px'
+                                maxWidth: '140px'
                               }}
                             >
                               <option value="">🛵 Asignar repartidor...</option>
                               {staffUsers.map(u => (
                                 <option key={u.id || u.email} value={u.id || u.email}>
-                                  {u.name || u.email}
+                                  {u.name || u.email} {u.role ? `(${u.role})` : ''}
                                 </option>
                               ))}
                             </select>
+                            {order.assignedDriver && (
+                              <button
+                                type="button"
+                                className="admin-action-btn"
+                                onClick={() => handleDispatchToDriverWhatsApp(order)}
+                                style={{
+                                  background: '#25D366',
+                                  color: '#fff',
+                                  fontSize: '0.68rem',
+                                  padding: '3px 6px',
+                                  borderRadius: '4px',
+                                  border: 'none',
+                                  fontWeight: 700,
+                                  cursor: 'pointer',
+                                  display: 'inline-flex',
+                                  alignItems: 'center',
+                                  gap: '2px'
+                                }}
+                                title={`Enviar hoja de ruta por WhatsApp a ${order.assignedDriver.name}`}
+                              >
+                                📲 Despachar
+                              </button>
+                            )}
                           </div>
                         )}
                       </td>

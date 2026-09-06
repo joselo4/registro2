@@ -769,6 +769,46 @@ export default function OrderTracker({ orderId, orders, setView, storePhone, onC
                 <span style={{ fontSize: '0.78rem', color: 'var(--text-light)' }}>
                   {assignedDriverLocation ? '🟢 Ubicación en tiempo real compartida' : '📡 Esperando señal GPS del repartidor...'}
                 </span>
+                {currentOrder.assignedDriver.phone && (
+                  <div style={{ display: 'flex', gap: '6px', marginTop: '6px', flexWrap: 'wrap' }}>
+                    <a
+                      href={`tel:${String(currentOrder.assignedDriver.phone).replace(/\D/g, '')}`}
+                      style={{
+                        background: '#0ea5e9',
+                        color: '#fff',
+                        textDecoration: 'none',
+                        borderRadius: '6px',
+                        padding: '3px 8px',
+                        fontSize: '0.72rem',
+                        fontWeight: 600,
+                        display: 'inline-flex',
+                        alignItems: 'center',
+                        gap: '3px'
+                      }}
+                    >
+                      📞 Llamar
+                    </a>
+                    <a
+                      href={`https://wa.me/${String(currentOrder.assignedDriver.phone).replace(/\D/g, '').length === 9 ? '51' + String(currentOrder.assignedDriver.phone).replace(/\D/g, '') : String(currentOrder.assignedDriver.phone).replace(/\D/g, '')}?text=${encodeURIComponent(`¡Hola! Te escribo sobre mi pedido #${currentOrder.id} de helados 🍦`)}`}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      style={{
+                        background: '#25D366',
+                        color: '#fff',
+                        textDecoration: 'none',
+                        borderRadius: '6px',
+                        padding: '3px 8px',
+                        fontSize: '0.72rem',
+                        fontWeight: 600,
+                        display: 'inline-flex',
+                        alignItems: 'center',
+                        gap: '3px'
+                      }}
+                    >
+                      💬 WhatsApp
+                    </a>
+                  </div>
+                )}
               </div>
             </div>
 

@@ -880,24 +880,29 @@ export default function CustomerShop({
           )}
           <div className="hero-eyebrow">
             <span className="hero-live-dot" aria-hidden="true"></span>
-            HELADOS, FRUTA Y MUCHA FELICIDAD
+            HELADOS ARTESANALES Y DELIVERY EN ANDAHUAYLAS
           </div>
           <h1>
-            Qué rico <span>caer en la tentación.</span>
+            {storeName || 'Friozo'} · Helados Artesanales y Paletas <span>Qué rico caer en la tentación.</span>
           </h1>
           <p className="hero-description">
-            Cremoso, frutal, con extra de chocolate. En <strong>{storeName}</strong> tu antojo manda. Elige tus sabores y ponle el toque que más te provoca.
+            Cremoso, frutal, con extra de chocolate. En <strong>{storeName || 'Friozo'}</strong> tu antojo manda. Helados artesanales, paletas y combinaciones personalizadas con delivery en Andahuaylas.
           </p>
           <div className="hero-cta">
             <button className="btn btn-primary hero-primary-cta" onClick={() => setView('customizer')}>
               Quiero mi helado <span aria-hidden="true">→</span>
             </button>
-            <button className="btn btn-secondary" onClick={() => {
-              const el = document.getElementById('catalog');
-              if (el) el.scrollIntoView({ behavior: 'smooth' });
-            }}>
+            <a 
+              href="#catalog"
+              className="btn btn-secondary" 
+              onClick={(e) => {
+                e.preventDefault();
+                const el = document.getElementById('catalog');
+                if (el) el.scrollIntoView({ behavior: 'smooth' });
+              }}
+            >
               Explorar la carta
-            </button>
+            </a>
           </div>
           <div className="hero-quick-links" aria-label="Acciones rápidas">
             <button 
@@ -1056,9 +1061,15 @@ export default function CustomerShop({
               <p>{deliveryCampaignText}</p>
           )}
           </div>
-          <button type="button" onClick={() => document.getElementById('catalog')?.scrollIntoView({ behavior: 'smooth' })}>
+          <a 
+            href="#catalog"
+            onClick={(e) => {
+              e.preventDefault();
+              document.getElementById('catalog')?.scrollIntoView({ behavior: 'smooth' });
+            }}
+          >
             Ver carta <span aria-hidden="true">→</span>
-          </button>
+          </a>
         </div>
       )}
 

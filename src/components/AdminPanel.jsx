@@ -16,6 +16,7 @@ import CashRegisterManager from './admin/CashRegisterManager';
 import CartSettlementManager from './admin/CartSettlementManager';
 import AuditLogManager from './admin/AuditLogManager';
 import CustomerCRM from './admin/CustomerCRM';
+import DriverDeliveryPanel from './admin/DriverDeliveryPanel';
 import './admin/operations.css';
 
 // --- FUNCIONES DE SANITIZACIÃ“N Y SEGURIDAD ---
@@ -386,7 +387,7 @@ export default function AdminPanel({
     const role = normalizeText(currentUser.role);
     if (role.includes('vendedor')) return ['orders', 'crm', 'inventory', 'surveys', 'table_orders', 'locations', 'cash_register', 'cart_dispatch'].includes(tabId);
     if (role.includes('cocina')) return ['orders', 'kds'].includes(tabId);
-    if (role.includes('repartidor') || role.includes('delivery')) return ['orders', 'locations'].includes(tabId);
+    if (role.includes('repartidor') || role.includes('delivery')) return ['driver_panel', 'orders', 'locations'].includes(tabId);
     if (role.includes('cajero')) return ['orders', 'crm', 'finance', 'cash_register'].includes(tabId);
     if (role.includes('mozo') || role.includes('salon')) return ['table_orders'].includes(tabId);
     return false;
@@ -394,8 +395,12 @@ export default function AdminPanel({
 
   useEffect(() => {
     if (currentUser && !isTabAllowed(activeTab)) {
-      const fallbackTab = ['operations', 'orders', 'crm', 'kds', 'cash_register', 'cart_dispatch', 'table_orders', 'inventory', 'packs', 'users', 'finance', 'audit_log', 'locations', 'settings', 'stats', 'surveys']
-        .find((tabId) => isTabAllowed(tabId));
+      const role = normalizeText(currentUser.role);
+      const isDriver = role.includes('repartidor') || role.includes('delivery');
+      const fallbackTab = isDriver
+        ? 'driver_panel'
+        : ['operations', 'driver_panel', 'orders', 'crm', 'kds', 'cash_register', 'cart_dispatch', 'table_orders', 'inventory', 'packs', 'users', 'finance', 'audit_log', 'locations', 'settings', 'stats', 'surveys']
+            .find((tabId) => isTabAllowed(tabId));
       if (fallbackTab) setActiveTab(fallbackTab);
     }
   }, [currentUser, activeTab]);
@@ -767,6 +772,17 @@ export default function AdminPanel({
         )}
         <div className="sidebar-menu">
           {isAdminUser(currentUser) && <button className={`sidebar-btn ${activeTab === 'operations' ? 'active' : ''}`} onClick={() => setActiveTab('operations')}>◉ Centro de operaciones</button>}
+          {isTabAllowed('driver_panel') && (
+            <button className={`sidebar-btn ${activeTab === 'driver_panel' ? 'active' : ''}`} onClick={() => setActiveTab('driver_panel')}>
+              🛵 Mis Repartos ({orders.filter(o => {
+                if (!o || o.status === 'Cancelado' || o.status === 'Entregado') return false;
+                const d = o.assignedDriver;
+                if (!d) return false;
+                return String(d.email || '').toLowerCase().trim() === String(currentUser?.email || '').toLowerCase().trim() ||
+                       String(d.id || '').trim() === String(currentUser?.id || '').trim();
+              }).length})
+            </button>
+          )}
           {isTabAllowed('orders') && (
             <button className={`sidebar-btn ${activeTab === 'orders' ? 'active' : ''}`} onClick={() => setActiveTab('orders')}>
               📋 Pedidos ({orders.filter(o => o.status === 'Pendiente').length})
@@ -854,6 +870,19 @@ export default function AdminPanel({
           {key:'popsicles',name:'Paletas',items:popsicles,update:onUpdatePopsicles},
           {key:'packs',name:'Packs',items:packs,update:onUpdatePacks}
         ]} />}
+
+        {activeTab === 'driver_panel' && isTabAllowed('driver_panel') && (
+          <DriverDeliveryPanel
+            orders={orders}
+            onUpdateOrderStatus={onUpdateOrderStatus}
+            currentUser={currentUser}
+            storeName={storeName}
+            cartLocations={cartLocations}
+            onUpdateCartLocations={onUpdateCartLocations}
+            showAlert={showAlert}
+          />
+        )}
+
         {(activeTab === 'orders' || activeTab === 'surveys') && (
           <OrderManager
             orders={orders}

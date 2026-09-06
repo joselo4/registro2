@@ -49,3 +49,44 @@ export const buildSmsHref = (phone, message) => {
   if (!cleanPhone) return '';
   return `sms:${cleanPhone}?body=${encodeURIComponent(message || '')}`;
 };
+
+export const formatDriverDispatchMessage = ({ order, storeName, driverName }) => {
+  const customer = order?.customer || {};
+  const address = customer.address || customer.tableNumber || 'No especificada';
+  const reference = customer.reference ? ` (Ref: ${customer.reference})` : '';
+  const isCash = (customer.paymentMethod || '').toLowerCase().includes('efectivo');
+  const paymentText = isCash 
+    ? `💵 COBRAR EN EFECTIVO: S/. ${Number(order?.grandTotal || 0).toFixed(2)}` 
+    : `✅ YA PAGADO (${customer.paymentMethod || 'Digital'})`;
+  
+  const itemsText = (order?.items || [])
+    .map(item => `  • ${item.quantity || 1}x ${item.name || 'Producto'}`)
+    .join('\n');
+
+  const mapsQuery = encodeURIComponent(`${address}, Andahuaylas, Peru`);
+  const mapsUrl = `https://www.google.com/maps/search/?api=1&query=${mapsQuery}`;
+
+  return `🛵 *HOJA DE RUTA / DESPACHO DE REPARTO - ${(storeName || 'FRIOZO').toUpperCase()}*
+━━━━━━━━━━━━━━━━━━━
+👤 *Repartidor:* ${driverName || 'Asignado'}
+📦 *Pedido:* #${order?.id || ''}
+👤 *Cliente:* ${customer.name || 'Cliente'}
+📞 *Teléfono Cliente:* ${customer.phone || 'No especificado'}
+📍 *Dirección:* ${address}${reference}
+🗺️ *Ver en Mapa:* ${mapsUrl}
+💰 *Pago:* ${paymentText}
+📋 *Detalle del Pedido:*
+${itemsText || '  • Ver comanda completa'}
+━━━━━━━━━━━━━━━━━━━
+_¡Buen viaje y conduce con cuidado!_ 🍨`;
+};
+
+export const buildWhatsAppHref = (phone, message) => {
+  let cleanPhone = String(phone || '').replace(/\D/g, '');
+  if (!cleanPhone) return '';
+  if (cleanPhone.length === 9 && cleanPhone.startsWith('9')) {
+    cleanPhone = `51${cleanPhone}`;
+  }
+  return `https://wa.me/${cleanPhone}?text=${encodeURIComponent(message || '')}`;
+};
+
