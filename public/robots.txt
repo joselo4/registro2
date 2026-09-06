@@ -1,4 +1,13 @@
 User-agent: *
 Allow: /
+Allow: /customizer/
+Allow: /paletas/
+Allow: /*.webp
+Allow: /*.png
+Allow: /*.svg
+
+# Disallow private and admin APIs from indexation
+Disallow: /api/
+Disallow: /admin
 
 Sitemap: https://www.pideanda.com/sitemap.xml

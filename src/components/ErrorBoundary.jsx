@@ -1,4 +1,4 @@
-﻿import React from 'react';
+import React from 'react';
 
 export default class ErrorBoundary extends React.Component {
   constructor(props) {
@@ -23,7 +23,9 @@ export default class ErrorBoundary extends React.Component {
     try {
       sessionStorage.clear();
       localStorage.clear();
-    } catch {}
+    } catch {
+      /* ignore */
+    }
     window.location.reload();
   };
 

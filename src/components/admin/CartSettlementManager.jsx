@@ -216,7 +216,9 @@ export default function CartSettlementManager({
     setCartConfigs(newConfig);
     try {
       localStorage.setItem('friozo_cart_catalog_configs', JSON.stringify(newConfig));
-    } catch {}
+    } catch {
+      /* ignore */
+    }
 
     if (onChangeShopConfig && shopConfig) {
       onChangeShopConfig({
@@ -382,7 +384,9 @@ export default function CartSettlementManager({
     setActiveAlerts(nextAlerts);
     try {
       localStorage.setItem('friozo_cart_stock_alerts', JSON.stringify(nextAlerts));
-    } catch {}
+    } catch {
+      /* ignore */
+    }
 
     addLog?.(`ALERTA SIN STOCK: ${alertItem.cartLabel} se quedó sin "${alertItem.item}" (${alertItem.vendorName}).`);
     setOutOfStockItem('');
@@ -397,7 +401,9 @@ export default function CartSettlementManager({
     setActiveAlerts(nextAlerts);
     try {
       localStorage.setItem('friozo_cart_stock_alerts', JSON.stringify(nextAlerts));
-    } catch {}
+    } catch {
+      /* ignore */
+    }
     if (showAlert) showAlert('Alerta Resuelta', 'Se marcó la alerta como atendida / reabastecida.', 'info');
   };
 

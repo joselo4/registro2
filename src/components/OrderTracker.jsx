@@ -188,20 +188,21 @@ export default function OrderTracker({ orderId, orders, setView, storePhone, onC
 
   const currentOrder = getOrderFreshness(localOrder) > getOrderFreshness(fetchedOrder) ? localOrder : (fetchedOrder || localOrder);
 
+  const driverEmail = String(currentOrder?.assignedDriver?.email || '').toLowerCase().trim();
+  const driverId = String(currentOrder?.assignedDriver?.id || '').trim();
+
   // Ubicación exclusiva en vivo del repartidor asignado a este pedido
   const assignedDriverLocation = useMemo(() => {
     const cartsList = Array.isArray(cartLocations?.carts)
       ? cartLocations.carts
       : (Array.isArray(cartLocations) ? cartLocations : []);
-    if (!currentOrder?.assignedDriver || cartsList.length === 0) return null;
-    const driverEmail = String(currentOrder.assignedDriver.email || '').toLowerCase().trim();
-    const driverId = String(currentOrder.assignedDriver.id || '').trim();
+    if ((!driverEmail && !driverId) || cartsList.length === 0) return null;
     return cartsList.find(c => {
       const cEmail = String(c.email || '').toLowerCase().trim();
       const cId = String(c.id || '').trim();
       return (driverEmail && cEmail === driverEmail) || (driverId && cId === driverId);
     }) || null;
-  }, [currentOrder?.assignedDriver, cartLocations]);
+  }, [driverEmail, driverId, cartLocations]);
 
   // Efecto para limpiar búsquedas automáticas expiradas y evitar la pantalla de bloqueo
   useEffect(() => {
@@ -271,7 +272,9 @@ export default function OrderTracker({ orderId, orders, setView, storePhone, onC
               setFetchedOrder(data.value);
               saveToRecentOrders(searchUpper);
             }
-          } catch {}
+          } catch {
+            /* ignore */
+          }
         }
         if (!cancelled && requestSequence === requestSequenceRef.current) {
           console.warn("Error fetching order from cloud tracker:", err);

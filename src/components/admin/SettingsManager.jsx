@@ -905,7 +905,99 @@ export default function SettingsManager({
           </div>
 
           <div className="form-group" style={{ gridColumn: 'span 2' }}>
-            <label htmlFor="store-favicon-input">Favicon de la Pestaña (Emoji o URL de Imagen)</label>
+            <label htmlFor="store-favicon-input" style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+              <span>🎨 Ícono de la Web / Favicon de Pestaña</span>
+              {localStoreLogo && (
+                <button
+                  type="button"
+                  onClick={() => setLocalStoreFavicon(localStoreLogo)}
+                  style={{
+                    background: 'none',
+                    border: 'none',
+                    color: 'var(--primary-color)',
+                    fontSize: '0.78rem',
+                    fontWeight: 600,
+                    cursor: 'pointer',
+                    textDecoration: 'underline',
+                    padding: 0
+                  }}
+                >
+                  🖼️ Usar Mi Logotipo como Ícono
+                </button>
+              )}
+            </label>
+
+            {/* Vista Previa en Vivo de la Pestaña del Navegador */}
+            <div style={{
+              background: 'var(--bg-secondary)',
+              border: '1px solid var(--border-color)',
+              borderRadius: '10px',
+              padding: '8px 14px',
+              marginBottom: '10px',
+              display: 'flex',
+              alignItems: 'center',
+              gap: '10px',
+              width: 'fit-content',
+              maxWidth: '100%',
+              fontSize: '0.82rem',
+              boxShadow: '0 2px 6px rgba(0,0,0,0.04)'
+            }}>
+              <span style={{ fontSize: '0.7rem', color: 'var(--text-light)', fontWeight: 600 }}>
+                Vista previa en navegador:
+              </span>
+              <div style={{
+                display: 'inline-flex',
+                alignItems: 'center',
+                gap: '8px',
+                background: 'var(--bg-primary, #fff)',
+                border: '1px solid var(--border-color)',
+                padding: '4px 10px',
+                borderRadius: '8px 8px 0 0',
+                borderBottom: '2px solid var(--primary-color)'
+              }}>
+                {localStoreFavicon && (localStoreFavicon.startsWith('http') || localStoreFavicon.startsWith('/') || localStoreFavicon.startsWith('data:')) ? (
+                  <img
+                    src={localStoreFavicon}
+                    alt="Favicon"
+                    style={{ width: '16px', height: '16px', objectFit: 'contain', borderRadius: '3px' }}
+                    onError={(e) => { e.target.style.display = 'none'; }}
+                  />
+                ) : (
+                  <span style={{ fontSize: '1rem', lineHeight: 1 }}>{localStoreFavicon || '🍦'}</span>
+                )}
+                <span style={{ fontWeight: 600, color: 'var(--text-dark)', maxWidth: '180px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', fontSize: '0.76rem' }}>
+                  {localStoreTitle || localStoreName || 'Friozo - Heladería'}
+                </span>
+                <span style={{ color: 'var(--text-light)', fontSize: '0.7rem', marginLeft: '4px' }}>✕</span>
+              </div>
+            </div>
+
+            {/* Selector Rápido de Emojis */}
+            <div style={{ display: 'flex', alignItems: 'center', gap: '6px', marginBottom: '8px', flexWrap: 'wrap' }}>
+              <span style={{ fontSize: '0.75rem', color: 'var(--text-light)', fontWeight: 600 }}>
+                Atajos de íconos:
+              </span>
+              {['🍦', '🍨', '🍧', '🍓', '🍫', '🥤', '🧇', '🧁', '⭐', '❄️'].map(emoji => (
+                <button
+                  key={emoji}
+                  type="button"
+                  onClick={() => setLocalStoreFavicon(emoji)}
+                  style={{
+                    background: localStoreFavicon === emoji ? 'var(--primary-color)' : 'var(--bg-secondary)',
+                    border: '1px solid var(--border-color)',
+                    borderRadius: '8px',
+                    padding: '3px 8px',
+                    fontSize: '1rem',
+                    cursor: 'pointer',
+                    transition: 'all 0.15s ease'
+                  }}
+                  title={`Usar emoji ${emoji}`}
+                >
+                  {emoji}
+                </button>
+              ))}
+            </div>
+
             <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
               <input
                 id="store-favicon-input"
@@ -932,7 +1024,7 @@ export default function SettingsManager({
                   whiteSpace: 'nowrap'
                 }}
               >
-                📁 {uploadingState.favicon ? 'Subiendo...' : 'Subir'}
+                📁 {uploadingState.favicon ? 'Subiendo...' : 'Subir Ícono'}
               </label>
               <input 
                 type="file" 
@@ -944,7 +1036,7 @@ export default function SettingsManager({
               />
             </div>
             <span style={{ fontSize: '0.7rem', color: 'var(--text-light)' }}>
-              Puedes ingresar un Emoji (ej: 🍨) o subir una imagen cuadrada (PNG/SVG) para representarla en la pestaña del navegador.
+              Elige un emoji, sube una imagen personalizada (PNG, WebP, SVG) o pega una URL para que aparezca en la pestaña del navegador y al guardar en pantalla de inicio.
             </span>
           </div>
 

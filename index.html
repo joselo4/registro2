@@ -2,16 +2,30 @@
 <html lang="es">
   <head>
     <meta charset="UTF-8" />
-    <link rel="icon" type="image/x-icon" href="/favicon.ico" />
     <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+    <link rel="icon" type="image/webp" href="/logo.webp" />
+    <link rel="icon" type="image/x-icon" href="/favicon.ico" />
     <link rel="apple-touch-icon" href="/apple-touch-icon.png" />
+    <link rel="apple-touch-icon" type="image/webp" href="/apple-touch-icon.webp" />
+    <link rel="manifest" href="/manifest.webmanifest" />
+
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <meta name="description" content="Friozo: helados artesanales, paletas y combinaciones personalizadas desde S/. 1.50. Pide por WhatsApp o directamente desde nuestra web." />
-    <meta name="keywords" content="helados artesanales, delivery de helados, helados personalizados, paletas artesanales, yape, plin, efectivo" />
+    <meta name="theme-color" content="#e55039" />
+    <meta name="mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-status-bar-style" content="default" />
+    <meta name="apple-mobile-web-app-title" content="Friozo" />
+
+    <meta name="description" content="Friozo: helados artesanales, paletas y combinaciones personalizadas desde S/. 1.50. Pide por WhatsApp o directamente desde nuestra web con delivery en Andahuaylas." />
+    <meta name="keywords" content="helados artesanales, delivery de helados, helados personalizados, paletas artesanales, Andahuaylas, Apurímac, yape, plin, efectivo" />
     
+    <!-- Local SEO & Geo Targeting -->
+    <meta name="geo.region" content="PE-APU" />
+    <meta name="geo.placename" content="Andahuaylas" />
+    <meta name="geo.position" content="-13.6556;-73.3872" />
+    <meta name="ICBM" content="-13.6556, -73.3872" />
+
     <!-- SEO: Canonical Link -->
     <link rel="canonical" href="https://www.pideanda.com/" />
-
 
     <!-- Local Business SEO Structured Data -->
     <script type="application/ld+json">
@@ -19,11 +33,27 @@
       "@context": "https://schema.org",
       "@type": "IceCreamShop",
       "name": "Friozo",
-      "image": "https://www.pideanda.com/logo.png",
+      "image": "https://www.pideanda.com/logo.webp",
       "@id": "https://www.pideanda.com/#icecreamshop",
       "url": "https://www.pideanda.com/",
       "telephone": "+51989466466",
       "priceRange": "PEN",
+      "currenciesAccepted": "PEN",
+      "servesCuisine": "Helados artesanales, Paletas, Postres",
+      "hasMenu": "https://www.pideanda.com/#catalog",
+      "address": {
+        "@type": "PostalAddress",
+        "streetAddress": "Andahuaylas",
+        "addressLocality": "Andahuaylas",
+        "addressRegion": "Apurímac",
+        "postalCode": "03701",
+        "addressCountry": "PE"
+      },
+      "geo": {
+        "@type": "GeoCoordinates",
+        "latitude": -13.6556,
+        "longitude": -73.3872
+      },
       "openingHoursSpecification": {
         "@type": "OpeningHoursSpecification",
         "dayOfWeek": [
@@ -45,9 +75,10 @@
     }
     </script>
 
-    <!-- Performance: Preconnect & Load fonts without CSS waterfall -->
+    <!-- Performance: Preconnect & Preload LCP Hero Image -->
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link rel="preload" as="image" href="/hero-friozo-v2.webp" type="image/webp" fetchpriority="high" />
     <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,600..800&family=Manrope:wght@400..800&display=swap" />
 
     <!-- Open Graph / Facebook -->
@@ -56,6 +87,9 @@
     <meta property="og:title" content="Friozo - Helados artesanales, paletas y delivery" />
     <meta property="og:description" content="Helados cremosos, paletas artesanales y combinaciones personalizadas. Pide por WhatsApp o directamente desde nuestra web." />
     <meta property="og:image" content="https://www.pideanda.com/friozo_og_image.png" />
+    <meta property="og:image:width" content="1200" />
+    <meta property="og:image:height" content="630" />
+    <meta property="og:image:type" content="image/png" />
     <meta property="og:image:alt" content="Logotipo y helados artesanales de Friozo" />
     <meta property="og:locale" content="es_PE" />
     <meta property="og:site_name" content="Friozo" />

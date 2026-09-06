@@ -45,7 +45,9 @@ export default function WelcomePromotion({ promotion, tableNumber, onAction, rea
         } else {
           element.removeAttribute('open');
         }
-      } catch {}
+      } catch {
+        /* ignore */
+      }
     }
   }, [visible, dismissed]);
 

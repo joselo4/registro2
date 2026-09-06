@@ -465,13 +465,17 @@ export default function App() {
   useEffect(() => {
     try {
       localStorage.setItem('helados_cash_register_shifts', JSON.stringify(cashRegisterShifts));
-    } catch {}
+    } catch {
+      /* ignore storage quota error */
+    }
   }, [cashRegisterShifts]);
 
   useEffect(() => {
     try {
       localStorage.setItem('helados_cart_settlements', JSON.stringify(cartSettlements));
-    } catch {}
+    } catch {
+      /* ignore storage quota error */
+    }
   }, [cartSettlements]);
 
   // Temporizador para Reporte Nocturno Automático a Telegram (Solo para staff/admin)
@@ -1023,20 +1027,29 @@ export default function App() {
 
   useEffect(() => {
     let faviconUrl = storeFavicon || '🍦';
-    if (faviconUrl.length <= 4 && !faviconUrl.startsWith('http') && !faviconUrl.startsWith('/')) {
-      faviconUrl = `data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>${faviconUrl}</text></svg>`;
-    } else {
-      if (faviconUrl.startsWith('http://')) {
-        faviconUrl = faviconUrl.replace('http://', 'https://');
-      }
+    const isEmoji = faviconUrl.length <= 4 && !faviconUrl.startsWith('http') && !faviconUrl.startsWith('/') && !faviconUrl.startsWith('data:');
+    if (isEmoji) {
+      faviconUrl = `data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>${encodeURIComponent(faviconUrl)}</text></svg>`;
+    } else if (faviconUrl.startsWith('http://')) {
+      faviconUrl = faviconUrl.replace('http://', 'https://');
     }
-    const link = document.querySelector("link[rel~='icon']") || document.createElement('link');
-    link.type = faviconUrl.includes('svg+xml') ? 'image/svg+xml' : 'image/png';
+
+    // Limpiar enlaces previos para que navegadores modernos apliquen el cambio de inmediato
+    const existingIcons = document.querySelectorAll("link[rel~='icon'], link[rel='apple-touch-icon']");
+    existingIcons.forEach(el => el.remove());
+
+    const iconType = faviconUrl.includes('svg') ? 'image/svg+xml' : faviconUrl.endsWith('.webp') ? 'image/webp' : 'image/png';
+
+    const link = document.createElement('link');
     link.rel = 'icon';
+    link.type = iconType;
     link.href = faviconUrl;
-    if (!document.querySelector("link[rel~='icon']")) {
-      document.head.appendChild(link);
-    }
+    document.head.appendChild(link);
+
+    const appleLink = document.createElement('link');
+    appleLink.rel = 'apple-touch-icon';
+    appleLink.href = faviconUrl;
+    document.head.appendChild(appleLink);
   }, [storeFavicon]);
 
   useEffect(() => {

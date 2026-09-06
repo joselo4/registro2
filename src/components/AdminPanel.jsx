@@ -193,7 +193,9 @@ export default function AdminPanel({
         const parsed = JSON.parse(saved);
         return parsed.user || '';
       }
-    } catch {}
+    } catch {
+      /* ignore */
+    }
     return '';
   });
   const [passwordInput, setPasswordInput] = useState(() => {
@@ -203,7 +205,9 @@ export default function AdminPanel({
         const parsed = JSON.parse(saved);
         return parsed.pass || '';
       }
-    } catch {}
+    } catch {
+      /* ignore */
+    }
     return '';
   });
   const [showPassword, setShowPassword] = useState(false);
@@ -295,7 +299,9 @@ export default function AdminPanel({
             new window.Notification(`🍦 ¡Nuevo Pedido en ${storeName}!`, {
               body: `Cliente: ${clientName} - Total: S/. ${Number(latestOrder.grandTotal || 0).toFixed(2)}`
             });
-          } catch {}
+          } catch {
+            /* ignore */
+          }
         }
       }
     }
@@ -344,7 +350,9 @@ export default function AdminPanel({
             new window.Notification(`🛎️ ¡Mesa ${latestCall.table} solicita atención!`, {
               body: `Solicitud: ${latestCall.request || ''}`
             });
-          } catch {}
+          } catch {
+            /* ignore */
+          }
         }
       }
     }
@@ -355,7 +363,9 @@ export default function AdminPanel({
     if (isLoggedIn && canUseNotifications && window.Notification?.permission === 'default') {
       try {
         window.Notification?.requestPermission?.().catch?.(() => {});
-      } catch {}
+      } catch {
+        /* ignore */
+      }
     }
   }, [isLoggedIn, canUseNotifications]);
 
