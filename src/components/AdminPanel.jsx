@@ -785,7 +785,7 @@ export default function AdminPanel({
           )}
           {(shopConfig?.kdsEnabled !== false) && isTabAllowed('kds') && (
             <button className={`sidebar-btn ${activeTab === 'kds' ? 'active' : ''}`} onClick={() => setActiveTab('kds')}>
-              👨‍🍳 KDS Cocina ({orders.filter(o => ['Pendiente', 'Preparando', 'Por Corroborar'].includes(o.status)).length})
+              👨‍🍳 KDS Cocina ({orders.filter(o => ['Pendiente', 'Preparando', 'Listo'].includes(o.status)).length})
             </button>
           )}
           {(shopConfig?.cashRegisterEnabled !== false) && isTabAllowed('cash_register') && (
@@ -1017,6 +1017,7 @@ export default function AdminPanel({
 
         {(tableOrdersEnabled || isAdminUser(currentUser)) && activeTab === 'table_orders' && (
           <TableOrderManager
+            onUpdateOrderStatus={onUpdateOrderStatus}
             orders={orders}
             onUpdateOrders={onUpdateOrders}
             flavors={flavors}

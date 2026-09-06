@@ -635,7 +635,9 @@ export default function SettingsManager({
           if (data.toppings && onUpdateToppings) onUpdateToppings(data.toppings);
           if (data.bases && onUpdateBases) onUpdateBases(data.bases);
           if (data.packs && onUpdatePacks) onUpdatePacks(data.packs);
-          if (data.orders && onUpdateOrders) onUpdateOrders(data.orders);
+          if (data.orders && onUpdateOrders && !await onUpdateOrders(data.orders)) {
+            throw new Error('No se pudieron restaurar todos los pedidos. Revisa el aviso antes de continuar.');
+          }
           if (data.expenses && onUpdateExpenses) onUpdateExpenses(data.expenses);
           if (data.deliveryFee !== undefined && onChangeDeliveryFee) onChangeDeliveryFee(parseFloat(data.deliveryFee));
           if (data.shopOpen !== undefined && onToggleShopOpen) onToggleShopOpen(data.shopOpen);

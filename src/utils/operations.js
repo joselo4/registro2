@@ -1,5 +1,5 @@
-export const OPEN_STATUSES = ['Por Corroborar', 'Pendiente', 'Preparando', 'En camino'];
-export const NEXT_STATUS = { 'Por Corroborar': 'Pendiente', Pendiente: 'Preparando', Preparando: 'En camino', 'En camino': 'Entregado' };
+export const OPEN_STATUSES = ['Por Corroborar', 'Pendiente', 'Preparando', 'Listo', 'En camino'];
+export const NEXT_STATUS = { 'Por Corroborar': 'Pendiente', Pendiente: 'Preparando', Preparando: 'Listo', Listo: 'En camino', 'En camino': 'Entregado' };
 export function peruDay(date) {
   const value = new Date(date);
   if (!Number.isFinite(value.getTime())) return '';
@@ -15,7 +15,7 @@ export function operationsSummary(orders, now) {
   const queue = orders.filter(o => OPEN_STATUSES.includes(o.status)).sort((a,b) => (Date.parse(a.date)||0)-(Date.parse(b.date)||0));
   const overdue = queue.filter(o => Number.isFinite(Date.parse(o.date)) && now-Date.parse(o.date) > 20*60000);
   const production = new Map();
-  queue.filter(o => ['Por Corroborar', 'Pendiente', 'Preparando'].includes(o.status)).forEach(o => (o.items || []).forEach(item => {
+  queue.filter(o => ['Pendiente', 'Preparando'].includes(o.status)).forEach(o => (o.items || []).forEach(item => {
     if (item.type !== 'custom') return;
     (item.scoops || []).forEach(s => {
       const name = typeof s === 'string' ? s : s.name;

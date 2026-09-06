@@ -100,23 +100,23 @@ test('Order input validation approves valid table order even with blank name fal
 });
 
 test('getOrderStageInfo returns correct steps for Delivery and Mesa', () => {
-  assert.equal(getOrderStageInfo('Por Corroborar', true).text, '⏳ 1/4 Validar Pago');
-  assert.equal(getOrderStageInfo('Pendiente', true).text, '📋 2/4 En Cola');
-  assert.equal(getOrderStageInfo('Preparando', true).text, '👨‍🍳 3/4 Preparando');
-  assert.equal(getOrderStageInfo('En camino', true).text, '🛵 4/4 En Ruta');
-  assert.equal(getOrderStageInfo('Entregado', true).text, '🎉 Entregado');
+  assert.equal(getOrderStageInfo('Por Corroborar', true).text, '1/6 Validar pedido y pago');
+  assert.equal(getOrderStageInfo('Pendiente', true).text, '2/6 En cola');
+  assert.equal(getOrderStageInfo('Preparando', true).text, '3/6 Preparando');
+  assert.equal(getOrderStageInfo('En camino', true).text, '5/6 En camino');
+  assert.equal(getOrderStageInfo('Entregado', true).text, '6/6 Entregado');
 
-  assert.equal(getOrderStageInfo('Por Corroborar', false).text, '⏳ 1/3 Validar Pedido');
-  assert.equal(getOrderStageInfo('Pendiente', false).text, '📋 2/3 En Cola');
-  assert.equal(getOrderStageInfo('Preparando', false).text, '👨‍🍳 3/3 Preparando');
-  assert.equal(getOrderStageInfo('Entregado', false).text, '🎉 Entregado');
+  assert.equal(getOrderStageInfo('Por Corroborar', false).text, '1/5 Validar pedido y pago');
+  assert.equal(getOrderStageInfo('Pendiente', false).text, '2/5 En cola');
+  assert.equal(getOrderStageInfo('Preparando', false).text, '3/5 Preparando');
+  assert.equal(getOrderStageInfo('Entregado', false).text, '5/5 Entregado');
 });
 
 test('OPEN_STATUSES includes Por Corroborar and NEXT_STATUS transitions to Pendiente', () => {
   assert.ok(OPEN_STATUSES.includes('Por Corroborar'), 'OPEN_STATUSES must include Por Corroborar');
   assert.equal(NEXT_STATUS['Por Corroborar'], 'Pendiente');
   assert.equal(NEXT_STATUS['Pendiente'], 'Preparando');
-  assert.equal(NEXT_STATUS['Preparando'], 'En camino');
+  assert.equal(NEXT_STATUS['Preparando'], 'Listo');
   assert.equal(NEXT_STATUS['En camino'], 'Entregado');
 });
 

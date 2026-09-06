@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import CartItemPreview from './CartItemPreview';
+import { trackingUrl } from '../utils/apiClient';
 import { generateOrderId } from '../utils/orderId';
 import { validateOrderInput } from '../utils/orderValidation';
 
@@ -187,9 +188,10 @@ export default function Cart({
 
     try {
       setIsSubmitting(true);
-      const orderId = generateOrderId();
-      const newOrder = {
+      let orderId = generateOrderId();
+      let newOrder = {
         id: orderId,
+        submissionKey: crypto.randomUUID(),
         customer: { 
           name: finalName, 
           phone: finalPhone, 
@@ -211,6 +213,13 @@ export default function Cart({
         date: new Date().toISOString()
       };
 
+      const draftFingerprint = JSON.stringify({ customer: newOrder.customer, items: newOrder.items, grandTotal: newOrder.grandTotal });
+      let pending = null;
+      try { pending = JSON.parse(localStorage.getItem('helados_pending_submission')); } catch { /* invalid old draft */ }
+      if (pending?.fingerprint === draftFingerprint && pending.order?.submissionKey) newOrder = pending.order;
+      localStorage.setItem('helados_pending_submission', JSON.stringify({ fingerprint: draftFingerprint, order: newOrder }));
+
+      orderId = newOrder.id;
       // Formatear Mensaje de WhatsApp
       const itemsText = cart.map(item => {
         let detailsText = '';
@@ -237,7 +246,7 @@ export default function Cart({
       } else if (orderType === 'Llevar') {
         destLine = `*Pedido:* Recojo en Tienda / Llevar`;
       }
-      const trackerLink = `\n\n*Sigue tu pedido en vivo aquí:*\n${window.location.origin}${window.location.pathname}?track=${orderId}`;
+      const trackerLink = `\n\n*Sigue tu pedido en vivo aquí:*\n${trackingUrl(orderId)}`;
       const whatsappMessage = `${whatsappGreeting}\n\n*Código:* ${orderId}\n*Cliente:* ${finalName}\n${destLine}\n*WhatsApp:* ${finalPhone}\n*Pago:* ${paymentMethod}\n\n*Pedido:*\n${itemsText}\n\n*Subtotal:* S/. ${cartSubtotal.toFixed(2)}${couponLine}\n*Delivery:* S/. ${activeDeliveryFee.toFixed(2)}\n*Total:* S/. ${total.toFixed(2)}${trackerLink}\n\n${whatsappFooter}`;
       
       const encodedText = encodeURIComponent(whatsappMessage);
@@ -245,7 +254,8 @@ export default function Cart({
       const whatsappUrl = `https://wa.me/${cleanPhone}?text=${encodedText}`;
 
       // Registrar pedido en la base de datos (y esperar a que finalice la sincronización en Supabase)
-      await onPlaceOrder(newOrder);
+      const savedOrder = await onPlaceOrder(newOrder);
+      if (!savedOrder) throw new Error('No se confirmó el pedido. Tu carrito sigue disponible para reintentar.');
 
        // Track purchase event
        if (trackEvent) {
@@ -267,7 +277,8 @@ export default function Cart({
         setTimeout(() => setIsSubmitting(false), 2000);
     } catch (err) {
       console.error("Fallo al enviar pedido:", err);
-      alert("⚠️ Lo sentimos, ocurrió un error al estructurar el pedido. Vuelve a intentarlo.");
+      if (err.status === 409) localStorage.removeItem('helados_pending_submission');
+      alert(err.message || 'No se pudo confirmar el pedido. Conservamos tu carrito para reintentar.');
       setIsSubmitting(false);
     }
   };

@@ -1,11 +1,13 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { updateSyncedData } from '../../utils/supabaseSync';
+import { nextOrderStatus, orderStatusLabel } from '../../utils/orderLifecycle';
 import { generateOrderId } from '../../utils/orderId';
 import { buildSmsHref, formatOrderStatusMessage, normalizeSmsTemplates } from '../../utils/orderMessaging';
 
 export default function TableOrderManager({
   orders,
   onUpdateOrders,
+  onUpdateOrderStatus,
   flavors,
   toppings,
   bases,
@@ -134,7 +136,7 @@ export default function TableOrderManager({
   };
 
   // Agregar item al pedido local temporal (para nueva mesa) o directo a la mesa activa
-  const handleAddItemToOrder = (item) => {
+  const handleAddItemToOrder = async (item) => {
     if (selectedTable) {
       const activeOrder = selectedTable === 'Barra'
         ? orders.find(o => o.id === selectedBarraOrderId && o.customer?.orderType === 'Barra' && o.status !== 'Cancelado' && !o.tablePaid)
@@ -142,7 +144,7 @@ export default function TableOrderManager({
 
       if (activeOrder) {
         // Añadir a pedido existente en la base de datos
-        const updatedItems = [...activeOrder.items];
+        const updatedItems = activeOrder.items.map(item => ({ ...item }));
         const existingIdx = updatedItems.findIndex(i => i.name === item.name && i.type === item.type);
         if (existingIdx !== -1) {
           updatedItems[existingIdx].quantity += 1;
@@ -168,13 +170,12 @@ export default function TableOrderManager({
               discount: discount,
               grandTotal: Math.max(0, newSubtotal - discount)
             };
-            updateSyncedData(`order_${o.id}`, orderVal);
             return orderVal;
           }
           return o;
         });
 
-        onUpdateOrders(updatedOrders);
+        if (!await onUpdateOrders(updatedOrders)) return;
         const nameType = selectedTable === 'Barra' ? 'Barra' : `Mesa ${selectedTable}`;
         addLog(`Mozo ${currentUser?.name || ''} agregó ${item.name} a ${nameType}.`);
         alert(`Se agregó ${item.name} a ${nameType}.`);
@@ -193,7 +194,7 @@ export default function TableOrderManager({
     }
   };
 
-  const handleUpdateActiveOrderItemQty = (activeOrder, itemIndex, delta) => {
+  const handleUpdateActiveOrderItemQty = async (activeOrder, itemIndex, delta) => {
     let updatedItems = activeOrder.items.map((item, idx) => {
       if (idx === itemIndex) {
         const newQty = item.quantity + delta;
@@ -220,16 +221,15 @@ export default function TableOrderManager({
           grandTotal: Math.max(0, subtotal - discount)
         };
         // También subirlo individualmente si es en la nube
-        updateSyncedData(`order_${o.id}`, orderVal);
         return orderVal;
       }
       return o;
     });
 
-    onUpdateOrders(updatedOrders);
+    if (!await onUpdateOrders(updatedOrders)) return;
   };
 
-  const handleRemoveActiveOrderItem = (activeOrder, itemIndex) => {
+  const handleRemoveActiveOrderItem = async (activeOrder, itemIndex) => {
     const updatedItems = activeOrder.items.filter((_, idx) => idx !== itemIndex);
     
     if (updatedItems.length === 0) {
@@ -254,37 +254,38 @@ export default function TableOrderManager({
           discount: discount,
           grandTotal: Math.max(0, subtotal - discount)
         };
-        updateSyncedData(`order_${o.id}`, orderVal);
         return orderVal;
       }
       return o;
     });
 
-    onUpdateOrders(updatedOrders);
+    if (!await onUpdateOrders(updatedOrders)) return;
   };
 
-  const handleCorroborarOrder = (activeOrder) => {
+  const handleCorroborarOrder = async (activeOrder) => {
+    const verifyPayment = /yape|plin/i.test(activeOrder.customer?.paymentMethod || '');
+    if (verifyPayment && !activeOrder.paymentVerified && !window.confirm('¿Verificaste el abono de S/ ' + Number(activeOrder.grandTotal || 0).toFixed(2) + '?')) return;
     const updatedOrders = orders.map(o => {
       if (o.id === activeOrder.id) {
         const history = o.statusHistory || [];
         const orderVal = {
           ...o,
           status: 'Pendiente',
+          paymentVerified: verifyPayment || o.paymentVerified,
           statusHistory: [...history, { status: 'Pendiente', timestamp: new Date().toISOString() }]
         };
-        updateSyncedData(`order_${o.id}`, orderVal);
         return orderVal;
       }
       return o;
     });
 
-    onUpdateOrders(updatedOrders);
+    if (!await onUpdateOrders(updatedOrders)) return;
     addLog(`Pedido ${activeOrder.id} de Mesa ${selectedTable} corroborado por ${currentUser?.name || 'Personal'}.`);
     alert(`Pedido ${activeOrder.id} corroborado y enviado a preparación.`);
   };
 
   // Crear nuevo pedido de mesa
-  const handleCreateOrderSubmit = (e) => {
+  const handleCreateOrderSubmit = async (e) => {
     e.preventDefault();
     if (!selectedTable) return;
     if (newOrderItems.length === 0) {
@@ -332,9 +333,8 @@ export default function TableOrderManager({
       date: new Date().toISOString()
     };
 
-    onUpdateOrders([newOrder, ...orders]);
+    if (!await onUpdateOrders([newOrder, ...orders])) return;
     // Sincronizar de inmediato
-    updateSyncedData(`order_${newOrder.id}`, newOrder);
     if (isBarra) {
       setSelectedBarraOrderId(newOrder.id);
     }
@@ -359,7 +359,7 @@ export default function TableOrderManager({
   };
 
   // Cambiar tipo de pedido a Para Llevar / Delivery
-  const handleConvertToTakeout = (activeOrder) => {
+  const handleConvertToTakeout = async (activeOrder) => {
     const addressPrompt = window.prompt("Dirección para la entrega (o escribe 'Recojo en tienda'):", "Recojo en Tienda");
     if (addressPrompt === null) return; // Canceló
 
@@ -372,7 +372,7 @@ export default function TableOrderManager({
           ...o,
           customer: {
             ...o.customer,
-            orderType: 'Llevar',
+            orderType: addressPrompt.toLowerCase().includes('recojo') ? 'Llevar' : 'Delivery',
             tableNumber: null,
             address: addressPrompt
           },
@@ -384,55 +384,36 @@ export default function TableOrderManager({
       return o;
     });
 
-    if (orderVal) {
-      updateSyncedData(`order_${orderVal.id}`, orderVal);
-    }
-    onUpdateOrders(updatedOrders);
+    if (!await onUpdateOrders(updatedOrders)) return;
     addLog(`Pedido ${activeOrder.id} de Mesa ${selectedTable} cambiado a Para Llevar por ${currentUser?.name}.`);
     alert("Pedido cambiado a Para Llevar con éxito.");
     setSelectedTable(null); // Quitar selección de mesa
   };
 
   // Cambiar estado de orden de mesa
-  const handleUpdateTableOrderStatus = (activeOrder, newStatus) => {
-    let orderVal = null;
-    const statusTimestamp = new Date().toISOString();
-    const updatedOrders = orders.map(o => {
-      if (o.id === activeOrder.id) {
-        const history = o.statusHistory || [];
-        const lastStatus = history[history.length - 1]?.status;
-        orderVal = {
-          ...o,
-          status: newStatus,
-          statusHistory: lastStatus === newStatus ? history : [...history, { status: newStatus, timestamp: statusTimestamp }],
-          updatedAt: statusTimestamp
-        };
-        return orderVal;
-      }
-      return o;
-    });
-    if (orderVal) {
-      updateSyncedData(`order_${orderVal.id}`, orderVal);
-    }
-    onUpdateOrders(updatedOrders);
-    addLog(`Estado de pedido ${activeOrder.id} (Mesa ${selectedTable}) cambiado a ${newStatus} por ${currentUser?.name}.`);
-    if (orderVal) openStatusSms(orderVal, newStatus);
-    alert(`Estado de la Mesa ${selectedTable} cambiado a ${newStatus}.`);
+  const handleUpdateTableOrderStatus = async (activeOrder, newStatus) => {
+    if (!await onUpdateOrderStatus(activeOrder.id, newStatus)) return;
+    addLog(`Pedido ${activeOrder.id}: ${orderStatusLabel(newStatus)}`);
+    openStatusSms(activeOrder, newStatus);
+    alert(`Pedido actualizado: ${orderStatusLabel(newStatus)}.`);
+    return true;
   };
 
   // Cierre y Cobro de Mesa
-  const handleCheckoutTable = (activeOrder) => {
+  const handleCheckoutTable = async (activeOrder) => {
+    if (activeOrder.status !== 'Entregado') { alert('Primero completa la preparación y entrega del pedido. Después podrás cobrar y liberar la mesa.', 'error'); return; }
+    if (!window.confirm('¿Confirmas el cobro de S/ ' + Number(activeOrder.grandTotal || 0).toFixed(2) + ' vía ' + checkoutPaymentMethod + '?')) return;
     let orderVal = null;
     const statusTimestamp = new Date().toISOString();
     const updatedOrders = orders.map(o => {
       if (o.id === activeOrder.id) {
         const history = o.statusHistory || [];
-        const lastStatus = history[history.length - 1]?.status;
         orderVal = {
           ...o,
           tablePaid: true,
-          status: 'Entregado',
-          statusHistory: lastStatus === 'Entregado' ? history : [...history, { status: 'Entregado', timestamp: statusTimestamp }],
+          paymentVerified: true,
+          status: o.status,
+          statusHistory: history,
           updatedAt: statusTimestamp,
           customer: {
             ...o.customer,
@@ -444,12 +425,9 @@ export default function TableOrderManager({
       return o;
     });
 
-    if (orderVal) {
-      updateSyncedData(`order_${orderVal.id}`, orderVal);
-    }
-    onUpdateOrders(updatedOrders);
+    if (!await onUpdateOrders(updatedOrders)) return;
     addLog(`Mesa ${selectedTable} pagada y cerrada vía ${checkoutPaymentMethod}. Pedido ${activeOrder.id} cobrado.`);
-    if (orderVal) openStatusSms(orderVal, 'Entregado');
+
     alert(`Mesa ${selectedTable} cerrada y liberada exitosamente.`);
     
     setShowCheckoutSection(false);
@@ -457,9 +435,9 @@ export default function TableOrderManager({
   };
 
   // Cancelar orden de mesa
-  const handleCancelTableOrder = (activeOrder) => {
+  const handleCancelTableOrder = async (activeOrder) => {
     if (!window.confirm("¿Seguro que deseas cancelar el pedido de la mesa? Esta acción liberará la mesa inmediatamente.")) return;
-    handleUpdateTableOrderStatus(activeOrder, 'Cancelado');
+    if (!await handleUpdateTableOrderStatus(activeOrder, 'Cancelado')) return;
     setSelectedTable(null);
   };
 
@@ -488,12 +466,12 @@ export default function TableOrderManager({
           cardBg = 'rgba(241, 196, 15, 0.12)';
           cardBorder = '1px solid rgba(241, 196, 15, 0.4)';
           cardTextColor = '#d98811';
-          statusLabel = 'Esperando aceptación';
-        } else if (activeOrder.status === 'Preparando') {
+          statusLabel = 'En cola de cocina';
+        } else if (activeOrder.status === 'Preparando' || activeOrder.status === 'Listo') {
           cardBg = 'rgba(52, 152, 219, 0.12)';
           cardBorder = '1px solid rgba(52, 152, 219, 0.4)';
           cardTextColor = 'var(--primary-color)';
-          statusLabel = 'En preparación';
+          statusLabel = activeOrder.status === 'Listo' ? 'Listo para entregar' : 'En preparación';
         } else if (activeOrder.status === 'Entregado') {
           cardBg = 'rgba(155, 89, 182, 0.12)';
           cardBorder = '1px solid rgba(155, 89, 182, 0.4)';
@@ -1225,17 +1203,9 @@ export default function TableOrderManager({
                     )}
  
                     <div className="table-actions-row">
-                      <select
-                        className="form-control"
-                        value={activeOrder.status}
-                        onChange={(e) => handleUpdateTableOrderStatus(activeOrder, e.target.value)}
-                        style={{ flex: 1, fontSize: '0.75rem', padding: '6px' }}
-                      >
-                        <option value="Por Corroborar">⏳ Cocina: Por Corroborar</option>
-                        <option value="Pendiente">⏳ Cocina: Pendiente</option>
-                        <option value="Preparando">🍦 Cocina: Preparando</option>
-                        <option value="Entregado">🍽️ Cocina: Servido a Mesa</option>
-                      </select>
+                      <button className="btn btn-primary" disabled={!nextOrderStatus(activeOrder)} onClick={() => activeOrder.status === 'Por Corroborar' ? handleCorroborarOrder(activeOrder) : handleUpdateTableOrderStatus(activeOrder, nextOrderStatus(activeOrder))}>
+                        {nextOrderStatus(activeOrder) ? 'Pasar a: ' + orderStatusLabel(nextOrderStatus(activeOrder)) : orderStatusLabel(activeOrder.status)}
+                      </button>
                       
                       <button
                         type="button"

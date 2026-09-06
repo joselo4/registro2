@@ -71,7 +71,7 @@ function localPagesApiPlugin(env) {
               request,
               env: {
                 SUPABASE_URL: env.SUPABASE_URL || env.VITE_SUPABASE_URL,
-                SUPABASE_SERVICE_ROLE_KEY: env.SUPABASE_SERVICE_ROLE_KEY || env.VITE_SUPABASE_ANON_KEY,
+                SUPABASE_SERVICE_ROLE_KEY: env.SUPABASE_SERVICE_ROLE_KEY,
                 TELEGRAM_BOT_TOKEN: env.TELEGRAM_BOT_TOKEN,
                 TELEGRAM_CHAT_ID: env.TELEGRAM_CHAT_ID,
                 R2_ACCOUNT_ID: env.R2_ACCOUNT_ID,

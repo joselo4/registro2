@@ -69,23 +69,9 @@ export const validateOrderInput = ({
  * Devuelve la información de etapa según el estado actual y si es Delivery o Salón/Mesa
  */
 export const getOrderStageInfo = (status, isDelivery = true) => {
-  if (status === 'Cancelado') return { text: '🛑 Cancelado', color: '#c0392b', step: 'Cancelado' };
-  if (status === 'Entregado') return { text: '🎉 Entregado', color: '#27ae60', step: 'Completado' };
-
-  if (isDelivery) {
-    switch (status) {
-      case 'Por Corroborar': return { text: '⏳ 1/4 Validar Pago', color: '#e67e22', step: 'Paso 1' };
-      case 'Pendiente': return { text: '📋 2/4 En Cola', color: '#2980b9', step: 'Paso 2' };
-      case 'Preparando': return { text: '👨‍🍳 3/4 Preparando', color: '#8e44ad', step: 'Paso 3' };
-      case 'En camino': return { text: '🛵 4/4 En Ruta', color: '#FF441F', step: 'Paso 4' };
-      default: return { text: status, color: '#7f8c8d', step: '' };
-    }
-  } else {
-    switch (status) {
-      case 'Por Corroborar': return { text: '⏳ 1/3 Validar Pedido', color: '#e67e22', step: 'Paso 1' };
-      case 'Pendiente': return { text: '📋 2/3 En Cola', color: '#2980b9', step: 'Paso 2' };
-      case 'Preparando': return { text: '👨‍🍳 3/3 Preparando', color: '#8e44ad', step: 'Paso 3' };
-      default: return { text: status, color: '#7f8c8d', step: '' };
-    }
-  }
+  const stages = isDelivery ? ['Por Corroborar', 'Pendiente', 'Preparando', 'Listo', 'En camino', 'Entregado'] : ['Por Corroborar', 'Pendiente', 'Preparando', 'Listo', 'Entregado'];
+  const labels = { 'Por Corroborar': 'Validar pedido y pago', Pendiente: 'En cola', Preparando: 'Preparando', Listo: 'Listo para entregar', 'En camino': 'En camino', Entregado: 'Entregado', Cancelado: 'Cancelado' };
+  const colors = { 'Por Corroborar': '#b85e00', Pendiente: '#2980b9', Preparando: '#8e44ad', Listo: '#16846b', 'En camino': '#c43c1c', Entregado: '#218c4b', Cancelado: '#c0392b' };
+  const index = stages.indexOf(status);
+  return { text: index >= 0 ? `${index + 1}/${stages.length} ${labels[status]}` : labels[status] || status, color: colors[status] || '#7f8c8d', step: index >= 0 ? `Paso ${index + 1}` : '' };
 };

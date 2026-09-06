@@ -90,7 +90,7 @@ export default function KitchenDisplaySystem({
   useEffect(() => {
     if (!soundEnabled) return;
     orders.forEach(o => {
-      if (!knownOrderIdsRef.current.has(o.id) && (o.status === 'Pendiente' || o.status === 'Por Corroborar' || o.status === 'Preparando')) {
+      if (!knownOrderIdsRef.current.has(o.id) && (o.status === 'Pendiente' || o.status === 'Preparando')) {
         knownOrderIdsRef.current.add(o.id);
         triggerDeviceVibration([250, 100, 250]);
         const isDelivery = o.customer?.orderType === 'Delivery' || (o.deliveryFee > 0);
@@ -117,9 +117,9 @@ export default function KitchenDisplaySystem({
   const kitchenOrders = useMemo(() => {
     return orders.filter(o => {
       if (currentViewTab === 'active') {
-        return o.status === 'Pendiente' || o.status === 'Por Corroborar' || o.status === 'Preparando';
+        return o.status === 'Pendiente' || o.status === 'Preparando';
       } else {
-        return o.status === 'En camino' || o.status === 'Entregado';
+        return o.status === 'Listo';
       }
     }).filter(o => {
       if (filterType === 'delivery') {
@@ -151,18 +151,17 @@ export default function KitchenDisplaySystem({
     return { elapsedMinutes, timeFormatted, level };
   };
 
-  const handleStartPreparing = (order) => {
-    onUpdateOrderStatus(order.id, 'Preparando');
+  const handleStartPreparing = async (order) => {
+    if (!await onUpdateOrderStatus(order.id, 'Preparando')) return;
     addLog?.(`Cocina inició preparación del pedido ${order.id} (${currentUser?.name || 'KDS'}).`);
   };
 
-  const handleReadyToDeliver = (order) => {
-    const isDelivery = order.customer?.orderType === 'Delivery' || (order.deliveryFee > 0);
-    const nextStatus = isDelivery ? 'En camino' : 'Entregado';
-    onUpdateOrderStatus(order.id, nextStatus);
+  const handleReadyToDeliver = async (order) => {
+    const nextStatus = 'Listo';
+    if (!await onUpdateOrderStatus(order.id, nextStatus)) return;
     addLog?.(`Pedido ${order.id} marcado como listo (${nextStatus}) por ${currentUser?.name || 'Cocina'}.`);
     if (showAlert) {
-      showAlert('Pedido Despachado', `El pedido ${order.id} pasó a ${nextStatus}.`, 'success');
+      showAlert('Pedido listo para entregar', `El pedido ${order.id} pasó a ${nextStatus}.`, 'success');
     }
   };
 
@@ -194,7 +193,7 @@ export default function KitchenDisplaySystem({
               style={{ padding: '6px 14px', fontSize: '0.78rem', borderRadius: '8px' }}
               onClick={() => setCurrentViewTab('ready')}
             >
-              ✅ Despachados
+              ✅ Listos para entregar
             </button>
           </div>
 
@@ -380,7 +379,7 @@ export default function KitchenDisplaySystem({
                     🖨️
                   </button>
 
-                  {order.status !== 'Preparando' ? (
+                  {order.status === 'Pendiente' ? (
                     <button
                       type="button"
                       className="btn btn-primary"
@@ -389,7 +388,7 @@ export default function KitchenDisplaySystem({
                     >
                       👨‍🍳 Empezar a Preparar
                     </button>
-                  ) : (
+                  ) : order.status === 'Preparando' ? (
                     <button
                       type="button"
                       className={isDelivery ? 'delivery-btn-primary' : 'btn btn-primary'}
@@ -402,9 +401,9 @@ export default function KitchenDisplaySystem({
                         borderColor: isDelivery ? undefined : '#27ae60'
                       }}
                     >
-                      {isDelivery ? '🛵 Listo para Reparto' : (order.customer?.orderType === 'Mesa' ? '🍽️ Servido en Mesa' : '🥡 Listo para Entregar')}
+                      ✅ Marcar listo para entregar
                     </button>
-                  )}
+                  ) : null}
                 </div>
               </div>
             );

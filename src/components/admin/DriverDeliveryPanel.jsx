@@ -27,7 +27,7 @@ export default function DriverDeliveryPanel({
   }, [orders, driverEmail, driverId]);
 
   const activeDeliveries = useMemo(() => {
-    return myAssignedOrders.filter(o => o.status === 'Preparando' || o.status === 'En camino' || o.status === 'Pendiente');
+    return myAssignedOrders.filter(o => o.status === 'Listo' || o.status === 'En camino');
   }, [myAssignedOrders]);
 
   const todayIso = new Date().toDateString();
@@ -70,17 +70,21 @@ export default function DriverDeliveryPanel({
     knownAssignedRef.current = new Set(activeDeliveries.map(o => o.id));
   }, [activeDeliveries, storeName]);
 
-  const handleStartDelivery = (order) => {
+  const handleStartDelivery = async (order) => {
     if (onUpdateOrderStatus) {
-      onUpdateOrderStatus(order.id, 'En camino');
+      if (!await onUpdateOrderStatus(order.id, 'En camino')) return;
     }
     showAlert?.('¡En camino!', `Pedido #${order.id} marcado como en camino.`, 'success');
   };
 
-  const handleCompleteDelivery = (order) => {
+  const handleCompleteDelivery = async (order) => {
     const isCash = String(order.customer?.paymentMethod || '').toLowerCase().includes('efectivo');
     const totalStr = Number(order.grandTotal || 0).toFixed(2);
     const clientName = order.customer?.name || 'el cliente';
+    if (!isCash && !order.paymentVerified) {
+      showAlert?.('Pago pendiente de validar', 'Solicita a caja que verifique el pago antes de completar la entrega.', 'warning');
+      return;
+    }
 
     if (isCash) {
       playCashReminderSound();
@@ -97,7 +101,7 @@ export default function DriverDeliveryPanel({
     }
 
     if (onUpdateOrderStatus) {
-      onUpdateOrderStatus(order.id, 'Entregado');
+      if (!await onUpdateOrderStatus(order.id, 'Entregado', { paymentVerified: true })) return;
     }
     showAlert?.('¡Entrega completada!', `Pedido #${order.id} marcado como Entregado.${isCash ? ` Cobranza en efectivo registrada: S/. ${totalStr}.` : ''}`, 'success');
   };

@@ -1,10 +1,10 @@
 import React, { useState, useEffect } from 'react';
 import { buildSmsHref, formatOrderStatusMessage, normalizeSmsTemplates, formatDriverDispatchMessage, buildWhatsAppHref } from '../../utils/orderMessaging';
+import { getOrderStageInfo } from '../../utils/orderValidation';
 import { printThermalTicket } from '../../utils/escposTicket';
 import {
   playPaymentVerifiedSound,
   playKitchenSound,
-  playCashReminderSound,
   triggerDeviceVibration
 } from '../../utils/appAudioNotifications';
 
@@ -81,20 +81,21 @@ export default function OrderManager({
     window.location.assign(href);
   };
 
-  const handleStatusChange = (order, newStatus, logText) => {
-    onUpdateOrderStatus(order.id, newStatus);
+  const handleStatusChange = async (order, newStatus, logText) => {
+    if (!await onUpdateOrderStatus(order.id, newStatus)) return false;
     addLog(logText);
     openStatusSms(order, newStatus);
+    return true;
   };
 
-  const handleTogglePaymentVerified = (order) => {
+  const handleTogglePaymentVerified = async (order) => {
     const nextVerified = !order.paymentVerified;
     const updated = {
       ...order,
       paymentVerified: nextVerified,
       updatedAt: new Date().toISOString()
     };
-    onUpdateOrders(orders.map(o => o.id === order.id ? updated : o));
+    if (!await onUpdateOrders(orders.map(o => o.id === order.id ? updated : o))) return;
     if (nextVerified) {
       playPaymentVerifiedSound();
       triggerDeviceVibration([150, 80, 150]);
@@ -105,7 +106,7 @@ export default function OrderManager({
     }
   };
 
-  const handleValidateAndAcceptOrder = (order) => {
+  const handleValidateAndAcceptOrder = async (order) => {
     const isDigital = ['yape', 'plin'].some(m => String(order.customer?.paymentMethod || '').toLowerCase().includes(m));
     const totalStr = Number(order.grandTotal || 0).toFixed(2);
     const payMethod = order.customer?.paymentMethod || 'Pago digital';
@@ -127,7 +128,7 @@ export default function OrderManager({
         status: 'Pendiente',
         updatedAt: new Date().toISOString()
       };
-      onUpdateOrders(orders.map(o => o.id === order.id ? updated : o));
+      if (!await onUpdateOrders(orders.map(o => o.id === order.id ? updated : o))) return;
       playPaymentVerifiedSound();
       if (addLog) addLog(`Pedido ${order.id} aceptado con abono verificado de S/. ${totalStr} por ${currentUser?.name}`);
       openStatusSms(order, 'Pendiente');
@@ -137,30 +138,16 @@ export default function OrderManager({
     handleStatusChange(order, 'Pendiente', `Pedido ${order.id} aceptado y confirmado por ${currentUser?.name}`);
   };
 
-  const handleSendToKitchen = (order) => {
+  const handleSendToKitchen = async (order) => {
+    if (!await handleStatusChange(order, 'Preparando', `Pedido ${order.id} enviado a cocina por ${currentUser?.name}`)) return;
     playKitchenSound();
     triggerDeviceVibration([200, 100, 200]);
-    handleStatusChange(order, 'Preparando', `Pedido ${order.id} enviado a preparación en cocina por ${currentUser?.name}`);
+
   };
 
-  const handleCompleteOrder = (order) => {
-    const isCash = String(order.customer?.paymentMethod || '').toLowerCase().includes('efectivo');
-    const totalStr = Number(order.grandTotal || 0).toFixed(2);
+  const handleCompleteOrder = order => handleStatusChange(order, 'Entregado', `Pedido ${order.id} entregado por ${currentUser?.name}`);
 
-    if (isCash) {
-      playCashReminderSound();
-      triggerDeviceVibration([200, 100, 200, 100, 300]);
-      const confirmMsg = `💰 RECORDATORIO DE COBRANZA EN EFECTIVO:\n\n` +
-        `• Pedido #${order.id} (${order.customer?.name || 'Cliente'})\n` +
-        `• Monto a cobrar: S/. ${totalStr}\n\n` +
-        `¿Confirmas que el dinero en efectivo (S/. ${totalStr}) fue cobrado correctamente antes de finalizar la entrega?`;
-      if (!window.confirm(confirmMsg)) return;
-    }
-
-    handleStatusChange(order, 'Entregado', `Pedido ${order.id} completado y entregado por ${currentUser?.name}`);
-  };
-
-  const handleAssignDriver = (order, driverIdentifier) => {
+  const handleAssignDriver = async (order, driverIdentifier) => {
     const selectedUser = (staffUsers || []).find(u => String(u.id || u.email) === String(driverIdentifier));
     const assignedDriver = selectedUser ? {
       id: selectedUser.id || selectedUser.email,
@@ -174,7 +161,7 @@ export default function OrderManager({
       assignedDriver,
       updatedAt: new Date().toISOString()
     };
-    onUpdateOrders(orders.map(o => o.id === order.id ? updated : o));
+    if (!await onUpdateOrders(orders.map(o => o.id === order.id ? updated : o))) return;
     if (addLog) {
       addLog(`Repartidor ${assignedDriver ? assignedDriver.name : 'desasignado'} para pedido ${order.id}`);
     }
@@ -334,14 +321,14 @@ export default function OrderManager({
       setEditingOrder({ ...editingOrder, items: [...editingOrder.items, newItem] });
     };
 
-    const handleSaveOrderEdits = () => {
+    const handleSaveOrderEdits = async () => {
       if (editingOrder.items.length === 0) {
         alert("El pedido debe tener al menos un producto.");
         return;
       }
       
       const finalSubtotal = editingOrder.items.reduce((sum, item) => sum + (item.price * (item.quantity || 1)), 0);
-      const finalGrandTotal = finalSubtotal + parseFloat(editingOrder.deliveryFee || 0);
+      const finalGrandTotal = Math.max(0, finalSubtotal + parseFloat(editingOrder.deliveryFee || 0) - Number(editingOrder.discount || 0));
 
       const updatedOrder = {
         ...editingOrder,
@@ -350,7 +337,7 @@ export default function OrderManager({
       };
 
       const nextOrders = orders.map(o => o.id === editingOrder.id ? updatedOrder : o);
-      onUpdateOrders(nextOrders);
+      if (!await onUpdateOrders(nextOrders)) return;
       addLog(`Pedido ${editingOrder.id} modificado por el operador (${currentUser?.name}).`);
       setEditingOrder(null);
       alert("¡Pedido actualizado con éxito!");
@@ -640,6 +627,7 @@ export default function OrderManager({
     toCorroborate: orders.filter(o => o.status === 'Por Corroborar').length,
     pending: orders.filter(o => o.status === 'Pendiente').length,
     preparing: orders.filter(o => o.status === 'Preparando').length,
+    ready: orders.filter(o => o.status === 'Listo').length,
     delivery: orders.filter(o => o.status === 'En camino').length,
     delivered: orders.filter(o => o.status === 'Entregado').length,
     todaySales: orders
@@ -691,11 +679,12 @@ export default function OrderManager({
             border: '1px solid var(--border-color)'
           }}>
             {[
-              { id: 'Por Corroborar', step: '1', label: 'Por Corroborar', icon: '⏳', count: kpis.toCorroborate, color: '#e67e22', desc: 'Validar pago/datos' },
+              { id: 'Por Corroborar', step: '1', label: 'Por validar', icon: '⏳', count: kpis.toCorroborate, color: '#e67e22', desc: 'Validar pago/datos' },
               { id: 'Pendiente', step: '2', label: 'Confirmados', icon: '📋', count: kpis.pending, color: '#2980b9', desc: 'En cola de cocina' },
               { id: 'Preparando', step: '3', label: 'Preparando', icon: '👨‍🍳', count: kpis.preparing, color: '#8e44ad', desc: 'En elaboración' },
-              { id: 'En camino', step: '4', label: 'En Ruta / Salón', icon: '🛵', count: kpis.delivery, color: 'var(--delivery-color, #FF441F)', desc: 'Despachado' },
-              { id: 'Entregado', step: '5', label: 'Entregados', icon: '🎉', count: kpis.delivered, color: 'var(--success, #27ae60)', desc: 'Completados' }
+              { id: 'Listo', step: '4', label: 'Listos', icon: '✅', count: kpis.ready, color: '#16846b', desc: 'Por entregar o despachar' },
+              { id: 'En camino', step: '5', label: 'En camino', icon: '🛵', count: kpis.delivery, color: 'var(--delivery-color, #FF441F)', desc: 'Despachado' },
+              { id: 'Entregado', step: '6', label: 'Entregados', icon: '🎉', count: kpis.delivered, color: 'var(--success, #27ae60)', desc: 'Completados' }
             ].map(st => {
               const isSelected = orderFilter === st.id;
               return (
@@ -888,7 +877,7 @@ export default function OrderManager({
           </div>
 
           <div style={{ display: 'flex', gap: '5px', overflowX: 'auto', paddingBottom: '6px', marginBottom: '15px' }}>
-            {['all', 'Por Corroborar', 'Pendiente', 'Preparando', 'En camino', 'Entregado', 'Cancelado'].map(f => (
+            {['all', 'Por Corroborar', 'Pendiente', 'Preparando', 'Listo', 'En camino', 'Entregado', 'Cancelado'].map(f => (
               <button
                 key={f}
                 className={`filter-btn ${orderFilter === f ? 'active' : ''}`}
@@ -922,28 +911,7 @@ export default function OrderManager({
                     const isDelivery = order.customer?.orderType === 'Delivery' || (order.deliveryFee > 0);
                     const isMesa = order.customer?.orderType === 'Mesa' || Boolean(order.customer?.tableNumber);
 
-                    const getStageInfo = (status, delivery) => {
-                      if (status === 'Cancelado') return { text: '🛑 Cancelado', color: '#c0392b' };
-                      if (status === 'Entregado') return { text: '🎉 Entregado', color: '#27ae60' };
-                      if (delivery) {
-                        switch (status) {
-                          case 'Por Corroborar': return { text: '⏳ 1/4 Validar Pago', color: '#e67e22' };
-                          case 'Pendiente': return { text: '📋 2/4 En Cola', color: '#2980b9' };
-                          case 'Preparando': return { text: '👨‍🍳 3/4 Preparando', color: '#8e44ad' };
-                          case 'En camino': return { text: '🛵 4/4 En Ruta', color: '#FF441F' };
-                          default: return { text: status, color: '#7f8c8d' };
-                        }
-                      } else {
-                        switch (status) {
-                          case 'Por Corroborar': return { text: '⏳ 1/3 Validar Pedido', color: '#e67e22' };
-                          case 'Pendiente': return { text: '📋 2/3 En Cola', color: '#2980b9' };
-                          case 'Preparando': return { text: '👨‍🍳 3/3 Preparando', color: '#8e44ad' };
-                          default: return { text: status, color: '#7f8c8d' };
-                        }
-                      }
-                    };
-
-                    const stage = getStageInfo(order.status, isDelivery);
+                    const stage = getOrderStageInfo(order.status, isDelivery);
 
                     return (
                     <tr key={order.id} style={isDelivery ? { background: 'rgba(255, 68, 31, 0.02)' } : {}}>
@@ -1211,7 +1179,8 @@ export default function OrderManager({
                               👨‍🍳 Enviar a Cocina
                             </button>
                           )}
-                          {order.status === 'Preparando' && isDelivery && (
+                          {order.status === 'Preparando' && <button className="admin-action-btn" onClick={() => handleStatusChange(order, 'Listo', `Pedido ${order.id} listo para entregar`)}>✅ Marcar listo</button>}
+                          {order.status === 'Listo' && isDelivery && (
                             <button
                               className="admin-action-btn"
                               style={{
@@ -1231,7 +1200,7 @@ export default function OrderManager({
                               🛵 Despachar a Ruta
                             </button>
                           )}
-                          {order.status === 'Preparando' && isMesa && (
+                          {order.status === 'Listo' && isMesa && (
                             <button
                               className="admin-action-btn"
                               style={{
@@ -1250,7 +1219,7 @@ export default function OrderManager({
                               🍽️ Servir a Mesa
                             </button>
                           )}
-                          {order.status === 'Preparando' && !isDelivery && !isMesa && (
+                          {order.status === 'Listo' && !isDelivery && !isMesa && (
                             <button
                               className="admin-action-btn"
                               style={{
@@ -1263,7 +1232,7 @@ export default function OrderManager({
                                 fontSize: '0.78rem',
                                 cursor: 'pointer'
                               }}
-                              onClick={() => handleStatusChange(order, 'Entregado', `Pedido ${order.id} entregado para llevar por ${currentUser?.name}`)}
+                              onClick={() => handleCompleteOrder(order)}
                               title="Marcar como entregado al cliente"
                             >
                               🥡 Entregar a Cliente
@@ -1315,35 +1284,6 @@ export default function OrderManager({
                               📸 Pedir Voucher
                             </a>
                           )}
-
-                          {/* Selector de Corrección Rápida de Estado */}
-                          <select
-                            aria-label="Cambiar estado manualmente"
-                            value={order.status}
-                            onChange={(e) => {
-                              const nextVal = e.target.value;
-                              if (nextVal !== order.status) {
-                                handleStatusChange(order, nextVal, `Estado de pedido ${order.id} cambiado manualmente a '${nextVal}' por ${currentUser?.name}`);
-                              }
-                            }}
-                            style={{
-                              fontSize: '0.72rem',
-                              padding: '3px 6px',
-                              borderRadius: '4px',
-                              border: '1px solid var(--border-color)',
-                              background: 'var(--bg-secondary, #fff)',
-                              color: 'var(--text-dark)',
-                              cursor: 'pointer'
-                            }}
-                            title="Cambiar estado si hubo una equivocación"
-                          >
-                            <option value="Por Corroborar">⏳ Por Corroborar</option>
-                            <option value="Pendiente">📋 Confirmado</option>
-                            <option value="Preparando">👨‍🍳 Preparando</option>
-                            <option value="En camino">🛵 En camino</option>
-                            <option value="Entregado">🎉 Entregado</option>
-                            <option value="Cancelado">🛑 Cancelado</option>
-                          </select>
 
                           {order.status !== 'Entregado' && order.status !== 'Cancelado' && (
                             <button 

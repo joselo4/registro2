@@ -10,6 +10,9 @@ import {
 } from './utils/mockData';
 import { fetchSyncedData, updateSyncedData, subscribeToSync, invalidateSyncCache } from './utils/supabaseSync';
 import { supabase } from './utils/supabaseClient';
+import { createOrder, updateOrder, apiUrl, trackingUrl } from './utils/apiClient';
+import { mergeOrders, isDigitalPayment, isTableOrder } from './utils/orderLifecycle';
+import { saveOrderChange } from './utils/orderRepository';
 import { Capacitor } from '@capacitor/core';
 import { DEFAULT_SMS_TEMPLATES } from './utils/orderMessaging';
 
@@ -630,7 +633,10 @@ export default function App() {
     }
   }, [locationFeatureVisible, view, isVendorApp]);
 
-  const [cart, setCart] = useState([]);
+  const [cart, setCart] = useState(() => {
+    try { return JSON.parse(localStorage.getItem('helados_cart_draft')) || []; } catch { return []; }
+  });
+  useEffect(() => { localStorage.setItem('helados_cart_draft', JSON.stringify(cart)); }, [cart]);
   const [activeOrderId, setActiveOrderId] = useState(() => {
     const saved = localStorage.getItem('helados_active_order_id');
     const savedTime = localStorage.getItem('helados_active_order_time');
@@ -676,6 +682,7 @@ export default function App() {
   }, [isVendorApp]);
 
   // --- Función auxiliar para aplicar los datos sincronizados y combinar las órdenes ---
+  const confirmedOrderIds = useRef(new Set());
   const applyLoadedData = (serverData) => {
     setIsCloudSynced(true);
     if (serverData.store_name !== undefined) setStoreName(migrateLegacyBrandText(serverData.store_name, 'Friozo'));
@@ -704,17 +711,11 @@ export default function App() {
     setTableCalls(loadedTableCalls);
 
     if (individualOrders.length > 0 || serverData.orders !== undefined) {
-      const combinedMap = {};
-      // 1. Agregar las de orders globales
-      initialOrders.forEach(o => {
-        if (o && o.id) combinedMap[o.id] = o;
-      });
-      // 2. Sobreescribir o agregar con las individuales (las más frescas)
-      individualOrders.forEach(o => {
-        if (o && o.id) combinedMap[o.id] = o;
-      });
-      const finalOrders = Object.values(combinedMap).sort((a, b) => new Date(b.date) - new Date(a.date));
-      setOrders(finalOrders);
+      const previouslyConfirmed = new Set(confirmedOrderIds.current);
+      initialOrders.forEach(order => confirmedOrderIds.current.add(order.id));
+      individualOrders.forEach(order => confirmedOrderIds.current.add(order.id));
+      const scopedIds = new Set([...initialOrders, ...individualOrders].map(order => order.id));
+      setOrders(prev => mergeOrders(prev.filter(order => previouslyConfirmed.has(order.id) && (serverData.order_scope !== 'assigned' || scopedIds.has(order.id))), initialOrders, individualOrders));
     }
 
     if (serverData.delivery_fee !== undefined) setDeliveryFee(parseFloat(serverData.delivery_fee) || 0);
@@ -855,7 +856,8 @@ export default function App() {
       // en un useEffect independiente para evitar condiciones de carrera.
 
       // 3. Suscribirse a cambios del estado de autenticación de Supabase
-      const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event, session) => {
+      const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
+        setTimeout(async () => {
         console.log(`🔔 Supabase Auth Evento: ${event}`);
         if (session) {
           const userRole = normalizeRoleLabel(session.user.app_metadata?.role, session.user.email);
@@ -895,7 +897,10 @@ export default function App() {
         if (!session && event === 'SIGNED_OUT') {
           setIsLoggedIn(false);
           setCurrentUser(null);
+          confirmedOrderIds.current.clear();
+          setOrders([]);
         }
+        }, 0);
       });
       authSubscription = subscription;
       setIsSyncLoaded(true);
@@ -963,6 +968,23 @@ export default function App() {
       document.removeEventListener('visibilitychange', handleVisibilityChange);
     };
   }, [isLoggedIn, isVendorApp]);
+
+  useEffect(() => {
+    if (!isLoggedIn || view !== 'admin') return;
+    let cancelled = false;
+    let busy = false;
+    const refresh = async () => {
+      if (document.hidden || busy) return;
+      busy = true;
+      try {
+        const data = await fetchSyncedData(true);
+        if (!cancelled && data) applyLoadedData(data);
+      } finally { busy = false; }
+    };
+    const timer = setInterval(refresh, 15000);
+    refresh();
+    return () => { cancelled = true; clearInterval(timer); };
+  }, [isLoggedIn, view]);
 
   const handleRefreshCarts = async () => {
     if (!supabase) return false;
@@ -1050,7 +1072,9 @@ export default function App() {
   useSyncEffect('bases', bases, true);
   useSyncEffect('packs', packs, true);
   useSyncEffect('popsicles', popsicles, true);
-  useSyncEffect('orders', orders, true);
+  useEffect(() => {
+    localStorage.setItem('helados_orders', JSON.stringify(orders));
+  }, [orders]);
   useSyncEffect('delivery_fee', deliveryFee, false);
   useSyncEffect('shop_open', shopConfig, true);
   useSyncEffect('free_delivery_threshold', freeDeliveryThreshold, false);
@@ -1153,23 +1177,9 @@ export default function App() {
         return;
       }
 
-      if (key.startsWith('order_') && key !== 'orders' && value) {
-        setOrders(prev => {
-          const exists = prev.some(o => o.id === value.id);
-          if (exists) {
-            const hasChanged = JSON.stringify(prev.find(o => o.id === value.id)) !== JSON.stringify(value);
-            if (hasChanged) {
-              isRemoteUpdate.current[key] = true;
-              isRemoteUpdate.current['orders'] = true;
-              return prev.map(o => o.id === value.id ? value : o);
-            }
-            return prev;
-          } else {
-            isRemoteUpdate.current[key] = true;
-            isRemoteUpdate.current['orders'] = true;
-            return [value, ...prev];
-          }
-        });
+      if (key.startsWith('order_') && value) {
+        confirmedOrderIds.current.add(value.id);
+        setOrders(prev => mergeOrders(prev, [value]));
         return;
       }
 
@@ -1205,7 +1215,7 @@ export default function App() {
           updateStateIfChanged(setPopsicles, 'popsicles', value);
           break;
         case 'orders':
-          updateStateIfChanged(setOrders, 'orders', value);
+          setOrders(prev => mergeOrders(value, prev));
           break;
         case 'delivery_fee':
           updateStateIfChanged(setDeliveryFee, 'delivery_fee', value);
@@ -1462,7 +1472,7 @@ export default function App() {
   };
 
   const sendTelegramNotification = async (order) => {
-    const trackerLink = `${window.location.origin}${window.location.pathname}?track=${order.id}`;
+    const trackerLink = trackingUrl(order.id);
     
     // Formatear fecha legible en hora de Perú (PET)
     let dateStr = '';
@@ -1537,7 +1547,7 @@ export default function App() {
       `📍 *Rastreo del pedido en tiempo real:*\n[Seguir Pedido en Vivo](${trackerLink})`;
 
     try {
-      const response = await fetch('/api/telegram', {
+      const response = await fetch(apiUrl('/api/telegram'), {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -1556,64 +1566,71 @@ export default function App() {
     }
   };
 
+  const pendingOrderWrites = useRef(new Set());
+
   const handlePlaceOrder = async (newOrder) => {
-    setOrders(prev => [newOrder, ...prev]);
+    const saved = await createOrder(newOrder);
+    confirmedOrderIds.current.add(saved.id);
+    setOrders(prev => mergeOrders(prev, [saved]));
     setCart([]);
-    setActiveOrderId(newOrder.id);
+    setActiveOrderId(saved.id);
+    try {
+    localStorage.setItem('helados_active_order_id', saved.id);
+    localStorage.setItem('helados_active_order_time', String(Date.now()));
+    localStorage.removeItem('helados_pending_submission');
+    if (isTableOrder(saved)) localStorage.setItem('helados_active_order_table', String(saved.customer.tableNumber));
+    else localStorage.removeItem('helados_active_order_table');
+    } catch (error) { console.warn('No se pudo guardar la referencia local del pedido:', error.message); }
     setView('tracker');
-    
-    // Guardar pedido activo en localStorage para rastreo y control de mesa ocupada
-    localStorage.setItem('helados_active_order_id', newOrder.id);
-    if (newOrder.customer?.orderType === 'Mesa' || newOrder.customer?.orderType === 'Mesa_Llevar') {
-      localStorage.setItem('helados_active_order_table', String(newOrder.customer?.tableNumber));
-    } else {
-      localStorage.removeItem('helados_active_order_table');
-    }
-    
-    if (newOrder.couponCode) {
-      setCoupons(prevCoupons => {
-        const updated = prevCoupons.map(c => {
-          if (c.code === newOrder.couponCode) {
-            return { ...c, usedCount: (c.usedCount || 0) + 1 };
-          }
-          return c;
-        });
-        return updated;
-      });
-    }
+    if (saved.couponCode) setCoupons(prev => prev.map(c => c.code === saved.couponCode ? { ...c, usedCount: (c.usedCount || 0) + 1 } : c));
+    void sendTelegramNotification(saved);
+    return saved;
+  };
 
-    // Subir el pedido individual bajo su propia clave para evitar descargar toda la lista de otros clientes
-    const dbSuccess = await updateSyncedData(`order_${newOrder.id}`, newOrder);
-
-    if (dbSuccess) {
-      // Enviar notificación a Telegram
-      await sendTelegramNotification(newOrder);
-    } else {
-      console.warn("⚠️ No se pudo guardar el pedido en base de datos. Se omitió la notificación a Telegram.");
+  const persistOrderChanges = async (changes) => {
+    const locked = changes.some(({ next }) => pendingOrderWrites.current.has(next.id));
+    if (locked) return false;
+    changes.forEach(({ next }) => pendingOrderWrites.current.add(next.id));
+    try {
+      const results = await Promise.allSettled(changes.map(({ previous, next }) => updateOrder(supabase, previous, next)));
+      const saved = results.filter(r => r.status === 'fulfilled').map(r => r.value);
+      saved.forEach(order => confirmedOrderIds.current.add(order.id));
+      if (saved.length) setOrders(prev => mergeOrders(prev, saved));
+      const failure = results.find(r => r.status === 'rejected');
+      if (failure) {
+        showAlert('No se confirmó el cambio', failure.reason?.message || 'Revisa tu conexión y vuelve a intentarlo.', 'warning');
+        const refreshed = await fetchSyncedData(true);
+        if (refreshed) applyLoadedData(refreshed);
+        return false;
+      }
+      return true;
+    } finally {
+      changes.forEach(({ next }) => pendingOrderWrites.current.delete(next.id));
     }
   };
 
-  const handleUpdateOrderStatus = async (orderId, newStatus) => {
-    const cleanOrderId = String(orderId || '').trim().toUpperCase();
-    const statusTimestamp = new Date().toISOString();
-    let updatedOrder = null;
-    const updated = orders.map(o => {
-      if (String(o.id || '').trim().toUpperCase() === cleanOrderId) {
-        const history = o.statusHistory || [{ status: 'Pendiente', timestamp: o.date || new Date().toISOString() }];
-        const lastStatus = history[history.length - 1]?.status;
-        const newHistory = lastStatus === newStatus ? history : [...history, { status: newStatus, timestamp: statusTimestamp }];
-        updatedOrder = { ...o, id: cleanOrderId, status: newStatus, statusHistory: newHistory, updatedAt: statusTimestamp };
-        return updatedOrder;
-      }
-      return o;
-    });
-    setOrders(updated);
+  const handleUpdateOrders = async (proposed) => {
+    const nextOrders = typeof proposed === 'function' ? proposed(orders) : proposed;
+    const changes = nextOrders.filter(next => {
+      const previous = orders.find(o => o.id === next.id);
+      return JSON.stringify(previous) !== JSON.stringify(next);
+    }).map(next => ({ previous: orders.find(o => o.id === next.id), next }));
+    return persistOrderChanges(changes);
+  };
 
-    // Actualizar el pedido individual en la nube para que el cliente reciba la actualización en tiempo real en su rastreador
-    if (updatedOrder) {
-      return await updateSyncedData(`order_${cleanOrderId}`, updatedOrder);
+  const handleUpdateOrderStatus = async (orderId, newStatus, patch = {}) => {
+    const previous = orders.find(o => o.id === orderId);
+    if (!previous) return false;
+    let next = { ...previous, ...patch, status: newStatus };
+    if (newStatus === 'Pendiente' && isDigitalPayment(next) && !next.paymentVerified) {
+      if (!window.confirm('¿Verificaste el abono de S/ ' + Number(next.grandTotal || 0).toFixed(2) + ' en ' + next.customer.paymentMethod + '? Aceptar registra el pago y confirma el pedido.')) return false;
+      next.paymentVerified = true;
     }
-    return false;
+    if (newStatus === 'Entregado' && !isTableOrder(next) && !next.paymentVerified) {
+      if (!window.confirm('¿Confirmas que cobraste S/ ' + Number(next.grandTotal || 0).toFixed(2) + ' antes de entregar el pedido?')) return false;
+      next.paymentVerified = true;
+    }
+    return persistOrderChanges([{ previous, next }]);
   };
 
   async function handleLogout() {
@@ -1654,6 +1671,8 @@ export default function App() {
       }
     }
     sessionStorage.removeItem('helados_admin_login_timestamp');
+    confirmedOrderIds.current.clear();
+    setOrders([]);
     setIsLoggedIn(false);
     setCurrentUser(null);
     setView(isVendorApp ? 'admin' : 'shop');
@@ -2019,7 +2038,7 @@ export default function App() {
               onUpdateRecommendations={setRecommendations}
               expenses={expenses}
               onUpdateExpenses={setExpenses}
-              onUpdateOrders={setOrders}
+              onUpdateOrders={handleUpdateOrders}
               cartRecommendedPack={cartRecommendedPack}
               onUpdateCartRecommendedPack={setCartRecommendedPack}
               staffPermissions={staffPermissions}

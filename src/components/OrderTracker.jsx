@@ -1,6 +1,6 @@
-import React, { useState, useEffect, useRef, useMemo } from 'react';
-import { updateSyncedData } from '../utils/supabaseSync';
-import { supabase } from '../utils/supabaseClient';
+import React, { useState, useEffect } from 'react';
+import { readOrder, requestOrder } from '../utils/apiClient';
+import { mergeOrders, isDeliveryOrder, orderStatusLabel } from '../utils/orderLifecycle';
 
 export default function OrderTracker({ orderId, orders, setView, storePhone, onClearActiveOrder, cartLocations = [] }) {
   const TRACKING_WINDOW_HOURS = 72;
@@ -15,12 +15,8 @@ export default function OrderTracker({ orderId, orders, setView, storePhone, onC
 
   // --- NUEVOS ESTADOS PARA BÚSQUEDA EN LA NUBE ---
   const [fetchedOrder, setFetchedOrder] = useState(null);
-  const fetchedOrderRef = useRef(fetchedOrder);
-  useEffect(() => {
-    fetchedOrderRef.current = fetchedOrder;
-  }, [fetchedOrder]);
   const [loadingOrder, setLoadingOrder] = useState(false);
-  const requestSequenceRef = useRef(0);
+  const [trackingError, setTrackingError] = useState('');
 
   // --- ESTADOS Y LÓGICA PARA LA ENCUESTA DE SATISFACCIÓN ---
   const [rating, setRating] = useState(0);
@@ -28,24 +24,6 @@ export default function OrderTracker({ orderId, orders, setView, storePhone, onC
   const [comment, setComment] = useState('');
   const [submittingSurvey, setSubmittingSurvey] = useState(false);
   const [surveySubmitted, setSurveySubmitted] = useState(false);
-
-  const withTimeout = (promise, ms, label) => {
-    let timer = null;
-    const timeout = new Promise((_, reject) => {
-      timer = setTimeout(() => reject(new Error(`${label} tardó demasiado.`)), ms);
-    });
-    return Promise.race([promise, timeout]).finally(() => clearTimeout(timer));
-  };
-
-  const fetchWithTimeout = async (url, options = {}, ms = 10000) => {
-    const controller = new AbortController();
-    const timer = setTimeout(() => controller.abort(), ms);
-    try {
-      return await fetch(url, { ...options, signal: controller.signal });
-    } finally {
-      clearTimeout(timer);
-    }
-  };
 
   // Comprobar si la encuesta ya fue enviada para este pedido
   useEffect(() => {
@@ -57,71 +35,18 @@ export default function OrderTracker({ orderId, orders, setView, storePhone, onC
     }
   }, [activeSearchId]);
 
-  const handleSendSurvey = async (e) => {
+  const handleSendSurvey = async e => {
     e.preventDefault();
-    if (rating === 0) {
-      alert("Por favor, selecciona una calificación.");
-      return;
-    }
-
+    if (!rating || submittingSurvey) return;
     setSubmittingSurvey(true);
-    const orderIdUpper = activeSearchId.trim().toUpperCase();
-    const currentOrderObj = fetchedOrder || orders.find(o => o.id.toLowerCase() === orderIdUpper.toLowerCase());
-    
-    // Guardar encuesta dentro del objeto de pedido en Supabase
-    if (currentOrderObj) {
-      try {
-        const updatedOrder = {
-          ...currentOrderObj,
-          survey: {
-            rating,
-            comment: comment.trim(),
-            date: new Date().toISOString()
-          }
-        };
-        const saved = await withTimeout(
-          updateSyncedData(`order_${orderIdUpper}`, updatedOrder),
-          12000,
-          'El guardado de la encuesta'
-        );
-        if (saved) {
-          setFetchedOrder(updatedOrder);
-        }
-      } catch (errSurvey) {
-        console.warn("Fallo al guardar encuesta en el pedido:", errSurvey);
-      }
-    }
-
-    const stars = '🍦'.repeat(rating);
-    const textMsg = `🌟 *NUEVA VALORACIÓN DE CLIENTE* 🌟\n\n` +
-      `*Pedido:* ${orderIdUpper}\n` +
-      `*Calificación:* ${stars} (${rating}/5)\n` +
-      `*Comentario:* ${comment.trim() || 'Sin comentarios'}\n\n` +
-      `_Enviado desde la encuesta rápida post-entrega._`;
-
+    const id = activeSearchId.trim().toUpperCase();
     try {
-      const response = await fetchWithTimeout('/api/telegram', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          text: textMsg,
-          orderId: orderIdUpper,
-          parse_mode: 'Markdown',
-          kind: 'survey'
-        })
-      }, 10000);
-      if (!response.ok) throw new Error("Error en notificación centralizada");
-
-      localStorage.setItem(`helados_survey_submitted_${orderIdUpper}`, 'true');
+      const order = await requestOrder('/api/order', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ id, order: { survey: { rating, comment: comment.trim(), date: new Date().toISOString() } } }) });
+      setFetchedOrder(order);
+      localStorage.setItem(`helados_survey_submitted_${id}`, 'true');
       setSurveySubmitted(true);
-    } catch (err) {
-      console.warn("Fallo al enviar reseña a Telegram:", err.message);
-      // Fallback: Aceptar el guardado local de todas formas ya que se subió a Supabase
-      localStorage.setItem(`helados_survey_submitted_${orderIdUpper}`, 'true');
-      setSurveySubmitted(true);
-    } finally {
-      setSubmittingSurvey(false);
-    }
+    } catch (error) { window.alert(error.message || 'No se pudo guardar tu valoración. Inténtalo nuevamente.'); }
+    finally { setSubmittingSurvey(false); }
   };
 
   const formatPeruTime = (isoString) => {
@@ -168,126 +93,48 @@ export default function OrderTracker({ orderId, orders, setView, storePhone, onC
   };
 
   const isOrderExpired = (order) => {
-    if (!order?.date) return false;
+    if (!order?.date || !['Entregado', 'Cancelado'].includes(order.status)) return false;
     const orderDate = new Date(order.date);
     if (Number.isNaN(orderDate.getTime())) return false;
     return (Date.now() - orderDate.getTime()) > TRACKING_WINDOW_HOURS * 60 * 60 * 1000;
   };
 
-  const localOrder = orders.find(
-    o => o.id.toLowerCase() === activeSearchId.trim().toLowerCase()
-  );
-  const getOrderFreshness = (order) => {
-    if (!order) return 0;
-    const history = Array.isArray(order.statusHistory) ? order.statusHistory : [];
-    const lastHistory = history[history.length - 1]?.timestamp;
-    const sourceDate = order.updatedAt || lastHistory || order.date;
-    const time = new Date(sourceDate || 0).getTime();
-    return Number.isNaN(time) ? 0 : time;
-  };
-
-  const currentOrder = getOrderFreshness(localOrder) > getOrderFreshness(fetchedOrder) ? localOrder : (fetchedOrder || localOrder);
+  const currentOrder = fetchedOrder?.id?.toUpperCase() === activeSearchId.trim().toUpperCase() ? fetchedOrder : null;
 
 
-  // Efecto para limpiar búsquedas automáticas expiradas y evitar la pantalla de bloqueo
+  // A failed lookup is not evidence that an order does not exist.
   useEffect(() => {
-    if (currentOrder && isOrderExpired(currentOrder) && !hasSearched) {
-      setActiveSearchId('');
-      setFetchedOrder(null);
-      if (onClearActiveOrder) {
-        onClearActiveOrder();
-      }
-    }
-  }, [currentOrder, hasSearched]);
-
-  // Efecto para buscar pedido en Supabase de forma segura e independiente (por privacidad de egress)
-  useEffect(() => {
-    if (!activeSearchId) {
-      setLoadingOrder(false);
-      return;
-    }
-
-    const searchUpper = activeSearchId.trim().toUpperCase();
-    const local = orders.find(o => o.id.toUpperCase() === searchUpper);
-    setFetchedOrder(local || null);
-
+    if (!activeSearchId) { setLoadingOrder(false); return; }
+    const id = activeSearchId.trim().toUpperCase();
+    setFetchedOrder(null);
+    setTrackingError('');
     let cancelled = false;
-    const requestSequence = ++requestSequenceRef.current;
-    const failSafeTimer = setTimeout(() => {
-      if (!cancelled && requestSequence === requestSequenceRef.current) setLoadingOrder(false);
-    }, 9000);
-
-    const fetchFromSupabase = async ({ showLoading = false } = {}) => {
-      if (showLoading) setLoadingOrder(true);
+    let busy = false;
+    const refresh = async (initial = false) => {
+      if (busy) return;
+      busy = true;
+      if (initial) setLoadingOrder(true);
       try {
-        const response = await fetchWithTimeout(`/api/order?id=${encodeURIComponent(searchUpper)}`, {}, 8000);
-        const payload = await response.json().catch(() => ({}));
-
-        if (cancelled || requestSequence !== requestSequenceRef.current) return;
-
-        if (response.ok && payload.order) {
-          setFetchedOrder(payload.order);
-          saveToRecentOrders(searchUpper);
-          return;
-        }
-
-        // Fallback directo a Supabase en caso de entorno estático sin worker
-        if (supabase && (!response.ok || !payload.order)) {
-          const { data } = await supabase
-            .from('helados_sync')
-            .select('value')
-            .eq('key', `order_${searchUpper}`)
-            .maybeSingle();
-
-          if (!cancelled && requestSequence === requestSequenceRef.current && data?.value) {
-            setFetchedOrder(data.value);
-            saveToRecentOrders(searchUpper);
-          }
-        }
-      } catch (err) {
-        if (supabase && !cancelled && requestSequence === requestSequenceRef.current) {
-          try {
-            const { data } = await supabase
-              .from('helados_sync')
-              .select('value')
-              .eq('key', `order_${searchUpper}`)
-              .maybeSingle();
-
-            if (!cancelled && requestSequence === requestSequenceRef.current && data?.value) {
-              setFetchedOrder(data.value);
-              saveToRecentOrders(searchUpper);
-            }
-          } catch {
-            /* ignore */
-          }
-        }
-        if (!cancelled && requestSequence === requestSequenceRef.current) {
-          console.warn("Error fetching order from cloud tracker:", err);
-        }
+        const order = await readOrder(id);
+        if (cancelled) return;
+        setFetchedOrder(prev => mergeOrders(prev?.id === id ? [prev] : [], [order])[0]);
+        setTrackingError('');
+        saveToRecentOrders(id);
+      } catch (error) {
+        if (!cancelled) setTrackingError(error.status === 404
+          ? 'No encontramos un pedido confirmado con ese código. Revisa el código o contacta a la tienda.'
+          : 'No pudimos actualizar el seguimiento. Revisa tu conexión; volveremos a intentarlo.');
       } finally {
-        if (showLoading && !cancelled && requestSequence === requestSequenceRef.current) {
-          setLoadingOrder(false);
-        }
+        busy = false;
+        if (!cancelled) setLoadingOrder(false);
       }
     };
-
-    fetchFromSupabase({ showLoading: !local });
-
-    // Suscribirse únicamente al canal en tiempo real de este pedido específico
-    // Polling inteligente: solo si la pestaña está activa y el pedido no ha concluido
-    const refreshTimer = setInterval(() => {
-      if (typeof document !== 'undefined' && document.hidden) return;
-      const currentSt = fetchedOrderRef.current?.status;
-      if (currentSt === 'Entregado' || currentSt === 'Cancelado') return;
-      fetchFromSupabase();
-    }, 10000);
-
-    return () => {
-      cancelled = true;
-      requestSequenceRef.current += 1;
-      clearTimeout(failSafeTimer);
-      clearInterval(refreshTimer);
-    };
+    refresh(true);
+    const timer = setInterval(() => { if (!document.hidden) refresh(); }, 10000);
+    const resume = () => { if (!document.hidden) refresh(); };
+    window.addEventListener('online', resume);
+    document.addEventListener('visibilitychange', resume);
+    return () => { cancelled = true; clearInterval(timer); window.removeEventListener('online', resume); document.removeEventListener('visibilitychange', resume); };
   }, [activeSearchId, searchNonce]);
 
   // Efecto para animar y reproducir sonido cuando cambia el estado del pedido tracked
@@ -324,38 +171,6 @@ export default function OrderTracker({ orderId, orders, setView, storePhone, onC
   }, [currentOrder?.status, prevStatus]);
 
 
-  const getStatusNumber = (status) => {
-    switch (status) {
-      case 'Por Corroborar': return 0.5;
-      case 'Pendiente': return 1;
-      case 'Preparando': return 2;
-      case 'En camino': return 3;
-      case 'Entregado': return 4;
-      default: return 0;
-    }
-  };
-
-  const getProgressWidth = (status, isDelivery = true) => {
-    if (status === 'Cancelado') return '0%';
-    if (status === 'Entregado') return '100%';
-    if (isDelivery) {
-      switch (status) {
-        case 'Por Corroborar': return '10%';
-        case 'Pendiente': return '25%';
-        case 'Preparando': return '50%';
-        case 'En camino': return '75%';
-        default: return '0%';
-      }
-    } else {
-      switch (status) {
-        case 'Por Corroborar': return '15%';
-        case 'Pendiente': return '35%';
-        case 'Preparando': return '70%';
-        default: return '0%';
-      }
-    }
-  };
-
   const renderItemDetails = (item) => {
     if (item.type === 'custom') {
       const scoopsText = item.scoops.map(s => s.name).join(', ');
@@ -383,6 +198,7 @@ export default function OrderTracker({ orderId, orders, setView, storePhone, onC
     if (status === 'Por Corroborar') return '⏳ Por Corroborar · Verificando pedido';
     if (status === 'Pendiente') return '📋 Confirmado · En cola de cocina';
     if (status === 'Preparando') return '👨‍🍳 En Preparación · Armando tus helados';
+    if (status === 'Listo') return '✅ Listo · Esperando entrega o repartidor';
     if (status === 'En camino') return '🛵 En Camino · Repartidor en ruta';
     if (status === 'Entregado') {
       if (orderType === 'Mesa') return '🍽️ Servido en Mesa · ¡Buen provecho!';
@@ -469,7 +285,7 @@ export default function OrderTracker({ orderId, orders, setView, storePhone, onC
             </div>
           )}
 
-          {hasSearched && !loadingOrder && !currentOrder && (
+          {activeSearchId && !loadingOrder && !currentOrder && trackingError && (
             <div style={{ 
               background: 'rgba(231, 76, 60, 0.1)', 
               color: 'var(--danger)', 
@@ -480,7 +296,7 @@ export default function OrderTracker({ orderId, orders, setView, storePhone, onC
               textAlign: 'center',
               border: '1px solid rgba(231, 76, 60, 0.2)'
             }}>
-              ⚠️ Código de pedido no encontrado. Verifica e inténtalo de nuevo.
+              ⚠️ {trackingError}
             </div>
           )}
 
@@ -581,7 +397,6 @@ export default function OrderTracker({ orderId, orders, setView, storePhone, onC
     return renderSearchForm(currentOrder);
   }
 
-  const statusNum = getStatusNumber(currentOrder.status);
 
   return (
     <div className="glass tracking-container" style={{ padding: '25px 20px', maxWidth: '650px', margin: '30px auto', borderRadius: 'var(--radius-lg)' }}>
@@ -647,77 +462,10 @@ export default function OrderTracker({ orderId, orders, setView, storePhone, onC
         {formatStatusText(currentOrder.status || 'Pendiente', currentOrder.customer?.orderType)}
       </div>
 
-      {/* Línea de Tiempo del Pedido Adaptada al Canal */}
-      {currentOrder.status !== 'Cancelado' ? (
-        <div className="tracking-timeline" style={{ marginBottom: '25px' }}>
-          <div 
-            className="timeline-progress" 
-            style={{ width: getProgressWidth(currentOrder.status, currentOrder.customer?.orderType === 'Delivery' || (currentOrder.deliveryFee > 0)) }}
-          ></div>
-          
-          {(currentOrder.customer?.orderType === 'Delivery' || (currentOrder.deliveryFee > 0)) ? (
-            <>
-              <div className={`timeline-step ${statusNum >= 1 ? 'completed' : ''} ${statusNum <= 1 ? 'active' : ''}`}>
-                <div className="step-node">📝</div>
-                <span className="step-label" style={{ fontSize: '0.75rem' }}>Recibido</span>
-              </div>
-
-              <div className={`timeline-step ${statusNum >= 2 ? 'completed' : ''} ${statusNum === 2 ? 'active' : ''}`}>
-                <div className="step-node">👨‍🍳</div>
-                <span className="step-label" style={{ fontSize: '0.75rem' }}>Preparando</span>
-              </div>
-
-              <div className={`timeline-step ${statusNum >= 3 ? 'completed' : ''} ${statusNum === 3 ? 'active' : ''}`}>
-                <div className="step-node">🛵</div>
-                <span className="step-label" style={{ fontSize: '0.75rem' }}>En camino</span>
-              </div>
-
-              <div className={`timeline-step ${statusNum >= 4 ? 'completed' : ''} ${statusNum === 4 ? 'active' : ''}`}>
-                <div className="step-node">🏠</div>
-                <span className="step-label" style={{ fontSize: '0.75rem' }}>Entregado</span>
-              </div>
-            </>
-          ) : (currentOrder.customer?.orderType === 'Mesa' || Boolean(currentOrder.customer?.tableNumber)) ? (
-            <>
-              <div className={`timeline-step ${statusNum >= 1 ? 'completed' : ''} ${statusNum <= 1 ? 'active' : ''}`}>
-                <div className="step-node">📝</div>
-                <span className="step-label" style={{ fontSize: '0.75rem' }}>Recibido</span>
-              </div>
-
-              <div className={`timeline-step ${statusNum >= 2 ? 'completed' : ''} ${statusNum === 2 ? 'active' : ''}`}>
-                <div className="step-node">👨‍🍳</div>
-                <span className="step-label" style={{ fontSize: '0.75rem' }}>En Barra</span>
-              </div>
-
-              <div className={`timeline-step ${statusNum >= 4 ? 'completed' : ''} ${statusNum === 4 ? 'active' : ''}`}>
-                <div className="step-node">🍽️</div>
-                <span className="step-label" style={{ fontSize: '0.75rem' }}>En Mesa</span>
-              </div>
-            </>
-          ) : (
-            <>
-              <div className={`timeline-step ${statusNum >= 1 ? 'completed' : ''} ${statusNum <= 1 ? 'active' : ''}`}>
-                <div className="step-node">📝</div>
-                <span className="step-label" style={{ fontSize: '0.75rem' }}>Recibido</span>
-              </div>
-
-              <div className={`timeline-step ${statusNum >= 2 ? 'completed' : ''} ${statusNum === 2 ? 'active' : ''}`}>
-                <div className="step-node">👨‍🍳</div>
-                <span className="step-label" style={{ fontSize: '0.75rem' }}>Preparando</span>
-              </div>
-
-              <div className={`timeline-step ${statusNum >= 4 ? 'completed' : ''} ${statusNum === 4 ? 'active' : ''}`}>
-                <div className="step-node">🥡</div>
-                <span className="step-label" style={{ fontSize: '0.75rem' }}>Listo / Retiro</span>
-              </div>
-            </>
-          )}
-        </div>
-      ) : (
-        <div className="glass" style={{ padding: '15px', color: 'var(--danger)', margin: '20px 0', border: '1px solid var(--danger)', borderRadius: '8px', textAlign: 'center', background: 'rgba(231,76,60,0.05)' }}>
-          <strong>🛑 Este pedido ha sido cancelado por la administración.</strong>
-        </div>
-      )}
+      {trackingError && <p role="status" style={{ padding: '12px', background: '#fff3cd', color: '#664d03', borderRadius: '8px' }}>{trackingError} Mostramos el último estado confirmado.</p>}
+      {currentOrder.status !== 'Cancelado' ? <ol aria-label="Etapas del pedido" style={{ display: 'flex', flexWrap: 'wrap', gap: '8px', padding: 0, listStyle: 'none', marginBottom: '24px' }}>
+        {(isDeliveryOrder(currentOrder) ? ['Por Corroborar', 'Pendiente', 'Preparando', 'Listo', 'En camino', 'Entregado'] : ['Por Corroborar', 'Pendiente', 'Preparando', 'Listo', 'Entregado']).map((status, index) => <li key={status} aria-current={status === currentOrder.status ? 'step' : undefined} style={{ padding: '10px', borderRadius: '8px', fontSize: '14px', border: '1px solid var(--border-color)', background: status === currentOrder.status ? 'var(--primary-color)' : 'var(--bg-secondary)', color: status === currentOrder.status ? '#fff' : 'var(--text-dark)', fontWeight: status === currentOrder.status ? 800 : 400 }}>{index + 1}. {orderStatusLabel(status)}</li>)}
+      </ol> : <p role="status">Este pedido fue cancelado por la tienda.</p>}
 
       {/* 🛵 INFORMACIÓN DEL REPARTIDOR ASIGNADO */}
       {currentOrder && currentOrder.assignedDriver && (
@@ -1054,6 +802,7 @@ export default function OrderTracker({ orderId, orders, setView, storePhone, onC
       {/* Mensaje Informativo */}
       {showDetailedTracker && (
         <p style={{ fontSize: '0.85rem', color: 'var(--text-light)', textAlign: 'center', marginBottom: '25px', lineHeight: '1.4' }}>
+        {currentOrder.status === 'Listo' && "Tu pedido está listo. Falta entregarlo en mesa o para llevar."}
         {currentOrder.status === 'Por Corroborar' && "El mesero está corroborando tu pedido. En breve se enviará a preparación."}
         {currentOrder.status === 'Pendiente' && "Estamos validando tu pedido. En breve coordinaremos la entrega."}
         {currentOrder.status === 'Preparando' && "¡Nuestros maestros heladeros están sirviendo tu combinación favorita!"}

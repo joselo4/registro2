@@ -161,7 +161,7 @@ export default function FinanceManager({
       date: new Date().toISOString()
     };
 
-    onUpdateOrders([newOrder, ...orders]);
+    if (!await onUpdateOrders([newOrder, ...orders])) { setQuickSaleSubmitting(false); return; }
     addLog(`Venta física registrada: ${newOrder.items[0].name} (S/. ${amountVal.toFixed(2)}) por ${currentUser?.name}.`);
     setQuickSaleAmount('');
     setQuickSaleName('');

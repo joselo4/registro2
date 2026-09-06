@@ -1,4 +1,6 @@
 import { supabase } from './supabaseClient';
+import { fetchAllSyncRows } from './orderRepository.js';
+import { apiUrl, fetchOperatorOrders } from './apiClient.js';
 
 // ─── Caché en memoria para reducir egress de Supabase ───────────────────────
 // Solo almacena datos por 5 minutos. Si hay un cambio en tiempo real, se invalida.
@@ -54,13 +56,19 @@ export const fetchSyncedData = async (isAdmin = false, activeSession = null) => 
 
     if (isAdmin && isSessionAdmin) {
       console.log("🔌 Solicitando datos administrativos seguros mediante consulta directa (Supabase Auth activa)...");
-      const { data, error } = await supabase.from('helados_sync').select('*');
-      if (error) throw error;
+      const data = await fetchAllSyncRows(supabase);
       if (data && data.length > 0) {
         data.forEach(row => {
           syncData[row.key] = row.value;
         });
       }
+      // Server verifies every staff role, including drivers, cashiers and waiters
+      // whose older RLS installation may only expose public configuration.
+      const operatorOrders = await fetchOperatorOrders(session);
+      Object.keys(syncData).filter(key => key.startsWith('order_') && !key.startsWith('order_call_')).forEach(key => { delete syncData[key]; });
+      syncData.orders = operatorOrders;
+      syncData.order_scope = /repartidor/i.test(session.user?.app_metadata?.role || '') ? 'assigned' : 'all';
+      operatorOrders.forEach(order => { syncData[`order_${order.id}`] = order; });
     } else {
       // Caso de uso público (Clientes): cargar únicamente la configuración general no sensible
       console.log("🔌 Cargando configuración pública de la tienda...");
@@ -158,7 +166,7 @@ export const updateSyncedData = async (key, value) => {
 
 const updatePublicOrder = async (key, value) => {
   const id = String(key || '').replace(/^order_/, '');
-  const response = await fetch('/api/order', {
+  const response = await fetch(apiUrl('/api/order'), {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ id, order: value }),
@@ -171,7 +179,7 @@ const updatePublicOrder = async (key, value) => {
 };
 
 const updatePublicTableCall = async (value) => {
-  const response = await fetch('/api/table-call', {
+  const response = await fetch(apiUrl('/api/table-call'), {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify(value),
@@ -425,7 +433,7 @@ export const subscribeToSync = (onUpdateCallback, isAdmin = false, tableNumber =
       if (currentChannel) {
         try {
           supabase.removeChannel(currentChannel);
-        } catch {}
+        } catch { /* channel already removed */ }
         currentChannel = null;
       }
     },
