@@ -63,7 +63,7 @@ test('formatDriverDispatchMessage formats route dispatch details for WhatsApp', 
   assert.match(msg, /Carlos Mendoza/);
   assert.match(msg, /Jr\. Ayacucho 452/);
   assert.match(msg, /Frente al parque/);
-  assert.match(msg, /COBRAR EN EFECTIVO: S\/\. 34\.50/);
+  assert.match(msg, /COBRAR \/ VERIFICAR PAGO: S\/\. 34\.50/);
   assert.match(msg, /Copa Tentación 3 Bolas/);
   assert.match(msg, /google\.com\/maps/);
 });
@@ -71,6 +71,7 @@ test('formatDriverDispatchMessage formats route dispatch details for WhatsApp', 
 test('formatDriverDispatchMessage correctly marks digital payments as already paid', () => {
   const order = {
     id: 'ORD-7777',
+    paymentVerified: true,
     grandTotal: 25.00,
     customer: {
       name: 'Ana Torres',
@@ -101,4 +102,14 @@ test('buildWhatsAppHref formats clean phone numbers with Peru country code 51', 
 
   const hrefEmpty = buildWhatsAppHref('', 'Vacio');
   assert.strictEqual(hrefEmpty, '');
+});
+
+test('unverified digital dispatch messages request collection and include timing', () => {
+  for (const method of ['Yape', 'Plin', 'Transferencia']) {
+    const order = { grandTotal: 20, customer: { paymentMethod: method, paymentTiming: 'Al llegar' } };
+    const msg = formatDriverDispatchMessage({ order });
+    assert.ok(msg.includes('COBRAR / VERIFICAR PAGO: S/. 20.00'));
+    assert.ok(msg.includes(method + ' · Pago al llegar'));
+    assert.ok(!msg.includes('YA PAGADO'));
+  }
 });

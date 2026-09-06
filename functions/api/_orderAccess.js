@@ -1,4 +1,5 @@
 import { normalizeEmail, isTrustedAdmin } from './_security.js';
+import { isPaymentOnArrival, DELIVERY_PAYMENT_METHODS } from '../../src/utils/orderLifecycle.js';
 
 export function orderStaffRole(user) {
   if (isTrustedAdmin(user)) return 'admin';
@@ -20,8 +21,14 @@ export function allowedOrderChange(user, previous, next) {
   if (role === 'repartidor' && !driverOwnsOrder(user, previous)) return false;
   if (role === 'cocina' && !['Preparando', 'Listo'].includes(next.status)) return false;
   if (role === 'repartidor' && !['En camino', 'Entregado'].includes(next.status)) return false;
-  if (role === 'repartidor' && !/efectivo/i.test(previous.customer?.paymentMethod || '') && previous.paymentVerified !== next.paymentVerified) return false;
+  const collecting = role === 'repartidor' && previous.status === 'En camino' && next.status === 'Entregado' && isPaymentOnArrival(previous) && !previous.paymentVerified && next.paymentVerified === true;
+  if (role === 'repartidor' && previous.paymentVerified !== next.paymentVerified && !collecting) return false;
+  if (role === 'repartidor' && JSON.stringify(previous.customer) !== JSON.stringify(next.customer)) {
+    if (!collecting || !DELIVERY_PAYMENT_METHODS.includes(next.customer?.paymentMethod)) return false;
+    const expectedCustomer = { ...previous.customer, paymentMethod: next.customer.paymentMethod };
+    if (JSON.stringify(expectedCustomer) !== JSON.stringify(next.customer)) return false;
+  }
   if (!['cocina', 'repartidor'].includes(role)) return false;
-  const allowed = new Set(['status', 'statusHistory', 'updatedAt', ...(role === 'repartidor' ? ['paymentVerified'] : [])]);
+  const allowed = new Set(['status', 'statusHistory', 'updatedAt', ...(role === 'repartidor' ? ['paymentVerified', 'customer'] : [])]);
   return [...new Set([...Object.keys(previous), ...Object.keys(next)])].every(key => allowed.has(key) || JSON.stringify(previous[key]) === JSON.stringify(next[key]));
 }

@@ -15,7 +15,7 @@
 
 | Paso | Acción | Resultado |
 | --- | --- | --- |
-| 1. Por validar | Revisar productos, datos y pago. Para Yape/Plin, verificar el abono real. | Pedido aceptado y en cola. |
+| 1. Por validar | Revisar productos, datos y pago. Para pagos anticipados por Yape/Plin/transferencia, verificar el abono real. Los pagos al llegar se aceptan sin registrar un cobro. | Pedido aceptado y en cola. |
 | 2. En cola | Cocina pulsa **Empezar a preparar**. | Comienza la preparación. |
 | 3. Preparando | Cocina pulsa **Marcar listo para entregar**. | Pedido listo; todavía no está entregado ni en ruta. |
 | 4. Listo | Delivery: asignar repartidor e iniciar reparto. Mesa/barra/recojo: entregar al cliente. | Delivery pasa a En camino; los otros canales pasan a Entregado. |
@@ -45,3 +45,9 @@ No hace falta ejecutar una migración de base de datos. Los pedidos que solo exi
 - `npm run android:assemble`: compilación de la interfaz, sincronización de Android y generación del APK instalable.
 
 Las pruebas de guardado utilizan una base simulada con inserciones únicas y actualizaciones condicionadas. No crean pedidos ficticios ni envían avisos a clientes en producción. La instalación en un teléfono real y la prueba con cuentas reales de cada operador deben comprobarse tras publicar la API.
+
+## Pago al llegar
+
+En delivery, Yape, Plin y transferencia permiten elegir pago al llegar (opción inicial) o anticipado; el efectivo se cobra al entregar. La modalidad se conserva en el pedido y se incluye en WhatsApp y seguimiento. Los pedidos digitales antiguos sin modalidad conservan la validación anticipada.
+
+El repartidor ve el importe pendiente y selecciona el medio recibido: Yape, Plin, efectivo o transferencia. Debe confirmar el dinero recibido o el abono real antes de completar la entrega. Al guardar se registra el medio utilizado y el pago confirmado; cancelar el aviso o fallar el guardado conserva el pedido pendiente. Un pago ya confirmado no vuelve a solicitarse. El servidor solo permite al repartidor confirmar cobros al llegar de sus pedidos asignados, al completar la entrega.

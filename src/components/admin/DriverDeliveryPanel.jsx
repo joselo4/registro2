@@ -1,4 +1,5 @@
 import { useState, useMemo, useEffect, useRef } from 'react';
+import { DELIVERY_PAYMENT_METHODS, isPaymentOnArrival } from '../../utils/orderLifecycle';
 import { buildWhatsAppHref } from '../../utils/orderMessaging';
 import { notifyOperationalEvent, playCashReminderSound, triggerDeviceVibration } from '../../utils/appAudioNotifications';
 
@@ -9,6 +10,8 @@ export default function DriverDeliveryPanel({
   storeName = 'Friozo',
   showAlert
 }) {
+  const [collectionMethods, setCollectionMethods] = useState({});
+  const [savingOrderId, setSavingOrderId] = useState(null);
   const [activeSubTab, setActiveSubTab] = useState('active'); // 'active' | 'history'
 
   const driverId = String(currentUser?.id || '').trim();
@@ -78,32 +81,36 @@ export default function DriverDeliveryPanel({
   };
 
   const handleCompleteDelivery = async (order) => {
-    const isCash = String(order.customer?.paymentMethod || '').toLowerCase().includes('efectivo');
+    if (savingOrderId || !onUpdateOrderStatus) return;
+    const needsCollection = !order.paymentVerified;
+    const method = collectionMethods[order.id] || order.customer?.paymentMethod;
     const totalStr = Number(order.grandTotal || 0).toFixed(2);
     const clientName = order.customer?.name || 'el cliente';
-    if (!isCash && !order.paymentVerified) {
-      showAlert?.('Pago pendiente de validar', 'Solicita a caja que verifique el pago antes de completar la entrega.', 'warning');
+    if (needsCollection && !isPaymentOnArrival(order)) {
+      showAlert?.('Pago pendiente de validar', 'Solicita a caja que verifique el pago anticipado antes de completar la entrega.', 'warning');
       return;
     }
-
-    if (isCash) {
+    if (needsCollection && !DELIVERY_PAYMENT_METHODS.includes(method)) {
+      showAlert?.('Selecciona el medio de pago', 'Indica si recibiste Yape, Plin, efectivo o transferencia.', 'warning');
+      return;
+    }
+    if (needsCollection) {
       playCashReminderSound();
       triggerDeviceVibration([200, 100, 200, 100, 300]);
-      const confirmMsg = `💰 RECORDATORIO DE COBRANZA EN EFECTIVO:\n\n` +
-        `• Pedido: #${order.id}\n` +
-        `• Monto a cobrar: S/. ${totalStr}\n` +
-        `• Cliente: ${clientName}\n\n` +
-        `⚠️ ¿Confirmas que ya RECIBISTE los S/. ${totalStr} en EFECTIVO antes de entregar los helados?`;
-      if (!window.confirm(confirmMsg)) return;
-    } else {
-      const confirmMsg = `¿Confirmas que entregaste el pedido #${order.id} al cliente ${clientName}? (Pago digital ya validado)`;
-      if (!window.confirm(confirmMsg)) return;
-    }
+      const message = `SOLICITAR PAGO AL LLEGAR\n\nPedido: #${order.id}\nCliente: ${clientName}\nMonto: S/. ${totalStr}\nMedio de cobro: ${method}\n\n${method === 'Efectivo' ? 'Recibe y cuenta el dinero.' : 'Verifica que el abono haya ingresado a la cuenta de la tienda.'}\n\n¿Confirmas que ya recibiste el pago completo y entregaste el pedido?`;
+      if (!window.confirm(message)) return;
+    } else if (!window.confirm(`¿Confirmas que entregaste el pedido #${order.id} a ${clientName}? El pago ya está confirmado; no vuelvas a cobrar.`)) return;
 
-    if (onUpdateOrderStatus) {
-      if (!await onUpdateOrderStatus(order.id, 'Entregado', { paymentVerified: true })) return;
+    setSavingOrderId(order.id);
+    try {
+      const patch = needsCollection ? { paymentVerified: true, customer: { ...order.customer, paymentMethod: method } } : {};
+      if (!await onUpdateOrderStatus(order.id, 'Entregado', patch)) return;
+      showAlert?.('¡Entrega completada!', `Pedido #${order.id} entregado.${needsCollection ? ` Cobro registrado: S/. ${totalStr} por ${method}.` : ''}`, 'success');
+    } catch {
+      showAlert?.('No se pudo guardar', 'Revisa tu conexión y vuelve a intentar confirmar la entrega.', 'warning');
+    } finally {
+      setSavingOrderId(null);
     }
-    showAlert?.('¡Entrega completada!', `Pedido #${order.id} marcado como Entregado.${isCash ? ` Cobranza en efectivo registrada: S/. ${totalStr}.` : ''}`, 'success');
   };
 
   return (
@@ -203,7 +210,7 @@ export default function DriverDeliveryPanel({
               const customer = order.customer || {};
               const address = customer.address || 'Sin dirección';
               const reference = customer.reference;
-              const isCash = String(customer.paymentMethod || '').toLowerCase().includes('efectivo');
+              const needsCollection = !order.paymentVerified;
               const cleanPhone = String(customer.phone || '').replace(/\D/g, '');
               const destinationQuery = encodeURIComponent(`${address}, Andahuaylas, Peru`);
               const mapsUrl = `https://www.google.com/maps/dir/?api=1&destination=${destinationQuery}`;
@@ -261,37 +268,25 @@ export default function DriverDeliveryPanel({
                     </div>
                   </div>
 
-                  {/* Indicador de Pago y Recordatorio de Cobranza */}
-                  <div style={{
-                    padding: '10px 14px',
-                    borderRadius: '8px',
-                    marginBottom: '12px',
-                    background: isCash ? '#fff7ed' : '#f0fdf4',
-                    border: isCash ? '2px solid #f97316' : '2px solid #22c55e',
-                    boxShadow: isCash ? '0 2px 8px rgba(249, 115, 22, 0.15)' : '0 2px 8px rgba(34, 197, 94, 0.1)'
-                  }}>
-                    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: '8px' }}>
-                      <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                        <span style={{ fontSize: '1.4rem' }}>{isCash ? '💵' : '✅'}</span>
-                        <div>
-                          <strong style={{
-                            fontSize: '0.9rem',
-                            color: isCash ? '#c2410c' : '#15803d',
-                            display: 'block'
-                          }}>
-                            {isCash ? '💰 COBRAR EN EFECTIVO AL ENTREGAR' : `✅ PAGADO POR ${String(customer.paymentMethod || 'TRANSFERENCIA').toUpperCase()}`}
-                          </strong>
-                          <span style={{ fontSize: '0.75rem', color: isCash ? '#9a3412' : '#166534', fontWeight: 600 }}>
-                            {isCash ? '⚠️ Recuerda recibir el dinero antes de entregar el pedido.' : '✓ Abonado digitalmente. NO cobrar al cliente.'}
-                          </span>
-                        </div>
-                      </div>
-                      <div style={{ textAlign: 'right' }}>
-                        <span style={{ fontSize: '1.25rem', fontWeight: 900, color: isCash ? '#ea580c' : '#16a34a' }}>
-                          S/. {Number(order.grandTotal || 0).toFixed(2)}
-                        </span>
-                      </div>
-                    </div>
+                  <div role="status" style={{ padding: '14px', borderRadius: '8px', marginBottom: '12px', background: needsCollection ? '#fff7ed' : '#f0fdf4', border: needsCollection ? '2px solid #f97316' : '2px solid #22c55e', color: needsCollection ? '#9a3412' : '#166534' }}>
+                    <strong style={{ display: 'block', fontSize: '1rem' }}>
+                      {needsCollection ? '💰 SOLICITAR PAGO ANTES DE ENTREGAR' : '✅ PAGO CONFIRMADO'}
+                    </strong>
+                    <strong style={{ display: 'block', marginTop: '6px', fontSize: '1.25rem' }}>S/. {Number(order.grandTotal || 0).toFixed(2)}</strong>
+                    <p style={{ fontSize: '0.875rem', margin: '8px 0' }}>
+                      {needsCollection ? (isPaymentOnArrival(order) ? 'Pago al llegar. Solicita el pago por Yape, Plin, efectivo o transferencia y confirma que recibiste el total para dar como entregado.' : 'Pago anticipado pendiente de validación. Solicita a caja que lo verifique antes de completar la entrega.') : `Pagado por ${customer.paymentMethod}. No volver a cobrar al cliente.`}
+                    </p>
+                    {needsCollection && isPaymentOnArrival(order) && (
+                      <label style={{ display: 'block', fontSize: '0.875rem', fontWeight: 700 }}>
+                        Medio de cobro recibido
+                        <select aria-label={`Medio de cobro del pedido ${order.id}`} value={collectionMethods[order.id] || customer.paymentMethod || ''}
+                          disabled={Boolean(savingOrderId)} onChange={event => setCollectionMethods(previous => ({ ...previous, [order.id]: event.target.value }))}
+                          style={{ display: 'block', width: '100%', padding: '10px', marginTop: '6px', fontSize: '1rem', background: '#fff', color: '#1e293b', border: '1px solid #cbd5e1', borderRadius: '6px' }}>
+                          <option value="" disabled>Seleccionar medio de pago</option>
+                          {DELIVERY_PAYMENT_METHODS.map(method => <option key={method} value={method}>{method}</option>)}
+                        </select>
+                      </label>
+                    )}
                   </div>
 
                   {/* Botones de Navegación y Contacto Directo */}
@@ -409,6 +404,7 @@ export default function DriverDeliveryPanel({
                       <button
                         type="button"
                         onClick={() => handleCompleteDelivery(order)}
+                        disabled={Boolean(savingOrderId)}
                         style={{
                           flex: 1,
                           background: '#10b981',
@@ -422,7 +418,7 @@ export default function DriverDeliveryPanel({
                           boxShadow: '0 2px 8px rgba(16, 185, 129, 0.3)'
                         }}
                       >
-                        ✅ Confirmar Entrega al Cliente
+                        {savingOrderId === order.id ? 'Guardando entrega…' : needsCollection ? '💰 Confirmar cobro y entrega' : '✅ Confirmar Entrega al Cliente'}
                       </button>
                     )}
                   </div>
@@ -469,7 +465,7 @@ export default function DriverDeliveryPanel({
                       S/. {Number(order.grandTotal || 0).toFixed(2)}
                     </strong>
                     <span style={{ fontSize: '0.72rem', color: isCash ? '#b45309' : '#3b82f6', fontWeight: 600 }}>
-                      {isCash ? '💵 Efectivo Cobrado' : '📱 Pago Digital'}
+                      {isCash ? '💵 Efectivo Cobrado' : `📱 ${order.customer?.paymentMethod || 'Pago digital'} confirmado`}
                     </span>
                   </div>
                 </div>

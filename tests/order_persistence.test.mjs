@@ -171,3 +171,43 @@ test('Android HTTPS localhost is allowed while unrelated browser origins are rej
   assert.equal(sameOriginRequest(new Request('https://www.pideanda.com/api/order', { headers: { Origin: 'https://localhost' } })), true);
   assert.equal(sameOriginRequest(new Request('https://www.pideanda.com/api/order', { headers: { Origin: 'https://other.test' } })), false);
 });
+
+for (const method of ['Yape', 'Plin', 'Efectivo', 'Transferencia']) {
+  test(`payment on arrival: ${method} persists unpaid, reaches dispatch and requires collection`, async () => {
+    const user = { id: 'driver', app_metadata: { role: 'Repartidor' } };
+    const db = database([], { user });
+    const draft = fixture({ customer: { name: 'Cliente', phone: '999999999', orderType: 'Delivery', paymentMethod: method, paymentTiming: 'Al llegar' } });
+    const created = await post(db, draft);
+    assert.equal(created.status, 200);
+    let saved = (await created.json()).order;
+    assert.equal(saved.customer.paymentTiming, 'Al llegar');
+    assert.equal(saved.paymentVerified, false);
+    for (const status of ['Pendiente', 'Preparando', 'Listo', 'En camino']) saved = await saveOrderChange(db, saved, { ...saved, status, assignedDriver: { id: 'driver' } });
+    assert.equal(saved.paymentVerified, false);
+    const unpaid = await post(db, { ...saved, status: 'Entregado' }, { action: 'update', previous: saved });
+    assert.equal(unpaid.status, 409);
+    const delivered = await post(db, { ...saved, status: 'Entregado', paymentVerified: true }, { action: 'update', previous: saved });
+    assert.equal(delivered.status, 200);
+    assert.equal((await delivered.json()).order.paymentVerified, true);
+  });
+}
+
+test('driver records a changed collection method without permission to alter customer or total', async () => {
+  const user = { id: 'driver', app_metadata: { role: 'Repartidor' } };
+  const previous = fixture({ status: 'En camino', paymentVerified: false, assignedDriver: { id: 'driver' }, customer: { name: 'Cliente', paymentMethod: 'Yape', paymentTiming: 'Al llegar' } });
+  for (const method of ['Yape', 'Plin', 'Efectivo', 'Transferencia']) {
+    const next = { ...previous, status: 'Entregado', paymentVerified: true, customer: { ...previous.customer, paymentMethod: method } };
+    const db = database([{ key: `order_${previous.id}`, value: previous, updated_at: null }], { user });
+    const response = await post(db, next, { action: 'update', previous });
+    assert.equal(response.status, 200);
+    assert.equal((await response.json()).order.customer.paymentMethod, method);
+    assert.equal(allowedOrderChange(user, previous, { ...next, customer: { ...next.customer, name: 'Otro' } }), false);
+    assert.equal(allowedOrderChange(user, previous, { ...next, grandTotal: 1 }), false);
+    assert.equal(allowedOrderChange(user, previous, { ...next, status: 'En camino' }), false);
+    assert.equal(allowedOrderChange({ ...user, id: 'other' }, previous, next), false);
+  }
+  const prepaid = { ...previous, customer: { ...previous.customer, paymentTiming: 'Anticipado' } };
+  assert.equal(allowedOrderChange(user, prepaid, { ...prepaid, status: 'Entregado', paymentVerified: true }), false);
+  const paid = { ...previous, paymentVerified: true };
+  assert.equal(allowedOrderChange(user, paid, { ...paid, paymentVerified: false }), false);
+});

@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import CartItemPreview from './CartItemPreview';
 import { trackingUrl } from '../utils/apiClient';
 import { generateOrderId } from '../utils/orderId';
+import { DELIVERY_PAYMENT_METHODS, paymentDescription } from '../utils/orderLifecycle';
 import { validateOrderInput } from '../utils/orderValidation';
 
 export { validateOrderInput };
@@ -50,7 +51,8 @@ export default function Cart({
   const [name, setName] = useState(() => localStorage.getItem('last_customer_name') || '');
   const [phone, setPhone] = useState(() => localStorage.getItem('last_customer_phone') || '');
   const [address, setAddress] = useState(() => localStorage.getItem('last_customer_address') || '');
-  const [paymentMethod, setPaymentMethod] = useState('Yape'); // Yape, Plin, Efectivo
+  const [paymentMethod, setPaymentMethod] = useState('Yape');
+  const [paymentTiming, setPaymentTiming] = useState('Al llegar');
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [sendToWhatsApp, setSendToWhatsApp] = useState(true);
   const [validationErrors, setValidationErrors] = useState({});
@@ -197,6 +199,7 @@ export default function Cart({
           phone: finalPhone, 
           address: finalAddress, 
           paymentMethod,
+          paymentTiming: paymentMethod === 'Efectivo' || orderType === 'Delivery' && paymentTiming === 'Al llegar' ? 'Al llegar' : 'Anticipado',
           orderType,
           tableNumber: activeMesaNumber
         },
@@ -247,7 +250,7 @@ export default function Cart({
         destLine = `*Pedido:* Recojo en Tienda / Llevar`;
       }
       const trackerLink = `\n\n*Sigue tu pedido en vivo aquí:*\n${trackingUrl(orderId)}`;
-      const whatsappMessage = `${whatsappGreeting}\n\n*Código:* ${orderId}\n*Cliente:* ${finalName}\n${destLine}\n*WhatsApp:* ${finalPhone}\n*Pago:* ${paymentMethod}\n\n*Pedido:*\n${itemsText}\n\n*Subtotal:* S/. ${cartSubtotal.toFixed(2)}${couponLine}\n*Delivery:* S/. ${activeDeliveryFee.toFixed(2)}\n*Total:* S/. ${total.toFixed(2)}${trackerLink}\n\n${whatsappFooter}`;
+      const whatsappMessage = `${whatsappGreeting}\n\n*Código:* ${orderId}\n*Cliente:* ${finalName}\n${destLine}\n*WhatsApp:* ${finalPhone}\n*Pago:* ${paymentDescription(newOrder)}\n\n*Pedido:*\n${itemsText}\n\n*Subtotal:* S/. ${cartSubtotal.toFixed(2)}${couponLine}\n*Delivery:* S/. ${activeDeliveryFee.toFixed(2)}\n*Total:* S/. ${total.toFixed(2)}${trackerLink}\n\n${whatsappFooter}`;
       
       const encodedText = encodeURIComponent(whatsappMessage);
       const cleanPhone = String(storePhone || '').replace(/\D/g, ''); // Limpiar caracteres no numéricos
@@ -755,50 +758,28 @@ export default function Cart({
 
             <div className="form-group">
               <label style={{ fontSize: '0.8rem' }}>Forma de Pago</label>
-              <div className="payment-options" style={{ gap: '6px' }}>
-                <button
-                  type="button"
-                  className={`payment-btn ${paymentMethod === 'Yape' ? 'selected' : ''}`}
-                  onClick={() => {
-                    if (shopOpen) {
-                      setPaymentMethod('Yape');
-                      if (validationErrors.paymentMethod) setValidationErrors(prev => ({ ...prev, paymentMethod: '' }));
-                    }
-                  }}
-                  style={{ fontSize: '0.75rem', padding: '6px', opacity: !shopOpen ? 0.5 : 1, cursor: !shopOpen ? 'not-allowed' : 'pointer' }}
-                  disabled={!shopOpen}
-                >
-                  📱 Yape
-                </button>
-                <button
-                  type="button"
-                  className={`payment-btn ${paymentMethod === 'Plin' ? 'selected' : ''}`}
-                  onClick={() => {
-                    if (shopOpen) {
-                      setPaymentMethod('Plin');
-                      if (validationErrors.paymentMethod) setValidationErrors(prev => ({ ...prev, paymentMethod: '' }));
-                    }
-                  }}
-                  style={{ fontSize: '0.75rem', padding: '6px', opacity: !shopOpen ? 0.5 : 1, cursor: !shopOpen ? 'not-allowed' : 'pointer' }}
-                  disabled={!shopOpen}
-                >
-                  💸 Plin
-                </button>
-                <button
-                  type="button"
-                  className={`payment-btn ${paymentMethod === 'Efectivo' ? 'selected' : ''}`}
-                  onClick={() => {
-                    if (shopOpen) {
-                      setPaymentMethod('Efectivo');
-                      if (validationErrors.paymentMethod) setValidationErrors(prev => ({ ...prev, paymentMethod: '' }));
-                    }
-                  }}
-                  style={{ fontSize: '0.75rem', padding: '6px', opacity: !shopOpen ? 0.5 : 1, cursor: !shopOpen ? 'not-allowed' : 'pointer' }}
-                  disabled={!shopOpen}
-                >
-                  💵 Efectivo
-                </button>
+              <div className="payment-options" style={{ gap: '6px', flexWrap: 'wrap' }}>
+                {DELIVERY_PAYMENT_METHODS.map(method => (
+                  <button key={method} type="button" className={`payment-btn ${paymentMethod === method ? 'selected' : ''}`}
+                    aria-pressed={paymentMethod === method} disabled={!shopOpen}
+                    onClick={() => { setPaymentMethod(method); setValidationErrors(prev => ({ ...prev, paymentMethod: '' })); }}
+                    style={{ fontSize: '0.875rem', padding: '8px' }}>
+                    {method}
+                  </button>
+                ))}
               </div>
+              {orderType === 'Delivery' && paymentMethod !== 'Efectivo' && (
+                <div style={{ marginTop: '10px' }}>
+                  <label htmlFor="cart-payment-timing">¿Cuándo pagarás?</label>
+                  <select id="cart-payment-timing" className="form-control" value={paymentTiming} disabled={!shopOpen} onChange={event => setPaymentTiming(event.target.value)}>
+                    <option value="Al llegar">Al llegar el repartidor</option>
+                    <option value="Anticipado">Pago anticipado</option>
+                  </select>
+                </div>
+              )}
+              {(paymentMethod === 'Efectivo' || orderType === 'Delivery' && paymentTiming === 'Al llegar') && (
+                <p style={{ fontSize: '0.875rem', margin: '8px 0' }}>Pago al llegar: pagarás con {paymentMethod} al recibir tu pedido. El repartidor confirmará el cobro antes de completar la entrega.</p>
+              )}
               {validationErrors.paymentMethod && (
                 <span style={{ color: 'var(--danger, #e74c3c)', fontSize: '0.72rem', fontWeight: 600, display: 'block', marginTop: '3px' }}>
                   ⚠️ {validationErrors.paymentMethod}

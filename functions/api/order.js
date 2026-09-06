@@ -44,6 +44,7 @@ const validateOrderForCreate = (order) => {
   }
   if (!order.items.every(isValidOrderItem)) return 'El pedido contiene productos invalidos.';
   if (!isPlainObject(order.customer)) return 'Datos del cliente invalidos.';
+  if (order.customer.paymentTiming !== undefined && !['Al llegar', 'Anticipado'].includes(order.customer.paymentTiming)) return 'Modalidad de pago inválida.';
   if (!trimText(order.customer.name, 80)) return 'Falta el nombre del cliente.';
   if (!trimText(order.customer.phone, 40)) return 'Falta el telefono del cliente.';
   if (!Number.isFinite(Number(order.grandTotal)) || Number(order.grandTotal) < 0) {

@@ -11,7 +11,7 @@ import {
 import { fetchSyncedData, updateSyncedData, subscribeToSync, invalidateSyncCache } from './utils/supabaseSync';
 import { supabase } from './utils/supabaseClient';
 import { createOrder, updateOrder, apiUrl, trackingUrl } from './utils/apiClient';
-import { mergeOrders, isDigitalPayment, isTableOrder } from './utils/orderLifecycle';
+import { mergeOrders, requiresAdvancePayment, paymentDescription, isTableOrder } from './utils/orderLifecycle';
 import { saveOrderChange } from './utils/orderRepository';
 import { Capacitor } from '@capacitor/core';
 import { DEFAULT_SMS_TEMPLATES } from './utils/orderMessaging';
@@ -1535,7 +1535,7 @@ export default function App() {
       `*Cliente:* ${order.customer?.name || 'Cliente'}\n` +
       `*WhatsApp:* ${order.customer?.phone || ''}\n` +
       `*Dirección/Mesa:* ${destLine}\n` +
-      `*Método de Pago:* ${order.customer?.paymentMethod || ''}\n\n` +
+      `*Método de Pago:* ${paymentDescription(order)}\n\n` +
       `*DETALLE DEL PEDIDO:*\n` +
       `---------------------------\n` +
       `${itemsText}\n` +
@@ -1622,12 +1622,12 @@ export default function App() {
     const previous = orders.find(o => o.id === orderId);
     if (!previous) return false;
     let next = { ...previous, ...patch, status: newStatus };
-    if (newStatus === 'Pendiente' && isDigitalPayment(next) && !next.paymentVerified) {
+    if (newStatus === 'Pendiente' && requiresAdvancePayment(next) && !next.paymentVerified) {
       if (!window.confirm('¿Verificaste el abono de S/ ' + Number(next.grandTotal || 0).toFixed(2) + ' en ' + next.customer.paymentMethod + '? Aceptar registra el pago y confirma el pedido.')) return false;
       next.paymentVerified = true;
     }
     if (newStatus === 'Entregado' && !isTableOrder(next) && !next.paymentVerified) {
-      if (!window.confirm('¿Confirmas que cobraste S/ ' + Number(next.grandTotal || 0).toFixed(2) + ' antes de entregar el pedido?')) return false;
+      if (!window.confirm('¿Confirmas que cobraste S/ ' + Number(next.grandTotal || 0).toFixed(2) + ' por ' + next.customer?.paymentMethod + ' antes de entregar el pedido?')) return false;
       next.paymentVerified = true;
     }
     return persistOrderChanges([{ previous, next }]);

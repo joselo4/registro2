@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { readOrder, requestOrder } from '../utils/apiClient';
-import { mergeOrders, isDeliveryOrder, orderStatusLabel } from '../utils/orderLifecycle';
+import { mergeOrders, isDeliveryOrder, orderStatusLabel, paymentDescription } from '../utils/orderLifecycle';
 
 export default function OrderTracker({ orderId, orders, setView, storePhone, onClearActiveOrder, cartLocations = [] }) {
   const TRACKING_WINDOW_HOURS = 72;
@@ -834,7 +834,7 @@ export default function OrderTracker({ orderId, orders, setView, storePhone, onC
             <strong>WhatsApp:</strong> <span style={{ color: 'var(--text-dark)' }}>{currentOrder.customer.phone}</span>
           </div>
           <div>
-            <strong>Método de Pago:</strong> <span style={{ color: 'var(--text-dark)' }}>{currentOrder.customer.paymentMethod}</span>
+            <strong>Método de Pago:</strong> <span style={{ color: 'var(--text-dark)' }}>{paymentDescription(currentOrder)} · {currentOrder.paymentVerified ? 'Pago confirmado' : 'Pago pendiente'}</span>
           </div>
         </div>
 

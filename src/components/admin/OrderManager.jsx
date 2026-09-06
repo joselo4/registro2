@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { buildSmsHref, formatOrderStatusMessage, normalizeSmsTemplates, formatDriverDispatchMessage, buildWhatsAppHref } from '../../utils/orderMessaging';
+import { isDigitalPayment, isPaymentOnArrival, requiresAdvancePayment } from '../../utils/orderLifecycle';
 import { getOrderStageInfo } from '../../utils/orderValidation';
 import { printThermalTicket } from '../../utils/escposTicket';
 import {
@@ -90,6 +91,7 @@ export default function OrderManager({
 
   const handleTogglePaymentVerified = async (order) => {
     const nextVerified = !order.paymentVerified;
+    if (nextVerified && !window.confirm(`¿Confirmas que recibiste S/. ${Number(order.grandTotal || 0).toFixed(2)} por ${order.customer?.paymentMethod}? Verifica el abono real antes de registrar el cobro.`)) return;
     const updated = {
       ...order,
       paymentVerified: nextVerified,
@@ -107,7 +109,7 @@ export default function OrderManager({
   };
 
   const handleValidateAndAcceptOrder = async (order) => {
-    const isDigital = ['yape', 'plin'].some(m => String(order.customer?.paymentMethod || '').toLowerCase().includes(m));
+    const isDigital = requiresAdvancePayment(order);
     const totalStr = Number(order.grandTotal || 0).toFixed(2);
     const payMethod = order.customer?.paymentMethod || 'Pago digital';
 
@@ -409,9 +411,20 @@ export default function OrderManager({
                 <option value="Yape">Yape</option>
                 <option value="Plin">Plin</option>
                 <option value="Efectivo">Efectivo</option>
+                <option value="Transferencia">Transferencia</option>
                 <option value="Tarjeta">Tarjeta</option>
               </select>
             </div>
+            {editingOrder.customer.orderType === 'Delivery' && editingOrder.customer.paymentMethod !== 'Efectivo' && (
+              <div className="form-group">
+                <label htmlFor="order-payment-timing">Modalidad de pago</label>
+                <select id="order-payment-timing" className="form-control" value={editingOrder.customer.paymentTiming || 'Anticipado'}
+                  onChange={event => setEditingOrder({ ...editingOrder, customer: { ...editingOrder.customer, paymentTiming: event.target.value } })}>
+                  <option value="Al llegar">Pago al llegar</option>
+                  <option value="Anticipado">Pago anticipado</option>
+                </select>
+              </div>
+            )}
           </div>
 
           {/* Agregar Producto */}
@@ -1083,7 +1096,9 @@ export default function OrderManager({
                             </span>
                           )}
 
-                          {['yape', 'plin'].some(m => String(order.customer?.paymentMethod || '').toLowerCase().includes(m)) ? (
+                          {isPaymentOnArrival(order) && <span style={{ fontSize: '0.875rem', fontWeight: 700 }}>Pago al llegar · {order.paymentVerified ? 'Cobrado' : 'Pendiente de cobro'}</span>}
+                          {order.customer?.paymentMethod === 'Transferencia' && <span>Transferencia</span>}
+                          {isDigitalPayment(order) ? (
                             order.paymentVerified ? (
                               <button
                                 type="button"
@@ -1260,7 +1275,7 @@ export default function OrderManager({
                           )}
 
                           {/* Botón rápido para solicitar voucher por WhatsApp si es Yape/Plin y no está verificado */}
-                          {['yape', 'plin'].some(m => String(order.customer?.paymentMethod || '').toLowerCase().includes(m)) && !order.paymentVerified && (
+                          {requiresAdvancePayment(order) && !order.paymentVerified && (
                             <a
                               href={`https://wa.me/${String(order.customer?.phone || '').replace(/\D/g, '')}?text=${encodeURIComponent(`¡Hola ${order.customer?.name || ''}! Te saludamos de ${storeName}. Por favor compártenos la captura o constancia de tu transferencia por ${order.customer?.paymentMethod} (S/. ${order.grandTotal.toFixed(2)}) para iniciar la preparación de tu pedido #${order.id}. ¡Muchas gracias!`)}`}
                               target="_blank"

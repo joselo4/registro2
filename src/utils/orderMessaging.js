@@ -1,3 +1,5 @@
+import { paymentDescription } from './orderLifecycle.js';
+
 export const ORDER_STATUSES = [
   'Por Corroborar',
   'Pendiente',
@@ -56,10 +58,9 @@ export const formatDriverDispatchMessage = ({ order, storeName, driverName }) =>
   const customer = order?.customer || {};
   const address = customer.address || customer.tableNumber || 'No especificada';
   const reference = customer.reference ? ` (Ref: ${customer.reference})` : '';
-  const isCash = (customer.paymentMethod || '').toLowerCase().includes('efectivo');
-  const paymentText = isCash 
-    ? `💵 COBRAR EN EFECTIVO: S/. ${Number(order?.grandTotal || 0).toFixed(2)}` 
-    : `✅ YA PAGADO (${customer.paymentMethod || 'Digital'})`;
+  const paymentText = order?.paymentVerified
+    ? `✅ YA PAGADO (${customer.paymentMethod || 'Digital'})`
+    : `💰 COBRAR / VERIFICAR PAGO: S/. ${Number(order?.grandTotal || 0).toFixed(2)} · ${paymentDescription(order)}. Solicita el pago y confirma el cobro antes de marcar Entregado.`;
   
   const itemsText = (order?.items || [])
     .map(item => `  • ${item.quantity || 1}x ${item.name || 'Producto'}`)
