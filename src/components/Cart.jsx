@@ -1,6 +1,9 @@
 import React, { useState, useEffect } from 'react';
 import CartItemPreview from './CartItemPreview';
 import { generateOrderId } from '../utils/orderId';
+import { validateOrderInput } from '../utils/orderValidation';
+
+export { validateOrderInput };
 
 export default function Cart({ 
   cart, 
@@ -47,6 +50,7 @@ export default function Cart({
   const [paymentMethod, setPaymentMethod] = useState('Yape'); // Yape, Plin, Efectivo
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [sendToWhatsApp, setSendToWhatsApp] = useState(true);
+  const [validationErrors, setValidationErrors] = useState({});
 
   // Módulo de Mesas
   const [orderType, setOrderType] = useState(() => {
@@ -137,55 +141,47 @@ export default function Cart({
     e.preventDefault();
     if (isSubmitting) return;
     
-    if (cart.length === 0) {
-      alert("El carrito está vacío.");
+    const needsTable = orderType === 'Mesa' || orderType === 'Mesa_Llevar';
+    const activeMesaNumber = needsTable ? (localTableNumber || tableNumber) : null;
+
+    const validation = validateOrderInput({
+      name,
+      phone,
+      address,
+      orderType,
+      needsTable,
+      tableNumber: activeMesaNumber,
+      cart,
+      paymentMethod,
+      occupiedTables
+    });
+
+    if (!validation.isValid) {
+      setValidationErrors(validation.errors);
+      const firstKey = Object.keys(validation.errors)[0];
+      alert(validation.errors[firstKey]);
       return;
     }
+    setValidationErrors({});
+
     const cleanAddress = address.replace(/<[^>]*>/g, '').trim();
     let finalAddress = cleanAddress;
     if (orderType === 'Mesa') {
-      finalAddress = `Mesa ${localTableNumber}`;
+      finalAddress = `Mesa ${activeMesaNumber}`;
     } else if (orderType === 'Mesa_Llevar') {
-      finalAddress = `Mesa ${localTableNumber} (Para Llevar)`;
+      finalAddress = `Mesa ${activeMesaNumber} (Para Llevar)`;
     } else if (orderType === 'Barra') {
       finalAddress = `Recojo en Barra`;
     } else if (orderType === 'Llevar') {
       finalAddress = `Recojo en Tienda / Llevar`;
     }
 
-    const needsTable = orderType === 'Mesa' || orderType === 'Mesa_Llevar';
-    
     // Obtener valores finales con fallback si el cliente está en mesa y dejó los campos vacíos
-    const rawName = (needsTable && !name.trim()) ? `Cliente Mesa ${localTableNumber || tableNumber}` : name.trim();
+    const rawName = (needsTable && !name.trim()) ? `Cliente Mesa ${activeMesaNumber}` : name.trim();
     const rawPhone = (needsTable && !phone.trim()) ? `Mesa` : phone.trim();
 
     const finalName = rawName.replace(/<[^>]*>/g, '').trim();
     const finalPhone = rawPhone.replace(/[^0-9A-Za-z+\s-]/g, '').trim();
-
-    // Validar según tipo de pedido
-    if (orderType === 'Delivery') {
-      if (!finalName || !finalPhone || !finalAddress.trim()) {
-        alert("Por favor, completa todos los campos requeridos.");
-        return;
-      }
-    } else if (needsTable) {
-      if (!localTableNumber && !tableNumber) {
-        alert("Por favor, selecciona o vincula un número de mesa.");
-        return;
-      }
-    } else {
-      // Retiro en Barra o Llevar
-      if (!finalName || !finalPhone) {
-        alert("Por favor, completa todos los campos requeridos.");
-        return;
-      }
-    }
-
-    const activeMesaNumber = needsTable ? (localTableNumber || tableNumber) : null;
-    if (needsTable && activeMesaNumber && occupiedTables.includes(String(activeMesaNumber))) {
-      alert(`La Mesa ${activeMesaNumber} ya cuenta con un pedido activo. Debe ser liberada por el personal antes de realizar un nuevo pedido.`);
-      return;
-    }
 
     try {
       setIsSubmitting(true);
@@ -542,26 +538,54 @@ export default function Cart({
                     className="form-control"
                     placeholder="Ej. Carlos Mendoza"
                     value={name}
-                    onChange={(e) => setName(e.target.value)}
-                    style={{ padding: '8px 10px', fontSize: '0.85rem' }}
+                    onChange={(e) => {
+                      setName(e.target.value);
+                      if (validationErrors.name) setValidationErrors(prev => ({ ...prev, name: '' }));
+                    }}
+                    style={{ 
+                      padding: '8px 10px', 
+                      fontSize: '0.85rem',
+                      borderColor: validationErrors.name ? 'var(--danger, #e74c3c)' : 'var(--border-color)'
+                    }}
                     required
                     disabled={!shopOpen}
                   />
+                  {validationErrors.name && (
+                    <span style={{ color: 'var(--danger, #e74c3c)', fontSize: '0.72rem', fontWeight: 600, display: 'block', marginTop: '3px' }}>
+                      ⚠️ {validationErrors.name}
+                    </span>
+                  )}
                 </div>
 
                 <div className="form-group">
-                  <label htmlFor="cart-customer-phone" style={{ fontSize: '0.8rem' }}>WhatsApp / Teléfono</label>
+                  <label htmlFor="cart-customer-phone" style={{ fontSize: '0.8rem' }}>WhatsApp / Teléfono (9 dígitos)</label>
                   <input
                     id="cart-customer-phone"
                     type="tel"
                     className="form-control"
                     placeholder="Ej. 987654321"
                     value={phone}
-                    onChange={(e) => setPhone(e.target.value.replace(/\D/g, ''))}
-                    style={{ padding: '8px 10px', fontSize: '0.85rem' }}
+                    onChange={(e) => {
+                      setPhone(e.target.value.replace(/\D/g, ''));
+                      if (validationErrors.phone) setValidationErrors(prev => ({ ...prev, phone: '' }));
+                    }}
+                    style={{ 
+                      padding: '8px 10px', 
+                      fontSize: '0.85rem',
+                      borderColor: validationErrors.phone ? 'var(--danger, #e74c3c)' : 'var(--border-color)'
+                    }}
                     required
                     disabled={!shopOpen}
                   />
+                  {validationErrors.phone ? (
+                    <span style={{ color: 'var(--danger, #e74c3c)', fontSize: '0.72rem', fontWeight: 600, display: 'block', marginTop: '3px' }}>
+                      ⚠️ {validationErrors.phone}
+                    </span>
+                  ) : (
+                    <span style={{ color: 'var(--text-light)', fontSize: '0.7rem', display: 'block', marginTop: '2px' }}>
+                      ℹ️ Te contactaremos por aquí para coordinar la entrega o confirmar tu pedido.
+                    </span>
+                  )}
                 </div>
               </>
             )}
@@ -591,11 +615,12 @@ export default function Cart({
                     onChange={(e) => {
                       setLocalTableNumber(e.target.value);
                       if (setTableNumber) setTableNumber(e.target.value);
+                      if (validationErrors.table) setValidationErrors(prev => ({ ...prev, table: '' }));
                     }}
                     style={{ 
                       padding: '8px 10px', 
                       fontSize: '0.85rem', 
-                      borderColor: occupiedTables.includes(String(localTableNumber)) ? 'var(--danger)' : 'var(--border-color)' 
+                      borderColor: (validationErrors.table || occupiedTables.includes(String(localTableNumber))) ? 'var(--danger, #e74c3c)' : 'var(--border-color)' 
                     }}
                     required
                     disabled={!shopOpen}
@@ -611,8 +636,13 @@ export default function Cart({
                     })}
                   </select>
                 )}
-                {occupiedTables.includes(String(localTableNumber || tableNumber)) && (
-                  <span style={{ color: 'var(--danger)', fontSize: '0.72rem', fontWeight: 'bold', display: 'block', marginTop: '4px' }}>
+                {validationErrors.table && (
+                  <span style={{ color: 'var(--danger, #e74c3c)', fontSize: '0.72rem', fontWeight: 'bold', display: 'block', marginTop: '4px' }}>
+                    ⚠️ {validationErrors.table}
+                  </span>
+                )}
+                {occupiedTables.includes(String(localTableNumber || tableNumber)) && !validationErrors.table && (
+                  <span style={{ color: 'var(--danger, #e74c3c)', fontSize: '0.72rem', fontWeight: 'bold', display: 'block', marginTop: '4px' }}>
                     ⚠️ Esta mesa tiene un pedido activo. Debe ser liberada por el mesero antes de volver a pedir.
                   </span>
                 )}
@@ -626,13 +656,25 @@ export default function Cart({
                   id="cart-delivery-address"
                   type="text"
                   className="form-control"
-                  placeholder="Ej. Jr. Tarapacá 489, Magdalena"
+                  placeholder="Ej. Jr. Tarapacá 489 (ref: frente al parque)"
                   value={address}
-                  onChange={(e) => setAddress(e.target.value)}
-                  style={{ padding: '8px 10px', fontSize: '0.85rem' }}
+                  onChange={(e) => {
+                    setAddress(e.target.value);
+                    if (validationErrors.address) setValidationErrors(prev => ({ ...prev, address: '' }));
+                  }}
+                  style={{ 
+                    padding: '8px 10px', 
+                    fontSize: '0.85rem',
+                    borderColor: validationErrors.address ? 'var(--danger, #e74c3c)' : 'var(--border-color)'
+                  }}
                   required
                   disabled={!shopOpen}
                 />
+                {validationErrors.address && (
+                  <span style={{ color: 'var(--danger, #e74c3c)', fontSize: '0.72rem', fontWeight: 600, display: 'block', marginTop: '3px' }}>
+                    ⚠️ {validationErrors.address}
+                  </span>
+                )}
               </div>
             )}
 
@@ -657,7 +699,12 @@ export default function Cart({
                 <button
                   type="button"
                   className={`payment-btn ${paymentMethod === 'Yape' ? 'selected' : ''}`}
-                  onClick={() => shopOpen && setPaymentMethod('Yape')}
+                  onClick={() => {
+                    if (shopOpen) {
+                      setPaymentMethod('Yape');
+                      if (validationErrors.paymentMethod) setValidationErrors(prev => ({ ...prev, paymentMethod: '' }));
+                    }
+                  }}
                   style={{ fontSize: '0.75rem', padding: '6px', opacity: !shopOpen ? 0.5 : 1, cursor: !shopOpen ? 'not-allowed' : 'pointer' }}
                   disabled={!shopOpen}
                 >
@@ -666,7 +713,12 @@ export default function Cart({
                 <button
                   type="button"
                   className={`payment-btn ${paymentMethod === 'Plin' ? 'selected' : ''}`}
-                  onClick={() => shopOpen && setPaymentMethod('Plin')}
+                  onClick={() => {
+                    if (shopOpen) {
+                      setPaymentMethod('Plin');
+                      if (validationErrors.paymentMethod) setValidationErrors(prev => ({ ...prev, paymentMethod: '' }));
+                    }
+                  }}
                   style={{ fontSize: '0.75rem', padding: '6px', opacity: !shopOpen ? 0.5 : 1, cursor: !shopOpen ? 'not-allowed' : 'pointer' }}
                   disabled={!shopOpen}
                 >
@@ -675,13 +727,23 @@ export default function Cart({
                 <button
                   type="button"
                   className={`payment-btn ${paymentMethod === 'Efectivo' ? 'selected' : ''}`}
-                  onClick={() => shopOpen && setPaymentMethod('Efectivo')}
+                  onClick={() => {
+                    if (shopOpen) {
+                      setPaymentMethod('Efectivo');
+                      if (validationErrors.paymentMethod) setValidationErrors(prev => ({ ...prev, paymentMethod: '' }));
+                    }
+                  }}
                   style={{ fontSize: '0.75rem', padding: '6px', opacity: !shopOpen ? 0.5 : 1, cursor: !shopOpen ? 'not-allowed' : 'pointer' }}
                   disabled={!shopOpen}
                 >
                   💵 Efectivo
                 </button>
               </div>
+              {validationErrors.paymentMethod && (
+                <span style={{ color: 'var(--danger, #e74c3c)', fontSize: '0.72rem', fontWeight: 600, display: 'block', marginTop: '3px' }}>
+                  ⚠️ {validationErrors.paymentMethod}
+                </span>
+              )}
             </div>
 
             {/* Campo de Cupón de Descuento */}

@@ -524,6 +524,7 @@ export default function OrderManager({
     pending: orders.filter(o => o.status === 'Pendiente').length,
     preparing: orders.filter(o => o.status === 'Preparando').length,
     delivery: orders.filter(o => o.status === 'En camino').length,
+    delivered: orders.filter(o => o.status === 'Entregado').length,
     todaySales: orders
       .filter(o => o.status !== 'Cancelado' && new Date(o.date).toDateString() === todayStr)
       .reduce((sum, o) => sum + (o.grandTotal || 0), 0)
@@ -561,33 +562,65 @@ export default function OrderManager({
             </div>
           </div>
 
-          {/* Tarjetas KPI */}
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(130px, 1fr))', gap: '12px', marginBottom: '20px' }}>
-            <div className="glass" style={{ padding: '12px 15px', borderRadius: '12px', borderLeft: '4px solid #e67e22', display: 'flex', flexDirection: 'column', gap: '4px' }}>
-              <span style={{ fontSize: '1.2rem' }}>⏳</span>
-              <span style={{ fontSize: '0.7rem', color: 'var(--text-light)', fontWeight: 'bold', textTransform: 'uppercase' }}>Por Corroborar</span>
-              <strong style={{ fontSize: '1.3rem', color: '#e67e22' }}>{kpis.toCorroborate}</strong>
-            </div>
-            <div className="glass" style={{ padding: '12px 15px', borderRadius: '12px', borderLeft: '4px solid var(--secondary-color)', display: 'flex', flexDirection: 'column', gap: '4px' }}>
-              <span style={{ fontSize: '1.2rem' }}>📋</span>
-              <span style={{ fontSize: '0.7rem', color: 'var(--text-light)', fontWeight: 'bold', textTransform: 'uppercase' }}>Pendientes</span>
-              <strong style={{ fontSize: '1.3rem', color: 'var(--text-dark)' }}>{kpis.pending}</strong>
-            </div>
-            <div className="glass" style={{ padding: '12px 15px', borderRadius: '12px', borderLeft: '4px solid #3498db', display: 'flex', flexDirection: 'column', gap: '4px' }}>
-              <span style={{ fontSize: '1.2rem' }}>🍳</span>
-              <span style={{ fontSize: '0.7rem', color: 'var(--text-light)', fontWeight: 'bold', textTransform: 'uppercase' }}>Preparando</span>
-              <strong style={{ fontSize: '1.3rem', color: 'var(--text-dark)' }}>{kpis.preparing}</strong>
-            </div>
-            <div className="glass" style={{ padding: '12px 15px', borderRadius: '12px', borderLeft: '4px solid #9b59b6', display: 'flex', flexDirection: 'column', gap: '4px' }}>
-              <span style={{ fontSize: '1.2rem' }}>🛵</span>
-              <span style={{ fontSize: '0.7rem', color: 'var(--text-light)', fontWeight: 'bold', textTransform: 'uppercase' }}>En camino</span>
-              <strong style={{ fontSize: '1.3rem', color: 'var(--text-dark)' }}>{kpis.delivery}</strong>
-            </div>
-            <div className="glass" style={{ padding: '12px 15px', borderRadius: '12px', borderLeft: '4px solid var(--success)', display: 'flex', flexDirection: 'column', gap: '4px' }}>
-              <span style={{ fontSize: '1.2rem' }}>💰</span>
-              <span style={{ fontSize: '0.7rem', color: 'var(--text-light)', fontWeight: 'bold', textTransform: 'uppercase' }}>Ventas Hoy</span>
-              <strong style={{ fontSize: '1.2rem', color: 'var(--success)' }}>S/. {kpis.todaySales.toFixed(2)}</strong>
-            </div>
+          {/* Pipeline Visualizador de Etapas Ordenadas (Secuencial de 1 a 5) */}
+          <div style={{
+            display: 'grid',
+            gridTemplateColumns: 'repeat(auto-fit, minmax(135px, 1fr))',
+            gap: '8px',
+            marginBottom: '16px',
+            padding: '8px',
+            background: 'rgba(0,0,0,0.02)',
+            borderRadius: '12px',
+            border: '1px solid var(--border-color)'
+          }}>
+            {[
+              { id: 'Por Corroborar', step: '1', label: 'Por Corroborar', icon: '⏳', count: kpis.toCorroborate, color: '#e67e22', desc: 'Validar pago/datos' },
+              { id: 'Pendiente', step: '2', label: 'Confirmados', icon: '📋', count: kpis.pending, color: '#2980b9', desc: 'En cola de cocina' },
+              { id: 'Preparando', step: '3', label: 'Preparando', icon: '👨‍🍳', count: kpis.preparing, color: '#8e44ad', desc: 'En elaboración' },
+              { id: 'En camino', step: '4', label: 'En Ruta / Salón', icon: '🛵', count: kpis.delivery, color: 'var(--delivery-color, #FF441F)', desc: 'Despachado' },
+              { id: 'Entregado', step: '5', label: 'Entregados', icon: '🎉', count: kpis.delivered, color: 'var(--success, #27ae60)', desc: 'Completados' }
+            ].map(st => {
+              const isSelected = orderFilter === st.id;
+              return (
+                <button
+                  key={st.id}
+                  type="button"
+                  onClick={() => setOrderFilter(orderFilter === st.id ? 'all' : st.id)}
+                  style={{
+                    border: isSelected ? `2px solid ${st.color}` : '1px solid var(--border-color)',
+                    background: isSelected ? 'var(--bg-secondary, #fff)' : 'rgba(255,255,255,0.6)',
+                    borderRadius: '8px',
+                    padding: '8px 10px',
+                    cursor: 'pointer',
+                    textAlign: 'left',
+                    display: 'flex',
+                    flexDirection: 'column',
+                    gap: '2px',
+                    transition: 'all 0.15s ease',
+                    boxShadow: isSelected ? `0 2px 8px ${st.color}25` : 'none'
+                  }}
+                  title={`Filtrar por ${st.label}`}
+                >
+                  <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                    <span style={{ fontSize: '0.72rem', fontWeight: 700, color: st.color }}>
+                      {st.icon} Paso {st.step}
+                    </span>
+                    <span style={{
+                      background: st.count > 0 ? st.color : 'rgba(0,0,0,0.08)',
+                      color: st.count > 0 ? '#fff' : 'inherit',
+                      fontSize: '0.68rem',
+                      fontWeight: 700,
+                      padding: '1px 6px',
+                      borderRadius: '10px'
+                    }}>
+                      {st.count}
+                    </span>
+                  </div>
+                  <strong style={{ fontSize: '0.8rem', color: 'var(--text-dark)' }}>{st.label}</strong>
+                  <span style={{ fontSize: '0.65rem', color: 'var(--text-light)' }}>{st.desc}</span>
+                </button>
+              );
+            })}
           </div>
 
           <div style={{ marginBottom: '15px' }}>
@@ -721,6 +754,31 @@ export default function OrderManager({
                 ) : (
                   displayedOrders.map(order => {
                     const isDelivery = order.customer?.orderType === 'Delivery' || (order.deliveryFee > 0);
+                    const isMesa = order.customer?.orderType === 'Mesa' || Boolean(order.customer?.tableNumber);
+
+                    const getStageInfo = (status, delivery) => {
+                      if (status === 'Cancelado') return { text: '🛑 Cancelado', color: '#c0392b' };
+                      if (status === 'Entregado') return { text: '🎉 Entregado', color: '#27ae60' };
+                      if (delivery) {
+                        switch (status) {
+                          case 'Por Corroborar': return { text: '⏳ 1/4 Validar Pago', color: '#e67e22' };
+                          case 'Pendiente': return { text: '📋 2/4 En Cola', color: '#2980b9' };
+                          case 'Preparando': return { text: '👨‍🍳 3/4 Preparando', color: '#8e44ad' };
+                          case 'En camino': return { text: '🛵 4/4 En Ruta', color: '#FF441F' };
+                          default: return { text: status, color: '#7f8c8d' };
+                        }
+                      } else {
+                        switch (status) {
+                          case 'Por Corroborar': return { text: '⏳ 1/3 Validar Pedido', color: '#e67e22' };
+                          case 'Pendiente': return { text: '📋 2/3 En Cola', color: '#2980b9' };
+                          case 'Preparando': return { text: '👨‍🍳 3/3 Preparando', color: '#8e44ad' };
+                          default: return { text: status, color: '#7f8c8d' };
+                        }
+                      }
+                    };
+
+                    const stage = getStageInfo(order.status, isDelivery);
+
                     return (
                     <tr key={order.id} style={isDelivery ? { background: 'rgba(255, 68, 31, 0.02)' } : {}}>
                       <td>
@@ -753,9 +811,35 @@ export default function OrderManager({
                               🍽️ Mesa {order.customer?.tableNumber || ''}
                             </span>
                           )}
+                          {(order.customer?.orderType === 'Llevar' || order.customer?.orderType === 'Barra' || order.customer?.orderType === 'Mesa_Llevar') && (
+                            <span className="badge" style={{
+                              background: '#9b59b6',
+                              color: '#fff',
+                              fontSize: '0.65rem',
+                              fontWeight: 700,
+                              padding: '2px 6px',
+                              borderRadius: '4px'
+                            }}>
+                              🥡 {order.customer?.orderType === 'Barra' ? 'BARRA' : 'LLEVAR'}
+                            </span>
+                          )}
                         </div>
-                        <div style={{ fontSize: '0.7rem', color: 'var(--text-light)', marginTop: '2px' }}>
-                          {new Date(order.date).toLocaleDateString('es-PE')} {new Date(order.date).toLocaleTimeString('es-PE', { hour: '2-digit', minute: '2-digit', hour12: true })}
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '6px', marginTop: '3px', flexWrap: 'wrap' }}>
+                          <span style={{
+                            fontSize: '0.66rem',
+                            fontWeight: 700,
+                            padding: '2px 6px',
+                            borderRadius: '4px',
+                            background: `${stage.color}15`,
+                            color: stage.color,
+                            border: `1px solid ${stage.color}40`,
+                            display: 'inline-block'
+                          }}>
+                            {stage.text}
+                          </span>
+                          <span style={{ fontSize: '0.7rem', color: 'var(--text-light)' }}>
+                            {new Date(order.date).toLocaleDateString('es-PE')} {new Date(order.date).toLocaleTimeString('es-PE', { hour: '2-digit', minute: '2-digit', hour12: true })}
+                          </span>
                         </div>
                         {isDelivery && (
                           <div style={{ marginTop: '5px' }}>
@@ -791,27 +875,98 @@ export default function OrderManager({
                         <strong style={{ color: 'var(--primary-color)', fontSize: '0.9rem' }}>S/. {order.grandTotal.toFixed(2)}</strong>
                       </td>
                       <td>
-                        <div style={{ display: 'flex', gap: '4px', flexWrap: 'wrap' }}>
+                        <div style={{ display: 'flex', gap: '5px', flexWrap: 'wrap', alignItems: 'center' }}>
+                          {/* Acciones principales secuenciales adaptadas al canal */}
                           {order.status === 'Por Corroborar' && (
-                            <button className="admin-action-btn" style={{ color: '#e67e22', fontWeight: 'bold' }} onClick={() => handleStatusChange(order, 'Pendiente', `Pedido ${order.id} corroborado por ${currentUser?.name}`)}>
-                              ✅ Corroborar
+                            <button
+                              className="admin-action-btn"
+                              style={{ color: '#d35400', fontWeight: 700, background: 'rgba(230,126,34,0.12)', border: '1px solid #e67e22', borderRadius: '6px', padding: '4px 8px' }}
+                              onClick={() => handleStatusChange(order, 'Pendiente', `Pedido ${order.id} aceptado y confirmado por ${currentUser?.name}`)}
+                              title="Validar datos/pago y enviar a cola de cocina"
+                            >
+                              ✅ Aceptar Pedido
                             </button>
                           )}
                           {order.status === 'Pendiente' && (
-                            <button className="admin-action-btn" style={{ color: 'var(--info)' }} onClick={() => handleStatusChange(order, 'Preparando', `Pedido ${order.id} marcado como 'Preparando' por ${currentUser?.name}`)}>
-                              🍳 Servir
+                            <button
+                              className="admin-action-btn"
+                              style={{ color: '#2980b9', fontWeight: 700, background: 'rgba(41,128,185,0.12)', border: '1px solid #3498db', borderRadius: '6px', padding: '4px 8px' }}
+                              onClick={() => handleStatusChange(order, 'Preparando', `Pedido ${order.id} en preparación por ${currentUser?.name}`)}
+                              title="Iniciar preparación en cocina o barra"
+                            >
+                              👨‍🍳 Preparar
                             </button>
                           )}
-                          {order.status === 'Preparando' && (
-                            <button className="admin-action-btn" style={{ color: 'var(--secondary-color)' }} onClick={() => handleStatusChange(order, 'En camino', `Pedido ${order.id} marcado como 'En camino' por ${currentUser?.name}`)}>
-                              🛵 Enviar
+                          {order.status === 'Preparando' && isDelivery && (
+                            <button
+                              className="admin-action-btn"
+                              style={{ color: '#FF441F', fontWeight: 700, background: 'rgba(255,68,31,0.12)', border: '1px solid #FF441F', borderRadius: '6px', padding: '4px 8px' }}
+                              onClick={() => handleStatusChange(order, 'En camino', `Pedido ${order.id} despachado a ruta por ${currentUser?.name}`)}
+                              title="Despachar con repartidor a domicilio"
+                            >
+                              🛵 Enviar a Ruta
+                            </button>
+                          )}
+                          {order.status === 'Preparando' && isMesa && (
+                            <button
+                              className="admin-action-btn"
+                              style={{ color: '#27ae60', fontWeight: 700, background: 'rgba(39,174,96,0.12)', border: '1px solid #2ecc71', borderRadius: '6px', padding: '4px 8px' }}
+                              onClick={() => handleStatusChange(order, 'Entregado', `Pedido ${order.id} servido en mesa por ${currentUser?.name}`)}
+                              title="Marcar como servido en mesa"
+                            >
+                              🍽️ Servir a Mesa
+                            </button>
+                          )}
+                          {order.status === 'Preparando' && !isDelivery && !isMesa && (
+                            <button
+                              className="admin-action-btn"
+                              style={{ color: '#27ae60', fontWeight: 700, background: 'rgba(39,174,96,0.12)', border: '1px solid #2ecc71', borderRadius: '6px', padding: '4px 8px' }}
+                              onClick={() => handleStatusChange(order, 'Entregado', `Pedido ${order.id} entregado para llevar por ${currentUser?.name}`)}
+                              title="Marcar como entregado al cliente"
+                            >
+                              🥡 Entregar a Cliente
                             </button>
                           )}
                           {order.status === 'En camino' && (
-                            <button className="admin-action-btn" style={{ color: 'var(--success)' }} onClick={() => handleStatusChange(order, 'Entregado', `Pedido ${order.id} marcado como 'Entregado' por ${currentUser?.name}`)}>
-                              ✅ Entregado
+                            <button
+                              className="admin-action-btn"
+                              style={{ color: '#27ae60', fontWeight: 700, background: 'rgba(39,174,96,0.15)', border: '1px solid #2ecc71', borderRadius: '6px', padding: '4px 8px' }}
+                              onClick={() => handleStatusChange(order, 'Entregado', `Pedido ${order.id} completado y entregado por ${currentUser?.name}`)}
+                              title="Confirmar recepción del cliente"
+                            >
+                              🎉 Marcar Entregado
                             </button>
                           )}
+
+                          {/* Selector de Corrección Rápida de Estado */}
+                          <select
+                            aria-label="Cambiar estado manualmente"
+                            value={order.status}
+                            onChange={(e) => {
+                              const nextVal = e.target.value;
+                              if (nextVal !== order.status) {
+                                handleStatusChange(order, nextVal, `Estado de pedido ${order.id} cambiado manualmente a '${nextVal}' por ${currentUser?.name}`);
+                              }
+                            }}
+                            style={{
+                              fontSize: '0.72rem',
+                              padding: '3px 6px',
+                              borderRadius: '4px',
+                              border: '1px solid var(--border-color)',
+                              background: 'var(--bg-secondary, #fff)',
+                              color: 'var(--text-dark)',
+                              cursor: 'pointer'
+                            }}
+                            title="Cambiar estado si hubo una equivocación"
+                          >
+                            <option value="Por Corroborar">⏳ Por Corroborar</option>
+                            <option value="Pendiente">📋 Confirmado</option>
+                            <option value="Preparando">👨‍🍳 Preparando</option>
+                            <option value="En camino">🛵 En camino</option>
+                            <option value="Entregado">🎉 Entregado</option>
+                            <option value="Cancelado">🛑 Cancelado</option>
+                          </select>
+
                           {order.status !== 'Entregado' && order.status !== 'Cancelado' && (
                             <button 
                               className="admin-action-btn" 

@@ -350,14 +350,24 @@ export default function OrderTracker({ orderId, orders, setView, storePhone, onC
     }
   };
 
-  const getProgressWidth = (status) => {
-    switch (status) {
-      case 'Por Corroborar': return '0%';
-      case 'Pendiente': return '0%';
-      case 'Preparando': return '33.33%';
-      case 'En camino': return '66.66%';
-      case 'Entregado': return '100%';
-      default: return '0%';
+  const getProgressWidth = (status, isDelivery = true) => {
+    if (status === 'Cancelado') return '0%';
+    if (status === 'Entregado') return '100%';
+    if (isDelivery) {
+      switch (status) {
+        case 'Por Corroborar': return '10%';
+        case 'Pendiente': return '25%';
+        case 'Preparando': return '50%';
+        case 'En camino': return '75%';
+        default: return '0%';
+      }
+    } else {
+      switch (status) {
+        case 'Por Corroborar': return '15%';
+        case 'Pendiente': return '35%';
+        case 'Preparando': return '70%';
+        default: return '0%';
+      }
     }
   };
 
@@ -384,13 +394,17 @@ export default function OrderTracker({ orderId, orders, setView, storePhone, onC
     return null;
   };
 
-  const formatStatusText = (status) => {
-    if (status === 'Por Corroborar') return '⏳ Por Corroborar';
-    if (status === 'En camino') return '🛵 En Camino';
-    if (status === 'Preparando') return '👨‍🍳 Preparando';
-    if (status === 'Entregado') return '🎉 Entregado';
-    if (status === 'Pendiente') return '⏳ Pendiente';
-    if (status === 'Cancelado') return '🛑 Cancelado';
+  const formatStatusText = (status, orderType = 'Delivery') => {
+    if (status === 'Por Corroborar') return '⏳ Por Corroborar · Verificando pedido';
+    if (status === 'Pendiente') return '📋 Confirmado · En cola de cocina';
+    if (status === 'Preparando') return '👨‍🍳 En Preparación · Armando tus helados';
+    if (status === 'En camino') return '🛵 En Camino · Repartidor en ruta';
+    if (status === 'Entregado') {
+      if (orderType === 'Mesa') return '🍽️ Servido en Mesa · ¡Buen provecho!';
+      if (orderType === 'Llevar' || orderType === 'Barra') return '🥡 Pedido Retirado · ¡Disfruta tus helados!';
+      return '🎉 ¡Entregado con Éxito!';
+    }
+    if (status === 'Cancelado') return '🛑 Pedido Cancelado';
     return status;
   };
 
@@ -645,36 +659,74 @@ export default function OrderTracker({ orderId, orders, setView, storePhone, onC
         marginBottom: '25px',
         transition: 'all 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275)'
       }}>
-        {formatStatusText(currentOrder.status || 'Pendiente')}
+        {formatStatusText(currentOrder.status || 'Pendiente', currentOrder.customer?.orderType)}
       </div>
 
-      {/* Línea de Tiempo del Pedido */}
+      {/* Línea de Tiempo del Pedido Adaptada al Canal */}
       {currentOrder.status !== 'Cancelado' ? (
         <div className="tracking-timeline" style={{ marginBottom: '25px' }}>
           <div 
             className="timeline-progress" 
-            style={{ width: getProgressWidth(currentOrder.status) }}
+            style={{ width: getProgressWidth(currentOrder.status, currentOrder.customer?.orderType === 'Delivery' || (currentOrder.deliveryFee > 0)) }}
           ></div>
           
-          <div className={`timeline-step ${statusNum >= 1 ? 'completed' : ''} ${statusNum === 1 ? 'active' : ''}`}>
-            <div className="step-node">📝</div>
-            <span className="step-label" style={{ fontSize: '0.75rem' }}>Recibido</span>
-          </div>
+          {(currentOrder.customer?.orderType === 'Delivery' || (currentOrder.deliveryFee > 0)) ? (
+            <>
+              <div className={`timeline-step ${statusNum >= 1 ? 'completed' : ''} ${statusNum <= 1 ? 'active' : ''}`}>
+                <div className="step-node">📝</div>
+                <span className="step-label" style={{ fontSize: '0.75rem' }}>Recibido</span>
+              </div>
 
-          <div className={`timeline-step ${statusNum >= 2 ? 'completed' : ''} ${statusNum === 2 ? 'active' : ''}`}>
-            <div className="step-node">👨‍🍳</div>
-            <span className="step-label" style={{ fontSize: '0.75rem' }}>Preparando</span>
-          </div>
+              <div className={`timeline-step ${statusNum >= 2 ? 'completed' : ''} ${statusNum === 2 ? 'active' : ''}`}>
+                <div className="step-node">👨‍🍳</div>
+                <span className="step-label" style={{ fontSize: '0.75rem' }}>Preparando</span>
+              </div>
 
-          <div className={`timeline-step ${statusNum >= 3 ? 'completed' : ''} ${statusNum === 3 ? 'active' : ''}`}>
-            <div className="step-node">🛵</div>
-            <span className="step-label" style={{ fontSize: '0.75rem' }}>En camino</span>
-          </div>
+              <div className={`timeline-step ${statusNum >= 3 ? 'completed' : ''} ${statusNum === 3 ? 'active' : ''}`}>
+                <div className="step-node">🛵</div>
+                <span className="step-label" style={{ fontSize: '0.75rem' }}>En camino</span>
+              </div>
 
-          <div className={`timeline-step ${statusNum >= 4 ? 'completed' : ''} ${statusNum === 4 ? 'active' : ''}`}>
-            <div className="step-node">🏠</div>
-            <span className="step-label" style={{ fontSize: '0.75rem' }}>Entregado</span>
-          </div>
+              <div className={`timeline-step ${statusNum >= 4 ? 'completed' : ''} ${statusNum === 4 ? 'active' : ''}`}>
+                <div className="step-node">🏠</div>
+                <span className="step-label" style={{ fontSize: '0.75rem' }}>Entregado</span>
+              </div>
+            </>
+          ) : (currentOrder.customer?.orderType === 'Mesa' || Boolean(currentOrder.customer?.tableNumber)) ? (
+            <>
+              <div className={`timeline-step ${statusNum >= 1 ? 'completed' : ''} ${statusNum <= 1 ? 'active' : ''}`}>
+                <div className="step-node">📝</div>
+                <span className="step-label" style={{ fontSize: '0.75rem' }}>Recibido</span>
+              </div>
+
+              <div className={`timeline-step ${statusNum >= 2 ? 'completed' : ''} ${statusNum === 2 ? 'active' : ''}`}>
+                <div className="step-node">👨‍🍳</div>
+                <span className="step-label" style={{ fontSize: '0.75rem' }}>En Barra</span>
+              </div>
+
+              <div className={`timeline-step ${statusNum >= 4 ? 'completed' : ''} ${statusNum === 4 ? 'active' : ''}`}>
+                <div className="step-node">🍽️</div>
+                <span className="step-label" style={{ fontSize: '0.75rem' }}>En Mesa</span>
+              </div>
+            </>
+          ) : (
+            <>
+              <div className={`timeline-step ${statusNum >= 1 ? 'completed' : ''} ${statusNum <= 1 ? 'active' : ''}`}>
+                <div className="step-node">📝</div>
+                <span className="step-label" style={{ fontSize: '0.75rem' }}>Recibido</span>
+              </div>
+
+              <div className={`timeline-step ${statusNum >= 2 ? 'completed' : ''} ${statusNum === 2 ? 'active' : ''}`}>
+                <div className="step-node">👨‍🍳</div>
+                <span className="step-label" style={{ fontSize: '0.75rem' }}>Preparando</span>
+              </div>
+
+              <div className={`timeline-step ${statusNum >= 4 ? 'completed' : ''} ${statusNum === 4 ? 'active' : ''}`}>
+                <div className="step-node">🥡</div>
+                <span className="step-label" style={{ fontSize: '0.75rem' }}>Listo / Retiro</span>
+              </div>
+            </>
+          )}
         </div>
       ) : (
         <div className="glass" style={{ padding: '15px', color: 'var(--danger)', margin: '20px 0', border: '1px solid var(--danger)', borderRadius: '8px', textAlign: 'center', background: 'rgba(231,76,60,0.05)' }}>

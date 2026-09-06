@@ -185,7 +185,7 @@ export default function KitchenDisplaySystem({
               style={{ padding: '6px 14px', fontSize: '0.78rem', borderRadius: '8px' }}
               onClick={() => setCurrentViewTab('active')}
             >
-              🔥 Por Preparar ({orders.filter(o => o.status === 'Pendiente' || o.status === 'Preparando').length})
+              🔥 Por Preparar ({orders.filter(o => o.status === 'Pendiente' || o.status === 'Preparando' || o.status === 'Por Corroborar').length})
             </button>
             <button
               className={`btn ${currentViewTab === 'ready' ? 'btn-primary' : 'btn-secondary'}`}
@@ -385,7 +385,7 @@ export default function KitchenDisplaySystem({
                       onClick={() => handleStartPreparing(order)}
                       style={{ flex: 1, padding: '8px 12px', fontSize: '0.82rem', fontWeight: 'bold' }}
                     >
-                      🍳 Empezar a Preparar
+                      👨‍🍳 Empezar a Preparar
                     </button>
                   ) : (
                     <button
@@ -400,7 +400,7 @@ export default function KitchenDisplaySystem({
                         borderColor: isDelivery ? undefined : '#27ae60'
                       }}
                     >
-                      {isDelivery ? '🛵 Listo para Entrega' : '✅ Servir a Mesa'}
+                      {isDelivery ? '🛵 Listo para Reparto' : (order.customer?.orderType === 'Mesa' ? '🍽️ Servido en Mesa' : '🥡 Listo para Entregar')}
                     </button>
                   )}
                 </div>
