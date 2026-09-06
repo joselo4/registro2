@@ -805,7 +805,7 @@ export default function OrderManager({
             color: 'var(--text-dark)',
             lineHeight: 1.5
           }}>
-            <strong>🛵 Finalidad de Asignar Repartidores:</strong> Al asignar un motorizado a un pedido delivery, éste se añade a su pantalla móvil (<em>pestaña Mis Repartos</em>), se habilita su señal GPS en vivo para el cliente en el rastreador y puedes despacharle la hoja de ruta con 1 toque al WhatsApp con el botón <strong>📲 Despachar</strong>.
+            <strong>🛵 Finalidad de Asignar Repartidores:</strong> Al asignar un motorizado a un pedido delivery, éste se añade a su pantalla móvil (<em>pestaña Mis Repartos</em>), el cliente puede ver quién le entregará su pedido para contactarlo y puedes despacharle la hoja de ruta con 1 toque al WhatsApp con el botón <strong>📲 Despachar</strong>.
           </div>
 
           <div style={{ display: 'flex', gap: '5px', overflowX: 'auto', paddingBottom: '6px', marginBottom: '15px' }}>

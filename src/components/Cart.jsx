@@ -13,7 +13,9 @@ export default function Cart({
   deliveryFee, 
   setView,
   onAddToCart,
-  flavors,
+  flavors = [],
+  bases = [],
+  toppings = [],
   freeDeliveryThreshold,
   freeDeliveryEnabled = true,
   storePhone,
@@ -271,20 +273,67 @@ export default function Cart({
   };
 
   const handleAddRandomScoop = () => {
-    const activeFlavors = flavors.filter(f => f.active);
-    if (activeFlavors.length === 0) return;
-    const randomFlavor = activeFlavors[Math.floor(Math.random() * activeFlavors.length)];
-    
+    const activeFlavors = (flavors || []).filter(f => f && f.active !== false);
+    if (activeFlavors.length === 0) {
+      alert('No hay sabores disponibles en este momento.');
+      return;
+    }
+
+    // Determinar cantidad de bolas para dar variedad (hasta 3 bolas distintas)
+    const numScoops = Math.min(3, activeFlavors.length);
+
+    // Priorizar variedad y sabores de mayor valor comercial (ej. premium o mayor precio)
+    const sortedByPrice = [...activeFlavors].sort((a, b) => (Number(b.price) || 0) - (Number(a.price) || 0));
+    // Barajar entre los mejores sabores para que cada clic ofrezca una sorpresa variada
+    const candidatePool = sortedByPrice.slice(0, Math.max(numScoops, 6));
+    const shuffledFlavors = [...candidatePool].sort(() => Math.random() - 0.5);
+    const selectedFlavors = shuffledFlavors.slice(0, numScoops);
+
+    // Seleccionar la mejor base disponible para maximizar la experiencia y el valor (ej. Copa Waffle)
+    const activeBases = (bases || []).filter(b => b && b.active !== false);
+    const bestBase = [...activeBases].sort((a, b) => (Number(b.price) || 0) - (Number(a.price) || 0))[0] || {
+      id: 'waffle',
+      name: 'Copa Waffle Crujiente',
+      price: 1.5
+    };
+
+    // Seleccionar topping sólido crocante (ej. Oreo, Maní, Chispas)
+    const activeSolids = (toppings || []).filter(t => t && t.active !== false && t.category === 'solido');
+    const selectedToppings = [];
+    if (activeSolids.length > 0) {
+      const shuffledSolids = [...activeSolids].sort(() => Math.random() - 0.5);
+      selectedToppings.push(shuffledSolids[0]);
+    }
+
+    // Seleccionar salsa líquida deliciosa (ej. Fudge, Fresa, Manjar)
+    const activeSyrups = (toppings || []).filter(t => t && t.active !== false && t.category === 'liquido');
+    let selectedSyrup = null;
+    if (activeSyrups.length > 0) {
+      const shuffledSyrups = [...activeSyrups].sort(() => Math.random() - 0.5);
+      selectedSyrup = shuffledSyrups[0];
+    }
+
+    // Calcular el precio total sumando todos los componentes reales
+    const basePrice = Number(bestBase.price) || 0;
+    const scoopsPrice = selectedFlavors.reduce((sum, f) => sum + (Number(f.price) || 0), 0);
+    const toppingsPrice = selectedToppings.reduce((sum, t) => sum + (Number(t.price) || 0), 0);
+    const syrupPrice = selectedSyrup ? (Number(selectedSyrup.price) || 0) : 0;
+    const totalPrice = basePrice + scoopsPrice + toppingsPrice + syrupPrice;
+
+    const flavorNames = selectedFlavors.map(f => f.name).join(' + ');
     const customItem = {
       type: 'custom',
-      base: { id: 'cono', name: 'Cono de Galleta Crujiente', price: 0.0 },
-      scoops: [{ id: randomFlavor.id, name: randomFlavor.name, price: randomFlavor.price, color: randomFlavor.color }],
-      toppings: [],
-      price: randomFlavor.price,
+      base: bestBase,
+      scoops: selectedFlavors.map(f => ({ id: f.id, name: f.name, price: f.price, color: f.color })),
+      toppings: selectedToppings,
+      syrup: selectedSyrup,
+      price: totalPrice,
       quantity: 1,
-      name: `Helado Simple de ${randomFlavor.name}`
+      name: `Super Copa Sorpresa (${selectedFlavors.length} Bolas: ${flavorNames})`
     };
+
     onAddToCart(customItem);
+    alert(`🎉 ¡Combinación Sorpresa Creada!\nAñadimos ${customItem.name} con ${bestBase.name} por S/. ${totalPrice.toFixed(2)}.`);
   };
 
   const handleAddSuggestedPack = () => {

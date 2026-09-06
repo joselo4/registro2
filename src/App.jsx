@@ -130,6 +130,7 @@ export default function App() {
   const [isCloudSynced, setIsCloudSynced] = useState(false);
   const [isSyncLoaded, setIsSyncLoaded] = useState(false);
   const [realtimeStatus, setRealtimeStatus] = useState('connecting'); // 'connecting' | 'connected' | 'error'
+  const [reconnectTrigger, setReconnectTrigger] = useState(0);
   const isVendorApp = typeof window !== 'undefined' && (
     Boolean(Capacitor?.isNativePlatform?.()) ||
     new URLSearchParams(window.location.search).get('mode') === 'vendor' ||
@@ -904,6 +905,60 @@ export default function App() {
     };
   }, []);
 
+  // --- Manejador de Reconexión de Red y Ciclo de Vida (Móvil / APK) ---
+  useEffect(() => {
+    const handleResumeOrOnline = async () => {
+      console.log('📱 Dispositivo reanudado o red reconectada. Sincronizando con Supabase...');
+      if (!supabase) return;
+
+      // 1. Refrescar / validar sesión de Supabase Auth
+      try {
+        const { data } = await supabase.auth.getSession();
+        if (data?.session && !isLoggedIn) {
+          const userRole = normalizeRoleLabel(data.session.user.app_metadata?.role, data.session.user.email);
+          const userName = data.session.user.user_metadata?.name || 'Administrador Supabase';
+          setIsLoggedIn(true);
+          setCurrentUser({
+            email: data.session.user.email,
+            role: userRole,
+            name: userName,
+            isSupabaseUser: true
+          });
+        }
+      } catch (err) {
+        console.warn("Error al validar sesión al reanudar:", err);
+      }
+
+      // 2. Traer últimos datos de Supabase si estuvimos offline o dormidos
+      try {
+        invalidateSyncCache();
+        const serverData = await fetchSyncedData(isLoggedIn || isVendorApp);
+        if (serverData) {
+          applyLoadedData(serverData);
+        }
+      } catch (err) {
+        console.warn("Error al sincronizar datos tras reconexión:", err);
+      }
+
+      // 3. Forzar reinicio reactivo de canal en tiempo real
+      setReconnectTrigger(prev => prev + 1);
+    };
+
+    const handleVisibilityChange = () => {
+      if (document.visibilityState === 'visible') {
+        handleResumeOrOnline();
+      }
+    };
+
+    window.addEventListener('online', handleResumeOrOnline);
+    document.addEventListener('visibilitychange', handleVisibilityChange);
+
+    return () => {
+      window.removeEventListener('online', handleResumeOrOnline);
+      document.removeEventListener('visibilitychange', handleVisibilityChange);
+    };
+  }, [isLoggedIn, isVendorApp]);
+
   const handleRefreshCarts = async () => {
     if (!supabase) return false;
     try {
@@ -1249,6 +1304,8 @@ export default function App() {
         setRealtimeStatus('connected');
       } else if (status === 'CHANNEL_ERROR' || status === 'TIMED_OUT' || err) {
         setRealtimeStatus('error');
+      } else if (status === 'reconnecting') {
+        setRealtimeStatus('connecting');
       } else if (status === 'CLOSED') {
         // No alterar a 'connecting' si se cerró por desmontaje/reconexión
       } else {
@@ -1257,11 +1314,15 @@ export default function App() {
     });
 
     return () => {
-      if (supabase && activeChannel) {
-        supabase.removeChannel(activeChannel);
+      if (activeChannel) {
+        if (typeof activeChannel.unsubscribe === 'function') {
+          activeChannel.unsubscribe();
+        } else if (supabase) {
+          supabase.removeChannel(activeChannel);
+        }
       }
     };
-  }, [isLoggedIn, isSyncLoaded, tableNumber]);
+  }, [isLoggedIn, isVendorApp, isSyncLoaded, view, tableNumber, reconnectTrigger]);
 
   // Calcular automáticamente la lista de mesas ocupadas a partir de pedidos activos
   useEffect(() => {
@@ -1836,6 +1897,8 @@ export default function App() {
             setView={setView}
             onAddToCart={handleAddToCart}
             flavors={flavors}
+            bases={bases}
+            toppings={toppings}
             telegramToken={telegramToken}
             telegramChatId={telegramChatId}
             freeDeliveryThreshold={freeDeliveryThreshold}

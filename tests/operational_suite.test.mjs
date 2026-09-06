@@ -212,3 +212,47 @@ test('Customer CRM accurately aggregates LTV, order counts, and segmenting', () 
   assert.equal(maria.totalOrders, 1);
   assert.equal(maria.totalSpent, 25.0);
 });
+
+test('Sorpréndeme generates varied scoops (multi-flavor) and maximizes sales value', () => {
+  const flavors = [
+    { id: 'fresa', name: 'Fresa Silvestre', price: 1.0, active: true },
+    { id: 'chocolate', name: 'Chocolate Belga', price: 1.5, isPremium: true, active: true },
+    { id: 'lucuma', name: 'Lúcuma de Seda', price: 1.5, isPremium: true, active: true },
+    { id: 'vainilla', name: 'Vainilla Francesa', price: 1.0, active: true }
+  ];
+  const bases = [
+    { id: 'cono', name: 'Cono Simple', price: 0.0, active: true },
+    { id: 'waffle', name: 'Copa Waffle Crujiente', price: 1.5, active: true }
+  ];
+  const toppings = [
+    { id: 'oreo', name: 'Trozos de Oreo', price: 0.5, category: 'solido', active: true },
+    { id: 'fudge', name: 'Fudge de Chocolate', price: 0.5, category: 'liquido', active: true }
+  ];
+
+  // Algoritmo Sorpréndeme
+  const activeFlavors = flavors.filter(f => f.active !== false);
+  const numScoops = Math.min(3, activeFlavors.length);
+  const sortedByPrice = [...activeFlavors].sort((a, b) => (Number(b.price) || 0) - (Number(a.price) || 0));
+  const candidatePool = sortedByPrice.slice(0, Math.max(numScoops, 6));
+  const shuffledFlavors = [...candidatePool].sort(() => Math.random() - 0.5);
+  const selectedFlavors = shuffledFlavors.slice(0, numScoops);
+
+  // Variedad: debe tener múltiples bolas y no repetir el mismo sabor
+  assert.ok(selectedFlavors.length >= 2, 'Debe incluir al menos 2 bolas');
+  const uniqueFlavorIds = new Set(selectedFlavors.map(f => f.id));
+  assert.equal(uniqueFlavorIds.size, selectedFlavors.length, 'Los sabores deben ser variados y únicos');
+
+  // Base de mayor valor
+  const bestBase = [...bases].sort((a, b) => (Number(b.price) || 0) - (Number(a.price) || 0))[0];
+  assert.equal(bestBase.id, 'waffle', 'Debe seleccionar la base con mayor valor');
+
+  // Cálculo de valor de venta
+  const scoopsPrice = selectedFlavors.reduce((sum, f) => sum + Number(f.price), 0);
+  const solidTopping = toppings.find(t => t.category === 'solido');
+  const syrup = toppings.find(t => t.category === 'liquido');
+  const totalPrice = bestBase.price + scoopsPrice + (solidTopping?.price || 0) + (syrup?.price || 0);
+
+  // El valor debe ser significativamente superior al helado simple de S/. 1.00
+  assert.ok(totalPrice >= 5.0, `El total (S/. ${totalPrice}) debe maximizar la venta (> S/. 5.00)`);
+});
+

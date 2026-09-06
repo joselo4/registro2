@@ -1,5 +1,4 @@
-import { useState, useEffect, useRef, useMemo } from 'react';
-import { Geolocation } from '@capacitor/geolocation';
+import { useState, useMemo } from 'react';
 import { buildWhatsAppHref } from '../../utils/orderMessaging';
 
 export default function DriverDeliveryPanel({
@@ -7,15 +6,9 @@ export default function DriverDeliveryPanel({
   onUpdateOrderStatus,
   currentUser = {},
   storeName = 'Friozo',
-  cartLocations,
-  onUpdateCartLocations,
   showAlert
 }) {
-  const [isGpsActive, setIsGpsActive] = useState(false);
-  const [gpsError, setGpsError] = useState('');
-  const [lastCoords, setLastCoords] = useState(null);
   const [activeSubTab, setActiveSubTab] = useState('active'); // 'active' | 'history'
-  const gpsWatchIdRef = useRef(null);
 
   const driverId = String(currentUser?.id || '').trim();
   const driverEmail = String(currentUser?.email || '').toLowerCase().trim();
@@ -53,129 +46,11 @@ export default function DriverDeliveryPanel({
       .reduce((sum, o) => sum + Number(o.grandTotal || 0), 0);
   }, [completedToday]);
 
-  // Publicar ubicación GPS actual a cartLocations
-  const broadcastLocation = (lat, lng) => {
-    setLastCoords({ lat, lng, time: new Date() });
-    if (!onUpdateCartLocations) return;
-
-    const rawList = Array.isArray(cartLocations) ? cartLocations : (cartLocations?.carts || []);
-    const identifier = driverEmail || driverId || 'repartidor';
-
-    // Actualizar o insertar este repartidor en cartLocations
-    const otherLocations = rawList.filter(c => {
-      const cEmail = String(c.driverEmail || c.operatorEmail || c.id || '').toLowerCase().trim();
-      return cEmail !== identifier;
-    });
-
-    const myEntry = {
-      id: identifier,
-      driverId: driverId || identifier,
-      driverEmail: driverEmail || '',
-      label: currentUser?.name ? `🛵 ${currentUser.name}` : '🛵 Repartidor en Ruta',
-      name: currentUser?.name || 'Repartidor',
-      lat,
-      lng,
-      status: 'en_ruta',
-      lastUpdated: new Date().toISOString()
-    };
-
-    onUpdateCartLocations({
-      carts: [...otherLocations, myEntry],
-      updatedAt: new Date().toISOString()
-    });
-  };
-
-  // Iniciar / detener rastreo GPS
-  const handleToggleGps = async () => {
-    if (isGpsActive) {
-      if (gpsWatchIdRef.current !== null) {
-        try {
-          if (typeof Geolocation !== 'undefined' && Geolocation.clearWatch) {
-            await Geolocation.clearWatch({ id: gpsWatchIdRef.current });
-          } else if (navigator.geolocation) {
-            navigator.geolocation.clearWatch(gpsWatchIdRef.current);
-          }
-        } catch {
-          // ignore cleanup errors
-        }
-        gpsWatchIdRef.current = null;
-      }
-      setIsGpsActive(false);
-      return;
-    }
-
-    setGpsError('');
-    try {
-      if (typeof Geolocation !== 'undefined') {
-        try {
-          const perm = await Geolocation.checkPermissions();
-          if (perm.location !== 'granted') {
-            await Geolocation.requestPermissions();
-          }
-        } catch {
-          // continuar con fallback
-        }
-
-        const pos = await Geolocation.getCurrentPosition({ enableHighAccuracy: true, timeout: 10000 });
-        broadcastLocation(pos.coords.latitude, pos.coords.longitude);
-
-        const watchId = await Geolocation.watchPosition(
-          { enableHighAccuracy: true, timeout: 15000, maximumAge: 5000 },
-          (position) => {
-            if (position?.coords) {
-              broadcastLocation(position.coords.latitude, position.coords.longitude);
-            }
-          }
-        );
-        gpsWatchIdRef.current = watchId;
-        setIsGpsActive(true);
-      } else if (navigator?.geolocation) {
-        navigator.geolocation.getCurrentPosition(
-          (pos) => {
-            broadcastLocation(pos.coords.latitude, pos.coords.longitude);
-            const watchId = navigator.geolocation.watchPosition(
-              (p) => broadcastLocation(p.coords.latitude, p.coords.longitude),
-              (err) => setGpsError('Error en señal GPS: ' + err.message),
-              { enableHighAccuracy: true, timeout: 15000, maximumAge: 5000 }
-            );
-            gpsWatchIdRef.current = watchId;
-            setIsGpsActive(true);
-          },
-          (err) => setGpsError('No se pudo obtener ubicación: ' + err.message),
-          { enableHighAccuracy: true, timeout: 10000 }
-        );
-      } else {
-        setGpsError('Geolocalización no soportada en este dispositivo.');
-      }
-    } catch (err) {
-      setGpsError('Permiso de GPS denegado o error de hardware: ' + err.message);
-    }
-  };
-
-  useEffect(() => {
-    return () => {
-      if (gpsWatchIdRef.current !== null) {
-        try {
-          if (typeof Geolocation !== 'undefined' && Geolocation.clearWatch) {
-            Geolocation.clearWatch({ id: gpsWatchIdRef.current });
-          } else if (navigator.geolocation) {
-            navigator.geolocation.clearWatch(gpsWatchIdRef.current);
-          }
-        } catch {
-          // cleanup
-        }
-      }
-    };
-  }, []);
-
   const handleStartDelivery = (order) => {
     if (onUpdateOrderStatus) {
       onUpdateOrderStatus(order.id, 'En camino');
     }
-    if (!isGpsActive) {
-      handleToggleGps();
-    }
-    showAlert?.('¡En camino!', `Pedido #${order.id} despachado. Tu GPS se ha activado para el cliente.`, 'success');
+    showAlert?.('¡En camino!', `Pedido #${order.id} marcado como en camino.`, 'success');
   };
 
   const handleCompleteDelivery = (order) => {
@@ -212,43 +87,7 @@ export default function DriverDeliveryPanel({
               🛵 Hola, {currentUser?.name || 'Repartidor'}
             </h1>
           </div>
-
-          {/* BOTÓN GPS COMPARTIDO */}
-          <button
-            type="button"
-            onClick={handleToggleGps}
-            style={{
-              display: 'inline-flex',
-              alignItems: 'center',
-              gap: '8px',
-              padding: '10px 16px',
-              borderRadius: '9999px',
-              fontSize: '0.85rem',
-              fontWeight: 700,
-              cursor: 'pointer',
-              border: 'none',
-              background: isGpsActive ? '#10b981' : 'rgba(255,255,255,0.15)',
-              color: '#fff',
-              boxShadow: isGpsActive ? '0 0 15px rgba(16, 185, 129, 0.5)' : 'none',
-              transition: 'all 0.2s ease'
-            }}
-          >
-            <span style={{ fontSize: '1.1rem' }}>{isGpsActive ? '🟢' : '📡'}</span>
-            <span>{isGpsActive ? 'GPS Activo (Transmitiendo)' : 'Activar GPS de Ruta'}</span>
-          </button>
         </div>
-
-        {gpsError && (
-          <div style={{ marginTop: '10px', fontSize: '0.8rem', color: '#fca5a5', background: 'rgba(239, 68, 68, 0.2)', padding: '6px 12px', borderRadius: '6px' }}>
-            ⚠️ {gpsError}
-          </div>
-        )}
-
-        {isGpsActive && lastCoords && (
-          <div style={{ marginTop: '10px', fontSize: '0.78rem', color: '#6ee7b7', display: 'flex', alignItems: 'center', gap: '6px' }}>
-            <span>📍 Últimas coordenadas: {lastCoords.lat.toFixed(5)}, {lastCoords.lng.toFixed(5)} ({lastCoords.time.toLocaleTimeString()})</span>
-          </div>
-        )}
       </div>
 
       {/* TARJETAS RESUMEN DE COBRANZA Y ENTREGAS */}

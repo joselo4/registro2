@@ -188,21 +188,6 @@ export default function OrderTracker({ orderId, orders, setView, storePhone, onC
 
   const currentOrder = getOrderFreshness(localOrder) > getOrderFreshness(fetchedOrder) ? localOrder : (fetchedOrder || localOrder);
 
-  const driverEmail = String(currentOrder?.assignedDriver?.email || '').toLowerCase().trim();
-  const driverId = String(currentOrder?.assignedDriver?.id || '').trim();
-
-  // Ubicación exclusiva en vivo del repartidor asignado a este pedido
-  const assignedDriverLocation = useMemo(() => {
-    const cartsList = Array.isArray(cartLocations?.carts)
-      ? cartLocations.carts
-      : (Array.isArray(cartLocations) ? cartLocations : []);
-    if ((!driverEmail && !driverId) || cartsList.length === 0) return null;
-    return cartsList.find(c => {
-      const cEmail = String(c.email || '').toLowerCase().trim();
-      const cId = String(c.id || '').trim();
-      return (driverEmail && cEmail === driverEmail) || (driverId && cId === driverId);
-    }) || null;
-  }, [driverEmail, driverId, cartLocations]);
 
   // Efecto para limpiar búsquedas automáticas expiradas y evitar la pantalla de bloqueo
   useEffect(() => {
@@ -734,7 +719,7 @@ export default function OrderTracker({ orderId, orders, setView, storePhone, onC
         </div>
       )}
 
-      {/* 🛵 RASTREO EXCLUSIVO DEL REPARTIDOR ASIGNADO */}
+      {/* 🛵 INFORMACIÓN DEL REPARTIDOR ASIGNADO */}
       {currentOrder && currentOrder.assignedDriver && (
         <div className="glass" style={{
           padding: '16px 20px',
@@ -767,7 +752,7 @@ export default function OrderTracker({ orderId, orders, setView, storePhone, onC
                   Repartidor asignado: {currentOrder.assignedDriver.name || currentOrder.assignedDriver.email || 'Personal de Delivery'}
                 </strong>
                 <span style={{ fontSize: '0.78rem', color: 'var(--text-light)' }}>
-                  {assignedDriverLocation ? '🟢 Ubicación en tiempo real compartida' : '📡 Esperando señal GPS del repartidor...'}
+                  Personal encargado de la entrega de tu pedido
                 </span>
                 {currentOrder.assignedDriver.phone && (
                   <div style={{ display: 'flex', gap: '6px', marginTop: '6px', flexWrap: 'wrap' }}>
@@ -811,68 +796,7 @@ export default function OrderTracker({ orderId, orders, setView, storePhone, onC
                 )}
               </div>
             </div>
-
-            {assignedDriverLocation && (
-              <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
-                <a
-                  href={`https://www.google.com/maps/search/?api=1&query=${assignedDriverLocation.lat},${assignedDriverLocation.lng}`}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="btn btn-sm"
-                  style={{
-                    background: '#4285F4',
-                    color: '#fff',
-                    textDecoration: 'none',
-                    borderRadius: '6px',
-                    padding: '6px 10px',
-                    fontSize: '0.75rem',
-                    display: 'inline-flex',
-                    alignItems: 'center',
-                    gap: '4px',
-                    fontWeight: 600
-                  }}
-                >
-                  📍 Google Maps
-                </a>
-                <a
-                  href={`https://waze.com/ul?ll=${assignedDriverLocation.lat},${assignedDriverLocation.lng}&navigate=yes`}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="btn btn-sm"
-                  style={{
-                    background: '#33CCFF',
-                    color: '#002B49',
-                    textDecoration: 'none',
-                    borderRadius: '6px',
-                    padding: '6px 10px',
-                    fontSize: '0.75rem',
-                    display: 'inline-flex',
-                    alignItems: 'center',
-                    gap: '4px',
-                    fontWeight: 700
-                  }}
-                >
-                  🚙 Waze
-                </a>
-              </div>
-            )}
           </div>
-
-          {assignedDriverLocation && (
-            <div style={{
-              fontSize: '0.75rem',
-              color: 'var(--text-light)',
-              background: 'rgba(0,0,0,0.03)',
-              padding: '8px 12px',
-              borderRadius: '6px',
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'space-between'
-            }}>
-              <span>Última actualización: {assignedDriverLocation.lastUpdated ? new Date(assignedDriverLocation.lastUpdated).toLocaleTimeString() : 'Reciente'}</span>
-              <span style={{ color: 'var(--delivery-color, #FF441F)', fontWeight: 600 }}>Solo tú y la tienda ven esta ubicación</span>
-            </div>
-          )}
         </div>
       )}
 
