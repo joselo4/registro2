@@ -21,6 +21,7 @@ import LiveChatTelegramBridge from './components/LiveChatTelegramBridge';
 import OrderTracker from './components/OrderTracker';
 import AdminPanel from './components/AdminPanel';
 import CartLocationsView from './components/CartLocationsView';
+import { setupAudioUnlocker } from './utils/appAudioNotifications';
 
 // Combinaciones recomendadas por defecto para el menú
 const DEFAULT_RECOMMENDATIONS = [
@@ -307,6 +308,10 @@ export default function App() {
       window.gtag('config', gaId);
     }
   }, [googleAnalyticsId]);
+
+  useEffect(() => {
+    setupAudioUnlocker();
+  }, []);
 
   const [storeInstagram, setStoreInstagram] = useState(() => {
     return localStorage.getItem('helados_store_instagram') || 'https://www.instagram.com/';

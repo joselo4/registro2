@@ -1,6 +1,12 @@
 import React, { useState, useEffect } from 'react';
 import { buildSmsHref, formatOrderStatusMessage, normalizeSmsTemplates, formatDriverDispatchMessage, buildWhatsAppHref } from '../../utils/orderMessaging';
 import { printThermalTicket } from '../../utils/escposTicket';
+import {
+  playPaymentVerifiedSound,
+  playKitchenSound,
+  playCashReminderSound,
+  triggerDeviceVibration
+} from '../../utils/appAudioNotifications';
 
 // --- FUNCIONES DE SANITIZACIÓN ---
 const sanitizeHTML = (text) => {
@@ -79,6 +85,79 @@ export default function OrderManager({
     onUpdateOrderStatus(order.id, newStatus);
     addLog(logText);
     openStatusSms(order, newStatus);
+  };
+
+  const handleTogglePaymentVerified = (order) => {
+    const nextVerified = !order.paymentVerified;
+    const updated = {
+      ...order,
+      paymentVerified: nextVerified,
+      updatedAt: new Date().toISOString()
+    };
+    onUpdateOrders(orders.map(o => o.id === order.id ? updated : o));
+    if (nextVerified) {
+      playPaymentVerifiedSound();
+      triggerDeviceVibration([150, 80, 150]);
+      if (addLog) addLog(`Abono de S/. ${Number(order.grandTotal || 0).toFixed(2)} por ${order.customer?.paymentMethod || 'digital'} verificado para pedido ${order.id} por ${currentUser?.name}`);
+      alert(`Abono de S/. ${Number(order.grandTotal || 0).toFixed(2)} para pedido #${order.id} marcado como verificado con éxito.`);
+    } else {
+      if (addLog) addLog(`Abono de pedido ${order.id} marcado como pendiente de verificación por ${currentUser?.name}`);
+    }
+  };
+
+  const handleValidateAndAcceptOrder = (order) => {
+    const isDigital = ['yape', 'plin'].some(m => String(order.customer?.paymentMethod || '').toLowerCase().includes(m));
+    const totalStr = Number(order.grandTotal || 0).toFixed(2);
+    const payMethod = order.customer?.paymentMethod || 'Pago digital';
+
+    if (isDigital && !order.paymentVerified) {
+      const confirmVal = window.confirm(
+        `📱 VALIDACIÓN DE PAGO DIGITAL (${payMethod}):\n\n` +
+        `• Pedido #${order.id} - ${order.customer?.name || 'Cliente'}\n` +
+        `• Total a verificar: S/. ${totalStr}\n\n` +
+        `¿Confirmas que ya verificaste el abono de S/. ${totalStr} en la cuenta de ${payMethod}?\n\n` +
+        `[Aceptar] = Abono Verificado y pasar a cola de preparación.\n` +
+        `[Cancelar] = Mantener en espera si aún no has revisado el comprobante.`
+      );
+      if (!confirmVal) return;
+
+      const updated = {
+        ...order,
+        paymentVerified: true,
+        status: 'Pendiente',
+        updatedAt: new Date().toISOString()
+      };
+      onUpdateOrders(orders.map(o => o.id === order.id ? updated : o));
+      playPaymentVerifiedSound();
+      if (addLog) addLog(`Pedido ${order.id} aceptado con abono verificado de S/. ${totalStr} por ${currentUser?.name}`);
+      openStatusSms(order, 'Pendiente');
+      return;
+    }
+
+    handleStatusChange(order, 'Pendiente', `Pedido ${order.id} aceptado y confirmado por ${currentUser?.name}`);
+  };
+
+  const handleSendToKitchen = (order) => {
+    playKitchenSound();
+    triggerDeviceVibration([200, 100, 200]);
+    handleStatusChange(order, 'Preparando', `Pedido ${order.id} enviado a preparación en cocina por ${currentUser?.name}`);
+  };
+
+  const handleCompleteOrder = (order) => {
+    const isCash = String(order.customer?.paymentMethod || '').toLowerCase().includes('efectivo');
+    const totalStr = Number(order.grandTotal || 0).toFixed(2);
+
+    if (isCash) {
+      playCashReminderSound();
+      triggerDeviceVibration([200, 100, 200, 100, 300]);
+      const confirmMsg = `💰 RECORDATORIO DE COBRANZA EN EFECTIVO:\n\n` +
+        `• Pedido #${order.id} (${order.customer?.name || 'Cliente'})\n` +
+        `• Monto a cobrar: S/. ${totalStr}\n\n` +
+        `¿Confirmas que el dinero en efectivo (S/. ${totalStr}) fue cobrado correctamente antes de finalizar la entrega?`;
+      if (!window.confirm(confirmMsg)) return;
+    }
+
+    handleStatusChange(order, 'Entregado', `Pedido ${order.id} completado y entregado por ${currentUser?.name}`);
   };
 
   const handleAssignDriver = (order, driverIdentifier) => {
@@ -827,7 +906,7 @@ export default function OrderManager({
                 <tr>
                   <th>Pedido</th>
                   <th>Cliente</th>
-                  <th>Monto</th>
+                  <th>Monto y Pago</th>
                   <th>Acciones</th>
                 </tr>
               </thead>
@@ -982,7 +1061,112 @@ export default function OrderManager({
                         <div style={{ fontSize: '0.75rem', color: 'var(--text-light)' }}>{order.customer.address}</div>
                       </td>
                       <td>
-                        <strong style={{ color: 'var(--primary-color)', fontSize: '0.9rem' }}>S/. {order.grandTotal.toFixed(2)}</strong>
+                        <strong style={{ color: 'var(--primary-color)', fontSize: '0.95rem', display: 'block' }}>
+                          S/. {order.grandTotal.toFixed(2)}
+                        </strong>
+                        {/* Insignias de Forma de Pago y Estado de Verificación */}
+                        <div style={{ display: 'flex', flexDirection: 'column', gap: '3px', marginTop: '4px' }}>
+                          {String(order.customer?.paymentMethod || '').toLowerCase().includes('yape') && (
+                            <span style={{
+                              background: '#7b1fa2',
+                              color: '#fff',
+                              fontSize: '0.66rem',
+                              fontWeight: 700,
+                              padding: '2px 6px',
+                              borderRadius: '4px',
+                              display: 'inline-flex',
+                              alignItems: 'center',
+                              gap: '3px',
+                              width: 'fit-content'
+                            }}>
+                              📱 Yape
+                            </span>
+                          )}
+                          {String(order.customer?.paymentMethod || '').toLowerCase().includes('plin') && (
+                            <span style={{
+                              background: '#0097a7',
+                              color: '#fff',
+                              fontSize: '0.66rem',
+                              fontWeight: 700,
+                              padding: '2px 6px',
+                              borderRadius: '4px',
+                              display: 'inline-flex',
+                              alignItems: 'center',
+                              gap: '3px',
+                              width: 'fit-content'
+                            }}>
+                              💸 Plin
+                            </span>
+                          )}
+                          {String(order.customer?.paymentMethod || '').toLowerCase().includes('efectivo') && (
+                            <span style={{
+                              background: '#16a34a',
+                              color: '#fff',
+                              fontSize: '0.66rem',
+                              fontWeight: 700,
+                              padding: '2px 6px',
+                              borderRadius: '4px',
+                              display: 'inline-flex',
+                              alignItems: 'center',
+                              gap: '3px',
+                              width: 'fit-content'
+                            }}>
+                              💵 Efectivo
+                            </span>
+                          )}
+
+                          {['yape', 'plin'].some(m => String(order.customer?.paymentMethod || '').toLowerCase().includes(m)) ? (
+                            order.paymentVerified ? (
+                              <button
+                                type="button"
+                                onClick={() => handleTogglePaymentVerified(order)}
+                                style={{
+                                  background: '#dcfce7',
+                                  color: '#15803d',
+                                  border: '1px solid #86efac',
+                                  borderRadius: '4px',
+                                  padding: '2px 6px',
+                                  fontSize: '0.64rem',
+                                  fontWeight: 700,
+                                  cursor: 'pointer',
+                                  display: 'inline-flex',
+                                  alignItems: 'center',
+                                  gap: '2px',
+                                  width: 'fit-content'
+                                }}
+                                title="Abono verificado. Clic para alternar"
+                              >
+                                ✓ Abono Verificado
+                              </button>
+                            ) : (
+                              <button
+                                type="button"
+                                onClick={() => handleTogglePaymentVerified(order)}
+                                style={{
+                                  background: '#fef3c7',
+                                  color: '#b45309',
+                                  border: '1px solid #f59e0b',
+                                  borderRadius: '4px',
+                                  padding: '2px 6px',
+                                  fontSize: '0.64rem',
+                                  fontWeight: 700,
+                                  cursor: 'pointer',
+                                  display: 'inline-flex',
+                                  alignItems: 'center',
+                                  gap: '2px',
+                                  width: 'fit-content'
+                                }}
+                                title="Clic para confirmar verificación del comprobante en la cuenta"
+                              >
+                                ⚠️ Validar Abono
+                              </button>
+                            )
+                          ) : (
+                            <span style={{ fontSize: '0.64rem', color: '#b45309', fontWeight: 600 }}>
+                              Cobrar en entrega
+                            </span>
+                          )}
+                        </div>
                       </td>
                       <td>
                         <div style={{ display: 'flex', gap: '5px', flexWrap: 'wrap', alignItems: 'center' }}>
@@ -990,37 +1174,76 @@ export default function OrderManager({
                           {order.status === 'Por Corroborar' && (
                             <button
                               className="admin-action-btn"
-                              style={{ color: '#d35400', fontWeight: 700, background: 'rgba(230,126,34,0.12)', border: '1px solid #e67e22', borderRadius: '6px', padding: '4px 8px' }}
-                              onClick={() => handleStatusChange(order, 'Pendiente', `Pedido ${order.id} aceptado y confirmado por ${currentUser?.name}`)}
-                              title="Validar datos/pago y enviar a cola de cocina"
+                              style={{
+                                color: '#fff',
+                                fontWeight: 800,
+                                background: '#e67e22',
+                                border: 'none',
+                                borderRadius: '6px',
+                                padding: '6px 10px',
+                                fontSize: '0.78rem',
+                                boxShadow: '0 2px 6px rgba(230,126,34,0.3)',
+                                cursor: 'pointer'
+                              }}
+                              onClick={() => handleValidateAndAcceptOrder(order)}
+                              title="Validar comprobante de pago y aceptar pedido a preparación"
                             >
-                              ✅ Aceptar Pedido
+                              ✅ Validar y Aceptar
                             </button>
                           )}
                           {order.status === 'Pendiente' && (
                             <button
                               className="admin-action-btn"
-                              style={{ color: '#2980b9', fontWeight: 700, background: 'rgba(41,128,185,0.12)', border: '1px solid #3498db', borderRadius: '6px', padding: '4px 8px' }}
-                              onClick={() => handleStatusChange(order, 'Preparando', `Pedido ${order.id} en preparación por ${currentUser?.name}`)}
-                              title="Iniciar preparación en cocina o barra"
+                              style={{
+                                color: '#fff',
+                                fontWeight: 800,
+                                background: '#2980b9',
+                                border: 'none',
+                                borderRadius: '6px',
+                                padding: '6px 10px',
+                                fontSize: '0.78rem',
+                                boxShadow: '0 2px 6px rgba(41,128,185,0.3)',
+                                cursor: 'pointer'
+                              }}
+                              onClick={() => handleSendToKitchen(order)}
+                              title="Enviar a cocina o barra para su elaboración"
                             >
-                              👨‍🍳 Preparar
+                              👨‍🍳 Enviar a Cocina
                             </button>
                           )}
                           {order.status === 'Preparando' && isDelivery && (
                             <button
                               className="admin-action-btn"
-                              style={{ color: '#FF441F', fontWeight: 700, background: 'rgba(255,68,31,0.12)', border: '1px solid #FF441F', borderRadius: '6px', padding: '4px 8px' }}
+                              style={{
+                                color: '#fff',
+                                fontWeight: 800,
+                                background: 'var(--delivery-color, #FF441F)',
+                                border: 'none',
+                                borderRadius: '6px',
+                                padding: '6px 10px',
+                                fontSize: '0.78rem',
+                                boxShadow: '0 2px 6px rgba(255,68,31,0.3)',
+                                cursor: 'pointer'
+                              }}
                               onClick={() => handleStatusChange(order, 'En camino', `Pedido ${order.id} despachado a ruta por ${currentUser?.name}`)}
                               title="Despachar con repartidor a domicilio"
                             >
-                              🛵 Enviar a Ruta
+                              🛵 Despachar a Ruta
                             </button>
                           )}
                           {order.status === 'Preparando' && isMesa && (
                             <button
                               className="admin-action-btn"
-                              style={{ color: '#27ae60', fontWeight: 700, background: 'rgba(39,174,96,0.12)', border: '1px solid #2ecc71', borderRadius: '6px', padding: '4px 8px' }}
+                              style={{
+                                color: '#fff',
+                                fontWeight: 800,
+                                background: '#27ae60',
+                                border: 'none',
+                                borderRadius: '6px',
+                                padding: '6px 10px',
+                                fontSize: '0.78rem',
+                                cursor: 'pointer'
+                              }}
                               onClick={() => handleStatusChange(order, 'Entregado', `Pedido ${order.id} servido en mesa por ${currentUser?.name}`)}
                               title="Marcar como servido en mesa"
                             >
@@ -1030,7 +1253,16 @@ export default function OrderManager({
                           {order.status === 'Preparando' && !isDelivery && !isMesa && (
                             <button
                               className="admin-action-btn"
-                              style={{ color: '#27ae60', fontWeight: 700, background: 'rgba(39,174,96,0.12)', border: '1px solid #2ecc71', borderRadius: '6px', padding: '4px 8px' }}
+                              style={{
+                                color: '#fff',
+                                fontWeight: 800,
+                                background: '#27ae60',
+                                border: 'none',
+                                borderRadius: '6px',
+                                padding: '6px 10px',
+                                fontSize: '0.78rem',
+                                cursor: 'pointer'
+                              }}
                               onClick={() => handleStatusChange(order, 'Entregado', `Pedido ${order.id} entregado para llevar por ${currentUser?.name}`)}
                               title="Marcar como entregado al cliente"
                             >
@@ -1040,12 +1272,48 @@ export default function OrderManager({
                           {order.status === 'En camino' && (
                             <button
                               className="admin-action-btn"
-                              style={{ color: '#27ae60', fontWeight: 700, background: 'rgba(39,174,96,0.15)', border: '1px solid #2ecc71', borderRadius: '6px', padding: '4px 8px' }}
-                              onClick={() => handleStatusChange(order, 'Entregado', `Pedido ${order.id} completado y entregado por ${currentUser?.name}`)}
-                              title="Confirmar recepción del cliente"
+                              style={{
+                                color: '#fff',
+                                fontWeight: 800,
+                                background: '#16a34a',
+                                border: 'none',
+                                borderRadius: '6px',
+                                padding: '6px 10px',
+                                fontSize: '0.78rem',
+                                boxShadow: '0 2px 6px rgba(22,163,74,0.3)',
+                                cursor: 'pointer'
+                              }}
+                              onClick={() => handleCompleteOrder(order)}
+                              title="Confirmar recepción del cliente y registrar cobranza"
                             >
                               🎉 Marcar Entregado
                             </button>
+                          )}
+
+                          {/* Botón rápido para solicitar voucher por WhatsApp si es Yape/Plin y no está verificado */}
+                          {['yape', 'plin'].some(m => String(order.customer?.paymentMethod || '').toLowerCase().includes(m)) && !order.paymentVerified && (
+                            <a
+                              href={`https://wa.me/${String(order.customer?.phone || '').replace(/\D/g, '')}?text=${encodeURIComponent(`¡Hola ${order.customer?.name || ''}! Te saludamos de ${storeName}. Por favor compártenos la captura o constancia de tu transferencia por ${order.customer?.paymentMethod} (S/. ${order.grandTotal.toFixed(2)}) para iniciar la preparación de tu pedido #${order.id}. ¡Muchas gracias!`)}`}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              className="admin-action-btn"
+                              style={{
+                                textDecoration: 'none',
+                                color: '#7b1fa2',
+                                background: 'rgba(123, 31, 162, 0.1)',
+                                border: '1px solid #7b1fa2',
+                                borderRadius: '4px',
+                                fontSize: '0.72rem',
+                                fontWeight: 700,
+                                padding: '3px 6px',
+                                display: 'inline-flex',
+                                alignItems: 'center',
+                                gap: '3px'
+                              }}
+                              title="Solicitar comprobante por WhatsApp al cliente"
+                            >
+                              📸 Pedir Voucher
+                            </a>
                           )}
 
                           {/* Selector de Corrección Rápida de Estado */}

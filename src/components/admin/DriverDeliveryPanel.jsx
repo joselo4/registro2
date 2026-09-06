@@ -1,5 +1,6 @@
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useEffect, useRef } from 'react';
 import { buildWhatsAppHref } from '../../utils/orderMessaging';
+import { notifyOperationalEvent, playCashReminderSound, triggerDeviceVibration } from '../../utils/appAudioNotifications';
 
 export default function DriverDeliveryPanel({
   orders = [],
@@ -46,6 +47,29 @@ export default function DriverDeliveryPanel({
       .reduce((sum, o) => sum + Number(o.grandTotal || 0), 0);
   }, [completedToday]);
 
+  // Detector de Nuevos Pedidos Asignados al Repartidor (Sonido y Notificación Móvil)
+  const knownAssignedRef = useRef(null);
+
+  useEffect(() => {
+    if (knownAssignedRef.current === null) {
+      knownAssignedRef.current = new Set(activeDeliveries.map(o => o.id));
+      return;
+    }
+
+    activeDeliveries.forEach(o => {
+      if (!knownAssignedRef.current.has(o.id)) {
+        notifyOperationalEvent('driver_assigned', {
+          order: o,
+          storeName,
+          title: `🛵 ¡Nuevo Reparto Asignado! #${o.id}`,
+          body: `${o.customer?.name || 'Cliente'} - ${o.customer?.address || 'Dirección por coordinar'}`
+        });
+      }
+    });
+
+    knownAssignedRef.current = new Set(activeDeliveries.map(o => o.id));
+  }, [activeDeliveries, storeName]);
+
   const handleStartDelivery = (order) => {
     if (onUpdateOrderStatus) {
       onUpdateOrderStatus(order.id, 'En camino');
@@ -55,16 +79,27 @@ export default function DriverDeliveryPanel({
 
   const handleCompleteDelivery = (order) => {
     const isCash = String(order.customer?.paymentMethod || '').toLowerCase().includes('efectivo');
-    const confirmMsg = isCash
-      ? `¿Confirmas que entregaste el pedido #${order.id} y cobraste S/. ${Number(order.grandTotal || 0).toFixed(2)} en efectivo?`
-      : `¿Confirmas que entregaste el pedido #${order.id} al cliente?`;
+    const totalStr = Number(order.grandTotal || 0).toFixed(2);
+    const clientName = order.customer?.name || 'el cliente';
 
-    if (window.confirm(confirmMsg)) {
-      if (onUpdateOrderStatus) {
-        onUpdateOrderStatus(order.id, 'Entregado');
-      }
-      showAlert?.('¡Entrega completada!', `Pedido #${order.id} marcado como Entregado.`, 'success');
+    if (isCash) {
+      playCashReminderSound();
+      triggerDeviceVibration([200, 100, 200, 100, 300]);
+      const confirmMsg = `💰 RECORDATORIO DE COBRANZA EN EFECTIVO:\n\n` +
+        `• Pedido: #${order.id}\n` +
+        `• Monto a cobrar: S/. ${totalStr}\n` +
+        `• Cliente: ${clientName}\n\n` +
+        `⚠️ ¿Confirmas que ya RECIBISTE los S/. ${totalStr} en EFECTIVO antes de entregar los helados?`;
+      if (!window.confirm(confirmMsg)) return;
+    } else {
+      const confirmMsg = `¿Confirmas que entregaste el pedido #${order.id} al cliente ${clientName}? (Pago digital ya validado)`;
+      if (!window.confirm(confirmMsg)) return;
     }
+
+    if (onUpdateOrderStatus) {
+      onUpdateOrderStatus(order.id, 'Entregado');
+    }
+    showAlert?.('¡Entrega completada!', `Pedido #${order.id} marcado como Entregado.${isCash ? ` Cobranza en efectivo registrada: S/. ${totalStr}.` : ''}`, 'success');
   };
 
   return (
@@ -222,21 +257,37 @@ export default function DriverDeliveryPanel({
                     </div>
                   </div>
 
-                  {/* Indicador de Pago */}
+                  {/* Indicador de Pago y Recordatorio de Cobranza */}
                   <div style={{
-                    padding: '8px 12px',
-                    borderRadius: '6px',
+                    padding: '10px 14px',
+                    borderRadius: '8px',
                     marginBottom: '12px',
-                    background: isCash ? '#fef3c7' : '#dbeafe',
-                    color: isCash ? '#b45309' : '#1e40af',
-                    fontWeight: 700,
-                    fontSize: '0.88rem',
-                    display: 'flex',
-                    alignItems: 'center',
-                    justifyContent: 'space-between'
+                    background: isCash ? '#fff7ed' : '#f0fdf4',
+                    border: isCash ? '2px solid #f97316' : '2px solid #22c55e',
+                    boxShadow: isCash ? '0 2px 8px rgba(249, 115, 22, 0.15)' : '0 2px 8px rgba(34, 197, 94, 0.1)'
                   }}>
-                    <span>{isCash ? '💵 Cobrar en Efectivo:' : '✅ Pagado digitalmente:'}</span>
-                    <span style={{ fontSize: '1.05rem', fontWeight: 800 }}>S/. {Number(order.grandTotal || 0).toFixed(2)}</span>
+                    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: '8px' }}>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                        <span style={{ fontSize: '1.4rem' }}>{isCash ? '💵' : '✅'}</span>
+                        <div>
+                          <strong style={{
+                            fontSize: '0.9rem',
+                            color: isCash ? '#c2410c' : '#15803d',
+                            display: 'block'
+                          }}>
+                            {isCash ? '💰 COBRAR EN EFECTIVO AL ENTREGAR' : `✅ PAGADO POR ${String(customer.paymentMethod || 'TRANSFERENCIA').toUpperCase()}`}
+                          </strong>
+                          <span style={{ fontSize: '0.75rem', color: isCash ? '#9a3412' : '#166534', fontWeight: 600 }}>
+                            {isCash ? '⚠️ Recuerda recibir el dinero antes de entregar el pedido.' : '✓ Abonado digitalmente. NO cobrar al cliente.'}
+                          </span>
+                        </div>
+                      </div>
+                      <div style={{ textAlign: 'right' }}>
+                        <span style={{ fontSize: '1.25rem', fontWeight: 900, color: isCash ? '#ea580c' : '#16a34a' }}>
+                          S/. {Number(order.grandTotal || 0).toFixed(2)}
+                        </span>
+                      </div>
+                    </div>
                   </div>
 
                   {/* Botones de Navegación y Contacto Directo */}

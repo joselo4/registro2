@@ -17,6 +17,7 @@ import CartSettlementManager from './admin/CartSettlementManager';
 import AuditLogManager from './admin/AuditLogManager';
 import CustomerCRM from './admin/CustomerCRM';
 import DriverDeliveryPanel from './admin/DriverDeliveryPanel';
+import { notifyOperationalEvent } from '../utils/appAudioNotifications';
 import './admin/operations.css';
 
 // --- FUNCIONES DE SANITIZACIÃ“N Y SEGURIDAD ---
@@ -249,116 +250,100 @@ export default function AdminPanel({
     setLogs(prev => [newLog, ...prev.slice(0, 499)]); // Mantener Ãºltimas 500 operaciones
   };
 
-  // --- Detector de Nuevos Pedidos (Alerta Sonora) ---
-  const prevOrdersCount = useRef((orders || []).length);
-
-  const playNewOrderSound = () => {
-    if (!soundEnabled) return;
-    try {
-      const AudioContext = window.AudioContext || window.webkitAudioContext;
-      if (!AudioContext) return;
-      const ctx = new AudioContext();
-      
-      const osc1 = ctx.createOscillator();
-      const osc2 = ctx.createOscillator();
-      const gain = ctx.createGain();
-      
-      osc1.type = 'sine';
-      osc1.frequency.setValueAtTime(523.25, ctx.currentTime); // C5
-      osc1.frequency.exponentialRampToValueAtTime(783.99, ctx.currentTime + 0.15); // G5
-      
-      osc2.type = 'triangle';
-      osc2.frequency.setValueAtTime(783.99, ctx.currentTime);
-      osc2.frequency.exponentialRampToValueAtTime(1046.50, ctx.currentTime + 0.15); // C6
-      
-      gain.gain.setValueAtTime(0.2, ctx.currentTime);
-      gain.gain.exponentialRampToValueAtTime(0.01, ctx.currentTime + 0.8);
-      
-      osc1.connect(gain);
-      osc2.connect(gain);
-      gain.connect(ctx.destination);
-      
-      osc1.start();
-      osc2.start();
-      osc1.stop(ctx.currentTime + 0.8);
-      osc2.stop(ctx.currentTime + 0.8);
-    } catch {
-      console.warn("Audio chime blocked by autoplay policies.");
-    }
-  };
+  // --- Detector de Eventos Operativos (Sonidos, Vibración y Notificaciones Push para Android y Web) ---
+  const orderTrackingMapRef = useRef(null);
 
   useEffect(() => {
     const ordersList = orders || [];
-    if (ordersList.length > (prevOrdersCount.current || 0)) {
-      const latestOrder = ordersList[0];
-      if (latestOrder && latestOrder.status === 'Pendiente') {
-        playNewOrderSound();
-        const clientName = latestOrder.customer?.name || 'Cliente';
-        addLog(`Nuevo pedido recibido: ${latestOrder.id} por el cliente ${clientName}.`);
-        if (canUseNotifications && window.Notification?.permission === 'granted') {
-          try {
-            new window.Notification(`🍦 ¡Nuevo Pedido en ${storeName}!`, {
-              body: `Cliente: ${clientName} - Total: S/. ${Number(latestOrder.grandTotal || 0).toFixed(2)}`
+
+    // Primera carga: memorizamos pedidos sin emitir alertas para evitar ruidos al abrir la app
+    if (orderTrackingMapRef.current === null) {
+      orderTrackingMapRef.current = new Map(ordersList.map(o => [o.id, {
+        status: o.status,
+        driverId: o.assignedDriver?.id || o.assignedDriver?.email || ''
+      }]));
+      return;
+    }
+
+    const prevMap = orderTrackingMapRef.current;
+    const nextMap = new Map();
+
+    ordersList.forEach(order => {
+      const currentDriverId = order.assignedDriver?.id || order.assignedDriver?.email || '';
+      nextMap.set(order.id, {
+        status: order.status,
+        driverId: currentDriverId
+      });
+
+      if (!prevMap.has(order.id)) {
+        // Pedido totalmente nuevo ingresado al sistema
+        const clientName = order.customer?.name || 'Cliente';
+        const total = Number(order.grandTotal || 0).toFixed(2);
+        const payment = order.customer?.paymentMethod || 'Pago';
+
+        if (order.status === 'Por Corroborar') {
+          notifyOperationalEvent('por_corroborar', { order, soundEnabled, storeName });
+          addLog(`🔔 Nuevo pedido por corroborar: #${order.id} (${clientName}) - S/. ${total} [${payment}]`);
+        } else if (order.status === 'Pendiente') {
+          notifyOperationalEvent('new_order', { order, soundEnabled, storeName });
+          addLog(`📋 Nuevo pedido confirmado: #${order.id} (${clientName}) - S/. ${total} [${payment}]`);
+        }
+      } else {
+        // Pedido existente: evaluar transiciones clave
+        const prev = prevMap.get(order.id);
+        if (prev.status !== order.status) {
+          if (order.status === 'Por Corroborar') {
+            notifyOperationalEvent('por_corroborar', { order, soundEnabled, storeName });
+          } else if (order.status === 'Preparando') {
+            notifyOperationalEvent('kitchen_prep', { order, soundEnabled, storeName });
+            addLog(`👨‍🍳 Pedido #${order.id} enviado a cocina para preparación.`);
+          } else if (order.status === 'En camino') {
+            notifyOperationalEvent('driver_assigned', {
+              order,
+              soundEnabled,
+              storeName,
+              title: `🛵 ¡Pedido en Ruta de Entrega!`,
+              body: `Pedido #${order.id} salió con ${order.assignedDriver?.name || 'repartidor'}`
             });
-          } catch {
-            /* ignore */
+            addLog(`🛵 Pedido #${order.id} despachado a ruta de entrega.`);
           }
         }
+        // Cambio de repartidor asignado
+        if (currentDriverId && currentDriverId !== prev.driverId) {
+          notifyOperationalEvent('driver_assigned', {
+            order,
+            soundEnabled,
+            storeName,
+            title: `🛵 Repartidor Asignado (${storeName})`,
+            body: `Pedido #${order.id} asignado a ${order.assignedDriver?.name || 'repartidor'}`
+          });
+          addLog(`🛵 Pedido #${order.id} asignado a ${order.assignedDriver?.name || 'repartidor'}`);
+        }
       }
-    }
-    prevOrdersCount.current = ordersList.length;
-  }, [orders, soundEnabled, canUseNotifications, storeName]);
+    });
 
-  // --- Detector de Nuevos Llamados en Mesa (Alerta Sonora y Visual) ---
+    orderTrackingMapRef.current = nextMap;
+  }, [orders, soundEnabled, storeName]);
+
+  // --- Detector de Nuevos Llamados en Mesa (Alerta Sonora, Vibración y Notificación) ---
   const prevCallsCount = useRef((tableCalls || []).filter(c => !c.resolved).length);
-
-  const playCallWaiterSound = () => {
-    if (!soundEnabled) return;
-    try {
-      const AudioContext = window.AudioContext || window.webkitAudioContext;
-      if (!AudioContext) return;
-      const ctx = new AudioContext();
-      
-      const osc1 = ctx.createOscillator();
-      const gain = ctx.createGain();
-      
-      osc1.type = 'sine';
-      osc1.frequency.setValueAtTime(587.33, ctx.currentTime); // D5
-      osc1.frequency.exponentialRampToValueAtTime(880.00, ctx.currentTime + 0.15); // A5
-      
-      gain.gain.setValueAtTime(0.3, ctx.currentTime);
-      gain.gain.exponentialRampToValueAtTime(0.01, ctx.currentTime + 0.6);
-      
-      osc1.connect(gain);
-      gain.connect(ctx.destination);
-      
-      osc1.start();
-      osc1.stop(ctx.currentTime + 0.6);
-    } catch {
-      console.warn("Audio chime blocked by autoplay policies.");
-    }
-  };
 
   useEffect(() => {
     const activeCalls = (tableCalls || []).filter(c => !c.resolved);
     if (activeCalls.length > (prevCallsCount.current || 0)) {
-      playCallWaiterSound();
       const latestCall = activeCalls[activeCalls.length - 1];
+      notifyOperationalEvent('waiter_call', {
+        soundEnabled,
+        storeName,
+        title: `🛎️ ¡Mesa ${latestCall?.table || ''} solicita atención!`,
+        body: latestCall?.request || 'Un cliente solicita asistencia de mozo.'
+      });
       if (latestCall) {
         addLog(`🛎️ Mesa ${latestCall.table} solicita atención: ${latestCall.request || ''}`);
-        if (canUseNotifications && window.Notification?.permission === 'granted') {
-          try {
-            new window.Notification(`🛎️ ¡Mesa ${latestCall.table} solicita atención!`, {
-              body: `Solicitud: ${latestCall.request || ''}`
-            });
-          } catch {
-            /* ignore */
-          }
-        }
       }
     }
     prevCallsCount.current = activeCalls.length;
-  }, [tableCalls, soundEnabled, canUseNotifications]);
+  }, [tableCalls, soundEnabled, storeName]);
 
   useEffect(() => {
     if (isLoggedIn && canUseNotifications && window.Notification?.permission === 'default') {
@@ -784,8 +769,13 @@ export default function AdminPanel({
             </button>
           )}
           {isTabAllowed('orders') && (
-            <button className={`sidebar-btn ${activeTab === 'orders' ? 'active' : ''}`} onClick={() => setActiveTab('orders')}>
-              📋 Pedidos ({orders.filter(o => o.status === 'Pendiente').length})
+            <button className={`sidebar-btn ${activeTab === 'orders' ? 'active' : ''}`} onClick={() => setActiveTab('orders')} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '6px' }}>
+              <span>📋 Pedidos ({orders.filter(o => ['Por Corroborar', 'Pendiente'].includes(o.status)).length})</span>
+              {orders.filter(o => o.status === 'Por Corroborar').length > 0 && (
+                <span style={{ background: '#e67e22', color: '#fff', fontSize: '0.68rem', fontWeight: 800, padding: '1px 6px', borderRadius: '10px' }} title="Pedidos por corroborar">
+                  ⏳ {orders.filter(o => o.status === 'Por Corroborar').length}
+                </span>
+              )}
             </button>
           )}
           {isTabAllowed('crm') && (

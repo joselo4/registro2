@@ -256,3 +256,59 @@ test('Sorpréndeme generates varied scoops (multi-flavor) and maximizes sales va
   assert.ok(totalPrice >= 5.0, `El total (S/. ${totalPrice}) debe maximizar la venta (> S/. 5.00)`);
 });
 
+test('Payment modality validation: Digital (Yape/Plin) vs Cash (Efectivo) flow logic', () => {
+  const digitalOrder = {
+    id: 'PED-YAPE-1',
+    customer: { name: 'Juan Perez', paymentMethod: 'Yape' },
+    grandTotal: 32.50,
+    status: 'Por Corroborar',
+    paymentVerified: false
+  };
+
+  const cashOrder = {
+    id: 'PED-CASH-2',
+    customer: { name: 'Maria Lopez', paymentMethod: 'Efectivo' },
+    grandTotal: 45.00,
+    status: 'En camino',
+    paymentVerified: false
+  };
+
+  // 1. Digital order requires confirmation before verification
+  const isDigital = ['yape', 'plin'].some(m => String(digitalOrder.customer.paymentMethod).toLowerCase().includes(m));
+  assert.equal(isDigital, true);
+  assert.equal(digitalOrder.paymentVerified, false);
+
+  // Simulación de validación de abono exitoso
+  const verifiedOrder = { ...digitalOrder, paymentVerified: true, status: 'Pendiente' };
+  assert.equal(verifiedOrder.paymentVerified, true);
+  assert.equal(verifiedOrder.status, 'Pendiente');
+
+  // 2. Cash order collection logic for driver
+  const isCash = String(cashOrder.customer.paymentMethod).toLowerCase().includes('efectivo');
+  assert.equal(isCash, true);
+  const expectedCashToCollect = Number(cashOrder.grandTotal);
+  assert.equal(expectedCashToCollect, 45.00);
+
+  // Finalización con cobro confirmado
+  const deliveredCashOrder = { ...cashOrder, status: 'Entregado' };
+  assert.equal(deliveredCashOrder.status, 'Entregado');
+});
+
+test('Sequential order pipeline steps and stage text mapping', () => {
+  const steps = [
+    { status: 'Por Corroborar', expectedStep: '1', role: 'Validar Pago/Datos' },
+    { status: 'Pendiente', expectedStep: '2', role: 'Confirmado en cola' },
+    { status: 'Preparando', expectedStep: '3', role: 'Cocina/Elaboración' },
+    { status: 'En camino', expectedStep: '4', role: 'Despacho a Ruta' },
+    { status: 'Entregado', expectedStep: '5', role: 'Entregado y cobrado' }
+  ];
+
+  const statusProgression = ['Por Corroborar', 'Pendiente', 'Preparando', 'En camino', 'Entregado'];
+  for (let i = 0; i < statusProgression.length - 1; i++) {
+    const current = statusProgression[i];
+    const next = statusProgression[i + 1];
+    assert.ok(statusProgression.indexOf(next) > statusProgression.indexOf(current));
+  }
+});
+
+

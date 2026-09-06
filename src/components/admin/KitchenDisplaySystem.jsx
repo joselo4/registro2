@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useMemo, useRef } from 'react';
 import { printThermalTicket } from '../../utils/escposTicket';
+import { triggerDeviceVibration } from '../../utils/appAudioNotifications';
 
 // Sonidos Web Audio API sintetizados (sin depender de archivos de audio externos)
 const playBeep = (type = 'delivery') => {
@@ -85,12 +86,13 @@ export default function KitchenDisplaySystem({
     return () => clearInterval(timer);
   }, []);
 
-  // Detectar nuevas órdenes que ingresan para emitir sonido diferenciado
+  // Detectar nuevas órdenes que ingresan para emitir sonido diferenciado y vibración
   useEffect(() => {
     if (!soundEnabled) return;
     orders.forEach(o => {
-      if (!knownOrderIdsRef.current.has(o.id) && (o.status === 'Pendiente' || o.status === 'Por Corroborar')) {
+      if (!knownOrderIdsRef.current.has(o.id) && (o.status === 'Pendiente' || o.status === 'Por Corroborar' || o.status === 'Preparando')) {
         knownOrderIdsRef.current.add(o.id);
+        triggerDeviceVibration([250, 100, 250]);
         const isDelivery = o.customer?.orderType === 'Delivery' || (o.deliveryFee > 0);
         if (isDelivery) {
           playBeep('delivery');
