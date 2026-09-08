@@ -28,6 +28,6 @@ test('checkout offers only active methods, selects card fallback and blocks when
     assert.ok(html.includes('aria-pressed="true"'));
     const empty = renderToStaticMarkup(<Cart {...props} shopConfig={{ paymentMethods: { ...cardOnly, Tarjeta: false } }} />);
     assert.ok(empty.includes('No hay métodos de pago disponibles'));
-    assert.match(empty, /<button[^>]*disabled=""[^>]*>🚀 Confirmar y Enviar Pedido/);
+    assert.match(empty, /<button[^>]*type="submit"[^>]*disabled=""[^>]*>Confirmar pedido/);
   } finally { globalThis.localStorage = previousStorage; }
 });

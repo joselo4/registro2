@@ -20,10 +20,14 @@ export const validateOrderInput = ({
     errors.cart = 'El carrito no tiene productos.';
     return { isValid: false, errors };
   }
+  if (cart.length > 40 || cart.some(item => !item || !Number.isInteger(Number(item.quantity)) || Number(item.quantity) < 1 || Number(item.quantity) > 99 || !Number.isFinite(Number(item.price)) || Number(item.price) < 0 || Number(item.price) > 10000)) {
+    errors.cart = 'Revisa los productos y cantidades del carrito (máximo 99 unidades por producto).';
+  }
+  if (!['Delivery', 'Mesa', 'Mesa_Llevar', 'Barra', 'Llevar'].includes(orderType)) errors.orderType = 'Selecciona un tipo de entrega válido.';
 
   // 2. Validación según Canal: Mesas / Consumo Local
   if (needsTable) {
-    if (!tableNumber) {
+    if (!/^[1-9]\d{0,2}$/.test(String(tableNumber || ''))) {
       errors.table = 'Por favor, selecciona o vincula un número de mesa.';
     } else if (occupiedTables.includes(String(tableNumber))) {
       errors.table = `La Mesa ${tableNumber} ya cuenta con un pedido activo. Debe ser liberada antes de pedir.`;
@@ -31,7 +35,7 @@ export const validateOrderInput = ({
   }
 
   // 3. Validación de Nombre (Obligatorio en Delivery, Barra y Llevar)
-  const cleanName = (name || '').replace(/<[^>]*>/g, '').trim();
+  const cleanName = String(name || '').replace(/<[^>]*>/g, '').trim();
   if (!needsTable) {
     if (!cleanName || cleanName.length < 2) {
       errors.name = 'Por favor ingresa tu nombre completo (mínimo 2 letras).';
@@ -40,15 +44,15 @@ export const validateOrderInput = ({
 
   // 4. Validación de Celular / WhatsApp (al menos 9 dígitos numéricos)
   if (!needsTable) {
-    const digitsOnly = (phone || '').replace(/\D/g, '');
-    if (!digitsOnly || digitsOnly.length < 9) {
-      errors.phone = 'Ingresa un número de celular o WhatsApp válido (mínimo 9 dígitos).';
+    const digitsOnly = String(phone || '').replace(/\D/g, '');
+    if (!digitsOnly || digitsOnly.length < 9 || digitsOnly.length > 15) {
+      errors.phone = 'Ingresa un número de celular o WhatsApp válido (entre 9 y 15 dígitos).';
     }
   }
 
   // 5. Validación de Dirección (Obligatoria para Delivery)
   if (orderType === 'Delivery') {
-    const cleanAddress = (address || '').replace(/<[^>]*>/g, '').trim();
+    const cleanAddress = String(address || '').replace(/<[^>]*>/g, '').trim();
     if (!cleanAddress || cleanAddress.length < 5) {
       errors.address = 'Ingresa una dirección de entrega completa (calle, número y referencia).';
     }

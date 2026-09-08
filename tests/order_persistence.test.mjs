@@ -6,7 +6,7 @@ import { saveOrderChange, fetchAllSyncRows } from '../src/utils/orderRepository.
 import { allowedOrderChange } from '../functions/api/_orderAccess.js';
 import { sameOriginRequest } from '../functions/api/_security.js';
 
-const fixture = overrides => ({ id: 'PED-TEST0001', submissionKey: 'test-submission-1', date: '2026-09-06T10:00:00Z', status: 'Por Corroborar', items: [{ name: 'Helado', price: 10, quantity: 1 }], customer: { name: 'Prueba', phone: '999999999', orderType: 'Delivery', paymentMethod: 'Yape' }, grandTotal: 10, ...overrides });
+const fixture = overrides => ({ id: 'PED-TEST0001', submissionKey: 'test-submission-1', date: '2026-09-06T10:00:00Z', status: 'Por Corroborar', items: [{ name: 'Helado', price: 10, quantity: 1 }], customer: { name: 'Prueba', phone: '999999999', address: 'Jr. Prueba 123', orderType: 'Delivery', paymentMethod: 'Yape' }, grandTotal: 10, ...overrides });
 
 // Models PostgREST conditional updates and unique inserts, including races.
 function database(initial = [], options = {}) {
@@ -46,6 +46,22 @@ function database(initial = [], options = {}) {
 }
 const post = (client, order, extra = {}) => onRequestPost({ request: new Request('https://shop.test/api/order', { method: 'POST', headers: { 'Content-Type': 'application/json', Authorization: 'Bearer mock-token' }, body: JSON.stringify({ id: order.id, order, ...extra }) }), env: {} }, async () => client);
 const get = (client, query) => onRequestGet({ request: new Request(`https://shop.test/api/order?${query}`, { headers: { Authorization: 'Bearer mock-token' } }), env: {} }, async () => client);
+
+test('new orders reject inconsistent totals, missing delivery details and closed stores', async () => {
+  for (const changes of [{ grandTotal: 1 }, { total: 1 }, { deliveryFee: -1 }, { discount: 20 }, { customer: { ...fixture().customer, address: '' } }]) {
+    const db = database();
+    assert.equal((await post(db, fixture(changes))).status, 400);
+    assert.equal(db.rows.size, 0);
+  }
+  const db = database([{ key: 'shop_open', value: { open: false } }]);
+  assert.equal((await post(db, fixture())).status, 400);
+  db.rows.get('shop_open').value.open = true;
+  const created = await post(db, fixture());
+  assert.equal(created.status, 200);
+  assert.equal((await created.json()).order.total, 10);
+  db.rows.get('shop_open').value.open = false;
+  assert.equal((await post(db, fixture())).status, 200); // Recover a confirmed receipt after closing.
+});
 
 test('creation confirms durable storage and does not accept injected paid/driver/status fields', async () => {
   const db = database();
@@ -176,7 +192,7 @@ for (const method of ['Yape', 'Plin', 'Efectivo', 'Transferencia', 'Tarjeta']) {
   test(`payment on arrival: ${method} persists unpaid, reaches dispatch and requires collection`, async () => {
     const user = { id: 'driver', app_metadata: { role: 'Repartidor' } };
     const db = database([], { user });
-    const draft = fixture({ customer: { name: 'Cliente', phone: '999999999', orderType: 'Delivery', paymentMethod: method, paymentTiming: 'Al llegar' } });
+    const draft = fixture({ customer: { name: 'Cliente', phone: '999999999', address: 'Jr. Prueba 123', orderType: 'Delivery', paymentMethod: method, paymentTiming: 'Al llegar' } });
     const created = await post(db, draft);
     assert.equal(created.status, 200);
     let saved = (await created.json()).order;
@@ -215,7 +231,7 @@ test('driver records a changed collection method without permission to alter cus
 test('disabled methods reject new orders, allow reactivation and preserve retry receipts', async () => {
   const config = { key: 'shop_open', value: { paymentMethods: { Tarjeta: false } } };
   const db = database([config]);
-  const draft = fixture({ customer: { name: 'Cliente', phone: '999999999', paymentMethod: 'Tarjeta', paymentTiming: 'Al llegar' } });
+  const draft = fixture({ customer: { name: 'Cliente', phone: '999999999', address: 'Jr. Prueba 123', paymentMethod: 'Tarjeta', paymentTiming: 'Al llegar' } });
   assert.equal((await post(db, draft)).status, 400);
   assert.ok(!db.rows.has('order_' + draft.id));
   db.rows.get('shop_open').value.paymentMethods.Tarjeta = true;
@@ -231,7 +247,7 @@ test('all disabled methods block new orders and disabled methods cannot replace 
   const methods = ['Yape', 'Plin', 'Efectivo', 'Transferencia', 'Tarjeta'];
   const config = { key: 'shop_open', value: { paymentMethods: Object.fromEntries(methods.map(method => [method, false])) } };
   for (const method of methods) {
-    assert.equal((await post(database([config]), fixture({ customer: { name: 'Cliente', phone: '999999999', paymentMethod: method } }))).status, 400);
+    assert.equal((await post(database([config]), fixture({ customer: { name: 'Cliente', phone: '999999999', address: 'Jr. Prueba 123', paymentMethod: method } }))).status, 400);
   }
   const user = { id: 'driver', app_metadata: { role: 'Repartidor' } };
   const previous = fixture({ status: 'En camino', paymentVerified: false, assignedDriver: { id: 'driver' }, customer: { name: 'Cliente', paymentMethod: 'Yape', paymentTiming: 'Al llegar' } });

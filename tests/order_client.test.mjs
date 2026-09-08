@@ -2,6 +2,15 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import { createOrder, readOrder } from '../src/utils/apiClient.js';
 
+test('checkout never accepts the receipt for another order or submission', async t => {
+  const order = { id: 'PED-12345', submissionKey: 'my-key' };
+  for (const receipt of [{ ...order, id: 'PED-OTHER' }, { ...order, submissionKey: 'other-key' }]) {
+    t.mock.method(globalThis, 'fetch', async () => Response.json({ ok: true, order: receipt }));
+    await assert.rejects(createOrder(order), /no corresponde/);
+    t.mock.restoreAll();
+  }
+});
+
 test('checkout rejects HTTP failures, HTML fallback pages and incomplete acknowledgments', async t => {
   for (const response of [new Response('offline', { status: 502 }), new Response('<html>app</html>'), Response.json({ ok: true }), Response.json({ ok: false, order: { id: 'PED-12345' } })]) {
     t.mock.method(globalThis, 'fetch', async () => response);

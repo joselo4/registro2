@@ -3,11 +3,15 @@ import { saveOrderChange, fetchAllSyncRows } from '../../src/utils/orderReposito
 import { mergeOrders } from '../../src/utils/orderLifecycle.js';
 import { orderStaffRole, driverOwnsOrder, allowedOrderChange } from './_orderAccess.js';
 import { getEnabledPaymentMethods } from '../../src/utils/paymentMethods.js';
+import { money } from '../../src/utils/checkout.js';
+import { isShopOpenCurrently } from '../../src/utils/storeHours.js';
+import { validateOrderInput } from '../../src/utils/orderValidation.js';
 
 async function validatePaymentAvailability(client, previous, next) {
   if (previous && previous.customer?.paymentMethod === next.customer?.paymentMethod) return null;
   const { data, error } = await client.from('helados_sync').select('value').eq('key', 'shop_open').maybeSingle();
   if (error) throw new Error('No se pudo consultar los métodos de pago. Intenta nuevamente.');
+  if (!previous && !isShopOpenCurrently(data?.value ?? { open: true })) return 'La tienda está cerrada en este momento. Conserva tu carrito e intenta en el horario de atención.';
   return getEnabledPaymentMethods(data?.value).includes(next.customer?.paymentMethod) ? null : 'Este método de pago ya no está disponible. Selecciona otro método activo.';
 }
 
@@ -52,12 +56,20 @@ const validateOrderForCreate = (order) => {
   }
   if (!order.items.every(isValidOrderItem)) return 'El pedido contiene productos invalidos.';
   if (!isPlainObject(order.customer)) return 'Datos del cliente invalidos.';
+  const input = validateOrderInput({ ...order.customer, cart: order.items, needsTable: ['Mesa', 'Mesa_Llevar'].includes(order.customer.orderType) });
+  if (!input.isValid) return Object.values(input.errors)[0];
   if (order.customer.paymentTiming !== undefined && !['Al llegar', 'Anticipado'].includes(order.customer.paymentTiming)) return 'Modalidad de pago inválida.';
   if (!trimText(order.customer.name, 80)) return 'Falta el nombre del cliente.';
   if (!trimText(order.customer.phone, 40)) return 'Falta el telefono del cliente.';
   if (!Number.isFinite(Number(order.grandTotal)) || Number(order.grandTotal) < 0) {
     return 'Total del pedido invalido.';
   }
+  const subtotal = money(order.items.reduce((sum, item) => sum + money(item.price) * Number(item.quantity), 0));
+  const deliveryFee = Number(order.deliveryFee ?? 0);
+  const discount = Number(order.discount ?? 0);
+  if (!Number.isFinite(deliveryFee) || deliveryFee < 0 || !Number.isFinite(discount) || discount < 0 || discount > subtotal) return 'Los importes de envío o descuento no son válidos.';
+  if (order.total !== undefined && (!Number.isFinite(Number(order.total)) || Math.abs(Number(order.total) - subtotal) > 0.011)) return 'El subtotal no coincide con los productos. Revisa tu carrito.';
+  if (Math.abs(Number(order.grandTotal) - money(subtotal + deliveryFee - discount)) > 0.011) return 'El total no coincide con los productos, envío y descuento. Revisa tu carrito.';
   return null;
 };
 
@@ -170,7 +182,7 @@ export async function onRequestPost({ request, env }, makeClient = createAdminCl
         revision: 1,
         customer: order.customer,
         items: order.items,
-        total: Number(order.total) || 0,
+        total: money(order.items.reduce((sum, item) => sum + money(item.price) * Number(item.quantity), 0)),
         deliveryFee: Number(order.deliveryFee) || 0,
         discount: Number(order.discount) || 0,
         couponCode: trimText(order.couponCode, 80) || null,

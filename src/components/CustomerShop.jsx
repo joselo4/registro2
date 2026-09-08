@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useMemo, useCallback, useRef } from 'react';
+import { checkoutStorage } from '../utils/checkout';
 import DessertPreview from './DessertPreview';
 import PromotionBanner from './PromotionBanner';
 import WelcomePromotion from './WelcomePromotion';
@@ -6,10 +7,10 @@ import { normalizePromotion, DEFAULT_POPUP_PROMOTION, DEFAULT_WEB_PROMOTION } fr
 import { updateSyncedData } from '../utils/supabaseSync';
 
 export default function CustomerShop({ 
-  flavors, 
+  flavors = [],
   toppings = [],
   bases = [],
-  packs, 
+  packs = [],
   popsicles = [],
   onAddToCart, 
   setView, 
@@ -40,15 +41,15 @@ export default function CustomerShop({
   }, [shopConfig.tableCatalogCategories]);
 
   const handleAddToCartWrapped = useCallback((item) => {
-    onAddToCart(item);
-    if (trackEvent) {
+    const added = onAddToCart(item);
+    try { if (added !== false && trackEvent) {
       trackEvent('AddToCart', {
         content_name: item.name || 'Helado',
         value: item.price || 1.0,
         currency: 'PEN',
         quantity: item.quantity || 1
       });
-    }
+    } } catch (error) { console.warn('No se pudo registrar la estadística del carrito:', error); }
   }, [onAddToCart, trackEvent]);
 
   const [filter, setFilter] = useState(() => {
@@ -81,9 +82,13 @@ export default function CustomerShop({
     document.getElementById('catalog')?.scrollIntoView({ behavior: 'smooth' });
   };
 
-  const activeFlavors = flavors.filter(f => f.active);
-  const activePacks = packs.filter(p => p.active);
-  const activePopsicles = popsicles.filter(p => p.active !== false);
+  const available = item => item && item.active !== false && Number.isFinite(Number(item.price)) && Number(item.price) >= 0;
+  const activeFlavors = flavors.filter(available);
+  const activePacks = packs.filter(available);
+  const activePopsicles = popsicles.filter(available);
+  const visibleCategories = [...new Set((tableNumber ? tableCategories : catalogOrder).filter(category => ['popsicles', 'classic', 'liter', 'packs'].includes(category)))];
+  const categoryCounts = { classic: activeFlavors.length, packs: activePacks.length, popsicles: activePopsicles.length, liter: literConfig?.active !== false ? 1 : 0 };
+  const visibleCount = visibleCategories.reduce((count, category) => count + (filter === 'all' || filter === category ? categoryCounts[category] : 0), 0);
   const activePrices = activeFlavors
     .map(flavor => Number(flavor.price) || 0)
     .filter(price => price > 0);
@@ -489,9 +494,7 @@ export default function CustomerShop({
     const configuredOrder = tableNumber
       ? (shopConfig?.tableCatalogCategories || ['popsicles', 'classic', 'liter', 'packs'])
       : (catalogOrder || ['popsicles', 'classic', 'liter', 'packs']);
-    const activeOrder = configuredOrder.includes('popsicles')
-      ? configuredOrder
-      : ['popsicles', ...configuredOrder];
+    const activeOrder = [...new Set(configuredOrder)];
     return (
       <div className="catalog-grid">
         {activeOrder.map(section => {
@@ -575,7 +578,7 @@ export default function CustomerShop({
                       </div>
                       <div className="product-price-action">
                         <div className="price-tag">
-                          S/. {(literConfig?.price || 15.0).toFixed(2)}
+                          S/. {Number(literConfig?.price ?? 15).toFixed(2)}
                           <span> / pote</span>
                         </div>
                         <button 
@@ -633,7 +636,7 @@ export default function CustomerShop({
                         </div>
                         <div className="product-price-action">
                           <div className="price-tag">
-                            S/. {flavor.price.toFixed(2)}
+                            S/. {Number(flavor.price).toFixed(2)}
                             <span> / bola</span>
                           </div>
                           <button 
@@ -656,7 +659,7 @@ export default function CustomerShop({
               <React.Fragment key="packs">
                 {/* Mostrar Packs */}
                 {(filter === 'all' || filter === 'packs') && activePacks.map(pack => {
-                  const badgeClass = `badge-${pack.badge.toLowerCase().replace(/\s+/g, '-')}`;
+                  const badgeClass = `badge-${String(pack.badge || '').toLowerCase().replace(/\s+/g, '-')}`;
                   return (
                     <div key={pack.id} className="glass-card product-card" style={{ borderColor: 'rgba(229, 142, 38, 0.2)' }}>
                       {pack.badge && (
@@ -727,7 +730,7 @@ export default function CustomerShop({
                         </div>
                         <div className="product-price-action">
                           <div className="price-tag">
-                            S/. {pack.price.toFixed(2)}
+                            S/. {Number(pack.price).toFixed(2)}
                             <div style={{ fontSize: '0.75rem', color: 'var(--success)', fontWeight: 600 }}>
                               {pack.discountText}
                             </div>
@@ -784,7 +787,7 @@ export default function CustomerShop({
                 className="btn btn-primary" 
                 style={{ width: '100%', padding: '12px', fontSize: '0.85rem' }}
                 onClick={() => {
-                  const activeId = localStorage.getItem('helados_active_order_id');
+                  const activeId = checkoutStorage.getItem('helados_active_order_id');
                   if (activeId && setView) {
                     setView('tracker');
                   } else {
@@ -801,7 +804,7 @@ export default function CustomerShop({
                 style={{ width: '100%', padding: '12px', fontSize: '0.85rem' }}
                 onClick={() => {
                   if (setTableNumber) setTableNumber(null);
-                  localStorage.removeItem('helados_table_number');
+                  checkoutStorage.removeItem('helados_table_number');
                 }}
               >
                 🛍️ Ver carta para llevar / Recojo en barra
@@ -819,7 +822,7 @@ export default function CustomerShop({
           )}
           <section className="hero">
         <div className="hero-text">
-          {tableOrdersEnabled && tableNumber && occupiedTables.includes(String(tableNumber)) && localStorage.getItem('helados_active_order_table') === String(tableNumber) && (
+          {tableOrdersEnabled && tableNumber && occupiedTables.includes(String(tableNumber)) && checkoutStorage.getItem('helados_active_order_table') === String(tableNumber) && (
             <div 
               style={{
                 background: 'linear-gradient(135deg, rgba(46, 204, 113, 0.15), rgba(46, 204, 113, 0.05))',
@@ -835,7 +838,7 @@ export default function CustomerShop({
                 display: 'block'
               }}
               onClick={() => {
-                const activeId = localStorage.getItem('helados_active_order_id');
+                const activeId = checkoutStorage.getItem('helados_active_order_id');
                 if (activeId && setView) setView('tracker');
               }}
             >
@@ -862,7 +865,7 @@ export default function CustomerShop({
                 type="button" 
                 onClick={() => {
                   if (setTableNumber) setTableNumber(null);
-                  localStorage.removeItem('helados_table_number');
+                  checkoutStorage.removeItem('helados_table_number');
                 }} 
                 style={{ 
                   background: 'none', 
@@ -883,25 +886,24 @@ export default function CustomerShop({
             HELADOS ARTESANALES Y DELIVERY EN ANDAHUAYLAS
           </div>
           <h1>
-            {storeName || 'Friozo'} · Helados Artesanales y Paletas <span>Qué rico caer en la tentación.</span>
+            Tu antojo.<br /><span>Tu helado.</span>
           </h1>
           <p className="hero-description">
-            Cremoso, frutal, con extra de chocolate. En <strong>{storeName || 'Friozo'}</strong> tu antojo manda. Helados artesanales, paletas y combinaciones personalizadas con delivery en Andahuaylas.
+            Helados artesanales y paletas de <strong>{storeName || 'Friozo'}</strong>. Elige tu favorito y lo llevamos a tu puerta en Andahuaylas.
           </p>
           <div className="hero-cta">
-            <button className="btn btn-primary hero-primary-cta" onClick={() => setView('customizer')}>
-              Quiero mi helado <span aria-hidden="true">→</span>
+            <button className="btn btn-primary hero-primary-cta" onClick={() => document.getElementById('catalog')?.scrollIntoView({ behavior: 'smooth' })}>
+              Ver la carta <span aria-hidden="true">→</span>
             </button>
             <a 
               href="#catalog"
               className="btn btn-secondary" 
               onClick={(e) => {
                 e.preventDefault();
-                const el = document.getElementById('catalog');
-                if (el) el.scrollIntoView({ behavior: 'smooth' });
+                setView('customizer');
               }}
             >
-              Explorar la carta
+              Armar mi helado
             </a>
           </div>
           <div className="hero-quick-links" aria-label="Acciones rápidas">
@@ -1081,11 +1083,11 @@ export default function CustomerShop({
         <div className="catalog-heading">
           <div>
             <span className="section-kicker">TU PRÓXIMO ANTOJO</span>
-            <h2 className="section-title">¿Cuál te provoca?</h2>
-            <p className="section-subtitle">Paletas frutales, helados cremosos y mezclas sin miedo. Elige uno o inventa el tuyo.</p>
+            <h2 className="section-title">La carta de {storeName || 'Friozo'}</h2>
+            <p className="section-subtitle">Elige tus favoritos. Los detalles de entrega y pago van después.</p>
           </div>
           <span className="catalog-count">
-            {activeFlavors.length + activePacks.length + activePopsicles.length + (literConfig?.active !== false ? 1 : 0)} opciones
+            {visibleCount} {visibleCount === 1 ? 'opción' : 'opciones'}
           </span>
         </div>
 
@@ -1101,7 +1103,7 @@ export default function CustomerShop({
                 🍨 Todo
               </button>
             )}
-            {(!tableNumber || tableCategories.includes('classic')) && (
+            {visibleCategories.includes('classic') && (
               <button 
                 className={`filter-btn ${filter === 'classic' ? 'active' : ''}`}
                 onClick={() => setFilter('classic')}
@@ -1110,7 +1112,7 @@ export default function CustomerShop({
                 🍦 Helados Simples
               </button>
             )}
-            {(!tableNumber || tableCategories.includes('popsicles')) && (
+            {visibleCategories.includes('popsicles') && (
               <button 
                 className={`filter-btn ${filter === 'popsicles' ? 'active' : ''}`}
                 onClick={() => setFilter('popsicles')}
@@ -1119,7 +1121,7 @@ export default function CustomerShop({
                 🍭 Paletas
               </button>
             )}
-            {(!tableNumber || tableCategories.includes('liter')) && (
+            {visibleCategories.includes('liter') && (
               <button 
                 className={`filter-btn ${filter === 'liter' ? 'active' : ''}`}
                 onClick={() => setFilter('liter')}
@@ -1128,7 +1130,7 @@ export default function CustomerShop({
                 🏺 Potes de Litro
               </button>
             )}
-            {(!tableNumber || tableCategories.includes('packs')) && (
+            {visibleCategories.includes('packs') && (
               <button 
                 className={`filter-btn ${filter === 'packs' ? 'active' : ''}`}
                 onClick={() => setFilter('packs')}
@@ -1141,7 +1143,7 @@ export default function CustomerShop({
         )}
 
         {/* Grid de Productos */}
-        {renderedCatalog}
+        {visibleCount > 0 ? renderedCatalog : <div className="catalog-empty" role="status"><h3>No hay productos disponibles en esta categoría</h3><p>Prueba otra categoría de la carta.</p>{filter !== 'all' && <button className="btn btn-secondary" onClick={() => setFilter('all')}>Ver toda la carta</button>}</div>}
       </section>
 
       <section className="order-paths" aria-label="Formas de elegir tu helado">

@@ -30,7 +30,13 @@ export async function requestOrder(path, options = {}) {
   }
 }
 
-export const createOrder = order => requestOrder('/api/order', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ id: order.id, order }) });
+export async function createOrder(order) {
+  const saved = await requestOrder('/api/order', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ id: order.id, order }) });
+  if (saved.id !== order.id || (order.submissionKey && saved.submissionKey !== order.submissionKey)) {
+    throw new Error('La respuesta no corresponde a tu pedido. Conservamos tu carrito para reintentar.');
+  }
+  return saved;
+}
 export const readOrder = id => requestOrder(`/api/order?id=${encodeURIComponent(id)}`);
 
 export async function updateOrder(client, previous, order) {
