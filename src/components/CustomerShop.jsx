@@ -3,6 +3,7 @@ import { checkoutStorage } from '../utils/checkout';
 import DessertPreview from './DessertPreview';
 import PromotionBanner from './PromotionBanner';
 import WelcomePromotion from './WelcomePromotion';
+import PackIllustration from './PackIllustration';
 import { normalizePromotion, DEFAULT_POPUP_PROMOTION, DEFAULT_WEB_PROMOTION } from '../utils/promotion';
 import { updateSyncedData } from '../utils/supabaseSync';
 
@@ -546,8 +547,8 @@ export default function CustomerShop({
               <React.Fragment key="liter">
                 {/* 🏺 Mostrar Helado de Litro */}
                 {(filter === 'all' || filter === 'liter') && literConfig?.active !== false && (
-                  <div className="glass-card product-card" style={{ borderColor: 'var(--primary-color)' }}>
-                    <span className="product-badge badge-premium">🏺 Familiar 1L</span>
+                  <div className="glass-card product-card">
+                    <span className="product-badge badge-familiar">🏺 Familiar 1L</span>
                     <div className="product-illustration" style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', minHeight: '120px' }}>
                       {literConfig?.image ? (
                         <img 
@@ -608,8 +609,8 @@ export default function CustomerShop({
                       ) : flavor.isPremium ? (
                         <span className="product-badge badge-premium">✨ Premium</span>
                       ) : (
-                        <span className="product-badge" style={{ backgroundColor: 'rgba(230, 126, 34, 0.12)', color: '#d35400', border: '1px solid rgba(230, 126, 34, 0.2)' }}>
-                          🍦 Artesanal
+                        <span className="product-badge badge-artesanal">
+                          🍨 Artesanal
                         </span>
                       )}
                       
@@ -661,14 +662,14 @@ export default function CustomerShop({
                 {(filter === 'all' || filter === 'packs') && activePacks.map(pack => {
                   const badgeClass = `badge-${String(pack.badge || '').toLowerCase().replace(/\s+/g, '-')}`;
                   return (
-                    <div key={pack.id} className="glass-card product-card" style={{ borderColor: 'rgba(229, 142, 38, 0.2)' }}>
+                    <div key={pack.id} className="glass-card product-card">
                       {pack.badge && (
                         <span className={`product-badge ${badgeClass}`}>
                           {pack.badge}
                         </span>
                       )}
                       
-                      <div className="product-illustration" style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', minHeight: '100px' }}>
+                      <div className="product-illustration pack-illustration" style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', minHeight: '120px' }}>
                         {pack.image ? (
                           <img 
                             src={pack.image} 
@@ -680,44 +681,7 @@ export default function CustomerShop({
                             loading="lazy"
                           />
                         ) : (
-                          <svg viewBox="0 0 100 100" width="90" height="90" style={{ display: 'block', margin: '0 auto' }}>
-                            <defs>
-                              <linearGradient id={`boxGrad-${pack.id}`} x1="0" y1="0" x2="1" y2="1">
-                                <stop offset="0%" stopColor="#ff4757" />
-                                <stop offset="100%" stopColor="#ff1f3b" />
-                              </linearGradient>
-                              <linearGradient id={`lidGrad-${pack.id}`} x1="0" y1="0" x2="0" y2="1">
-                                <stop offset="0%" stopColor="#ff6b81" />
-                                <stop offset="100%" stopColor="#ff3855" />
-                              </linearGradient>
-                              <linearGradient id={`ribbonGrad-${pack.id}`} x1="0" y1="0" x2="1" y2="1">
-                                <stop offset="0%" stopColor="#eccc68" />
-                                <stop offset="100%" stopColor="#ff7f50" />
-                              </linearGradient>
-                              <linearGradient id={`goldGrad-${pack.id}`} x1="0" y1="0" x2="0" y2="1">
-                                <stop offset="0%" stopColor="#ffa502" />
-                                <stop offset="100%" stopColor="#ff7f50" />
-                              </linearGradient>
-                              <filter id={`giftShadow-${pack.id}`} x="-10%" y="-10%" width="120%" height="120%">
-                                <feDropShadow dx="0" dy="3" stdDeviation="3" floodOpacity="0.15" />
-                              </filter>
-                            </defs>
-        
-                            <ellipse cx="50" cy="88" rx="28" ry="5" fill="rgba(0,0,0,0.1)" />
-        
-                            <g filter={`url(#giftShadow-${pack.id})`}>
-                              <rect x="18" y="42" width="64" height="6" rx="1" fill="rgba(0,0,0,0.15)" />
-                              <rect x="22" y="44" width="56" height="40" rx="3" fill={`url(#boxGrad-${pack.id})`} />
-                              <rect x="44" y="44" width="12" height="40" fill={`url(#ribbonGrad-${pack.id})`} />
-                              <rect x="18" y="34" width="64" height="10" rx="2" fill={`url(#lidGrad-${pack.id})`} />
-                              <rect x="44" y="34" width="12" height="10" fill={`url(#ribbonGrad-${pack.id})`} />
-                              <path d="M 45 34 C 30 24, 30 12, 45 22 Z" fill={`url(#goldGrad-${pack.id})`} stroke={`url(#goldGrad-${pack.id})`} strokeWidth="0.8" />
-                              <path d="M 55 34 C 70 24, 70 12, 55 22 Z" fill={`url(#goldGrad-${pack.id})`} stroke={`url(#goldGrad-${pack.id})`} strokeWidth="0.8" />
-                              <path d="M 45 34 C 40 40, 32 45, 34 52" fill="none" stroke={`url(#goldGrad-${pack.id})`} strokeWidth="3" strokeLinecap="round" />
-                              <path d="M 55 34 C 60 40, 68 45, 66 52" fill="none" stroke={`url(#goldGrad-${pack.id})`} strokeWidth="3" strokeLinecap="round" />
-                              <rect x="43" y="24" width="14" height="10" rx="3" fill={`url(#goldGrad-${pack.id})`} stroke="#d5822b" strokeWidth="0.8" />
-                            </g>
-                          </svg>
+                          <PackIllustration pack={pack} />
                         )}
                       </div>
                       <div className="product-info">
@@ -1065,12 +1029,14 @@ export default function CustomerShop({
           </div>
           <a 
             href="#catalog"
+            className="delivery-banner-action"
             onClick={(e) => {
               e.preventDefault();
               document.getElementById('catalog')?.scrollIntoView({ behavior: 'smooth' });
             }}
           >
-            Ver carta <span aria-hidden="true">→</span>
+            <span>Ver carta</span>
+            <span className="delivery-banner-arrow" aria-hidden="true">→</span>
           </a>
         </div>
       )}

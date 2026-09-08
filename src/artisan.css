@@ -111,7 +111,7 @@ input::placeholder, textarea::placeholder { color: var(--text-light); opacity: 1
 .product-card:nth-child(3n+2) .product-illustration { background: #eee2df; }
 .product-card:nth-child(3n+3) .product-illustration { background: #e7ebdf; }
 .product-illustration.popsicle-illustration img { height: 190px; max-height: 190px; transform: rotate(-10deg); object-fit: contain; }
-.product-badge { background: var(--bg-secondary); color: var(--primary-color); border: 1px solid var(--border-color); box-shadow: none; border-radius: 100px; font-size: .62rem; top: 14px; left: 14px; }
+.product-badge { background: var(--bg-secondary); color: var(--primary-color); border: 1px solid var(--border-color); box-shadow: none; border-radius: 100px; font-size: .62rem; top: 14px; left: 14px; right: auto; width: auto; max-width: fit-content; }
 .product-info { padding: 22px; }
 .product-info h3 { font-family: Georgia, serif; font-size: 1.45rem; font-weight: 400; margin-bottom: 9px; }
 .product-desc { font-size: .78rem; line-height: 1.7; }
