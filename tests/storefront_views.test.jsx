@@ -5,6 +5,15 @@ import CustomerShop from '../src/components/CustomerShop.jsx';
 import Cart from '../src/components/Cart.jsx';
 
 const shop = { onAddToCart() {}, setView() {}, shopConfig: { popupPromotion: { enabled: false } } };
+test('storefront uses the requested pink hero, ice cream image and purchase actions', () => {
+  const html = renderToStaticMarkup(<CustomerShop {...shop} />);
+  assert.ok(html.includes('Qué rico <span>caer en<br/>la tentación.</span>'));
+  assert.ok(html.includes('src="/hero-friozo-v2.webp"'));
+  assert.ok(html.includes('Quiero mi helado'));
+  assert.ok(html.includes('Explorar la carta'));
+  assert.ok(html.includes('hero-proof'));
+  assert.ok(html.includes('crave-marquee'));
+});
 test('packs with missing badges and catalog prices stored as text render without crashing', () => {
   const html = renderToStaticMarkup(<CustomerShop {...shop} flavors={[{ id: 'fresa', name: 'Fresa', price: '2.50' }]} packs={[{ id: 'duo', name: 'Dúo', price: '12.50' }]} literConfig={{ price: '15.00' }} />);
   for (const price of ['2.50', '12.50', '15.00']) assert.ok(html.includes(price));

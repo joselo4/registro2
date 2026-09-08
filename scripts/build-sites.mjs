@@ -3,6 +3,7 @@ import { build as buildClient } from 'vite';
 import { mkdir, copyFile, rm } from 'node:fs/promises';
 import { fileURLToPath } from 'node:url';
 import { resolve, join } from 'node:path';
+import { verifyBuild } from './verify-build.mjs';
 
 const project = resolve(fileURLToPath(new URL('..', import.meta.url)));
 if (resolve(process.cwd()) !== project) throw new Error('Ejecuta la compilación desde la carpeta del proyecto.');
@@ -11,6 +12,7 @@ const output = resolve(project, 'dist');
 if (output !== join(project, 'dist')) throw new Error('Directorio de salida inválido.');
 await rm(output, { recursive: true, force: true });
 await buildClient({ build: { outDir: 'dist/client' } });
+await verifyBuild('dist/client');
 
 await build({
   entryPoints: ['server/sites-worker.js'],

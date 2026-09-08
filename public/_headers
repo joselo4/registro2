@@ -10,6 +10,18 @@
 /assets/*
   Cache-Control: public, max-age=31536000, immutable
 
+/
+  Cache-Control: no-cache
+
+/index.html
+  Cache-Control: no-cache
+
+/startup.js
+  Cache-Control: no-cache
+
+/startup.css
+  Cache-Control: no-cache
+
 /*.webp
   Cache-Control: public, max-age=31536000, immutable
 

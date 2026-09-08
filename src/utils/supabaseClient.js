@@ -1,4 +1,5 @@
 import { createClient } from '@supabase/supabase-js';
+import { checkoutStorage } from './checkout.js';
 
 const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
 const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY || import.meta.env.VITE_SUPABASE_KEY;
@@ -10,7 +11,7 @@ const clientOptions = {
     autoRefreshToken: true,
     // En entornos Capacitor/APK las URLs internas (ej. capacitor://localhost o file://) pueden alterar la sesión si detectSessionInUrl está activo
     detectSessionInUrl: false,
-    storage: typeof window !== 'undefined' ? window.localStorage : undefined,
+    storage: typeof window !== 'undefined' ? checkoutStorage : undefined,
   },
   realtime: {
     params: {
@@ -38,4 +39,3 @@ if (supabase) {
 } else {
   console.log("💾 Supabase no configurado. Utilizando base de datos local (LocalStorage) en modo fuera de línea.");
 }
-

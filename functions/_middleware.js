@@ -125,7 +125,13 @@ export async function onRequest(context) {
 
   // Otherwise, proceed to the static assets (standard page loads/refresh)
   const response = await context.next();
+  const isHtml = response.headers.get('Content-Type')?.includes('text/html');
+  // An SPA fallback must never be served as JavaScript or CSS after a deploy.
+  if (isHtml && /\.(?:m?js|css)$/i.test(path)) {
+    return new Response('Archivo no encontrado. Recarga la tienda.', { status: 404, headers: { 'Content-Type': 'text/plain; charset=utf-8', 'Cache-Control': 'no-store', 'X-Content-Type-Options': 'nosniff' } });
+  }
   const newResponse = new Response(response.body, response);
+  if (isHtml) newResponse.headers.set('Cache-Control', 'no-cache');
   newResponse.headers.set('X-XSS-Protection', '0');
   newResponse.headers.set('X-Content-Type-Options', 'nosniff');
   newResponse.headers.set('X-Frame-Options', 'DENY');

@@ -883,27 +883,27 @@ export default function CustomerShop({
           )}
           <div className="hero-eyebrow">
             <span className="hero-live-dot" aria-hidden="true"></span>
-            HELADOS ARTESANALES Y DELIVERY EN ANDAHUAYLAS
+            HELADOS, FRUTA Y MUCHA FELICIDAD
           </div>
           <h1>
-            Tu antojo.<br /><span>Tu helado.</span>
+            Qué rico <span>caer en<br />la tentación.</span>
           </h1>
           <p className="hero-description">
-            Helados artesanales y paletas de <strong>{storeName || 'Friozo'}</strong>. Elige tu favorito y lo llevamos a tu puerta en Andahuaylas.
+            Cremoso, frutal, con extra de chocolate. En <strong>{storeName || 'FRIOZO'}</strong> tu antojo manda. Elige tus sabores y ponle el toque que más te provoca.
           </p>
           <div className="hero-cta">
-            <button className="btn btn-primary hero-primary-cta" onClick={() => document.getElementById('catalog')?.scrollIntoView({ behavior: 'smooth' })}>
-              Ver la carta <span aria-hidden="true">→</span>
+            <button className="btn btn-primary hero-primary-cta" onClick={() => setView('customizer')}>
+              Quiero mi helado <span aria-hidden="true">→</span>
             </button>
             <a 
               href="#catalog"
               className="btn btn-secondary" 
               onClick={(e) => {
                 e.preventDefault();
-                setView('customizer');
+                document.getElementById('catalog')?.scrollIntoView({ behavior: 'smooth' });
               }}
             >
-              Armar mi helado
+              Explorar la carta
             </a>
           </div>
           <div className="hero-quick-links" aria-label="Acciones rápidas">

@@ -1,0 +1,7 @@
+/* A loading state only; React is the single storefront. */
+.friozo-startup { box-sizing: border-box; min-height: 95vh; margin: 0; padding: 32px 20px; display: flex; flex-direction: column; align-items: center; justify-content: center; text-align: center; background: #ffd7df; color: #591e30; font-family: Manrope, system-ui, sans-serif; }
+.friozo-startup img { object-fit: contain; }
+.friozo-startup h1 { font-family: 'Bricolage Grotesque', system-ui, sans-serif; font-size: 2rem; margin: 16px 0 8px; }
+.friozo-startup p { font-size: 1rem; line-height: 1.6; max-width: 40ch; }
+.friozo-startup button { background: #ae1641; color: white; border: 0; border-radius: 12px; min-height: 48px; padding: 12px 20px; font: inherit; font-weight: 700; cursor: pointer; }
+.friozo-startup button:focus-visible { outline: 3px solid #591e30; outline-offset: 4px; }

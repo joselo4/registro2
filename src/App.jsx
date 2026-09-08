@@ -130,6 +130,7 @@ const migrateLegacyBrandText = (value, fallback = '') => {
 };
 
 export default function App() {
+  useEffect(() => { window.dispatchEvent(new Event('friozo:ready')); }, []);
   const isRemoteUpdate = useRef({});
   const allowCloudWrite = useRef(false);
   const logoutInProgressRef = useRef(false);

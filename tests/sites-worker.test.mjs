@@ -2,6 +2,16 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import worker from '../server/sites-worker.js';
 
+test('missing JavaScript cannot fall back to the storefront HTML and HTML revalidates', async () => {
+  const env = { ASSETS: { fetch: async () => new Response('<html>store</html>', { headers: { 'Content-Type': 'text/html' } }) } };
+  const script = await worker.fetch(new Request('https://shop.test/assets/missing.js'), env, {});
+  assert.equal(script.status, 404);
+  assert.equal(script.headers.get('Cache-Control'), 'no-store');
+  const page = await worker.fetch(new Request('https://shop.test/'), env, {});
+  assert.equal(page.status, 200);
+  assert.equal(page.headers.get('Cache-Control'), 'no-cache');
+});
+
 test('deployed worker executes Telegram API instead of returning the app HTML', async () => {
   const env = { TELEGRAM_BOT_TOKEN: 'test-token', TELEGRAM_CHAT_ID: 'test-chat', ASSETS: {fetch:()=>{assert.fail('API must not fall through to assets');}} };
   const response = await worker.fetch(new Request('https://shop.test/api/telegram'), env, {});

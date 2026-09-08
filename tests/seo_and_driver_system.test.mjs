@@ -9,28 +9,17 @@ const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 const rootDir = path.resolve(__dirname, '..');
 
-test('index.html contains explicit H1, multiple H2s and semantic internal links for SEO crawlers', () => {
-  const indexPath = path.join(rootDir, 'index.html');
-  const content = fs.readFileSync(indexPath, 'utf-8');
-
-  // Verificar título enriquecido
+test('index keeps SEO metadata and one application entry without an alternative storefront', () => {
+  const content = fs.readFileSync(path.join(rootDir, 'index.html'), 'utf8');
   assert.match(content, /<title>.*Andahuaylas.*<\/title>/i);
-
-  // Verificar meta descripción optimizada
-  const metaDescMatch = content.match(/<meta\s+name="description"\s+content="([^"]+)"/i);
-  assert.ok(metaDescMatch, 'Meta description must exist');
-  assert.ok(metaDescMatch[1].length >= 100 && metaDescMatch[1].length <= 165, `Meta description length (${metaDescMatch[1].length}) should be between 100 and 165 characters`);
-
-  // Verificar H1 presente en el documento
-  assert.match(content, /<h1[^>]*>.*Friozo.*Helados.*Andahuaylas.*<\/h1>/is);
-
-  // Verificar jerarquía de H2s
-  const h2Matches = content.match(/<h2[^>]*>.*?<\/h2>/gis) || [];
-  assert.ok(h2Matches.length >= 4, `Expected at least 4 H2 headings, found ${h2Matches.length}`);
-
-  // Verificar enlaces internos con anclas (#catalogo, #delivery, etc.)
-  const internalLinks = content.match(/<a\s+[^>]*href="#[^"]+"[^>]*>.*?<\/a>/gis) || [];
-  assert.ok(internalLinks.length >= 5, `Expected at least 5 internal anchor links, found ${internalLinks.length}`);
+  assert.match(content, /name="description"/);
+  assert.match(content, /type="application\/ld\+json"/);
+  assert.match(content, /https:\/\/www.pideanda.com\/#catalog/);
+  assert.equal((content.match(/id="root"/g) || []).length, 1);
+  assert.ok(content.includes('src="/src/main.jsx"'));
+  assert.ok(content.includes('id="startup-status"'));
+  assert.ok(!content.includes('Carta de Helados Artesanales y Sabores Exclusivos'));
+  assert.ok(!content.includes('id="catalogo"'));
 });
 
 test('formatDriverDispatchMessage formats route dispatch details for WhatsApp', () => {
