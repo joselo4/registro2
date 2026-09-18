@@ -47,6 +47,7 @@ const isAdminUser = (user) => {
 };
 
 export default function AdminPanel({
+  onPlaceOrder,
   orders,
   onUpdateOrderStatus,
   flavors,
@@ -740,7 +741,7 @@ export default function AdminPanel({
           {key:'popsicles',name:'Paletas',items:popsicles,update:onUpdatePopsicles},
           {key:'packs',name:'Packs',items:packs,update:onUpdatePacks}
         ]} />}
-        {activeTab === 'ordertaker' && <OrderTaker catalog={{ bases, flavors, toppings }} onPlaceOrder={(newOrder) => onUpdateOrders([newOrder, ...orders])} showAlert={showAlert} />}
+        {activeTab === 'ordertaker' && <OrderTaker catalog={{ bases, flavors, toppings }} onPlaceOrder={onPlaceOrder} showAlert={showAlert} />}
 
         {(activeTab === 'orders' || activeTab === 'surveys') && (
           <OrderManager

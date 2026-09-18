@@ -2,14 +2,14 @@ import React, { useState } from 'react';
 import { generateOrderId } from '../../utils/orderId';
 
 export default function OrderTaker({ catalog, onPlaceOrder, showAlert }) {
-  const { bases, flavors, toppings, literConfig } = catalog;
+  const { bases = [], flavors = [], toppings = [] } = catalog || {};
   const [cart, setCart] = useState([]);
   const [customerName, setCustomerName] = useState('');
   const [orderType, setOrderType] = useState('Barra');
 
   const handleAddQuickItem = (item) => {
     setCart(prev => [...prev, { ...item, quantity: 1, type: 'standard' }]);
-    if (showAlert) showAlert('Añadido', item.name + ' añadido a la cuenta.', 'success');
+    if (showAlert) showAlert('AÃ±adido', item.name + ' aÃ±adido a la cuenta.', 'success');
   };
 
   const calculateTotal = () => {
@@ -18,16 +18,17 @@ export default function OrderTaker({ catalog, onPlaceOrder, showAlert }) {
 
   const handleCreateOrder = () => {
     if (cart.length === 0) {
-      if (showAlert) showAlert('Error', 'El pedido está vacío.', 'error');
+      if (showAlert) showAlert('Error', 'El pedido estÃ¡ vacÃ­o.', 'error');
       return;
     }
     
+    const orderId = generateOrderId();
     const newOrder = {
-      id: generateOrderId(),
+      id: orderId,
       customer: {
         name: customerName || (orderType === 'Barra' ? 'Cliente en Barra' : 'Mesa'),
         phone: 'Operador',
-        address: orderType === 'Barra' ? 'Atención en Barra' : 'Atención en Mesa',
+        address: orderType === 'Barra' ? 'AtenciÃ³n en Barra' : 'AtenciÃ³n en Mesa',
       },
       items: cart,
       total: calculateTotal(),
@@ -35,10 +36,11 @@ export default function OrderTaker({ catalog, onPlaceOrder, showAlert }) {
       date: new Date().toISOString(),
       paymentMethod: 'Efectivo',
       orderType: orderType,
+      isOperator: true
     };
 
     onPlaceOrder(newOrder);
-    if (showAlert) showAlert('Éxito', 'Pedido registrado correctamente.', 'success');
+    if (showAlert) showAlert('Ã‰xito', 'Pedido registrado correctamente. CÃ³digo: ' + orderId, 'success');
     setCart([]);
     setCustomerName('');
   };
@@ -46,16 +48,16 @@ export default function OrderTaker({ catalog, onPlaceOrder, showAlert }) {
   return (
     <div style={{ padding: '20px', maxWidth: '1000px', margin: '0 auto', display: 'flex', gap: '20px', flexWrap: 'wrap' }}>
       <div style={{ flex: '1 1 300px', background: 'var(--bg-secondary)', borderRadius: '12px', padding: '20px', border: '1px solid var(--border-color)' }}>
-        <h2 style={{ fontSize: '1.2rem', marginBottom: '15px' }}>?? Punto de Venta</h2>
+        <h2 style={{ fontSize: '1.2rem', marginBottom: '15px' }}>ðŸ›’ Punto de Venta</h2>
         <div className="form-group">
-          <label style={{ fontSize: '0.8rem', fontWeight: 600 }}>Tipo de Atención</label>
+          <label style={{ fontSize: '0.8rem', fontWeight: 600 }}>Tipo de AtenciÃ³n</label>
           <select className="form-control" value={orderType} onChange={(e) => setOrderType(e.target.value)}>
-            <option value="Barra">Atención en Barra / Tienda</option>
-            <option value="Mesa">Atención en Mesa</option>
+            <option value="Barra">AtenciÃ³n en Barra / Tienda</option>
+            <option value="Mesa">AtenciÃ³n en Mesa</option>
           </select>
         </div>
         <div className="form-group">
-          <label style={{ fontSize: '0.8rem', fontWeight: 600 }}>Nombre del Cliente o N° Mesa (Opcional)</label>
+          <label style={{ fontSize: '0.8rem', fontWeight: 600 }}>Nombre del Cliente o NÂ° Mesa (Opcional)</label>
           <input type="text" className="form-control" placeholder="Ej: Carlos o Mesa 4" value={customerName} onChange={(e) => setCustomerName(e.target.value)} />
         </div>
         <div style={{ marginTop: '20px' }}>
@@ -77,15 +79,15 @@ export default function OrderTaker({ catalog, onPlaceOrder, showAlert }) {
             <span>S/. {calculateTotal()}</span>
           </div>
           <button className="btn btn-primary" style={{ width: '100%', marginTop: '20px', padding: '12px', fontSize: '1rem' }} onClick={handleCreateOrder} disabled={cart.length === 0}>
-            ? Registrar Pedido Rápido
+            âœ… Registrar Pedido RÃ¡pido
           </button>
         </div>
       </div>
       <div style={{ flex: '2 1 400px' }}>
-        <h2 style={{ fontSize: '1.2rem', marginBottom: '15px' }}>Catálogo Rápido</h2>
+        <h2 style={{ fontSize: '1.2rem', marginBottom: '15px' }}>CatÃ¡logo RÃ¡pido</h2>
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(140px, 1fr))', gap: '10px' }}>
           {flavors.map(f => (
-            <button key={f.id} style={{ padding: '10px', background: 'var(--bg-primary)', border: '1px solid var(--border-color)', borderRadius: '8px', cursor: 'pointer', textAlign: 'center' }} onClick={() => handleAddQuickItem({ id: f.id, name: 'Porción: ' + f.name, price: f.price })}>
+            <button key={f.id} style={{ padding: '10px', background: 'var(--bg-primary)', border: '1px solid var(--border-color)', borderRadius: '8px', cursor: 'pointer', textAlign: 'center' }} onClick={() => handleAddQuickItem({ id: f.id, name: 'PorciÃ³n: ' + f.name, price: f.price })}>
               <span style={{ display: 'block', fontWeight: 600, fontSize: '0.85rem', marginBottom: '5px' }}>{f.name}</span>
               <span style={{ color: 'var(--primary-color)', fontSize: '0.8rem' }}>S/. {f.price}</span>
             </button>

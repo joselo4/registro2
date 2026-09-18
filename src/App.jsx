@@ -1379,16 +1379,18 @@ export default function App() {
 
   const handlePlaceOrder = async (newOrder) => {
     setOrders(prev => [newOrder, ...prev]);
-    setCart([]);
-    setActiveOrderId(newOrder.id);
-    setView('tracker');
-    
-    // Guardar pedido activo en localStorage para rastreo y control de mesa ocupada
-    localStorage.setItem('helados_active_order_id', newOrder.id);
-    if (newOrder.customer?.orderType === 'Mesa' || newOrder.customer?.orderType === 'Mesa_Llevar') {
-      localStorage.setItem('helados_active_order_table', String(newOrder.customer?.tableNumber));
-    } else {
-      localStorage.removeItem('helados_active_order_table');
+    if (!newOrder.isOperator) {
+      setCart([]);
+      setActiveOrderId(newOrder.id);
+      setView('tracker');
+      
+      // Guardar pedido activo en localStorage para rastreo y control de mesa ocupada
+      localStorage.setItem('helados_active_order_id', newOrder.id);
+      if (newOrder.customer?.orderType === 'Mesa' || newOrder.customer?.orderType === 'Mesa_Llevar') {
+        localStorage.setItem('helados_active_order_table', String(newOrder.customer?.tableNumber));
+      } else {
+        localStorage.removeItem('helados_active_order_table');
+      }
     }
     
     if (newOrder.couponCode) {
@@ -1776,6 +1778,7 @@ export default function App() {
         {view === 'admin' && (
           <AdminPanel 
               orders={orders}
+              onPlaceOrder={handlePlaceOrder}
               onUpdateOrderStatus={handleUpdateOrderStatus}
               flavors={flavors}
               onUpdateFlavors={setFlavors}
