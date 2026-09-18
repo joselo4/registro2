@@ -479,7 +479,7 @@ export default function OrderManager({
             {editingOrder.items.map((item, idx) => {
               let itemLabel = item.name;
               if (item.type === 'custom') {
-                const scoopsStr = item.scoops ? item.scoops.map(s => s.name).join(', ') : 'Sabor';
+                const scoopsStr = item.scoops ? item.scoops.map(s => typeof s === 'string' ? s : s.name).join(', ') : 'Sabor';
                 const baseStr = item.base ? item.base.name : 'Envase';
                 itemLabel = `Helado de ${scoopsStr} en ${baseStr}`;
               }
@@ -1364,8 +1364,8 @@ export default function OrderManager({
                                 const itemQuantity = item.quantity || 1;
                                 const itemTotal = itemPrice * itemQuantity;
                                 if (item.type === 'custom') {
-                                  const scoopsStr = item.scoops ? item.scoops.map(s => s.name).join(', ') : 'Ninguno';
-                                  const toppingsStr = item.toppings && item.toppings.length > 0 ? item.toppings.map(t => t.name).join(', ') : 'Ninguno';
+                                  const scoopsStr = item.scoops ? item.scoops.map(s => typeof s === 'string' ? s : s.name).join(', ') : 'Ninguno';
+                                  const toppingsStr = item.toppings && item.toppings.length > 0 ? item.toppings.map(t => typeof t === 'string' ? t : t.name).join(', ') : 'Ninguno';
                                   const syrupStr = item.syrup ? item.syrup.name : 'Ninguna';
                                   return `
                                     <div style="border-bottom: 1px dashed #333; padding: 6px 0; font-family: 'Courier New', Courier, monospace;">

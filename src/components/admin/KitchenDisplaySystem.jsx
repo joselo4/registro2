@@ -336,9 +336,9 @@ export default function KitchenDisplaySystem({
                           {item.type === 'custom' && (
                             <div style={{ fontSize: '0.76rem', color: 'var(--text-light)', marginTop: '2px', paddingLeft: '14px' }}>
                               <div>🍧 <b>Base:</b> {item.base?.name || 'Cono'}</div>
-                              <div>🍨 <b>Sabores:</b> {(item.scoops || []).map(s => s.name).join(', ')}</div>
+                              <div>🍨 <b>Sabores:</b> {(item.scoops || []).map(s => typeof s === 'string' ? s : s.name).join(', ')}</div>
                               {item.toppings?.length > 0 && (
-                                <div>✨ <b>Toppings:</b> {item.toppings.map(t => t.name).join(', ')}</div>
+                                <div>✨ <b>Toppings:</b> {item.toppings.map(t => typeof t === 'string' ? t : t.name).join(', ')}</div>
                               )}
                               {item.syrup?.name && (
                                 <div>🍯 <b>Salsa:</b> {item.syrup.name}</div>
@@ -352,7 +352,7 @@ export default function KitchenDisplaySystem({
                           )}
                           {item.type === 'liter' && (
                             <div style={{ fontSize: '0.76rem', color: 'var(--text-light)', marginTop: '2px', paddingLeft: '14px' }}>
-                              🍦 <b>Sabores 1 Litro:</b> {(item.flavors || []).map(f => f.name).join(', ')}
+                              🍦 <b>Sabores 1 Litro:</b> {(item.flavors || []).map(f => typeof f === 'string' ? f : f.name).join(', ')}
                             </div>
                           )}
                         </div>

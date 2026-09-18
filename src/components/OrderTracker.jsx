@@ -173,8 +173,8 @@ export default function OrderTracker({ orderId, orders, setView, storePhone, onC
 
   const renderItemDetails = (item) => {
     if (item.type === 'custom') {
-      const scoopsText = item.scoops.map(s => s.name).join(', ');
-      const toppingsText = item.toppings.map(t => t.name).join(', ');
+      const scoopsText = item.scoops.map(s => typeof s === 'string' ? s : s.name).join(', ');
+      const toppingsText = item.toppings.map(t => typeof t === 'string' ? t : t.name).join(', ');
       const syrupText = item.syrup ? item.syrup.name : '';
       
       return (

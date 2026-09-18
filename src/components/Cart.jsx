@@ -226,12 +226,12 @@ export default function Cart({
       const itemsText = cart.map(item => {
         let detailsText = '';
         if (item.type === 'custom') {
-          const scoops = item.scoops.map(s => s.name).join(', ');
-          const toppings = item.toppings.map(t => t.name).join(', ');
+          const scoops = item.scoops.map(s => typeof s === 'string' ? s : s.name).join(', ');
+          const toppings = item.toppings.map(t => typeof t === 'string' ? t : t.name).join(', ');
           const syrup = item.syrup ? item.syrup.name : '';
           detailsText = ` (${scoops}${toppings ? ` + ${toppings}` : ''}${syrup ? ` + Salsa ${syrup}` : ''})`;
         } else if (item.type === 'liter') {
-          const scoops = item.scoops.map(s => s.name).join(', ');
+          const scoops = item.scoops.map(s => typeof s === 'string' ? s : s.name).join(', ');
           detailsText = ` (Sabores: ${scoops})`;
         }
         return `${item.quantity}x ${item.name}${detailsText}`;
@@ -322,8 +322,8 @@ export default function Cart({
 
   const renderItemDetails = (item) => {
     if (item.type === 'custom') {
-      const scoopsText = item.scoops.map(s => s.name).join(', ');
-      const toppingsText = item.toppings.map(t => t.name).join(', ');
+      const scoopsText = item.scoops.map(s => typeof s === 'string' ? s : s.name).join(', ');
+      const toppingsText = item.toppings.map(t => typeof t === 'string' ? t : t.name).join(', ');
       const syrupText = item.syrup ? item.syrup.name : '';
       
       return (
@@ -335,7 +335,7 @@ export default function Cart({
         </span>
       );
     } else if (item.type === 'liter') {
-      const scoopsText = item.scoops.map(s => s.name).join(', ');
+      const scoopsText = item.scoops.map(s => typeof s === 'string' ? s : s.name).join(', ');
       return (
         <span style={{ fontSize: '0.8rem', color: 'var(--text-light)', display: 'block', marginTop: '4px' }}>
           🏺 Pote de 1 Litro <br />
@@ -818,8 +818,8 @@ export default function Cart({
                     />
                   </div>
                   <div style={{ fontSize: '0.8rem', color: 'var(--text-light)', marginTop: '8px' }}>
-                    Sabores: {item.scoops.map(s => s.name).join(', ')}<br/>
-                    {item.toppings.length > 0 && <>Toppings: {item.toppings.map(t => t.name).join(', ')}<br/></>}
+                    Sabores: {item.scoops.map(s => typeof s === 'string' ? s : s.name).join(', ')}<br/>
+                    {item.toppings.length > 0 && <>Toppings: {item.toppings.map(t => typeof t === 'string' ? t : t.name).join(', ')}<br/></>}
                     {item.syrup && <>Salsa: {item.syrup.name}</>}
                   </div>
                 </div>

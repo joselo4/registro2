@@ -112,7 +112,7 @@ export default function CustomerShop({
       if (item.type === 'custom') {
         const scoopsText = item.scoops ? item.scoops.map(s => s.name).join(' + ') : 'Personalizado';
         const toppingsText = item.toppings && item.toppings.length > 0 
-          ? ` (Toppings: ${item.toppings.map(t => t.name).join(', ')})` 
+          ? ` (Toppings: ${item.toppings.map(t => typeof t === 'string' ? t : t.name).join(', ')})` 
           : '';
         return `${item.quantity}x Personalizado [${scoopsText}]${toppingsText}`;
       } else if (item.type === 'liter') {
@@ -1326,7 +1326,7 @@ export default function CustomerShop({
                             <p><strong>Base:</strong> {wizardResult.base.name}</p>
                             <p><strong>Sabores:</strong> {wizardResult.scoops.map(s => s.name).join(' y ')}</p>
                             {wizardResult.toppings.length > 0 ? (
-                              <p><strong>Topping:</strong> {wizardResult.toppings.map(t => t.name).join(', ')}</p>
+                              <p><strong>Topping:</strong> {wizardResult.toppings.map(t => typeof t === 'string' ? t : t.name).join(', ')}</p>
                             ) : (
                               <p>Sin toppings adicionales</p>
                             )}

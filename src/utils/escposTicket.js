@@ -55,13 +55,13 @@ export const printThermalTicket = ({
         ${(order.items || []).map((item) => {
           let desc = '';
           if (item.type === 'custom') {
-            const scoops = (item.scoops || []).map(s => s.name).join(', ');
-            const toppings = (item.toppings || []).map(t => t.name).join(', ');
+            const scoops = (item.scoops || []).map(s => typeof s === 'string' ? s : s.name).join(', ');
+            const toppings = (item.toppings || []).map(t => typeof t === 'string' ? t : t.name).join(', ');
             desc = `Sabores: ${scoops}${toppings ? ` | Top: ${toppings}` : ''}`;
           } else if (item.type === 'pack') {
             desc = `Pack: ${item.items || ''}`;
           } else if (item.type === 'liter') {
-            const flavors = (item.flavors || []).map(f => f.name).join(', ');
+            const flavors = (item.flavors || []).map(f => typeof f === 'string' ? f : f.name).join(', ');
             desc = `Sabores: ${flavors}`;
           }
           return `

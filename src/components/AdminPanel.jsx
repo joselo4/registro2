@@ -711,7 +711,7 @@ export default function AdminPanel({
               📇 CRM Clientes
             </button>
           )}
-          {(currentUser?.role === 'Administrador' || currentUser?.role === 'Vendedor') && (
+          {isTabAllowed('ordertaker') && (
                 <button className={`sidebar-btn ${activeTab === 'ordertaker' ? 'active' : ''}`} onClick={() => setActiveTab('ordertaker')}>
                   🛒 Tomador de Pedidos
                 </button>

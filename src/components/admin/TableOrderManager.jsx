@@ -1014,9 +1014,9 @@ export default function TableOrderManager({
                   {activeOrder.items.map((item, index) => {
                     let itemDetails = '';
                     if (item.type === 'custom' && item.scoops) {
-                      itemDetails = item.scoops.map(s => s.name).join(', ');
+                      itemDetails = item.scoops.map(s => typeof s === 'string' ? s : s.name).join(', ');
                     } else if (item.type === 'liter' && item.scoops) {
-                      itemDetails = item.scoops.map(s => s.name).join(', ');
+                      itemDetails = item.scoops.map(s => typeof s === 'string' ? s : s.name).join(', ');
                     }
                     return (
                       <div key={index} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', fontSize: '0.75rem', borderBottom: '1px dashed var(--border-color)', paddingBottom: '6px', paddingTop: '4px' }}>
