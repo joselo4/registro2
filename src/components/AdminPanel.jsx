@@ -740,7 +740,7 @@ export default function AdminPanel({
           {key:'popsicles',name:'Paletas',items:popsicles,update:onUpdatePopsicles},
           {key:'packs',name:'Packs',items:packs,update:onUpdatePacks}
         ]} />}
-        {activeTab === 'ordertaker' && <OrderTaker catalog={catalog} onPlaceOrder={onPlaceOrder} showAlert={showAlert} />}
+        {activeTab === 'ordertaker' && <OrderTaker catalog={{ bases, flavors, toppings }} onPlaceOrder={(newOrder) => onUpdateOrders([newOrder, ...orders])} showAlert={showAlert} />}
 
         {(activeTab === 'orders' || activeTab === 'surveys') && (
           <OrderManager
