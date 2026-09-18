@@ -10,6 +10,7 @@ import DashboardView from './admin/DashboardView';
 import OperationsCenter from './admin/OperationsCenter';
 import UserManager from './admin/UserManager';
 import TableOrderManager from './admin/TableOrderManager';
+import OrderTaker from './admin/OrderTaker';
 import CartLocationsView from './CartLocationsView';
 
 // --- FUNCIONES DE SANITIZACIÃ“N Y SEGURIDAD ---
@@ -671,9 +672,16 @@ export default function AdminPanel({
         <div className="sidebar-menu">
           {isAdminUser(currentUser) && <button className={`sidebar-btn ${activeTab === 'operations' ? 'active' : ''}`} onClick={() => setActiveTab('operations')}>◉ Centro de operaciones</button>}
           {isTabAllowed('orders') && (
-            <button className={`sidebar-btn ${activeTab === 'orders' ? 'active' : ''}`} onClick={() => setActiveTab('orders')}>
-              📋 Pedidos ({orders.filter(o => o.status === 'Pendiente').length})
-            </button>
+            <>
+              <button className={`sidebar-btn ${activeTab === 'orders' ? 'active' : ''}`} onClick={() => setActiveTab('orders')}>
+                📦 Pedidos ({orders.filter(o => o.status === 'Pendiente').length})
+              </button>
+              {(userRole === 'Administrador' || userRole === 'Vendedor') && (
+                <button className={`sidebar-btn ${activeTab === 'ordertaker' ? 'active' : ''}`} onClick={() => setActiveTab('ordertaker')}>
+                  🛒 Tomador de Pedidos
+                </button>
+              )}
+            </>
           )}
           {isTabAllowed('inventory') && (
             <button className={`sidebar-btn ${activeTab === 'inventory' ? 'active' : ''}`} onClick={() => setActiveTab('inventory')}>
@@ -732,6 +740,8 @@ export default function AdminPanel({
           {key:'popsicles',name:'Paletas',items:popsicles,update:onUpdatePopsicles},
           {key:'packs',name:'Packs',items:packs,update:onUpdatePacks}
         ]} />}
+        {activeTab === 'ordertaker' && <OrderTaker catalog={catalog} onPlaceOrder={onPlaceOrder} showAlert={showAlert} />}
+
         {(activeTab === 'orders' || activeTab === 'surveys') && (
           <OrderManager
             orders={orders}

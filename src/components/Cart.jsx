@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import CartItemPreview from './CartItemPreview';
+import DessertPreview from './DessertPreview';
 import { generateOrderId } from '../utils/orderId';
 
 export default function Cart({ 
@@ -46,7 +47,8 @@ export default function Cart({
   const [address, setAddress] = useState(() => localStorage.getItem('last_customer_address') || '');
   const [paymentMethod, setPaymentMethod] = useState('Yape'); // Yape, Plin, Efectivo
   const [isSubmitting, setIsSubmitting] = useState(false);
-  const [sendToWhatsApp, setSendToWhatsApp] = useState(true);
+  const [sendToWhatsApp, setSendToWhatsApp] = useState(shopConfig?.defaultWhatsAppEnabled ?? false);
+  const [showValidationModal, setShowValidationModal] = useState(false);
 
   // Módulo de Mesas
   const [orderType, setOrderType] = useState(() => {
@@ -134,13 +136,20 @@ export default function Cart({
 
 
   const handleSubmit = async (e) => {
-    e.preventDefault();
+    if (e) e.preventDefault();
     if (isSubmitting) return;
     
     if (cart.length === 0) {
       alert("El carrito está vacío.");
       return;
     }
+
+    const hasCustomItems = cart.some(item => item.type === 'custom');
+    if (hasCustomItems && !showValidationModal) {
+      setShowValidationModal(true);
+      return;
+    }
+
     const cleanAddress = address.replace(/<[^>]*>/g, '').trim();
     let finalAddress = cleanAddress;
     if (orderType === 'Mesa') {
@@ -778,6 +787,67 @@ export default function Cart({
         </div>
 
       </div>
+
+      {showValidationModal && (
+        <div style={{
+          position: 'fixed', top: 0, left: 0, right: 0, bottom: 0,
+          backgroundColor: 'rgba(0, 0, 0, 0.75)',
+          display: 'flex', alignItems: 'center', justifyContent: 'center',
+          zIndex: 100000, padding: '20px', backdropFilter: 'blur(5px)'
+        }}>
+          <div className="glass" style={{
+            background: 'var(--bg-color)',
+            borderRadius: '24px', padding: '24px', width: '100%', maxWidth: '450px',
+            maxHeight: '90vh', overflowY: 'auto', textAlign: 'center'
+          }}>
+            <h3 style={{ fontSize: '1.4rem', color: 'var(--primary-color)', marginBottom: '10px' }}>🔍 Verifica tu diseño</h3>
+            <p style={{ fontSize: '0.9rem', color: 'var(--text-light)', marginBottom: '15px' }}>
+              Asegúrate de haber elegido todos los sabores y toppings que deseas antes de enviarlo.
+            </p>
+            
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '15px', marginBottom: '20px' }}>
+              {cart.filter(item => item.type === 'custom').map((item, idx) => (
+                <div key={idx} style={{ border: '1px solid var(--border-color)', borderRadius: '12px', padding: '10px' }}>
+                  <strong style={{ fontSize: '0.9rem', display: 'block', marginBottom: '8px' }}>{item.name}</strong>
+                  <div style={{ width: '120px', height: '160px', margin: '0 auto' }}>
+                    <DessertPreview 
+                      base={item.base}
+                      scoops={item.scoops}
+                      toppings={item.toppings}
+                      syrup={item.syrup}
+                    />
+                  </div>
+                  <div style={{ fontSize: '0.8rem', color: 'var(--text-light)', marginTop: '8px' }}>
+                    Sabores: {item.scoops.map(s => s.name).join(', ')}<br/>
+                    {item.toppings.length > 0 && <>Toppings: {item.toppings.map(t => t.name).join(', ')}<br/></>}
+                    {item.syrup && <>Salsa: {item.syrup.name}</>}
+                  </div>
+                </div>
+              ))}
+            </div>
+
+            <div style={{ display: 'flex', gap: '10px', flexDirection: 'column' }}>
+              <button 
+                className="btn btn-primary"
+                onClick={(e) => {
+                  setShowValidationModal(false);
+                  handleSubmit(e);
+                }}
+                style={{ padding: '12px', fontSize: '1rem', width: '100%' }}
+              >
+                ✅ Sí, ¡es lo que quiero!
+              </button>
+              <button 
+                className="btn btn-secondary"
+                onClick={() => setShowValidationModal(false)}
+                style={{ padding: '10px', fontSize: '0.9rem', width: '100%', backgroundColor: 'transparent', color: 'var(--text-light)' }}
+              >
+                ✏️ Corregir / Volver
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

@@ -380,7 +380,8 @@ export default function App() {
       sunday: { enabled: true, open: '09:00', close: '22:00' }
     },
     tableOrdersEnabled: true,
-    waiterTakerEnabled: true
+    waiterTakerEnabled: true,
+    defaultWhatsAppEnabled: false
   };
 
   const [shopConfig, setShopConfig] = useState(() => {

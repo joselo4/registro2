@@ -1022,6 +1022,23 @@ export default function SettingsManager({
           </label>
         </div>
 
+        {/* WhatsApp Toggle por defecto */}
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderBottom: '1px solid var(--border-color)', paddingBottom: '10px' }}>
+          <div>
+            <strong style={{ display: 'block' }}>Redirigir a WhatsApp por defecto</strong>
+            <span style={{ fontSize: '0.75rem', color: 'var(--text-light)', display: 'block' }}>Si está activo, el checkbox del carrito para enviar mensaje por WhatsApp estará marcado.</span>
+          </div>
+          <label className="toggle-switch" htmlFor="whatsapp-enabled-input">
+            <input
+              id="whatsapp-enabled-input"
+              type="checkbox"
+              checked={localShopConfig.defaultWhatsAppEnabled === true}
+              onChange={(e) => setLocalShopConfig(prev => ({ ...prev, defaultWhatsAppEnabled: e.target.checked }))}
+            />
+            <span className="slider"></span>
+          </label>
+        </div>
+
         {/* Envío Gratis */}
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderBottom: '1px solid var(--border-color)', paddingBottom: '10px' }}>
           <div>

@@ -120,3 +120,42 @@
  .atelier-flavors{gap:8px}.atelier-flavor{padding:9px}.atelier-flavor h3{font-size:.67rem}.atelier-flavor-tools input{flex:1;min-width:110px}.atelier-checkout{position:sticky;bottom:70px;background:var(--bg-secondary);padding:15px 0 5px;z-index:5}.atelier-checkout>button{padding:15px 16px;gap:12px;font-size:.74rem}
  .atelier-topping{grid-template-columns:38px 1fr;padding-left:7px;column-gap:5px}.topping-photo{width:38px;height:42px}.atelier-topping strong{font-size:.63rem}.atelier-preset-list{grid-template-columns:1fr}.atelier-inspiration{margin-top:30px}
 }
+/* Sticky and Pulsing Buttons */
+.atelier-step-actions {
+  position: sticky;
+  bottom: 0px;
+  background: var(--bg-color);
+  padding: 15px 5px !important;
+  z-index: 99;
+  border-top: 1px solid var(--border-color);
+  box-shadow: 0 -5px 15px rgba(0,0,0,0.05);
+  margin-top: 20px;
+}
+
+@media (max-width: 950px) {
+  .atelier-step-actions {
+    bottom: 60px;
+  }
+}
+
+.atelier-next, .atelier-checkout>button {
+  background-color: var(--primary-color) !important;
+  color: white !important;
+  font-weight: 800 !important;
+  font-size: 1rem !important;
+  padding: 15px 25px !important;
+  border-radius: 50px !important;
+  animation: pulseButton 2s infinite !important;
+  transition: transform 0.2s;
+  box-shadow: 0 4px 15px rgba(167, 53, 75, 0.4);
+}
+
+.atelier-next:hover, .atelier-checkout>button:hover {
+  transform: scale(1.05);
+}
+
+@keyframes pulseButton {
+  0% { box-shadow: 0 0 0 0 rgba(167, 53, 75, 0.7); }
+  70% { box-shadow: 0 0 0 10px rgba(167, 53, 75, 0); }
+  100% { box-shadow: 0 0 0 0 rgba(167, 53, 75, 0); }
+}
