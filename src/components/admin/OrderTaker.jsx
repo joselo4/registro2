@@ -13,7 +13,8 @@ export default function OrderTaker({ catalog, onPlaceOrder, showAlert }) {
       type: 'custom',
       base: base,
       scoops: [],
-      toppings: []
+      toppings: [],
+      overridePrice: ''
     });
   };
 
@@ -41,6 +42,9 @@ export default function OrderTaker({ catalog, onPlaceOrder, showAlert }) {
 
   const calculateActivePrice = () => {
     if (!activeIceCream) return 0;
+    if (activeIceCream.overridePrice !== '' && !isNaN(activeIceCream.overridePrice)) {
+       return Number(activeIceCream.overridePrice);
+    }
     const basePrice = Number(activeIceCream.base.price || 0);
     const scoopsPrice = activeIceCream.scoops.reduce((sum, f) => sum + Number(f.price || 0), 0);
     const toppingsPrice = activeIceCream.toppings.reduce((sum, t) => sum + Number(t.price || 0), 0);
@@ -66,8 +70,12 @@ export default function OrderTaker({ catalog, onPlaceOrder, showAlert }) {
     if (showAlert) showAlert('Añadido', item.name + ' añadido a la cuenta.', 'success');
   };
 
+  const handleEditItemPrice = (index, newPrice) => {
+    setCart(prev => prev.map((item, i) => i === index ? { ...item, price: newPrice } : item));
+  };
+
   const calculateTotal = () => {
-    return cart.reduce((sum, item) => sum + (Number(item.price) * item.quantity), 0).toFixed(2);
+    return cart.reduce((sum, item) => sum + (Number(item.price || 0) * item.quantity), 0).toFixed(2);
   };
 
   const handleRemoveItem = (index) => {
@@ -80,6 +88,13 @@ export default function OrderTaker({ catalog, onPlaceOrder, showAlert }) {
       return;
     }
     
+    const computedTotal = Number(calculateTotal());
+    if (computedTotal === 0) {
+      if (!window.confirm('⚠️ El monto total de este pedido es S/. 0.00. ¿Estás seguro de registrarlo como un pedido gratuito o de cortesía?')) {
+        return;
+      }
+    }
+
     const orderId = generateOrderId();
     const newOrder = {
       id: orderId,
@@ -89,12 +104,12 @@ export default function OrderTaker({ catalog, onPlaceOrder, showAlert }) {
         address: orderType === 'Barra' ? 'Atención en Barra' : 'Atención en Mesa',
       },
       items: cart,
-      total: Number(calculateTotal()),
+      total: computedTotal,
       deliveryFee: 0,
-      grandTotal: Number(calculateTotal()),
+      grandTotal: computedTotal,
       status: 'Aceptado',
       date: new Date().toISOString(),
-      paymentMethod: 'Efectivo',
+      paymentMethod: computedTotal === 0 ? 'Cortesía/Gratis' : 'Efectivo',
       orderType: orderType,
       isOperator: true
     };
@@ -135,8 +150,20 @@ export default function OrderTaker({ catalog, onPlaceOrder, showAlert }) {
                 {activeIceCream.scoops.map((f, i) => <li key={i}>Sabor: {f.name} (S/. {Number(f.price).toFixed(2)})</li>)}
                 {activeIceCream.toppings.map((t, i) => <li key={i}>Topping: {t.name} (S/. {Number(t.price).toFixed(2)})</li>)}
               </ul>
-              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                <span style={{ fontWeight: 'bold' }}>Subtotal: S/. {calculateActivePrice().toFixed(2)}</span>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: '10px' }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                  <span style={{ fontWeight: 'bold', fontSize: '0.85rem' }}>Precio S/.</span>
+                  <input 
+                    type="number" 
+                    step="0.10" 
+                    min="0"
+                    style={{ width: '70px', padding: '4px' }} 
+                    className="form-control"
+                    placeholder={calculateActivePrice().toFixed(2)}
+                    value={activeIceCream.overridePrice !== undefined ? activeIceCream.overridePrice : ''}
+                    onChange={(e) => setActiveIceCream(prev => ({ ...prev, overridePrice: e.target.value }))}
+                  />
+                </div>
                 <button className="btn btn-primary" style={{ padding: '6px 12px', fontSize: '0.8rem' }} onClick={handleAddActiveToCart}>Añadir a la Cuenta</button>
               </div>
             </div>
@@ -152,11 +179,20 @@ export default function OrderTaker({ catalog, onPlaceOrder, showAlert }) {
             <ul style={{ listStyle: 'none', padding: 0, margin: '10px 0', fontSize: '0.85rem', maxHeight: '250px', overflowY: 'auto' }}>
               {cart.map((item, idx) => (
                 <li key={idx} style={{ display: 'flex', flexDirection: 'column', padding: '8px 0', borderBottom: '1px dashed var(--border-color)' }}>
-                  <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                     <span style={{ fontWeight: 'bold' }}>{item.quantity}x {item.name}</span>
-                    <div style={{ display: 'flex', gap: '10px', alignItems: 'center' }}>
-                      <strong>S/. {(Number(item.price) * item.quantity).toFixed(2)}</strong>
-                      <button onClick={() => handleRemoveItem(idx)} style={{ background: 'none', border: 'none', color: 'red', cursor: 'pointer', padding: 0, fontSize: '1rem' }}>×</button>
+                    <div style={{ display: 'flex', gap: '5px', alignItems: 'center' }}>
+                      <span style={{ fontSize: '0.75rem', color: 'var(--text-light)' }}>S/.</span>
+                      <input 
+                        type="number"
+                        step="0.10"
+                        min="0"
+                        className="form-control"
+                        style={{ width: '65px', padding: '2px 4px', fontSize: '0.85rem', height: 'auto' }}
+                        value={item.price}
+                        onChange={(e) => handleEditItemPrice(idx, e.target.value)}
+                      />
+                      <button onClick={() => handleRemoveItem(idx)} style={{ background: 'none', border: 'none', color: 'red', cursor: 'pointer', padding: '0 4px', fontSize: '1.2rem', fontWeight: 'bold' }}>×</button>
                     </div>
                   </div>
                   {item.type === 'custom' && (
