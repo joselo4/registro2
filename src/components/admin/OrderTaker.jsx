@@ -2,13 +2,13 @@ import React, { useState } from 'react';
 import { generateOrderId } from '../../utils/orderId';
 
 export default function OrderTaker({ catalog, onPlaceOrder, showAlert }) {
-  const { bases = [], flavors = [], toppings = [] } = catalog || {};
+  const { bases = [], flavors = [], toppings = [], packs = [], popsicles = [], literConfig = {} } = catalog || {};
   const [cart, setCart] = useState([]);
   const [customerName, setCustomerName] = useState('');
   const [orderType, setOrderType] = useState('Barra');
 
   const handleAddQuickItem = (item) => {
-    setCart(prev => [...prev, { ...item, quantity: 1, type: 'standard' }]);
+    setCart(prev => [...prev, { ...item, quantity: 1 }]);
     if (showAlert) showAlert('Añadido', item.name + ' añadido a la cuenta.', 'success');
   };
 
@@ -86,16 +86,40 @@ export default function OrderTaker({ catalog, onPlaceOrder, showAlert }) {
       <div style={{ flex: '2 1 400px' }}>
         <h2 style={{ fontSize: '1.2rem', marginBottom: '15px' }}>Catálogo Rápido</h2>
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(140px, 1fr))', gap: '10px' }}>
-          {flavors.map(f => (
-            <button key={f.id} style={{ padding: '10px', background: 'var(--bg-primary)', border: '1px solid var(--border-color)', borderRadius: '8px', cursor: 'pointer', textAlign: 'center' }} onClick={() => handleAddQuickItem({ id: f.id, name: 'Porción: ' + f.name, price: f.price })}>
-              <span style={{ display: 'block', fontWeight: 600, fontSize: '0.85rem', marginBottom: '5px' }}>{f.name}</span>
-              <span style={{ color: 'var(--primary-color)', fontSize: '0.8rem' }}>S/. {f.price}</span>
+          {literConfig?.active !== false && (
+             <button style={{ padding: '10px', background: 'var(--bg-primary)', border: '1px solid var(--border-color)', borderRadius: '8px', cursor: 'pointer', textAlign: 'center' }} onClick={() => handleAddQuickItem({ id: 'liter', type: 'liter', name: 'Helado 1 Litro', price: literConfig?.price || 15.0 })}>
+               <span style={{ display: 'block', fontWeight: 600, fontSize: '0.85rem', marginBottom: '5px' }}>🍨 Litro Familiar</span>
+               <span style={{ color: 'var(--primary-color)', fontSize: '0.8rem' }}>S/. {Number(literConfig?.price || 15.0).toFixed(2)}</span>
+             </button>
+          )}
+          {packs.filter(p => p.active !== false).map(p => (
+            <button key={p.id} style={{ padding: '10px', background: 'var(--bg-primary)', border: '1px solid var(--border-color)', borderRadius: '8px', cursor: 'pointer', textAlign: 'center' }} onClick={() => handleAddQuickItem({ id: p.id, type: 'pack', name: 'Pack: ' + p.name, price: p.price })}>
+              <span style={{ display: 'block', fontWeight: 600, fontSize: '0.85rem', marginBottom: '5px' }}>🎁 {p.name}</span>
+              <span style={{ color: 'var(--primary-color)', fontSize: '0.8rem' }}>S/. {Number(p.price).toFixed(2)}</span>
             </button>
           ))}
-          {toppings.map(t => (
-            <button key={t.id} style={{ padding: '10px', background: 'var(--bg-primary)', border: '1px solid var(--border-color)', borderRadius: '8px', cursor: 'pointer', textAlign: 'center' }} onClick={() => handleAddQuickItem({ id: t.id, name: 'Topping: ' + t.name, price: t.price })}>
+          {popsicles.filter(p => p.active !== false).map(p => (
+            <button key={p.id} style={{ padding: '10px', background: 'var(--bg-primary)', border: '1px solid var(--border-color)', borderRadius: '8px', cursor: 'pointer', textAlign: 'center' }} onClick={() => handleAddQuickItem({ id: p.id, type: 'popsicle', name: 'Paleta: ' + p.name, price: p.price })}>
+              <span style={{ display: 'block', fontWeight: 600, fontSize: '0.85rem', marginBottom: '5px' }}>🍦 {p.name}</span>
+              <span style={{ color: 'var(--primary-color)', fontSize: '0.8rem' }}>S/. {Number(p.price).toFixed(2)}</span>
+            </button>
+          ))}
+          {flavors.filter(f => f.active !== false).map(f => (
+            <button key={f.id} style={{ padding: '10px', background: 'var(--bg-primary)', border: '1px solid var(--border-color)', borderRadius: '8px', cursor: 'pointer', textAlign: 'center' }} onClick={() => handleAddQuickItem({ id: f.id, type: 'standard', name: 'Porción: ' + f.name, price: f.price })}>
+              <span style={{ display: 'block', fontWeight: 600, fontSize: '0.85rem', marginBottom: '5px' }}>{f.name}</span>
+              <span style={{ color: 'var(--primary-color)', fontSize: '0.8rem' }}>S/. {Number(f.price).toFixed(2)}</span>
+            </button>
+          ))}
+          {bases.filter(b => b.active !== false).map(b => (
+            <button key={b.id} style={{ padding: '10px', background: 'var(--bg-primary)', border: '1px solid var(--border-color)', borderRadius: '8px', cursor: 'pointer', textAlign: 'center' }} onClick={() => handleAddQuickItem({ id: b.id, type: 'standard', name: 'Envase: ' + b.name, price: b.price || 0 })}>
+              <span style={{ display: 'block', fontWeight: 600, fontSize: '0.85rem', marginBottom: '5px' }}>{b.name}</span>
+              <span style={{ color: 'var(--primary-color)', fontSize: '0.8rem' }}>S/. {Number(b.price || 0).toFixed(2)}</span>
+            </button>
+          ))}
+          {toppings.filter(t => t.active !== false).map(t => (
+            <button key={t.id} style={{ padding: '10px', background: 'var(--bg-primary)', border: '1px solid var(--border-color)', borderRadius: '8px', cursor: 'pointer', textAlign: 'center' }} onClick={() => handleAddQuickItem({ id: t.id, type: 'standard', name: 'Topping: ' + t.name, price: t.price })}>
               <span style={{ display: 'block', fontWeight: 600, fontSize: '0.85rem', marginBottom: '5px' }}>{t.name}</span>
-              <span style={{ color: 'var(--primary-color)', fontSize: '0.8rem' }}>S/. {t.price}</span>
+              <span style={{ color: 'var(--primary-color)', fontSize: '0.8rem' }}>S/. {Number(t.price).toFixed(2)}</span>
             </button>
           ))}
         </div>
