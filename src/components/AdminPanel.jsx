@@ -1,16 +1,16 @@
 /* eslint-disable react-hooks/set-state-in-effect */
-import { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, Suspense } from 'react';
 import { supabase } from '../utils/supabaseClient';
 import { updateSyncedData } from '../utils/supabaseSync';
-import SettingsManager from './admin/SettingsManager';
-import InventoryManager from './admin/InventoryManager';
-import FinanceManager from './admin/FinanceManager';
-import OrderManager from './admin/OrderManager';
-import DashboardView from './admin/DashboardView';
-import OperationsCenter from './admin/OperationsCenter';
-import UserManager from './admin/UserManager';
-import TableOrderManager from './admin/TableOrderManager';
-import OrderTaker from './admin/OrderTaker';
+const SettingsManager = React.lazy(() => import('./admin/SettingsManager'));
+const InventoryManager = React.lazy(() => import('./admin/InventoryManager'));
+const FinanceManager = React.lazy(() => import('./admin/FinanceManager'));
+const OrderManager = React.lazy(() => import('./admin/OrderManager'));
+const DashboardView = React.lazy(() => import('./admin/DashboardView'));
+const OperationsCenter = React.lazy(() => import('./admin/OperationsCenter'));
+const UserManager = React.lazy(() => import('./admin/UserManager'));
+const TableOrderManager = React.lazy(() => import('./admin/TableOrderManager'));
+const OrderTaker = React.lazy(() => import('./admin/OrderTaker'));
 import CartLocationsView from './CartLocationsView';
 
 // --- FUNCIONES DE SANITIZACIÃ“N Y SEGURIDAD ---
@@ -734,7 +734,8 @@ export default function AdminPanel({
 
       {/* Contenido de pestaÃ±a activa */}
       <div className="admin-content">
-        {activeTab === 'operations' && isAdminUser(currentUser) && <OperationsCenter orders={orders} salesGoal={salesGoal} shopOpen={shopOpen} onNavigate={setActiveTab} onUpdateOrderStatus={onUpdateOrderStatus} groups={[
+          <Suspense fallback={<div style={{ padding: '40px', textAlign: 'center', color: 'var(--text-light)' }}>Cargando módulo...</div>}>
+          {activeTab === 'operations' && isAdminUser(currentUser) && <OperationsCenter orders={orders} salesGoal={salesGoal} shopOpen={shopOpen} onNavigate={setActiveTab} onUpdateOrderStatus={onUpdateOrderStatus} groups={[
           {key:'flavors',name:'Sabores',items:flavors,update:onUpdateFlavors},
           {key:'bases',name:'Envases',items:bases,update:onUpdateBases},
           {key:'toppings',name:'Toppings y salsas',items:toppings,update:onUpdateToppings},
@@ -949,6 +950,7 @@ export default function AdminPanel({
             packs={packs}
           />
         )}
+          </Suspense>
       </div>
 
       {/* Panel Flotante Persistente para Llamados de AtenciÃ³n en Mesa */}
