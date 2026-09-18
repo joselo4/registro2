@@ -5,11 +5,41 @@ import DessertPreview, {BasePhoto} from '../src/components/DessertPreview.jsx';
 import CartItemPreview from '../src/components/CartItemPreview.jsx';
 import IceCreamCustomizer from '../src/components/IceCreamCustomizer.jsx';
 import OperationsCenter from '../src/components/admin/OperationsCenter.jsx';
+import PromotionBanner from '../src/components/PromotionBanner.jsx';
+import PromotionEditor from '../src/components/admin/PromotionEditor.jsx';
+import WelcomePromotion from '../src/components/WelcomePromotion.jsx';
+
+test('welcome announcement respects activation, schedule and loading state', () => {
+  for (const props of [{promotion:{enabled:false}}, {promotion:{showWelcome:false}}, {ready:false}, {promotion:{endsAt:'2000-01-01T00:00:00Z'}}]) {
+    assert.equal(renderToStaticMarkup(<WelcomePromotion {...props} />), '');
+  }
+  const html = renderToStaticMarkup(<WelcomePromotion promotion={{offerLabel:'2×1', originalPrice:'S/ 20', salePrice:'S/ 10'}} />);
+  assert.ok(html.includes('<dialog'));
+  assert.ok(html.includes('Cerrar promoción'));
+  assert.ok(html.includes('2×1'));
+  assert.ok(html.includes('<s>S/ 20</s>'));
+  assert.ok(html.includes('S/ 10'));
+});
+
+test('banner renders customer content safely and respects disabled state', () => {
+  assert.equal(renderToStaticMarkup(<PromotionBanner promotion={{enabled:false}} />), '');
+  const html = renderToStaticMarkup(<PromotionBanner promotion={{title:'<script>oferta</script>', image:'', coupon:'HELADO', action:'link', link:'https://example.com/oferta'}} />);
+  assert.ok(html.includes('&lt;script&gt;oferta&lt;/script&gt;'));
+  assert.ok(html.includes('href="https://example.com/oferta"'));
+  assert.ok(html.includes('HELADO')); assert.ok(!html.includes('class="promotion-image"'));
+});
+test('editor keeps incomplete input editable while preview normalizes it', () => {
+  const html = renderToStaticMarkup(<PromotionEditor value={{image:'https://', titleSize:'', enabled:false}} onChange={()=>{}} onUpload={()=>{}} />);
+  assert.ok(html.includes('value="https://"'));
+  assert.ok(html.includes('Banner de ofertas y promociones'));
+  assert.ok(html.includes('Promoción destacada'));
+  assert.ok(!html.includes('src="https://"'));
+});
 test('all 20 container and scoop combinations render with toppings',()=>{
   for(const id of ['cono','cono-artesanal','vaso','waffle']) for(let count=1;count<=5;count++) {
     const html=renderToStaticMarkup(<DessertPreview base={{id,name:id}} scoops={Array.from({length:count},(_,i)=>({id:`fresa${i}`,name:'Fresa'}))} toppings={[{id:'chispas'},{id:'oreo'},{id:'mani'},{id:'gomitas'}]} syrup={{id:'fudge'}} />);
     assert.ok(!html.includes('NaN'));assert.ok(!html.includes('undefined'));
-    assert.ok(html.includes('toppings-artisan.png'));assert.ok(html.includes('role="img"'));
+    assert.ok(html.includes('toppings-artisan.webp'));assert.ok(html.includes('role="img"'));
   }
 });
 test('multiple previews do not share SVG filter IDs',()=>{
@@ -26,7 +56,7 @@ test('cart renders the full saved creation, even when the base has its own uploa
   const item={type:'custom',base:{id:'waffle',name:'Copa waffle',image:'/old-container-only.png'},scoops:Array.from({length:5},(_,i)=>({id:`flavor-${i}`,name:`Sabor ${i+1}`})),toppings:[{id:'oreo',name:'Oreo'}],syrup:null};
   item.syrup={id:'fudge',name:'Fudge'};
   const html=renderToStaticMarkup(<CartItemPreview item={item}/>);
-  assert.equal([...html.matchAll(/href="\/customizer\/gelato-scoop-neutral.png"/g)].length,5);
+  assert.equal([...html.matchAll(/href="\/customizer\/gelato-scoop-neutral.webp"/g)].length,5);
   assert.ok(html.includes('Oreo'));assert.ok(html.includes('Fudge'));assert.ok(!html.includes('old-container-only'));
   const source=renderToStaticMarkup(<DessertPreview compact {...item}/>);
   assert.equal(html,`<div class="cart-product-preview">${source}</div>`);

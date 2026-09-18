@@ -2,16 +2,32 @@
 <html lang="es">
   <head>
     <meta charset="UTF-8" />
-    <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>🍦</text></svg>" />
+    <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+    <link rel="icon" type="image/webp" href="/logo.webp" />
+    <link rel="icon" type="image/x-icon" href="/favicon.ico" />
+    <link rel="apple-touch-icon" href="/apple-touch-icon.png" />
+    <link rel="apple-touch-icon" type="image/webp" href="/apple-touch-icon.webp" />
+    <link rel="manifest" href="/manifest.webmanifest" />
+
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <meta name="description" content="Friozo: helados artesanales, paletas y combinaciones personalizadas desde S/. 1.50. Pide por WhatsApp o directamente desde nuestra web." />
-    <meta name="keywords" content="helados artesanales, delivery de helados, helados personalizados, paletas artesanales, yape, plin, efectivo" />
+    <meta name="theme-color" content="#ae1641" />
+    <link rel="stylesheet" href="/startup.css" />
+    <meta name="mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-status-bar-style" content="default" />
+    <meta name="apple-mobile-web-app-title" content="Friozo" />
+
+    <title>Friozo | Helados Artesanales, Paletas y Delivery en Andahuaylas</title>
+    <meta name="description" content="Helados artesanales, paletas y combinaciones en Andahuaylas. Pide delivery directo a domicilio o por WhatsApp en Friozo. ¡El sabor que te provoca!" />
+    <meta name="keywords" content="helados artesanales, delivery de helados, helados personalizados, paletas artesanales, Andahuaylas, Apurímac, yape, plin, efectivo" />
     
+    <!-- Local SEO & Geo Targeting -->
+    <meta name="geo.region" content="PE-APU" />
+    <meta name="geo.placename" content="Andahuaylas" />
+    <meta name="geo.position" content="-13.6556;-73.3872" />
+    <meta name="ICBM" content="-13.6556, -73.3872" />
+
     <!-- SEO: Canonical Link -->
     <link rel="canonical" href="https://www.pideanda.com/" />
-
-    <!-- Security fallback for hosts that cannot attach response headers -->
-    <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-inline' https://static.cloudflareinsights.com https://www.googletagmanager.com https://connect.facebook.net; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; img-src 'self' data: https: https://www.facebook.com; font-src 'self' https://fonts.gstatic.com; connect-src 'self' https://*.supabase.co wss://*.supabase.co https://api.telegram.org https://tile.openstreetmap.org https://cloudflareinsights.com https://www.google-analytics.com https://*.google-analytics.com https://*.analytics.google.com https://www.facebook.com; base-uri 'self'; form-action 'self' https://wa.me">
 
     <!-- Local Business SEO Structured Data -->
     <script type="application/ld+json">
@@ -19,11 +35,27 @@
       "@context": "https://schema.org",
       "@type": "IceCreamShop",
       "name": "Friozo",
-      "image": "https://www.pideanda.com/logo.png",
+      "image": "https://www.pideanda.com/logo.webp",
       "@id": "https://www.pideanda.com/#icecreamshop",
       "url": "https://www.pideanda.com/",
       "telephone": "+51989466466",
       "priceRange": "PEN",
+      "currenciesAccepted": "PEN",
+      "servesCuisine": "Helados artesanales, Paletas, Postres",
+      "hasMenu": "https://www.pideanda.com/#catalog",
+      "address": {
+        "@type": "PostalAddress",
+        "streetAddress": "Andahuaylas",
+        "addressLocality": "Andahuaylas",
+        "addressRegion": "Apurímac",
+        "postalCode": "03701",
+        "addressCountry": "PE"
+      },
+      "geo": {
+        "@type": "GeoCoordinates",
+        "latitude": -13.6556,
+        "longitude": -73.3872
+      },
       "openingHoursSpecification": {
         "@type": "OpeningHoursSpecification",
         "dayOfWeek": [
@@ -45,35 +77,50 @@
     }
     </script>
 
-    <!-- Performance: Preconnect resources to speed up page rendering -->
+    <!-- Performance: Preconnect & Preload LCP Hero Image -->
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-
-    <!-- Security: Frame-busting script and style to defend against click-jacking attacks -->
-    <style id="antiClickjack">body{display:none !important;}</style>
-    <script src="/anti-clickjack.js"></script>
+    <link rel="preload" as="image" href="/hero-friozo-v2.webp" type="image/webp" fetchpriority="high" />
+    <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,600..800&family=Manrope:wght@400..800&display=swap" />
 
     <!-- Open Graph / Facebook -->
     <meta property="og:type" content="website" />
     <meta property="og:url" content="https://www.pideanda.com/" />
-    <meta property="og:title" content="Friozo - Helados artesanales, paletas y delivery" />
-    <meta property="og:description" content="Helados cremosos, paletas artesanales y combinaciones personalizadas. Pide por WhatsApp o directamente desde nuestra web." />
+    <meta property="og:title" content="Friozo | Helados Artesanales, Paletas y Delivery en Andahuaylas" />
+    <meta property="og:description" content="Helados artesanales, paletas y combinaciones en Andahuaylas. Pide delivery directo a domicilio o por WhatsApp en Friozo. ¡El sabor que te provoca!" />
     <meta property="og:image" content="https://www.pideanda.com/friozo_og_image.png" />
-    <meta property="og:image:alt" content="Logotipo y helados artesanales de Friozo" />
+    <meta property="og:image:width" content="1200" />
+    <meta property="og:image:height" content="630" />
+    <meta property="og:image:type" content="image/png" />
+    <meta property="og:image:alt" content="Logotipo y helados artesanales de Friozo en Andahuaylas" />
     <meta property="og:locale" content="es_PE" />
     <meta property="og:site_name" content="Friozo" />
 
     <!-- Twitter -->
     <meta name="twitter:card" content="summary_large_image" />
     <meta name="twitter:url" content="https://www.pideanda.com/" />
-    <meta name="twitter:title" content="Friozo - Helados artesanales, paletas y delivery" />
-    <meta name="twitter:description" content="Helados cremosos, paletas artesanales y combinaciones personalizadas. Pide por WhatsApp o directamente desde nuestra web." />
+    <meta name="twitter:title" content="Friozo | Helados Artesanales, Paletas y Delivery en Andahuaylas" />
+    <meta name="twitter:description" content="Helados artesanales, paletas y combinaciones en Andahuaylas. Pide delivery directo a domicilio o por WhatsApp en Friozo. ¡El sabor que te provoca!" />
     <meta name="twitter:image" content="https://www.pideanda.com/friozo_og_image.png" />
-
-    <title>Friozo - Helados artesanales, paletas y delivery</title>
   </head>
   <body>
-    <div id="root"></div>
+    <noscript>
+      <div style="padding: 2rem; text-align: center; font-family: sans-serif; background: #fff8f0; color: #333;">
+        <h1>¡Bienvenido a Friozo - Helados Artesanales en Andahuaylas!</h1>
+        <p>Para personalizar tus helados y realizar pedidos en línea, por favor activa JavaScript en tu navegador o contáctanos directamente por WhatsApp al <a href="https://wa.me/51989466466" style="color: #e55039; font-weight: bold;">+51 989 466 466</a>.</p>
+      </div>
+    </noscript>
+
+    <div id="root">
+      <main class="friozo-startup" aria-labelledby="startup-title">
+        <img src="/hero-friozo-v2.webp" alt="Helado artesanal Friozo" width="180" height="240" />
+        <h1 id="startup-title">FRIOZO</h1>
+        <p id="startup-status" role="status">Estamos preparando tu tienda…</p>
+        <button id="startup-retry" type="button" hidden>Volver a cargar la tienda</button>
+      </main>
+    </div>
+    <script src="/startup.js"></script>
+
     <script type="module" src="/src/main.jsx"></script>
   </body>
 </html>

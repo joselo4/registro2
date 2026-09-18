@@ -23,3 +23,91 @@
 .ops-stock-form label{display:flex;flex-direction:column;gap:7px;font-size:.64rem;color:var(--text-light)}.ops-stock-form select,.ops-stock-form input{width:100%;min-width:0;padding:9px;font-size:.7rem}.ops-stock-form>div{display:grid;grid-template-columns:1fr 1fr auto;gap:8px;align-items:end;margin-top:12px}.ops-stock-form button{background:var(--primary-color);border:0;color:var(--bg-secondary);padding:11px 12px;border-radius:8px;font-size:.65rem}.ops-stock-alerts>div{display:flex;justify-content:space-between;gap:10px;padding:12px 0;border-bottom:1px solid var(--border-color)}.ops-stock-alerts strong{display:block;font-size:.7rem}.ops-stock-alerts small{display:block;font-size:.61rem;color:var(--text-light);margin-top:5px}.ops-stock-alerts button{border:0;background:none;color:var(--primary-color);font-size:.62rem}.ops-feedback{position:sticky;bottom:18px;background:var(--heading-color);color:var(--bg-primary);font-size:.74rem;border-radius:12px;padding:13px 18px;box-shadow:var(--shadow-md)}.ops-feedback:empty{display:none}
 @media(max-width:1150px){.ops-kpis{grid-template-columns:repeat(2,minmax(0,1fr))}.ops-grid{grid-template-columns:1fr}.ops-heading{flex-wrap:wrap}.ops-heading h1{font-size:2.2rem}}
 @media(max-width:560px){.ops-heading h1{font-size:2rem}.ops-panel{padding:16px}.ops-status{flex-wrap:wrap}.ops-status button{margin-left:0}.ops-goal{flex-wrap:wrap;padding:15px}.ops-goal progress{min-width:80px}.ops-stock-form>div{grid-template-columns:1fr 1fr}.ops-stock-form button{grid-column:1/-1}.ops-feedback{bottom:78px}.ops-kpis strong{font-size:1.6rem}}
+
+/* ─── ESTILOS VISUALES DELIVERY RECONOCIDO (#FF441F) ─── */
+:root {
+  --delivery-color: #FF441F;
+  --delivery-color-hover: #e03816;
+  --delivery-bg: rgba(255, 68, 31, 0.12);
+  --delivery-border: rgba(255, 68, 31, 0.38);
+}
+
+.badge-delivery {
+  background: var(--delivery-bg) !important;
+  color: var(--delivery-color) !important;
+  border: 1px solid var(--delivery-border) !important;
+  font-weight: 700;
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 3px 8px;
+  border-radius: 20px;
+  font-size: 0.72rem;
+  letter-spacing: 0.02em;
+}
+
+.delivery-card-accent {
+  border-left: 4px solid var(--delivery-color) !important;
+}
+
+.delivery-btn-primary {
+  background: linear-gradient(135deg, #FF441F 0%, #FF6036 100%) !important;
+  color: #ffffff !important;
+  border: none !important;
+  font-weight: bold;
+  box-shadow: 0 4px 12px rgba(255, 68, 31, 0.35) !important;
+  transition: transform 0.15s ease, box-shadow 0.15s ease;
+}
+.delivery-btn-primary:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 6px 16px rgba(255, 68, 31, 0.45) !important;
+}
+
+/* ─── KDS PANTALLA TÁCTIL Y SEMÁFORO DE COCINA ─── */
+.kds-card {
+  background: var(--bg-secondary);
+  border: 1px solid var(--border-color);
+  border-radius: 16px;
+  padding: 16px;
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  gap: 12px;
+  box-shadow: var(--shadow-sm);
+  transition: all 0.2s ease;
+}
+.kds-card.urgent {
+  border-color: #e74c3c;
+  box-shadow: 0 0 14px rgba(231, 76, 60, 0.35);
+  animation: kds-pulse 1.8s infinite;
+}
+.kds-timer-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 4px 10px;
+  border-radius: 20px;
+  font-size: 0.75rem;
+  font-weight: 800;
+  font-family: monospace;
+}
+.kds-timer-normal {
+  background: rgba(46, 204, 113, 0.15);
+  color: #27ae60;
+  border: 1px solid rgba(46, 204, 113, 0.4);
+}
+.kds-timer-warning {
+  background: rgba(243, 156, 18, 0.18);
+  color: #d35400;
+  border: 1px solid rgba(243, 156, 18, 0.5);
+}
+.kds-timer-urgent {
+  background: rgba(231, 76, 60, 0.2);
+  color: #c0392b;
+  border: 1px solid rgba(231, 76, 60, 0.6);
+}
+@keyframes kds-pulse {
+  0% { transform: scale(1); }
+  50% { transform: scale(1.015); border-color: #e74c3c; }
+  100% { transform: scale(1); }
+}

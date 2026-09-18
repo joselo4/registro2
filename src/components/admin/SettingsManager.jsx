@@ -1,8 +1,12 @@
 import React, { useState, useEffect } from 'react';
 import { supabase } from '../../utils/supabaseClient';
-import { uploadToR2 } from '../../utils/r2Client';
+import { uploadToR2, compressToWebP } from '../../utils/r2Client';
 import { updateMultipleSyncedData } from '../../utils/supabaseSync';
 import { DEFAULT_SMS_TEMPLATES, ORDER_STATUSES, normalizeSmsTemplates } from '../../utils/orderMessaging';
+import PaymentMethodsSettings from './PaymentMethodsSettings';
+import PromotionEditor from './PromotionEditor';
+import { DEFAULT_PROMOTION, DEFAULT_POPUP_PROMOTION, DEFAULT_WEB_PROMOTION, normalizePromotion, validatePromotion } from '../../utils/promotion';
+import { sendDailySalesReportToTelegram } from '../../utils/telegramDailyReport';
 
 // --- FUNCIONES DE SANITIZACIÓN ---
 const sanitizeHTML = (text) => {
@@ -202,6 +206,9 @@ export default function SettingsManager({
   }, [literConfig]);
 
   const handleSaveSettings = () => {
+    const promotion = normalizePromotion(localShopConfig.promotion);
+    const promotionError = validatePromotion({ ...DEFAULT_PROMOTION, ...localShopConfig.promotion });
+    if (promotionError) { alert(promotionError); return; }
     // Sanitizar URLs para evitar enlaces HTTP inseguros (mixed content) en HTTPS
     const sanitizedLogo = localStoreLogo.toLowerCase().startsWith('http') ? sanitizeUrlToHTTPS(localStoreLogo) : localStoreLogo.trim();
     const sanitizedFavicon = localStoreFavicon.toLowerCase().startsWith('http') ? sanitizeUrlToHTTPS(localStoreFavicon) : localStoreFavicon.trim();
@@ -248,6 +255,7 @@ export default function SettingsManager({
     if (onChangeShopConfig) {
       onChangeShopConfig({
         ...localShopConfig,
+        promotion,
         smsTemplates: normalizeSmsTemplates(localShopConfig.smsTemplates)
       });
     }
@@ -511,6 +519,28 @@ export default function SettingsManager({
     }
   };
 
+  const [sendingManualTelegramReport, setSendingManualTelegramReport] = useState(false);
+
+  const handleSendTelegramSummaryNow = async () => {
+    setSendingManualTelegramReport(true);
+    try {
+      const res = await sendDailySalesReportToTelegram({
+        orders: orders || [],
+        storeName: localStoreName || storeName || 'Friozo'
+      });
+      if (res.success) {
+        alert("¡Reporte diario de ventas enviado con éxito a Telegram! 🚀");
+        if (addLog) addLog(`Reporte manual de ventas enviado a Telegram por ${currentUser?.name || 'Administrador'}.`);
+      } else {
+        alert(`Error al enviar reporte a Telegram: ${res.error || 'Respuesta no exitosa'}`);
+      }
+    } catch (e) {
+      alert(`Error al enviar reporte: ${e.message || e}`);
+    } finally {
+      setSendingManualTelegramReport(false);
+    }
+  };
+
   const handleExportAuditoryLog = () => {
     const header = `=== REPORTE DE BITÁCORA DE AUDITORÍA - ${storeName.toUpperCase()} ===\nGenerado: ${new Date().toLocaleString('es-PE')}\n\n`;
     const logsText = logs.map(l => `[${l.time}] ${l.text}`).join('\n');
@@ -606,7 +636,9 @@ export default function SettingsManager({
           if (data.toppings && onUpdateToppings) onUpdateToppings(data.toppings);
           if (data.bases && onUpdateBases) onUpdateBases(data.bases);
           if (data.packs && onUpdatePacks) onUpdatePacks(data.packs);
-          if (data.orders && onUpdateOrders) onUpdateOrders(data.orders);
+          if (data.orders && onUpdateOrders && !await onUpdateOrders(data.orders)) {
+            throw new Error('No se pudieron restaurar todos los pedidos. Revisa el aviso antes de continuar.');
+          }
           if (data.expenses && onUpdateExpenses) onUpdateExpenses(data.expenses);
           if (data.deliveryFee !== undefined && onChangeDeliveryFee) onChangeDeliveryFee(parseFloat(data.deliveryFee));
           if (data.shopOpen !== undefined && onToggleShopOpen) onToggleShopOpen(data.shopOpen);
@@ -722,6 +754,96 @@ export default function SettingsManager({
   return (
     <div style={{ maxWidth: '650px', display: 'flex', flexDirection: 'column', gap: '20px' }}>
       <h3>Ajustes de la Heladería</h3>
+      <PaymentMethodsSettings
+        value={localShopConfig.paymentMethods}
+        onChange={paymentMethods => setLocalShopConfig(previous => ({ ...previous, paymentMethods }))}
+        onSave={async () => {
+          const nextConfig = { ...shopConfig, paymentMethods: localShopConfig.paymentMethods || {} };
+          if (!await updateMultipleSyncedData([{ key: 'shop_open', value: nextConfig }])) throw new Error('No se pudo guardar.');
+          onChangeShopConfig?.(nextConfig);
+          addLog?.('Métodos de pago actualizados por ' + (currentUser?.name || 'Administrador'));
+        }}
+      />
+      <PromotionEditor
+        popupValue={localShopConfig.popupPromotion || (localShopConfig.promotion ? {
+          ...localShopConfig.promotion,
+          enabled: localShopConfig.promotion.showWelcome ?? localShopConfig.promotion.enabled ?? true
+        } : undefined)}
+        webValue={localShopConfig.webPromotion || (localShopConfig.promotion ? {
+          ...localShopConfig.promotion,
+          enabled: false
+        } : undefined)}
+        onPopupChange={patch => setLocalShopConfig(prev => ({
+          ...prev,
+          popupPromotion: {
+            ...DEFAULT_POPUP_PROMOTION,
+            ...(prev.popupPromotion || (prev.promotion ? {
+              ...prev.promotion,
+              enabled: prev.promotion.showWelcome ?? prev.promotion.enabled ?? true
+            } : {})),
+            ...patch
+          }
+        }))}
+        onWebChange={patch => setLocalShopConfig(prev => ({
+          ...prev,
+          webPromotion: {
+            ...DEFAULT_WEB_PROMOTION,
+            ...(prev.webPromotion || (prev.promotion ? { ...prev.promotion, enabled: false } : {})),
+            ...patch
+          }
+        }))}
+        onUpload={async (file, onUploaded) => {
+          if (!['image/jpeg', 'image/png', 'image/webp'].includes(file.type) || file.size > 10000000) throw new Error('Elige una imagen JPG, PNG o WebP de hasta 10 MB.');
+          const blob = await compressToWebP(file, 900, 0.8);
+          if (blob.size > 280000) throw new Error('Esta imagen es muy pesada. Elige una imagen más pequeña.');
+          const image = await new Promise((resolve, reject) => {
+            const reader = new FileReader();
+            reader.onload = () => resolve(reader.result);
+            reader.onerror = () => reject(new Error('No se pudo leer la imagen.'));
+            reader.readAsDataURL(blob);
+          });
+          onUploaded(image);
+        }}
+        onSave={async () => {
+          const popupDraft = {
+            ...DEFAULT_POPUP_PROMOTION,
+            ...(localShopConfig.popupPromotion || (localShopConfig.promotion ? {
+              ...localShopConfig.promotion,
+              enabled: localShopConfig.promotion.showWelcome ?? localShopConfig.promotion.enabled ?? true
+            } : {}))
+          };
+          const webDraft = {
+            ...DEFAULT_WEB_PROMOTION,
+            ...(localShopConfig.webPromotion || (localShopConfig.promotion ? { ...localShopConfig.promotion, enabled: false } : {}))
+          };
+
+          const popupError = validatePromotion(popupDraft);
+          if (popupError) throw new Error(`[Pop-up emergente] ${popupError}`);
+          const webError = validatePromotion(webDraft);
+          if (webError) throw new Error(`[Banner en la web] ${webError}`);
+
+          const popupPromotion = normalizePromotion(popupDraft, DEFAULT_POPUP_PROMOTION);
+          const webPromotion = normalizePromotion(webDraft, DEFAULT_WEB_PROMOTION);
+
+          const nextConfig = {
+            ...shopConfig,
+            popupPromotion,
+            webPromotion,
+            promotion: { ...webPromotion, showWelcome: popupPromotion.enabled }
+          };
+
+          const saved = await updateMultipleSyncedData([{ key: 'shop_open', value: nextConfig }]);
+          if (!saved) throw new Error('No se pudo guardar en la nube. Revisa tu conexión y tu sesión de administrador.');
+          setLocalShopConfig(prev => ({
+            ...prev,
+            popupPromotion,
+            webPromotion,
+            promotion: nextConfig.promotion
+          }));
+          onChangeShopConfig?.(nextConfig);
+          addLog(`Promociones guardadas (Pop-up: ${popupPromotion.enabled ? 'Activado' : 'Desactivado'}, Web: ${webPromotion.enabled ? 'Activado' : 'Desactivado'}) por ${currentUser?.name || 'Administrador'}.`);
+        }}
+      />
       
       <div className="glass" style={{ padding: '20px', display: 'flex', flexDirection: 'column', gap: '15px' }}>
         
@@ -796,7 +918,99 @@ export default function SettingsManager({
           </div>
 
           <div className="form-group" style={{ gridColumn: 'span 2' }}>
-            <label htmlFor="store-favicon-input">Favicon de la Pestaña (Emoji o URL de Imagen)</label>
+            <label htmlFor="store-favicon-input" style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+              <span>🎨 Ícono de la Web / Favicon de Pestaña</span>
+              {localStoreLogo && (
+                <button
+                  type="button"
+                  onClick={() => setLocalStoreFavicon(localStoreLogo)}
+                  style={{
+                    background: 'none',
+                    border: 'none',
+                    color: 'var(--primary-color)',
+                    fontSize: '0.78rem',
+                    fontWeight: 600,
+                    cursor: 'pointer',
+                    textDecoration: 'underline',
+                    padding: 0
+                  }}
+                >
+                  🖼️ Usar Mi Logotipo como Ícono
+                </button>
+              )}
+            </label>
+
+            {/* Vista Previa en Vivo de la Pestaña del Navegador */}
+            <div style={{
+              background: 'var(--bg-secondary)',
+              border: '1px solid var(--border-color)',
+              borderRadius: '10px',
+              padding: '8px 14px',
+              marginBottom: '10px',
+              display: 'flex',
+              alignItems: 'center',
+              gap: '10px',
+              width: 'fit-content',
+              maxWidth: '100%',
+              fontSize: '0.82rem',
+              boxShadow: '0 2px 6px rgba(0,0,0,0.04)'
+            }}>
+              <span style={{ fontSize: '0.7rem', color: 'var(--text-light)', fontWeight: 600 }}>
+                Vista previa en navegador:
+              </span>
+              <div style={{
+                display: 'inline-flex',
+                alignItems: 'center',
+                gap: '8px',
+                background: 'var(--bg-primary, #fff)',
+                border: '1px solid var(--border-color)',
+                padding: '4px 10px',
+                borderRadius: '8px 8px 0 0',
+                borderBottom: '2px solid var(--primary-color)'
+              }}>
+                {localStoreFavicon && (localStoreFavicon.startsWith('http') || localStoreFavicon.startsWith('/') || localStoreFavicon.startsWith('data:')) ? (
+                  <img
+                    src={localStoreFavicon}
+                    alt="Favicon"
+                    style={{ width: '16px', height: '16px', objectFit: 'contain', borderRadius: '3px' }}
+                    onError={(e) => { e.target.style.display = 'none'; }}
+                  />
+                ) : (
+                  <span style={{ fontSize: '1rem', lineHeight: 1 }}>{localStoreFavicon || '🍦'}</span>
+                )}
+                <span style={{ fontWeight: 600, color: 'var(--text-dark)', maxWidth: '180px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', fontSize: '0.76rem' }}>
+                  {localStoreTitle || localStoreName || 'Friozo - Heladería'}
+                </span>
+                <span style={{ color: 'var(--text-light)', fontSize: '0.7rem', marginLeft: '4px' }}>✕</span>
+              </div>
+            </div>
+
+            {/* Selector Rápido de Emojis */}
+            <div style={{ display: 'flex', alignItems: 'center', gap: '6px', marginBottom: '8px', flexWrap: 'wrap' }}>
+              <span style={{ fontSize: '0.75rem', color: 'var(--text-light)', fontWeight: 600 }}>
+                Atajos de íconos:
+              </span>
+              {['🍦', '🍨', '🍧', '🍓', '🍫', '🥤', '🧇', '🧁', '⭐', '❄️'].map(emoji => (
+                <button
+                  key={emoji}
+                  type="button"
+                  onClick={() => setLocalStoreFavicon(emoji)}
+                  style={{
+                    background: localStoreFavicon === emoji ? 'var(--primary-color)' : 'var(--bg-secondary)',
+                    border: '1px solid var(--border-color)',
+                    borderRadius: '8px',
+                    padding: '3px 8px',
+                    fontSize: '1rem',
+                    cursor: 'pointer',
+                    transition: 'all 0.15s ease'
+                  }}
+                  title={`Usar emoji ${emoji}`}
+                >
+                  {emoji}
+                </button>
+              ))}
+            </div>
+
             <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
               <input
                 id="store-favicon-input"
@@ -823,7 +1037,7 @@ export default function SettingsManager({
                   whiteSpace: 'nowrap'
                 }}
               >
-                📁 {uploadingState.favicon ? 'Subiendo...' : 'Subir'}
+                📁 {uploadingState.favicon ? 'Subiendo...' : 'Subir Ícono'}
               </label>
               <input 
                 type="file" 
@@ -835,7 +1049,7 @@ export default function SettingsManager({
               />
             </div>
             <span style={{ fontSize: '0.7rem', color: 'var(--text-light)' }}>
-              Puedes ingresar un Emoji (ej: 🍨) o subir una imagen cuadrada (PNG/SVG) para representarla en la pestaña del navegador.
+              Elige un emoji, sube una imagen personalizada (PNG, WebP, SVG) o pega una URL para que aparezca en la pestaña del navegador y al guardar en pantalla de inicio.
             </span>
           </div>
 
@@ -1495,6 +1709,206 @@ export default function SettingsManager({
                 {telegramTestStatus.error}
               </span>
             )}
+          </div>
+        </div>
+
+        {/* 🛠️ MÓDULOS Y HERRAMIENTAS OPERATIVAS */}
+        <div className="glass" style={{ borderLeft: '4px solid #f39c12', padding: '18px', background: 'rgba(243, 156, 18, 0.03)', borderRadius: '8px', marginBottom: '15px' }}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '8px' }}>
+            <strong style={{ display: 'flex', alignItems: 'center', gap: '8px', fontSize: '1rem', color: 'var(--text-dark)' }}>
+              🛠️ Módulos y Herramientas Operativas
+            </strong>
+            <span style={{ fontSize: '0.72rem', background: 'rgba(243, 156, 18, 0.15)', color: '#d35400', padding: '2px 8px', borderRadius: '12px', fontWeight: 'bold' }}>
+              Personalizable
+            </span>
+          </div>
+          <p style={{ fontSize: '0.75rem', color: 'var(--text-light)', marginTop: '2px', marginBottom: '15px' }}>
+            Activa o desactiva de manera individual cada utilidad según las necesidades del negocio.
+          </p>
+
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '14px' }}>
+            {/* KDS Cocina */}
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderBottom: '1px solid rgba(0,0,0,0.05)', paddingBottom: '10px' }}>
+              <div>
+                <strong style={{ fontSize: '0.85rem', display: 'block' }}>👨‍🍳 Pantalla KDS para Cocina</strong>
+                <span style={{ fontSize: '0.72rem', color: 'var(--text-light)' }}>
+                  Semáforo por tiempo (&lt;5m verde, 5-10m amarillo, &gt;10m rojo) y avisos sonoros de nuevos pedidos.
+                </span>
+              </div>
+              <label className="toggle-switch">
+                <input
+                  type="checkbox"
+                  checked={localShopConfig.kdsEnabled !== false}
+                  onChange={(e) => setLocalShopConfig(prev => ({ ...prev, kdsEnabled: e.target.checked }))}
+                />
+                <span className="slider"></span>
+              </label>
+            </div>
+
+            {/* Arqueo Caja Chica */}
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderBottom: '1px solid rgba(0,0,0,0.05)', paddingBottom: '10px' }}>
+              <div>
+                <strong style={{ fontSize: '0.85rem', display: 'block' }}>💵 Arqueo y Cierre Z de Caja Chica</strong>
+                <span style={{ fontSize: '0.72rem', color: 'var(--text-light)' }}>
+                  Apertura con fondo inicial, registro de egresos menores, conteo ciego de billetes/monedas y Cierre Z.
+                </span>
+              </div>
+              <label className="toggle-switch">
+                <input
+                  type="checkbox"
+                  checked={localShopConfig.cashRegisterEnabled !== false}
+                  onChange={(e) => setLocalShopConfig(prev => ({ ...prev, cashRegisterEnabled: e.target.checked }))}
+                />
+                <span className="slider"></span>
+              </label>
+            </div>
+
+            {/* Cierre y Liquidación de Carritos */}
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderBottom: '1px solid rgba(0,0,0,0.05)', paddingBottom: '10px' }}>
+              <div>
+                <strong style={{ fontSize: '0.85rem', display: 'block' }}>🍦 Liquidación Diaria de Carritos (Carga vs Retorno)</strong>
+                <span style={{ fontSize: '0.72rem', color: 'var(--text-light)' }}>
+                  Control de stock entregado en la mañana vs no vendido devuelto, cuadre de dinero a rendir y botón "Sin Stock".
+                </span>
+              </div>
+              <label className="toggle-switch">
+                <input
+                  type="checkbox"
+                  checked={localShopConfig.cartSettlementEnabled !== false}
+                  onChange={(e) => setLocalShopConfig(prev => ({ ...prev, cartSettlementEnabled: e.target.checked }))}
+                />
+                <span className="slider"></span>
+              </label>
+            </div>
+
+            {/* Modo Comandero Exprés */}
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderBottom: '1px solid rgba(0,0,0,0.05)', paddingBottom: '10px' }}>
+              <div>
+                <strong style={{ fontSize: '0.85rem', display: 'block' }}>⚡ Modo Comandero Exprés para Mozos</strong>
+                <span style={{ fontSize: '0.72rem', color: 'var(--text-light)' }}>
+                  Acceso rápido de 1 toque a los productos más pedidos en salón para agilizar la atención de mesas.
+                </span>
+              </div>
+              <label className="toggle-switch">
+                <input
+                  type="checkbox"
+                  checked={localShopConfig.expressWaiterEnabled !== false}
+                  onChange={(e) => setLocalShopConfig(prev => ({ ...prev, expressWaiterEnabled: e.target.checked }))}
+                />
+                <span className="slider"></span>
+              </label>
+            </div>
+
+            {/* División de Cuenta (Split Bill) */}
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderBottom: '1px solid rgba(0,0,0,0.05)', paddingBottom: '10px' }}>
+              <div>
+                <strong style={{ fontSize: '0.85rem', display: 'block' }}>🧮 Calculadora de División de Cuenta (Split Bill)</strong>
+                <span style={{ fontSize: '0.72rem', color: 'var(--text-light)' }}>
+                  Permite dividir el ticket de una mesa entre 2 a 6 comensales automáticamente con 1 clic.
+                </span>
+              </div>
+              <label className="toggle-switch">
+                <input
+                  type="checkbox"
+                  checked={localShopConfig.splitBillEnabled !== false}
+                  onChange={(e) => setLocalShopConfig(prev => ({ ...prev, splitBillEnabled: e.target.checked }))}
+                />
+                <span className="slider"></span>
+              </label>
+            </div>
+
+            {/* Impresión Térmica ESC/POS */}
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderBottom: '1px solid rgba(0,0,0,0.05)', paddingBottom: '10px' }}>
+              <div>
+                <strong style={{ fontSize: '0.85rem', display: 'block' }}>🧾 Impresión Térmica ESC/POS (58mm / 80mm)</strong>
+                <span style={{ fontSize: '0.72rem', color: 'var(--text-light)' }}>
+                  Tickets compactos para cocina, despacho de delivery y tiras de Cierre Z.
+                </span>
+              </div>
+              <label className="toggle-switch">
+                <input
+                  type="checkbox"
+                  checked={localShopConfig.escposPrintEnabled !== false}
+                  onChange={(e) => setLocalShopConfig(prev => ({ ...prev, escposPrintEnabled: e.target.checked }))}
+                />
+                <span className="slider"></span>
+              </label>
+            </div>
+
+            {/* Bitácora de Auditoría */}
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderBottom: '1px solid rgba(0,0,0,0.05)', paddingBottom: '10px' }}>
+              <div>
+                <strong style={{ fontSize: '0.85rem', display: 'block' }}>🛡️ Registro y Auditoría de Operaciones</strong>
+                <span style={{ fontSize: '0.72rem', color: 'var(--text-light)' }}>
+                  Historial inmutable de cancelaciones, arqueos, liquidaciones y cambios de personal.
+                </span>
+              </div>
+              <label className="toggle-switch">
+                <input
+                  type="checkbox"
+                  checked={localShopConfig.auditLogEnabled !== false}
+                  onChange={(e) => setLocalShopConfig(prev => ({ ...prev, auditLogEnabled: e.target.checked }))}
+                />
+                <span className="slider"></span>
+              </label>
+            </div>
+
+            {/* Reporte Nocturno Automático a Telegram */}
+            <div style={{ background: 'rgba(0, 136, 204, 0.04)', padding: '12px', borderRadius: '8px', border: '1px solid rgba(0, 136, 204, 0.2)' }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '8px' }}>
+                <div>
+                  <strong style={{ fontSize: '0.85rem', color: '#0088cc', display: 'block' }}>
+                    🌙 Reporte Nocturno Automático de Ventas a Telegram
+                  </strong>
+                  <span style={{ fontSize: '0.72rem', color: 'var(--text-light)' }}>
+                    Envía el cuadre del día (total vendido, métodos de pago, pedidos y ticket promedio) a la hora configurada.
+                  </span>
+                </div>
+                <label className="toggle-switch">
+                  <input
+                    type="checkbox"
+                    checked={localShopConfig.telegramDailyReportEnabled === true}
+                    onChange={(e) => setLocalShopConfig(prev => ({ ...prev, telegramDailyReportEnabled: e.target.checked }))}
+                  />
+                  <span className="slider"></span>
+                </label>
+              </div>
+
+              {localShopConfig.telegramDailyReportEnabled && (
+                <div style={{ display: 'flex', gap: '15px', alignItems: 'center', marginTop: '10px', flexWrap: 'wrap' }}>
+                  <div className="form-group" style={{ marginBottom: 0 }}>
+                    <label style={{ fontSize: '0.75rem', fontWeight: 600 }}>Hora de Envío Automático (Hora Perú):</label>
+                    <input
+                      type="time"
+                      className="form-control"
+                      style={{ fontSize: '0.8rem', padding: '4px 8px', width: '130px' }}
+                      value={localShopConfig.telegramDailyReportHour || '22:00'}
+                      onChange={(e) => setLocalShopConfig(prev => ({ ...prev, telegramDailyReportHour: e.target.value }))}
+                    />
+                  </div>
+                  <div style={{ alignSelf: 'flex-end' }}>
+                    <button
+                      type="button"
+                      className="btn btn-sm"
+                      onClick={handleSendTelegramSummaryNow}
+                      disabled={sendingManualTelegramReport}
+                      style={{
+                        background: '#0088cc',
+                        color: '#fff',
+                        fontSize: '0.75rem',
+                        padding: '6px 12px',
+                        borderRadius: '6px',
+                        border: 'none',
+                        cursor: 'pointer',
+                        fontWeight: 600
+                      }}
+                    >
+                      {sendingManualTelegramReport ? '⏳ Enviando...' : '🚀 Enviar Resumen de Ventas Ahora'}
+                    </button>
+                  </div>
+                </div>
+              )}
+            </div>
           </div>
         </div>
 

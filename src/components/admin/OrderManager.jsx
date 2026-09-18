@@ -1,5 +1,14 @@
 import React, { useState, useEffect } from 'react';
-import { buildSmsHref, formatOrderStatusMessage, normalizeSmsTemplates } from '../../utils/orderMessaging';
+import { buildSmsHref, formatOrderStatusMessage, normalizeSmsTemplates, formatDriverDispatchMessage, buildWhatsAppHref } from '../../utils/orderMessaging';
+import { getCollectionPaymentMethods } from '../../utils/paymentMethods';
+import { isDigitalPayment, isPaymentOnArrival, requiresAdvancePayment } from '../../utils/orderLifecycle';
+import { getOrderStageInfo } from '../../utils/orderValidation';
+import { printThermalTicket } from '../../utils/escposTicket';
+import {
+  playPaymentVerifiedSound,
+  playKitchenSound,
+  triggerDeviceVibration
+} from '../../utils/appAudioNotifications';
 
 // --- FUNCIONES DE SANITIZACIÓN ---
 const sanitizeHTML = (text) => {
@@ -16,12 +25,14 @@ export default function OrderManager({
   bases,
   packs,
   storeName,
+  storePhone,
   ticketCustomMessage,
   addLog,
   currentUser,
   showAlert,
   shopConfig,
-  activeSubTab: activeSubTabProp
+  activeSubTab: activeSubTabProp,
+  staffUsers = []
 }) {
   const alert = (msg) => {
     if (showAlert) {
@@ -52,6 +63,7 @@ export default function OrderManager({
   const [dateEnd, setDateEnd] = useState('');
   const [ratingFilter, setRatingFilter] = useState('all'); // all, low, high
   const [ordersLimit, setOrdersLimit] = useState(20); // 20, 40, 60, all
+  const [driverFilter, setDriverFilter] = useState('all'); // all, unassigned, driverIdentifier
 
   const openStatusSms = (order, newStatus) => {
     if (shopConfig?.smsNotificationsEnabled !== true) return;
@@ -71,10 +83,117 @@ export default function OrderManager({
     window.location.assign(href);
   };
 
-  const handleStatusChange = (order, newStatus, logText) => {
-    onUpdateOrderStatus(order.id, newStatus);
+  const handleStatusChange = async (order, newStatus, logText) => {
+    if (!await onUpdateOrderStatus(order.id, newStatus)) return false;
     addLog(logText);
     openStatusSms(order, newStatus);
+    return true;
+  };
+
+  const handleTogglePaymentVerified = async (order) => {
+    const nextVerified = !order.paymentVerified;
+    if (nextVerified && !window.confirm(`¿Confirmas que recibiste S/. ${Number(order.grandTotal || 0).toFixed(2)} por ${order.customer?.paymentMethod}? Verifica el abono real antes de registrar el cobro.`)) return;
+    const updated = {
+      ...order,
+      paymentVerified: nextVerified,
+      updatedAt: new Date().toISOString()
+    };
+    if (!await onUpdateOrders(orders.map(o => o.id === order.id ? updated : o))) return;
+    if (nextVerified) {
+      playPaymentVerifiedSound();
+      triggerDeviceVibration([150, 80, 150]);
+      if (addLog) addLog(`Abono de S/. ${Number(order.grandTotal || 0).toFixed(2)} por ${order.customer?.paymentMethod || 'digital'} verificado para pedido ${order.id} por ${currentUser?.name}`);
+      alert(`Abono de S/. ${Number(order.grandTotal || 0).toFixed(2)} para pedido #${order.id} marcado como verificado con éxito.`);
+    } else {
+      if (addLog) addLog(`Abono de pedido ${order.id} marcado como pendiente de verificación por ${currentUser?.name}`);
+    }
+  };
+
+  const handleValidateAndAcceptOrder = async (order) => {
+    const isDigital = requiresAdvancePayment(order);
+    const totalStr = Number(order.grandTotal || 0).toFixed(2);
+    const payMethod = order.customer?.paymentMethod || 'Pago digital';
+
+    if (isDigital && !order.paymentVerified) {
+      const confirmVal = window.confirm(
+        `📱 VALIDACIÓN DE PAGO DIGITAL (${payMethod}):\n\n` +
+        `• Pedido #${order.id} - ${order.customer?.name || 'Cliente'}\n` +
+        `• Total a verificar: S/. ${totalStr}\n\n` +
+        `¿Confirmas que ya verificaste el abono de S/. ${totalStr} en la cuenta de ${payMethod}?\n\n` +
+        `[Aceptar] = Abono Verificado y pasar a cola de preparación.\n` +
+        `[Cancelar] = Mantener en espera si aún no has revisado el comprobante.`
+      );
+      if (!confirmVal) return;
+
+      const updated = {
+        ...order,
+        paymentVerified: true,
+        status: 'Pendiente',
+        updatedAt: new Date().toISOString()
+      };
+      if (!await onUpdateOrders(orders.map(o => o.id === order.id ? updated : o))) return;
+      playPaymentVerifiedSound();
+      if (addLog) addLog(`Pedido ${order.id} aceptado con abono verificado de S/. ${totalStr} por ${currentUser?.name}`);
+      openStatusSms(order, 'Pendiente');
+      return;
+    }
+
+    handleStatusChange(order, 'Pendiente', `Pedido ${order.id} aceptado y confirmado por ${currentUser?.name}`);
+  };
+
+  const handleSendToKitchen = async (order) => {
+    if (!await handleStatusChange(order, 'Preparando', `Pedido ${order.id} enviado a cocina por ${currentUser?.name}`)) return;
+    playKitchenSound();
+    triggerDeviceVibration([200, 100, 200]);
+
+  };
+
+  const handleCompleteOrder = order => handleStatusChange(order, 'Entregado', `Pedido ${order.id} entregado por ${currentUser?.name}`);
+
+  const handleAssignDriver = async (order, driverIdentifier) => {
+    const selectedUser = (staffUsers || []).find(u => String(u.id || u.email) === String(driverIdentifier));
+    const assignedDriver = selectedUser ? {
+      id: selectedUser.id || selectedUser.email,
+      name: selectedUser.name || selectedUser.email,
+      email: selectedUser.email,
+      phone: selectedUser.phone || ''
+    } : null;
+
+    const updated = {
+      ...order,
+      assignedDriver,
+      updatedAt: new Date().toISOString()
+    };
+    if (!await onUpdateOrders(orders.map(o => o.id === order.id ? updated : o))) return;
+    if (addLog) {
+      addLog(`Repartidor ${assignedDriver ? assignedDriver.name : 'desasignado'} para pedido ${order.id}`);
+    }
+  };
+
+  const handleDispatchToDriverWhatsApp = (order) => {
+    const assigned = order.assignedDriver;
+    if (!assigned) {
+      alert("Primero asigna un repartidor a este pedido.");
+      return;
+    }
+    const driverUser = (staffUsers || []).find(u => String(u.id || u.email) === String(assigned.id || assigned.email));
+    let targetPhone = driverUser?.phone || assigned.phone || '';
+    if (!targetPhone) {
+      targetPhone = window.prompt(`Ingresa el número de WhatsApp del repartidor (${assigned.name || 'Repartidor'}):`, '987654321');
+    }
+    if (!targetPhone) return;
+
+    const message = formatDriverDispatchMessage({
+      order,
+      storeName,
+      driverName: assigned.name
+    });
+    const href = buildWhatsAppHref(targetPhone, message);
+    const win = window.open(href, '_blank', 'noopener,noreferrer');
+    if (win) win.opener = null;
+    if (addLog) {
+      addLog(`Hoja de ruta despachada por WhatsApp a ${assigned.name} para pedido ${order.id}`);
+    }
   };
 
   // --- Estados de Edición de Pedidos ---
@@ -205,14 +324,14 @@ export default function OrderManager({
       setEditingOrder({ ...editingOrder, items: [...editingOrder.items, newItem] });
     };
 
-    const handleSaveOrderEdits = () => {
+    const handleSaveOrderEdits = async () => {
       if (editingOrder.items.length === 0) {
         alert("El pedido debe tener al menos un producto.");
         return;
       }
       
       const finalSubtotal = editingOrder.items.reduce((sum, item) => sum + (item.price * (item.quantity || 1)), 0);
-      const finalGrandTotal = finalSubtotal + parseFloat(editingOrder.deliveryFee || 0);
+      const finalGrandTotal = Math.max(0, finalSubtotal + parseFloat(editingOrder.deliveryFee || 0) - Number(editingOrder.discount || 0));
 
       const updatedOrder = {
         ...editingOrder,
@@ -221,7 +340,7 @@ export default function OrderManager({
       };
 
       const nextOrders = orders.map(o => o.id === editingOrder.id ? updatedOrder : o);
-      onUpdateOrders(nextOrders);
+      if (!await onUpdateOrders(nextOrders)) return;
       addLog(`Pedido ${editingOrder.id} modificado por el operador (${currentUser?.name}).`);
       setEditingOrder(null);
       alert("¡Pedido actualizado con éxito!");
@@ -290,12 +409,19 @@ export default function OrderManager({
                   customer: { ...editingOrder.customer, paymentMethod: e.target.value }
                 })}
               >
-                <option value="Yape">Yape</option>
-                <option value="Plin">Plin</option>
-                <option value="Efectivo">Efectivo</option>
-                <option value="Tarjeta">Tarjeta</option>
+                {getCollectionPaymentMethods(shopConfig, orders.find(order => order.id === editingOrder.id)).map(method => <option key={method} value={method}>{method}</option>)}
               </select>
             </div>
+            {editingOrder.customer.orderType === 'Delivery' && !['Efectivo', 'Tarjeta'].includes(editingOrder.customer.paymentMethod) && (
+              <div className="form-group">
+                <label htmlFor="order-payment-timing">Modalidad de pago</label>
+                <select id="order-payment-timing" className="form-control" value={editingOrder.customer.paymentTiming || 'Anticipado'}
+                  onChange={event => setEditingOrder({ ...editingOrder, customer: { ...editingOrder.customer, paymentTiming: event.target.value } })}>
+                  <option value="Al llegar">Pago al llegar</option>
+                  <option value="Anticipado">Pago anticipado</option>
+                </select>
+              </div>
+            )}
           </div>
 
           {/* Agregar Producto */}
@@ -495,12 +621,25 @@ export default function OrderManager({
     });
   }
 
+  // Filtrar por repartidor asignado
+  if (driverFilter !== 'all') {
+    filtered = filtered.filter(o => {
+      if (driverFilter === 'unassigned') {
+        return !o.assignedDriver;
+      }
+      const dId = String(o.assignedDriver?.id || o.assignedDriver?.email || '');
+      return dId === driverFilter;
+    });
+  }
+
   const todayStr = new Date().toDateString();
   const kpis = {
     toCorroborate: orders.filter(o => o.status === 'Por Corroborar').length,
     pending: orders.filter(o => o.status === 'Pendiente').length,
     preparing: orders.filter(o => o.status === 'Preparando').length,
+    ready: orders.filter(o => o.status === 'Listo').length,
     delivery: orders.filter(o => o.status === 'En camino').length,
+    delivered: orders.filter(o => o.status === 'Entregado').length,
     todaySales: orders
       .filter(o => o.status !== 'Cancelado' && new Date(o.date).toDateString() === todayStr)
       .reduce((sum, o) => sum + (o.grandTotal || 0), 0)
@@ -538,33 +677,66 @@ export default function OrderManager({
             </div>
           </div>
 
-          {/* Tarjetas KPI */}
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(130px, 1fr))', gap: '12px', marginBottom: '20px' }}>
-            <div className="glass" style={{ padding: '12px 15px', borderRadius: '12px', borderLeft: '4px solid #e67e22', display: 'flex', flexDirection: 'column', gap: '4px' }}>
-              <span style={{ fontSize: '1.2rem' }}>⏳</span>
-              <span style={{ fontSize: '0.7rem', color: 'var(--text-light)', fontWeight: 'bold', textTransform: 'uppercase' }}>Por Corroborar</span>
-              <strong style={{ fontSize: '1.3rem', color: '#e67e22' }}>{kpis.toCorroborate}</strong>
-            </div>
-            <div className="glass" style={{ padding: '12px 15px', borderRadius: '12px', borderLeft: '4px solid var(--secondary-color)', display: 'flex', flexDirection: 'column', gap: '4px' }}>
-              <span style={{ fontSize: '1.2rem' }}>📋</span>
-              <span style={{ fontSize: '0.7rem', color: 'var(--text-light)', fontWeight: 'bold', textTransform: 'uppercase' }}>Pendientes</span>
-              <strong style={{ fontSize: '1.3rem', color: 'var(--text-dark)' }}>{kpis.pending}</strong>
-            </div>
-            <div className="glass" style={{ padding: '12px 15px', borderRadius: '12px', borderLeft: '4px solid #3498db', display: 'flex', flexDirection: 'column', gap: '4px' }}>
-              <span style={{ fontSize: '1.2rem' }}>🍳</span>
-              <span style={{ fontSize: '0.7rem', color: 'var(--text-light)', fontWeight: 'bold', textTransform: 'uppercase' }}>Preparando</span>
-              <strong style={{ fontSize: '1.3rem', color: 'var(--text-dark)' }}>{kpis.preparing}</strong>
-            </div>
-            <div className="glass" style={{ padding: '12px 15px', borderRadius: '12px', borderLeft: '4px solid #9b59b6', display: 'flex', flexDirection: 'column', gap: '4px' }}>
-              <span style={{ fontSize: '1.2rem' }}>🛵</span>
-              <span style={{ fontSize: '0.7rem', color: 'var(--text-light)', fontWeight: 'bold', textTransform: 'uppercase' }}>En camino</span>
-              <strong style={{ fontSize: '1.3rem', color: 'var(--text-dark)' }}>{kpis.delivery}</strong>
-            </div>
-            <div className="glass" style={{ padding: '12px 15px', borderRadius: '12px', borderLeft: '4px solid var(--success)', display: 'flex', flexDirection: 'column', gap: '4px' }}>
-              <span style={{ fontSize: '1.2rem' }}>💰</span>
-              <span style={{ fontSize: '0.7rem', color: 'var(--text-light)', fontWeight: 'bold', textTransform: 'uppercase' }}>Ventas Hoy</span>
-              <strong style={{ fontSize: '1.2rem', color: 'var(--success)' }}>S/. {kpis.todaySales.toFixed(2)}</strong>
-            </div>
+          {/* Pipeline Visualizador de Etapas Ordenadas (Secuencial de 1 a 5) */}
+          <div style={{
+            display: 'grid',
+            gridTemplateColumns: 'repeat(auto-fit, minmax(135px, 1fr))',
+            gap: '8px',
+            marginBottom: '16px',
+            padding: '8px',
+            background: 'rgba(0,0,0,0.02)',
+            borderRadius: '12px',
+            border: '1px solid var(--border-color)'
+          }}>
+            {[
+              { id: 'Por Corroborar', step: '1', label: 'Por validar', icon: '⏳', count: kpis.toCorroborate, color: '#e67e22', desc: 'Validar pago/datos' },
+              { id: 'Pendiente', step: '2', label: 'Confirmados', icon: '📋', count: kpis.pending, color: '#2980b9', desc: 'En cola de cocina' },
+              { id: 'Preparando', step: '3', label: 'Preparando', icon: '👨‍🍳', count: kpis.preparing, color: '#8e44ad', desc: 'En elaboración' },
+              { id: 'Listo', step: '4', label: 'Listos', icon: '✅', count: kpis.ready, color: '#16846b', desc: 'Por entregar o despachar' },
+              { id: 'En camino', step: '5', label: 'En camino', icon: '🛵', count: kpis.delivery, color: 'var(--delivery-color, #FF441F)', desc: 'Despachado' },
+              { id: 'Entregado', step: '6', label: 'Entregados', icon: '🎉', count: kpis.delivered, color: 'var(--success, #27ae60)', desc: 'Completados' }
+            ].map(st => {
+              const isSelected = orderFilter === st.id;
+              return (
+                <button
+                  key={st.id}
+                  type="button"
+                  onClick={() => setOrderFilter(orderFilter === st.id ? 'all' : st.id)}
+                  style={{
+                    border: isSelected ? `2px solid ${st.color}` : '1px solid var(--border-color)',
+                    background: isSelected ? 'var(--bg-secondary, #fff)' : 'rgba(255,255,255,0.6)',
+                    borderRadius: '8px',
+                    padding: '8px 10px',
+                    cursor: 'pointer',
+                    textAlign: 'left',
+                    display: 'flex',
+                    flexDirection: 'column',
+                    gap: '2px',
+                    transition: 'all 0.15s ease',
+                    boxShadow: isSelected ? `0 2px 8px ${st.color}25` : 'none'
+                  }}
+                  title={`Filtrar por ${st.label}`}
+                >
+                  <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                    <span style={{ fontSize: '0.72rem', fontWeight: 700, color: st.color }}>
+                      {st.icon} Paso {st.step}
+                    </span>
+                    <span style={{
+                      background: st.count > 0 ? st.color : 'rgba(0,0,0,0.08)',
+                      color: st.count > 0 ? '#fff' : 'inherit',
+                      fontSize: '0.68rem',
+                      fontWeight: 700,
+                      padding: '1px 6px',
+                      borderRadius: '10px'
+                    }}>
+                      {st.count}
+                    </span>
+                  </div>
+                  <strong style={{ fontSize: '0.8rem', color: 'var(--text-dark)' }}>{st.label}</strong>
+                  <span style={{ fontSize: '0.65rem', color: 'var(--text-light)' }}>{st.desc}</span>
+                </button>
+              );
+            })}
           </div>
 
           <div style={{ marginBottom: '15px' }}>
@@ -663,10 +835,59 @@ export default function OrderManager({
                 ))}
               </div>
             </div>
+
+            <div style={{ 
+              display: 'flex', 
+              gap: '8px', 
+              alignItems: 'center', 
+              flexWrap: 'wrap', 
+              padding: '10px', 
+              background: 'rgba(0,0,0,0.02)', 
+              borderRadius: 'var(--radius-sm)',
+              border: '1px solid var(--border-color)',
+              height: '100%'
+            }}>
+              <span style={{ fontSize: '0.8rem', fontWeight: 'bold', color: 'var(--text-dark)' }}>🛵 Repartidor:</span>
+              <select
+                value={driverFilter}
+                onChange={(e) => setDriverFilter(e.target.value)}
+                style={{
+                  fontSize: '0.75rem',
+                  padding: '4px 8px',
+                  borderRadius: '4px',
+                  border: '1px solid var(--border-color)',
+                  background: 'var(--bg-secondary, #fff)',
+                  color: 'var(--text-dark)',
+                  flex: 1
+                }}
+              >
+                <option value="all">Todos los repartidores</option>
+                <option value="unassigned">⚠️ Sin repartidor asignado</option>
+                {staffUsers.map(u => (
+                  <option key={u.id || u.email} value={u.id || u.email}>
+                    🛵 {u.name || u.email} {u.role ? `(${u.role})` : ''}
+                  </option>
+                ))}
+              </select>
+            </div>
+          </div>
+
+          {/* Banner Informativo de Finalidad de Repartidores */}
+          <div style={{
+            padding: '10px 14px',
+            background: 'linear-gradient(135deg, rgba(255, 68, 31, 0.08) 0%, rgba(255, 68, 31, 0.02) 100%)',
+            borderRadius: '8px',
+            borderLeft: '4px solid var(--delivery-color, #FF441F)',
+            marginBottom: '14px',
+            fontSize: '0.8rem',
+            color: 'var(--text-dark)',
+            lineHeight: 1.5
+          }}>
+            <strong>🛵 Finalidad de Asignar Repartidores:</strong> Al asignar un motorizado a un pedido delivery, éste se añade a su pantalla móvil (<em>pestaña Mis Repartos</em>), el cliente puede ver quién le entregará su pedido para contactarlo y puedes despacharle la hoja de ruta con 1 toque al WhatsApp con el botón <strong>📲 Despachar</strong>.
           </div>
 
           <div style={{ display: 'flex', gap: '5px', overflowX: 'auto', paddingBottom: '6px', marginBottom: '15px' }}>
-            {['all', 'Por Corroborar', 'Pendiente', 'Preparando', 'En camino', 'Entregado', 'Cancelado'].map(f => (
+            {['all', 'Por Corroborar', 'Pendiente', 'Preparando', 'Listo', 'En camino', 'Entregado', 'Cancelado'].map(f => (
               <button
                 key={f}
                 className={`filter-btn ${orderFilter === f ? 'active' : ''}`}
@@ -684,7 +905,7 @@ export default function OrderManager({
                 <tr>
                   <th>Pedido</th>
                   <th>Cliente</th>
-                  <th>Monto</th>
+                  <th>Monto y Pago</th>
                   <th>Acciones</th>
                 </tr>
               </thead>
@@ -696,43 +917,386 @@ export default function OrderManager({
                     </td>
                   </tr>
                 ) : (
-                  displayedOrders.map(order => (
-                    <tr key={order.id}>
+                  displayedOrders.map(order => {
+                    const isDelivery = order.customer?.orderType === 'Delivery' || (order.deliveryFee > 0);
+                    const isMesa = order.customer?.orderType === 'Mesa' || Boolean(order.customer?.tableNumber);
+
+                    const stage = getOrderStageInfo(order.status, isDelivery);
+
+                    return (
+                    <tr key={order.id} style={isDelivery ? { background: 'rgba(255, 68, 31, 0.02)' } : {}}>
                       <td>
-                        <strong>{order.id}</strong>
-                        <div style={{ fontSize: '0.7rem', color: 'var(--text-light)', marginTop: '2px' }}>
-                          {new Date(order.date).toLocaleDateString('es-PE')} {new Date(order.date).toLocaleTimeString('es-PE', { hour: '2-digit', minute: '2-digit', hour12: true })}
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '6px', flexWrap: 'wrap' }}>
+                          <strong>{order.id}</strong>
+                          {isDelivery && (
+                            <span className="badge badge-delivery" style={{
+                              background: 'var(--delivery-color, #FF441F)',
+                              color: '#fff',
+                              fontSize: '0.65rem',
+                              fontWeight: 700,
+                              padding: '2px 6px',
+                              borderRadius: '4px',
+                              display: 'inline-flex',
+                              alignItems: 'center',
+                              gap: '3px'
+                            }}>
+                              🛵 DELIVERY
+                            </span>
+                          )}
+                          {order.customer?.orderType === 'Mesa' && (
+                            <span className="badge" style={{
+                              background: '#3498db',
+                              color: '#fff',
+                              fontSize: '0.65rem',
+                              fontWeight: 700,
+                              padding: '2px 6px',
+                              borderRadius: '4px'
+                            }}>
+                              🍽️ Mesa {order.customer?.tableNumber || ''}
+                            </span>
+                          )}
+                          {(order.customer?.orderType === 'Llevar' || order.customer?.orderType === 'Barra' || order.customer?.orderType === 'Mesa_Llevar') && (
+                            <span className="badge" style={{
+                              background: '#9b59b6',
+                              color: '#fff',
+                              fontSize: '0.65rem',
+                              fontWeight: 700,
+                              padding: '2px 6px',
+                              borderRadius: '4px'
+                            }}>
+                              🥡 {order.customer?.orderType === 'Barra' ? 'BARRA' : 'LLEVAR'}
+                            </span>
+                          )}
                         </div>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '6px', marginTop: '3px', flexWrap: 'wrap' }}>
+                          <span style={{
+                            fontSize: '0.66rem',
+                            fontWeight: 700,
+                            padding: '2px 6px',
+                            borderRadius: '4px',
+                            background: `${stage.color}15`,
+                            color: stage.color,
+                            border: `1px solid ${stage.color}40`,
+                            display: 'inline-block'
+                          }}>
+                            {stage.text}
+                          </span>
+                          <span style={{ fontSize: '0.7rem', color: 'var(--text-light)' }}>
+                            {new Date(order.date).toLocaleDateString('es-PE')} {new Date(order.date).toLocaleTimeString('es-PE', { hour: '2-digit', minute: '2-digit', hour12: true })}
+                          </span>
+                        </div>
+                        {isDelivery && (
+                          <div style={{ marginTop: '5px', display: 'flex', alignItems: 'center', gap: '4px', flexWrap: 'wrap' }}>
+                            <select
+                              aria-label="Asignar repartidor"
+                              value={order.assignedDriver?.id || order.assignedDriver?.email || ''}
+                              onChange={(e) => handleAssignDriver(order, e.target.value)}
+                              style={{
+                                fontSize: '0.72rem',
+                                padding: '2px 4px',
+                                borderRadius: '4px',
+                                border: '1px solid var(--delivery-color, #FF441F)',
+                                background: 'var(--bg-secondary, #fff)',
+                                color: 'var(--text-dark)',
+                                maxWidth: '140px'
+                              }}
+                            >
+                              <option value="">🛵 Asignar repartidor...</option>
+                              {staffUsers.map(u => (
+                                <option key={u.id || u.email} value={u.id || u.email}>
+                                  {u.name || u.email} {u.role ? `(${u.role})` : ''}
+                                </option>
+                              ))}
+                            </select>
+                            {order.assignedDriver && (
+                              <button
+                                type="button"
+                                className="admin-action-btn"
+                                onClick={() => handleDispatchToDriverWhatsApp(order)}
+                                style={{
+                                  background: '#25D366',
+                                  color: '#fff',
+                                  fontSize: '0.68rem',
+                                  padding: '3px 6px',
+                                  borderRadius: '4px',
+                                  border: 'none',
+                                  fontWeight: 700,
+                                  cursor: 'pointer',
+                                  display: 'inline-flex',
+                                  alignItems: 'center',
+                                  gap: '2px'
+                                }}
+                                title={`Enviar hoja de ruta por WhatsApp a ${order.assignedDriver.name}`}
+                              >
+                                📲 Despachar
+                              </button>
+                            )}
+                          </div>
+                        )}
                       </td>
                       <td>
                         <div style={{ fontWeight: 600, fontSize: '0.85rem' }}>{order.customer.name}</div>
                         <div style={{ fontSize: '0.75rem', color: 'var(--text-light)' }}>{order.customer.address}</div>
                       </td>
                       <td>
-                        <strong style={{ color: 'var(--primary-color)', fontSize: '0.9rem' }}>S/. {order.grandTotal.toFixed(2)}</strong>
+                        <strong style={{ color: 'var(--primary-color)', fontSize: '0.95rem', display: 'block' }}>
+                          S/. {order.grandTotal.toFixed(2)}
+                        </strong>
+                        {/* Insignias de Forma de Pago y Estado de Verificación */}
+                        <div style={{ display: 'flex', flexDirection: 'column', gap: '3px', marginTop: '4px' }}>
+                          {String(order.customer?.paymentMethod || '').toLowerCase().includes('yape') && (
+                            <span style={{
+                              background: '#7b1fa2',
+                              color: '#fff',
+                              fontSize: '0.66rem',
+                              fontWeight: 700,
+                              padding: '2px 6px',
+                              borderRadius: '4px',
+                              display: 'inline-flex',
+                              alignItems: 'center',
+                              gap: '3px',
+                              width: 'fit-content'
+                            }}>
+                              📱 Yape
+                            </span>
+                          )}
+                          {String(order.customer?.paymentMethod || '').toLowerCase().includes('plin') && (
+                            <span style={{
+                              background: '#0097a7',
+                              color: '#fff',
+                              fontSize: '0.66rem',
+                              fontWeight: 700,
+                              padding: '2px 6px',
+                              borderRadius: '4px',
+                              display: 'inline-flex',
+                              alignItems: 'center',
+                              gap: '3px',
+                              width: 'fit-content'
+                            }}>
+                              💸 Plin
+                            </span>
+                          )}
+                          {String(order.customer?.paymentMethod || '').toLowerCase().includes('efectivo') && (
+                            <span style={{
+                              background: '#16a34a',
+                              color: '#fff',
+                              fontSize: '0.66rem',
+                              fontWeight: 700,
+                              padding: '2px 6px',
+                              borderRadius: '4px',
+                              display: 'inline-flex',
+                              alignItems: 'center',
+                              gap: '3px',
+                              width: 'fit-content'
+                            }}>
+                              💵 Efectivo
+                            </span>
+                          )}
+
+                          {isPaymentOnArrival(order) && <span style={{ fontSize: '0.875rem', fontWeight: 700 }}>Pago al llegar · {order.paymentVerified ? 'Cobrado' : 'Pendiente de cobro'}</span>}
+                          {['Transferencia', 'Tarjeta'].includes(order.customer?.paymentMethod) && <span>{order.customer.paymentMethod}</span>}
+                          {isDigitalPayment(order) ? (
+                            order.paymentVerified ? (
+                              <button
+                                type="button"
+                                onClick={() => handleTogglePaymentVerified(order)}
+                                style={{
+                                  background: '#dcfce7',
+                                  color: '#15803d',
+                                  border: '1px solid #86efac',
+                                  borderRadius: '4px',
+                                  padding: '2px 6px',
+                                  fontSize: '0.64rem',
+                                  fontWeight: 700,
+                                  cursor: 'pointer',
+                                  display: 'inline-flex',
+                                  alignItems: 'center',
+                                  gap: '2px',
+                                  width: 'fit-content'
+                                }}
+                                title="Abono verificado. Clic para alternar"
+                              >
+                                ✓ Abono Verificado
+                              </button>
+                            ) : (
+                              <button
+                                type="button"
+                                onClick={() => handleTogglePaymentVerified(order)}
+                                style={{
+                                  background: '#fef3c7',
+                                  color: '#b45309',
+                                  border: '1px solid #f59e0b',
+                                  borderRadius: '4px',
+                                  padding: '2px 6px',
+                                  fontSize: '0.64rem',
+                                  fontWeight: 700,
+                                  cursor: 'pointer',
+                                  display: 'inline-flex',
+                                  alignItems: 'center',
+                                  gap: '2px',
+                                  width: 'fit-content'
+                                }}
+                                title="Clic para confirmar verificación del comprobante en la cuenta"
+                              >
+                                ⚠️ Validar Abono
+                              </button>
+                            )
+                          ) : (
+                            <span style={{ fontSize: '0.64rem', color: '#b45309', fontWeight: 600 }}>
+                              Cobrar en entrega
+                            </span>
+                          )}
+                        </div>
                       </td>
                       <td>
-                        <div style={{ display: 'flex', gap: '4px', flexWrap: 'wrap' }}>
+                        <div style={{ display: 'flex', gap: '5px', flexWrap: 'wrap', alignItems: 'center' }}>
+                          {/* Acciones principales secuenciales adaptadas al canal */}
                           {order.status === 'Por Corroborar' && (
-                            <button className="admin-action-btn" style={{ color: '#e67e22', fontWeight: 'bold' }} onClick={() => handleStatusChange(order, 'Pendiente', `Pedido ${order.id} corroborado por ${currentUser?.name}`)}>
-                              ✅ Corroborar
+                            <button
+                              className="admin-action-btn"
+                              style={{
+                                color: '#fff',
+                                fontWeight: 800,
+                                background: '#e67e22',
+                                border: 'none',
+                                borderRadius: '6px',
+                                padding: '6px 10px',
+                                fontSize: '0.78rem',
+                                boxShadow: '0 2px 6px rgba(230,126,34,0.3)',
+                                cursor: 'pointer'
+                              }}
+                              onClick={() => handleValidateAndAcceptOrder(order)}
+                              title="Validar comprobante de pago y aceptar pedido a preparación"
+                            >
+                              ✅ Validar y Aceptar
                             </button>
                           )}
                           {order.status === 'Pendiente' && (
-                            <button className="admin-action-btn" style={{ color: 'var(--info)' }} onClick={() => handleStatusChange(order, 'Preparando', `Pedido ${order.id} marcado como 'Preparando' por ${currentUser?.name}`)}>
-                              🍳 Servir
+                            <button
+                              className="admin-action-btn"
+                              style={{
+                                color: '#fff',
+                                fontWeight: 800,
+                                background: '#2980b9',
+                                border: 'none',
+                                borderRadius: '6px',
+                                padding: '6px 10px',
+                                fontSize: '0.78rem',
+                                boxShadow: '0 2px 6px rgba(41,128,185,0.3)',
+                                cursor: 'pointer'
+                              }}
+                              onClick={() => handleSendToKitchen(order)}
+                              title="Enviar a cocina o barra para su elaboración"
+                            >
+                              👨‍🍳 Enviar a Cocina
                             </button>
                           )}
-                          {order.status === 'Preparando' && (
-                            <button className="admin-action-btn" style={{ color: 'var(--secondary-color)' }} onClick={() => handleStatusChange(order, 'En camino', `Pedido ${order.id} marcado como 'En camino' por ${currentUser?.name}`)}>
-                              🛵 Enviar
+                          {order.status === 'Preparando' && <button className="admin-action-btn" onClick={() => handleStatusChange(order, 'Listo', `Pedido ${order.id} listo para entregar`)}>✅ Marcar listo</button>}
+                          {order.status === 'Listo' && isDelivery && (
+                            <button
+                              className="admin-action-btn"
+                              style={{
+                                color: '#fff',
+                                fontWeight: 800,
+                                background: 'var(--delivery-color, #FF441F)',
+                                border: 'none',
+                                borderRadius: '6px',
+                                padding: '6px 10px',
+                                fontSize: '0.78rem',
+                                boxShadow: '0 2px 6px rgba(255,68,31,0.3)',
+                                cursor: 'pointer'
+                              }}
+                              onClick={() => handleStatusChange(order, 'En camino', `Pedido ${order.id} despachado a ruta por ${currentUser?.name}`)}
+                              title="Despachar con repartidor a domicilio"
+                            >
+                              🛵 Despachar a Ruta
+                            </button>
+                          )}
+                          {order.status === 'Listo' && isMesa && (
+                            <button
+                              className="admin-action-btn"
+                              style={{
+                                color: '#fff',
+                                fontWeight: 800,
+                                background: '#27ae60',
+                                border: 'none',
+                                borderRadius: '6px',
+                                padding: '6px 10px',
+                                fontSize: '0.78rem',
+                                cursor: 'pointer'
+                              }}
+                              onClick={() => handleStatusChange(order, 'Entregado', `Pedido ${order.id} servido en mesa por ${currentUser?.name}`)}
+                              title="Marcar como servido en mesa"
+                            >
+                              🍽️ Servir a Mesa
+                            </button>
+                          )}
+                          {order.status === 'Listo' && !isDelivery && !isMesa && (
+                            <button
+                              className="admin-action-btn"
+                              style={{
+                                color: '#fff',
+                                fontWeight: 800,
+                                background: '#27ae60',
+                                border: 'none',
+                                borderRadius: '6px',
+                                padding: '6px 10px',
+                                fontSize: '0.78rem',
+                                cursor: 'pointer'
+                              }}
+                              onClick={() => handleCompleteOrder(order)}
+                              title="Marcar como entregado al cliente"
+                            >
+                              🥡 Entregar a Cliente
                             </button>
                           )}
                           {order.status === 'En camino' && (
-                            <button className="admin-action-btn" style={{ color: 'var(--success)' }} onClick={() => handleStatusChange(order, 'Entregado', `Pedido ${order.id} marcado como 'Entregado' por ${currentUser?.name}`)}>
-                              ✅ Entregado
+                            <button
+                              className="admin-action-btn"
+                              style={{
+                                color: '#fff',
+                                fontWeight: 800,
+                                background: '#16a34a',
+                                border: 'none',
+                                borderRadius: '6px',
+                                padding: '6px 10px',
+                                fontSize: '0.78rem',
+                                boxShadow: '0 2px 6px rgba(22,163,74,0.3)',
+                                cursor: 'pointer'
+                              }}
+                              onClick={() => handleCompleteOrder(order)}
+                              title="Confirmar recepción del cliente y registrar cobranza"
+                            >
+                              🎉 Marcar Entregado
                             </button>
                           )}
+
+                          {/* Botón rápido para solicitar voucher por WhatsApp si es Yape/Plin y no está verificado */}
+                          {requiresAdvancePayment(order) && !order.paymentVerified && (
+                            <a
+                              href={`https://wa.me/${String(order.customer?.phone || '').replace(/\D/g, '')}?text=${encodeURIComponent(`¡Hola ${order.customer?.name || ''}! Te saludamos de ${storeName}. Por favor compártenos la captura o constancia de tu transferencia por ${order.customer?.paymentMethod} (S/. ${order.grandTotal.toFixed(2)}) para iniciar la preparación de tu pedido #${order.id}. ¡Muchas gracias!`)}`}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              className="admin-action-btn"
+                              style={{
+                                textDecoration: 'none',
+                                color: '#7b1fa2',
+                                background: 'rgba(123, 31, 162, 0.1)',
+                                border: '1px solid #7b1fa2',
+                                borderRadius: '4px',
+                                fontSize: '0.72rem',
+                                fontWeight: 700,
+                                padding: '3px 6px',
+                                display: 'inline-flex',
+                                alignItems: 'center',
+                                gap: '3px'
+                              }}
+                              title="Solicitar comprobante por WhatsApp al cliente"
+                            >
+                              📸 Pedir Voucher
+                            </a>
+                          )}
+
                           {order.status !== 'Entregado' && order.status !== 'Cancelado' && (
                             <button 
                               className="admin-action-btn" 
@@ -767,6 +1331,23 @@ export default function OrderManager({
                           >
                             💬 Chat
                           </a>
+                          <button
+                            type="button"
+                            className="admin-action-btn"
+                            style={{ color: 'var(--delivery-color, #FF441F)', fontWeight: 600 }}
+                            title="Imprimir ticket térmico ESC/POS (58mm / 80mm)"
+                            onClick={() => {
+                              printThermalTicket({
+                                type: isDelivery ? 'delivery' : 'comanda',
+                                order,
+                                storeName: storeName || 'Friozo',
+                                storePhone: storePhone || '',
+                                ticketCustomMessage: ticketCustomMessage || ''
+                              });
+                            }}
+                          >
+                            🧾 Térmica ESC/POS
+                          </button>
                           <button
                             type="button"
                             className="admin-action-btn"
@@ -914,7 +1495,8 @@ export default function OrderManager({
                         </div>
                       </td>
                     </tr>
-                  ))
+                    );
+                  })
                 )}
               </tbody>
             </table>

@@ -5,7 +5,7 @@ import { onRequestPost as handleR2Upload } from './functions/api/r2-upload.js'
 import { onRequestPost as handleR2Post } from './functions/api/r2.js'
 import { onRequestGet as handleOrderGet, onRequestPost as handleOrderPost } from './functions/api/order.js'
 import { onRequestPost as handleTableCallPost } from './functions/api/table-call.js'
-import { onRequestPost as handleTelegramPost } from './functions/api/telegram.js'
+import { onRequestGet as handleTelegramGet, onRequestPost as handleTelegramPost } from './functions/api/telegram.js'
 
 const apiRoutes = {
   '/api/admin-auth-user': { POST: handleAdminAuthUser },
@@ -13,7 +13,7 @@ const apiRoutes = {
   '/api/r2': { POST: handleR2Post },
   '/api/order': { GET: handleOrderGet, POST: handleOrderPost },
   '/api/table-call': { POST: handleTableCallPost },
-  '/api/telegram': { POST: handleTelegramPost },
+  '/api/telegram': { GET: handleTelegramGet, POST: handleTelegramPost },
 }
 
 function localPagesApiPlugin(env) {
@@ -71,7 +71,7 @@ function localPagesApiPlugin(env) {
               request,
               env: {
                 SUPABASE_URL: env.SUPABASE_URL || env.VITE_SUPABASE_URL,
-                SUPABASE_SERVICE_ROLE_KEY: env.SUPABASE_SERVICE_ROLE_KEY || env.VITE_SUPABASE_ANON_KEY,
+                SUPABASE_SERVICE_ROLE_KEY: env.SUPABASE_SERVICE_ROLE_KEY,
                 TELEGRAM_BOT_TOKEN: env.TELEGRAM_BOT_TOKEN,
                 TELEGRAM_CHAT_ID: env.TELEGRAM_CHAT_ID,
                 R2_ACCOUNT_ID: env.R2_ACCOUNT_ID,
@@ -110,6 +110,9 @@ export default defineConfig(({ mode }) => {
         output: {
           manualChunks(id) {
             if (id.includes('node_modules')) {
+              if (id.includes('leaflet')) {
+                return 'leaflet';
+              }
               return 'vendor';
             }
           }

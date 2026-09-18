@@ -1,11 +1,14 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { updateSyncedData } from '../../utils/supabaseSync';
+import { getEnabledPaymentMethods, getCollectionPaymentMethods, selectPaymentMethod } from '../../utils/paymentMethods';
+import { nextOrderStatus, orderStatusLabel } from '../../utils/orderLifecycle';
 import { generateOrderId } from '../../utils/orderId';
 import { buildSmsHref, formatOrderStatusMessage, normalizeSmsTemplates } from '../../utils/orderMessaging';
 
 export default function TableOrderManager({
   orders,
   onUpdateOrders,
+  onUpdateOrderStatus,
   flavors,
   toppings,
   bases,
@@ -45,8 +48,15 @@ export default function TableOrderManager({
   const [literScoops, setLiterScoops] = useState([]);
   const [showLiterCustomizer, setShowLiterCustomizer] = useState(false);
 
+  // División de cuenta (Split Bill)
+  const [showSplitBill, setShowSplitBill] = useState(false);
+  const [splitPeopleCount, setSplitPeopleCount] = useState(2);
+  // Modo Comandero Exprés para Mozos
+  const [expressMode, setExpressMode] = useState(false);
+
   // Método de pago para cierre de mesa
-  const [checkoutPaymentMethod, setCheckoutPaymentMethod] = useState('Yape');
+  const [selectedPaymentMethod, setCheckoutPaymentMethod] = useState('Yape');
+  const enabledPaymentMethods = getEnabledPaymentMethods(shopConfig);
 
   const openStatusSms = (order, newStatus) => {
     if (shopConfig?.smsNotificationsEnabled !== true) return;
@@ -128,7 +138,7 @@ export default function TableOrderManager({
   };
 
   // Agregar item al pedido local temporal (para nueva mesa) o directo a la mesa activa
-  const handleAddItemToOrder = (item) => {
+  const handleAddItemToOrder = async (item) => {
     if (selectedTable) {
       const activeOrder = selectedTable === 'Barra'
         ? orders.find(o => o.id === selectedBarraOrderId && o.customer?.orderType === 'Barra' && o.status !== 'Cancelado' && !o.tablePaid)
@@ -136,7 +146,7 @@ export default function TableOrderManager({
 
       if (activeOrder) {
         // Añadir a pedido existente en la base de datos
-        const updatedItems = [...activeOrder.items];
+        const updatedItems = activeOrder.items.map(item => ({ ...item }));
         const existingIdx = updatedItems.findIndex(i => i.name === item.name && i.type === item.type);
         if (existingIdx !== -1) {
           updatedItems[existingIdx].quantity += 1;
@@ -162,13 +172,12 @@ export default function TableOrderManager({
               discount: discount,
               grandTotal: Math.max(0, newSubtotal - discount)
             };
-            updateSyncedData(`order_${o.id}`, orderVal);
             return orderVal;
           }
           return o;
         });
 
-        onUpdateOrders(updatedOrders);
+        if (!await onUpdateOrders(updatedOrders)) return;
         const nameType = selectedTable === 'Barra' ? 'Barra' : `Mesa ${selectedTable}`;
         addLog(`Mozo ${currentUser?.name || ''} agregó ${item.name} a ${nameType}.`);
         alert(`Se agregó ${item.name} a ${nameType}.`);
@@ -187,7 +196,7 @@ export default function TableOrderManager({
     }
   };
 
-  const handleUpdateActiveOrderItemQty = (activeOrder, itemIndex, delta) => {
+  const handleUpdateActiveOrderItemQty = async (activeOrder, itemIndex, delta) => {
     let updatedItems = activeOrder.items.map((item, idx) => {
       if (idx === itemIndex) {
         const newQty = item.quantity + delta;
@@ -214,16 +223,15 @@ export default function TableOrderManager({
           grandTotal: Math.max(0, subtotal - discount)
         };
         // También subirlo individualmente si es en la nube
-        updateSyncedData(`order_${o.id}`, orderVal);
         return orderVal;
       }
       return o;
     });
 
-    onUpdateOrders(updatedOrders);
+    if (!await onUpdateOrders(updatedOrders)) return;
   };
 
-  const handleRemoveActiveOrderItem = (activeOrder, itemIndex) => {
+  const handleRemoveActiveOrderItem = async (activeOrder, itemIndex) => {
     const updatedItems = activeOrder.items.filter((_, idx) => idx !== itemIndex);
     
     if (updatedItems.length === 0) {
@@ -248,39 +256,41 @@ export default function TableOrderManager({
           discount: discount,
           grandTotal: Math.max(0, subtotal - discount)
         };
-        updateSyncedData(`order_${o.id}`, orderVal);
         return orderVal;
       }
       return o;
     });
 
-    onUpdateOrders(updatedOrders);
+    if (!await onUpdateOrders(updatedOrders)) return;
   };
 
-  const handleCorroborarOrder = (activeOrder) => {
+  const handleCorroborarOrder = async (activeOrder) => {
+    const verifyPayment = /yape|plin/i.test(activeOrder.customer?.paymentMethod || '');
+    if (verifyPayment && !activeOrder.paymentVerified && !window.confirm('¿Verificaste el abono de S/ ' + Number(activeOrder.grandTotal || 0).toFixed(2) + '?')) return;
     const updatedOrders = orders.map(o => {
       if (o.id === activeOrder.id) {
         const history = o.statusHistory || [];
         const orderVal = {
           ...o,
           status: 'Pendiente',
+          paymentVerified: verifyPayment || o.paymentVerified,
           statusHistory: [...history, { status: 'Pendiente', timestamp: new Date().toISOString() }]
         };
-        updateSyncedData(`order_${o.id}`, orderVal);
         return orderVal;
       }
       return o;
     });
 
-    onUpdateOrders(updatedOrders);
+    if (!await onUpdateOrders(updatedOrders)) return;
     addLog(`Pedido ${activeOrder.id} de Mesa ${selectedTable} corroborado por ${currentUser?.name || 'Personal'}.`);
     alert(`Pedido ${activeOrder.id} corroborado y enviado a preparación.`);
   };
 
   // Crear nuevo pedido de mesa
-  const handleCreateOrderSubmit = (e) => {
+  const handleCreateOrderSubmit = async (e) => {
     e.preventDefault();
     if (!selectedTable) return;
+    if (!enabledPaymentMethods.length) { alert('No hay métodos de pago activos. Activa uno en Ajustes.', 'error'); return; }
     if (newOrderItems.length === 0) {
       alert("Debes agregar al menos un producto al pedido.", 'error');
       return;
@@ -309,7 +319,7 @@ export default function TableOrderManager({
         name: finalClient,
         phone: newOrderPhone.trim() || 'Sin teléfono',
         address: finalAddress,
-        paymentMethod: 'Efectivo',
+        paymentMethod: selectPaymentMethod('Efectivo', enabledPaymentMethods),
         orderType: finalOrderType,
         tableNumber: finalTableNumber
       },
@@ -326,9 +336,8 @@ export default function TableOrderManager({
       date: new Date().toISOString()
     };
 
-    onUpdateOrders([newOrder, ...orders]);
+    if (!await onUpdateOrders([newOrder, ...orders])) return;
     // Sincronizar de inmediato
-    updateSyncedData(`order_${newOrder.id}`, newOrder);
     if (isBarra) {
       setSelectedBarraOrderId(newOrder.id);
     }
@@ -353,7 +362,7 @@ export default function TableOrderManager({
   };
 
   // Cambiar tipo de pedido a Para Llevar / Delivery
-  const handleConvertToTakeout = (activeOrder) => {
+  const handleConvertToTakeout = async (activeOrder) => {
     const addressPrompt = window.prompt("Dirección para la entrega (o escribe 'Recojo en tienda'):", "Recojo en Tienda");
     if (addressPrompt === null) return; // Canceló
 
@@ -366,7 +375,7 @@ export default function TableOrderManager({
           ...o,
           customer: {
             ...o.customer,
-            orderType: 'Llevar',
+            orderType: addressPrompt.toLowerCase().includes('recojo') ? 'Llevar' : 'Delivery',
             tableNumber: null,
             address: addressPrompt
           },
@@ -378,55 +387,37 @@ export default function TableOrderManager({
       return o;
     });
 
-    if (orderVal) {
-      updateSyncedData(`order_${orderVal.id}`, orderVal);
-    }
-    onUpdateOrders(updatedOrders);
+    if (!await onUpdateOrders(updatedOrders)) return;
     addLog(`Pedido ${activeOrder.id} de Mesa ${selectedTable} cambiado a Para Llevar por ${currentUser?.name}.`);
     alert("Pedido cambiado a Para Llevar con éxito.");
     setSelectedTable(null); // Quitar selección de mesa
   };
 
   // Cambiar estado de orden de mesa
-  const handleUpdateTableOrderStatus = (activeOrder, newStatus) => {
-    let orderVal = null;
-    const statusTimestamp = new Date().toISOString();
-    const updatedOrders = orders.map(o => {
-      if (o.id === activeOrder.id) {
-        const history = o.statusHistory || [];
-        const lastStatus = history[history.length - 1]?.status;
-        orderVal = {
-          ...o,
-          status: newStatus,
-          statusHistory: lastStatus === newStatus ? history : [...history, { status: newStatus, timestamp: statusTimestamp }],
-          updatedAt: statusTimestamp
-        };
-        return orderVal;
-      }
-      return o;
-    });
-    if (orderVal) {
-      updateSyncedData(`order_${orderVal.id}`, orderVal);
-    }
-    onUpdateOrders(updatedOrders);
-    addLog(`Estado de pedido ${activeOrder.id} (Mesa ${selectedTable}) cambiado a ${newStatus} por ${currentUser?.name}.`);
-    if (orderVal) openStatusSms(orderVal, newStatus);
-    alert(`Estado de la Mesa ${selectedTable} cambiado a ${newStatus}.`);
+  const handleUpdateTableOrderStatus = async (activeOrder, newStatus) => {
+    if (!await onUpdateOrderStatus(activeOrder.id, newStatus)) return;
+    addLog(`Pedido ${activeOrder.id}: ${orderStatusLabel(newStatus)}`);
+    openStatusSms(activeOrder, newStatus);
+    alert(`Pedido actualizado: ${orderStatusLabel(newStatus)}.`);
+    return true;
   };
 
   // Cierre y Cobro de Mesa
-  const handleCheckoutTable = (activeOrder) => {
+  const handleCheckoutTable = async (activeOrder) => {
+    if (!checkoutPaymentMethod) { alert('No hay métodos de pago activos. Activa uno en Ajustes.', 'error'); return; }
+    if (activeOrder.status !== 'Entregado') { alert('Primero completa la preparación y entrega del pedido. Después podrás cobrar y liberar la mesa.', 'error'); return; }
+    if (!window.confirm('¿Confirmas el cobro de S/ ' + Number(activeOrder.grandTotal || 0).toFixed(2) + ' vía ' + checkoutPaymentMethod + '?')) return;
     let orderVal = null;
     const statusTimestamp = new Date().toISOString();
     const updatedOrders = orders.map(o => {
       if (o.id === activeOrder.id) {
         const history = o.statusHistory || [];
-        const lastStatus = history[history.length - 1]?.status;
         orderVal = {
           ...o,
           tablePaid: true,
-          status: 'Entregado',
-          statusHistory: lastStatus === 'Entregado' ? history : [...history, { status: 'Entregado', timestamp: statusTimestamp }],
+          paymentVerified: true,
+          status: o.status,
+          statusHistory: history,
           updatedAt: statusTimestamp,
           customer: {
             ...o.customer,
@@ -438,12 +429,9 @@ export default function TableOrderManager({
       return o;
     });
 
-    if (orderVal) {
-      updateSyncedData(`order_${orderVal.id}`, orderVal);
-    }
-    onUpdateOrders(updatedOrders);
+    if (!await onUpdateOrders(updatedOrders)) return;
     addLog(`Mesa ${selectedTable} pagada y cerrada vía ${checkoutPaymentMethod}. Pedido ${activeOrder.id} cobrado.`);
-    if (orderVal) openStatusSms(orderVal, 'Entregado');
+
     alert(`Mesa ${selectedTable} cerrada y liberada exitosamente.`);
     
     setShowCheckoutSection(false);
@@ -451,9 +439,9 @@ export default function TableOrderManager({
   };
 
   // Cancelar orden de mesa
-  const handleCancelTableOrder = (activeOrder) => {
+  const handleCancelTableOrder = async (activeOrder) => {
     if (!window.confirm("¿Seguro que deseas cancelar el pedido de la mesa? Esta acción liberará la mesa inmediatamente.")) return;
-    handleUpdateTableOrderStatus(activeOrder, 'Cancelado');
+    if (!await handleUpdateTableOrderStatus(activeOrder, 'Cancelado')) return;
     setSelectedTable(null);
   };
 
@@ -482,12 +470,12 @@ export default function TableOrderManager({
           cardBg = 'rgba(241, 196, 15, 0.12)';
           cardBorder = '1px solid rgba(241, 196, 15, 0.4)';
           cardTextColor = '#d98811';
-          statusLabel = 'Esperando aceptación';
-        } else if (activeOrder.status === 'Preparando') {
+          statusLabel = 'En cola de cocina';
+        } else if (activeOrder.status === 'Preparando' || activeOrder.status === 'Listo') {
           cardBg = 'rgba(52, 152, 219, 0.12)';
           cardBorder = '1px solid rgba(52, 152, 219, 0.4)';
           cardTextColor = 'var(--primary-color)';
-          statusLabel = 'En preparación';
+          statusLabel = activeOrder.status === 'Listo' ? 'Listo para entregar' : 'En preparación';
         } else if (activeOrder.status === 'Entregado') {
           cardBg = 'rgba(155, 89, 182, 0.12)';
           cardBorder = '1px solid rgba(155, 89, 182, 0.4)';
@@ -715,6 +703,9 @@ export default function TableOrderManager({
     ? orders.find(o => o.id === selectedBarraOrderId && o.customer?.orderType === 'Barra' && o.status !== 'Cancelado' && !o.tablePaid)
     : (selectedTable ? getActiveTableOrder(selectedTable) : null);
 
+  const checkoutMethods = getCollectionPaymentMethods(shopConfig, activeOrder);
+  const checkoutPaymentMethod = selectPaymentMethod(selectedPaymentMethod, checkoutMethods);
+
   return (
     <div className="table-order-manager-layout">
       <style>{`
@@ -822,6 +813,32 @@ export default function TableOrderManager({
             `}</style>
           </div>
         )}
+
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '10px' }}>
+          <span style={{ fontSize: '0.85rem', fontWeight: 'bold', color: 'var(--text-dark)' }}>
+            🍽️ Mapa de Mesas y Barra
+          </span>
+          <button
+            type="button"
+            className="btn btn-sm"
+            onClick={() => setExpressMode(!expressMode)}
+            style={{
+              fontSize: '0.72rem',
+              padding: '4px 10px',
+              borderRadius: '20px',
+              border: expressMode ? '2px solid #f39c12' : '1px solid var(--border-color)',
+              background: expressMode ? '#f39c12' : 'var(--bg-secondary)',
+              color: expressMode ? '#fff' : 'var(--text-dark)',
+              fontWeight: 700,
+              cursor: 'pointer',
+              display: 'inline-flex',
+              alignItems: 'center',
+              gap: '4px'
+            }}
+          >
+            ⚡ {expressMode ? 'Modo Exprés Activo' : 'Comandero Exprés'}
+          </button>
+        </div>
 
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(110px, 1fr))', gap: '12px' }}>
           {renderTablesGrid()}
@@ -1066,9 +1083,8 @@ export default function TableOrderManager({
                         onChange={(e) => setCheckoutPaymentMethod(e.target.value)}
                         style={{ fontSize: '0.8rem', padding: '6px', marginTop: '4px' }}
                       >
-                        <option value="Yape">📱 Yape</option>
-                        <option value="Plin">💸 Plin</option>
-                        <option value="Efectivo">💵 Efectivo / Tarjeta</option>
+                        {!checkoutMethods.length && <option value="">Sin métodos activos</option>}
+                        {checkoutMethods.map(method => <option key={method} value={method}>{method}</option>)}
                       </select>
                     </div>
                     <div className="table-actions-row">
@@ -1105,6 +1121,15 @@ export default function TableOrderManager({
                       <button
                         type="button"
                         className="btn btn-secondary"
+                        style={{ padding: '8px 12px', fontSize: '0.75rem', background: 'rgba(52, 152, 219, 0.1)', color: '#2980b9', border: '1px solid rgba(52, 152, 219, 0.3)' }}
+                        onClick={() => setShowSplitBill(!showSplitBill)}
+                        title="Dividir la cuenta entre comensales"
+                      >
+                        🧮 Dividir ({splitPeopleCount})
+                      </button>
+                      <button
+                        type="button"
+                        className="btn btn-secondary"
                         style={{ padding: '8px 12px', fontSize: '0.75rem' }}
                         onClick={() => handleConvertToTakeout(activeOrder)}
                       >
@@ -1123,19 +1148,70 @@ export default function TableOrderManager({
                         🔓 Liberar
                       </button>
                     </div>
+
+                    {showSplitBill && (
+                      <div style={{
+                        background: 'rgba(52, 152, 219, 0.07)',
+                        border: '1px solid rgba(52, 152, 219, 0.3)',
+                        padding: '12px',
+                        borderRadius: '8px',
+                        margin: '10px 0'
+                      }}>
+                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '8px' }}>
+                          <strong style={{ fontSize: '0.82rem', color: '#2980b9' }}>🧮 División de Cuenta (Split Bill)</strong>
+                          <button
+                            type="button"
+                            onClick={() => setShowSplitBill(false)}
+                            style={{ background: 'none', border: 'none', cursor: 'pointer', fontSize: '0.8rem' }}
+                          >
+                            ✕
+                          </button>
+                        </div>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '10px', flexWrap: 'wrap' }}>
+                          <span style={{ fontSize: '0.75rem', fontWeight: 600 }}>Comensales:</span>
+                          <div style={{ display: 'flex', gap: '4px' }}>
+                            {[2, 3, 4, 5, 6].map(num => (
+                              <button
+                                key={num}
+                                type="button"
+                                onClick={() => setSplitPeopleCount(num)}
+                                style={{
+                                  padding: '4px 10px',
+                                  fontSize: '0.75rem',
+                                  borderRadius: '4px',
+                                  border: splitPeopleCount === num ? '1.5px solid #2980b9' : '1px solid var(--border-color)',
+                                  background: splitPeopleCount === num ? '#2980b9' : '#fff',
+                                  color: splitPeopleCount === num ? '#fff' : '#333',
+                                  cursor: 'pointer',
+                                  fontWeight: 600
+                                }}
+                              >
+                                {num}
+                              </button>
+                            ))}
+                          </div>
+                        </div>
+                        <div style={{
+                          background: '#fff',
+                          padding: '10px',
+                          borderRadius: '6px',
+                          border: '1px dashed #2980b9',
+                          textAlign: 'center'
+                        }}>
+                          <div style={{ fontSize: '0.75rem', color: 'var(--text-light)' }}>
+                            Monto total: S/. {activeOrder.grandTotal.toFixed(2)} ÷ {splitPeopleCount} personas
+                          </div>
+                          <div style={{ fontSize: '1.25rem', fontWeight: 'bold', color: '#2980b9', marginTop: '4px' }}>
+                            S/. {(activeOrder.grandTotal / splitPeopleCount).toFixed(2)} <span style={{ fontSize: '0.75rem', fontWeight: 'normal', color: '#555' }}>cada uno</span>
+                          </div>
+                        </div>
+                      </div>
+                    )}
  
                     <div className="table-actions-row">
-                      <select
-                        className="form-control"
-                        value={activeOrder.status}
-                        onChange={(e) => handleUpdateTableOrderStatus(activeOrder, e.target.value)}
-                        style={{ flex: 1, fontSize: '0.75rem', padding: '6px' }}
-                      >
-                        <option value="Por Corroborar">⏳ Cocina: Por Corroborar</option>
-                        <option value="Pendiente">⏳ Cocina: Pendiente</option>
-                        <option value="Preparando">🍦 Cocina: Preparando</option>
-                        <option value="Entregado">🍽️ Cocina: Servido a Mesa</option>
-                      </select>
+                      <button className="btn btn-primary" disabled={!nextOrderStatus(activeOrder)} onClick={() => activeOrder.status === 'Por Corroborar' ? handleCorroborarOrder(activeOrder) : handleUpdateTableOrderStatus(activeOrder, nextOrderStatus(activeOrder))}>
+                        {nextOrderStatus(activeOrder) ? 'Pasar a: ' + orderStatusLabel(nextOrderStatus(activeOrder)) : orderStatusLabel(activeOrder.status)}
+                      </button>
                       
                       <button
                         type="button"

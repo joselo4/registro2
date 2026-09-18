@@ -1,7 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import fs from 'node:fs';
-const css=fs.readFileSync(new URL('../src/artisan.css',import.meta.url),'utf8');
+const css=fs.readFileSync(new URL('../src/sorbet.css',import.meta.url),'utf8');
 const light=css.match(/:root\s*\{([^}]+)\}/)[1];
 const dark=css.match(/\[data-theme="dark"\]\s*\{([^}]+)\}/)[1];
 const value=(body,name)=>body.match(new RegExp(`${name}:\\s*(#[0-9a-f]{6})`,'i'))?.[1];
@@ -14,5 +14,5 @@ test('primary, secondary and status text meet 4.5:1 on both theme surfaces',()=>
   }
 });
 test('hero copy, preview captions and purchase buttons have readable contrast',()=>{
-  for(const [fg,bg] of [[value(light,'--heading-color'),'#f1e8dc'],[value(light,'--text-light'),'#f1e8dc'],['#59483b','#eee3d5'],['#ffffff','#a7354b'],['#ffffff','#176b3d']]) assert.ok(contrast(fg,bg)>=4.5);
+  for(const [fg,bg] of [['#591e30','#ffd7df'],['#663541','#ffd7df'],['#a4163d','#ffd7df'],['#ffffff','#aa153e'],['#492117','#ffcf32'],['#ffffff','#a71940'],['#304825','#e5f4b3'],['#59483b','#eee3d5'],['#ffffff','#176b3d']]) assert.ok(contrast(fg,bg)>=4.5,`${fg} on ${bg}`);
 });

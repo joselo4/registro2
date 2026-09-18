@@ -1,4 +1,6 @@
 import { supabase } from './supabaseClient';
+import { fetchAllSyncRows } from './orderRepository.js';
+import { apiUrl, fetchOperatorOrders } from './apiClient.js';
 
 // ─── Caché en memoria para reducir egress de Supabase ───────────────────────
 // Solo almacena datos por 5 minutos. Si hay un cambio en tiempo real, se invalida.
@@ -54,13 +56,19 @@ export const fetchSyncedData = async (isAdmin = false, activeSession = null) => 
 
     if (isAdmin && isSessionAdmin) {
       console.log("🔌 Solicitando datos administrativos seguros mediante consulta directa (Supabase Auth activa)...");
-      const { data, error } = await supabase.from('helados_sync').select('*');
-      if (error) throw error;
+      const data = await fetchAllSyncRows(supabase);
       if (data && data.length > 0) {
         data.forEach(row => {
           syncData[row.key] = row.value;
         });
       }
+      // Server verifies every staff role, including drivers, cashiers and waiters
+      // whose older RLS installation may only expose public configuration.
+      const operatorOrders = await fetchOperatorOrders(session);
+      Object.keys(syncData).filter(key => key.startsWith('order_') && !key.startsWith('order_call_')).forEach(key => { delete syncData[key]; });
+      syncData.orders = operatorOrders;
+      syncData.order_scope = /repartidor/i.test(session.user?.app_metadata?.role || '') ? 'assigned' : 'all';
+      operatorOrders.forEach(order => { syncData[`order_${order.id}`] = order; });
     } else {
       // Caso de uso público (Clientes): cargar únicamente la configuración general no sensible
       console.log("🔌 Cargando configuración pública de la tienda...");
@@ -158,7 +166,7 @@ export const updateSyncedData = async (key, value) => {
 
 const updatePublicOrder = async (key, value) => {
   const id = String(key || '').replace(/^order_/, '');
-  const response = await fetch('/api/order', {
+  const response = await fetch(apiUrl('/api/order'), {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ id, order: value }),
@@ -171,7 +179,7 @@ const updatePublicOrder = async (key, value) => {
 };
 
 const updatePublicTableCall = async (value) => {
-  const response = await fetch('/api/table-call', {
+  const response = await fetch(apiUrl('/api/table-call'), {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify(value),
@@ -290,44 +298,83 @@ export const updateMultipleSyncedData = async (keyValuePairs) => {
  */
 export const subscribeToSync = (onUpdateCallback, isAdmin = false, tableNumber = null, onStatusCallback = null) => {
   if (!supabase) return null;
-  try {
-    if (!isAdmin) {
-      // Para clientes estándar, suscribirse a todos los cambios de llaves públicas de configuración
-      const publicKeys = [
-        'store_name', 
-        'store_logo', 
-        'store_title',
-        'store_favicon',
-        'store_phone', 
-        'store_instagram',
-        'store_facebook',
-        'whatsapp_contact_message',
-        'shop_open',
-        'catalog_order', 
-        'flavors', 
-        'toppings', 
-        'bases', 
-        'packs', 
-        'coupons',
-        'delivery_fee', 
-        'free_delivery_threshold', 
-        'delivery_campaign_text',
-        'sound_enabled', 
-        'whatsapp_greeting', 
-        'whatsapp_footer', 
-        'qr_custom_url', 
-        'recommendations', 
-        'cart_recommended_pack', 
-        'ticket_custom_message',
-        'cart_locations',
-        'store_hero_image',
-        'meta_pixel_id',
-        'google_analytics_id'
-      ];
 
+  let currentChannel = null;
+  let isUnsubscribed = false;
+  let reconnectTimer = null;
+  let retryCount = 0;
+
+  const publicKeys = [
+    'store_name', 
+    'store_logo', 
+    'store_title', 
+    'store_favicon',
+    'store_phone', 
+    'store_instagram',
+    'store_facebook',
+    'whatsapp_contact_message',
+    'shop_open',
+    'catalog_order', 
+    'flavors', 
+    'toppings', 
+    'bases', 
+    'packs', 
+    'coupons',
+    'delivery_fee', 
+    'free_delivery_threshold', 
+    'delivery_campaign_text',
+    'sound_enabled', 
+    'whatsapp_greeting', 
+    'whatsapp_footer', 
+    'qr_custom_url', 
+    'recommendations', 
+    'cart_recommended_pack', 
+    'ticket_custom_message',
+    'cart_locations',
+    'store_hero_image',
+    'meta_pixel_id',
+    'google_analytics_id'
+  ];
+
+  const scheduleReconnect = (reason) => {
+    if (isUnsubscribed) return;
+    if (reconnectTimer) return;
+
+    retryCount++;
+    const delay = Math.min(1000 * Math.pow(1.5, retryCount), 10000);
+    console.warn(`⚠️ Supabase Realtime desconectado (${reason}). Reintentando conexión en ${(delay / 1000).toFixed(1)}s (intento #${retryCount})...`);
+
+    if (onStatusCallback) onStatusCallback('reconnecting', new Error(reason));
+
+    reconnectTimer = setTimeout(() => {
+      reconnectTimer = null;
+      if (!isUnsubscribed) {
+        connect();
+      }
+    }, delay);
+  };
+
+  const connect = () => {
+    if (isUnsubscribed) return;
+
+    if (currentChannel) {
+      try {
+        supabase.removeChannel(currentChannel);
+      } catch (e) {
+        console.warn("Limpieza de canal previo:", e?.message);
+      }
+      currentChannel = null;
+    }
+
+    try {
+      const roleLabel = isAdmin ? 'admin' : 'client';
       const randId = Math.random().toString(36).substring(2, 10);
-      const channel = supabase
-        .channel(`helados-realtime-client-channel-${randId}`)
+      const channelName = `helados-realtime-${roleLabel}-${randId}`;
+
+      const channel = supabase.channel(channelName);
+      currentChannel = channel;
+
+      channel
         .on(
           'postgres_changes',
           { event: '*', schema: 'public', table: 'helados_sync' },
@@ -335,54 +382,63 @@ export const subscribeToSync = (onUpdateCallback, isAdmin = false, tableNumber =
             const key = payload.new?.key || payload.old?.key;
             const val = payload.new?.value || null;
             if (key) {
-              const isPublicKey = publicKeys.includes(key);
-              const isMyTableCall = tableNumber && key === `order_call_Mesa_${tableNumber}`;
-              if (isPublicKey || isMyTableCall) {
+              if (isAdmin) {
                 invalidateSyncCache();
                 onUpdateCallback(key, val);
+              } else {
+                const isPublicKey = publicKeys.includes(key);
+                const isMyTableCall = tableNumber && key === `order_call_Mesa_${tableNumber}`;
+                if (isPublicKey || isMyTableCall) {
+                  invalidateSyncCache();
+                  onUpdateCallback(key, val);
+                }
               }
             }
           }
         )
         .subscribe((status, err) => {
-          if (onStatusCallback) onStatusCallback(status, err);
+          if (isUnsubscribed) return;
+
           if (status === 'SUBSCRIBED') {
-            console.log(`🔌 Canal Supabase Realtime (Cliente) suscrito con éxito (ID: ${randId}).`);
-          } else if (err || status === 'CHANNEL_ERROR') {
-            console.error(`❌ Error en Realtime (Cliente):`, err || status);
-          }
-        });
-      return channel;
-    } else {
-      // Para administradores, suscribirse a todos los cambios
-      const randId = Math.random().toString(36).substring(2, 10);
-      const channel = supabase
-        .channel(`helados-realtime-admin-channel-${randId}`)
-        .on(
-          'postgres_changes',
-          { event: '*', schema: 'public', table: 'helados_sync' },
-          (payload) => {
-            const key = payload.new?.key || payload.old?.key;
-            const val = payload.new?.value || null;
-            if (key) {
-              invalidateSyncCache(); // Invalidar caché cuando llegue cambio remoto
-              onUpdateCallback(key, val);
+            retryCount = 0;
+            console.log(`🔌 Canal Supabase Realtime (${roleLabel}) conectado exitosamente (ID: ${randId}).`);
+            if (onStatusCallback) onStatusCallback('SUBSCRIBED');
+          } else if (err || status === 'CHANNEL_ERROR' || status === 'TIMED_OUT') {
+            console.error(`❌ Error en Realtime (${roleLabel}):`, err || status);
+            if (onStatusCallback) onStatusCallback(status, err);
+            scheduleReconnect(status || (err ? err.message : 'Error de canal'));
+          } else if (status === 'CLOSED') {
+            if (!isUnsubscribed) {
+              scheduleReconnect('CLOSED');
             }
-          }
-        )
-        .subscribe((status, err) => {
-          if (onStatusCallback) onStatusCallback(status, err);
-          if (status === 'SUBSCRIBED') {
-            console.log(`🔌 Canal Supabase Realtime (Admin) suscrito con éxito (ID: ${randId}).`);
-          } else if (err || status === 'CHANNEL_ERROR') {
-            console.error(`❌ Error en Realtime (Admin):`, err || status);
+          } else {
+            if (onStatusCallback) onStatusCallback(status, err);
           }
         });
-      return channel;
+    } catch (err) {
+      console.warn("⚠️ Supabase Realtime: Excepción en conexión:", err.message);
+      scheduleReconnect(err.message);
     }
-  } catch (err) {
-    console.warn("⚠️ Supabase Realtime: Suscripción fallida.", err.message);
-    if (onStatusCallback) onStatusCallback('error', err);
-    return null;
-  }
+  };
+
+  connect();
+
+  return {
+    unsubscribe: () => {
+      isUnsubscribed = true;
+      if (reconnectTimer) {
+        clearTimeout(reconnectTimer);
+        reconnectTimer = null;
+      }
+      if (currentChannel) {
+        try {
+          supabase.removeChannel(currentChannel);
+        } catch { /* channel already removed */ }
+        currentChannel = null;
+      }
+    },
+    get topic() {
+      return currentChannel?.topic;
+    }
+  };
 };

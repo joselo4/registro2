@@ -1,14 +1,12 @@
-@import url('https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,600..800&family=Manrope:wght@400..800&display=swap');
-
 :root {
   --font-title: 'Bricolage Grotesque', sans-serif;
   --font-body: 'Manrope', sans-serif;
 
-  /* Identidad Friozo: cereza, limón, crema y cacao */
+  /* Identidad Friozo: cereza, limón, crema y cacao (Optimizado contraste WCAG AA > 4.5:1) */
   --bg-primary: hsl(43, 100%, 97%);
   --bg-secondary: hsl(48, 100%, 99%);
-  --primary-color: hsl(3, 87%, 56%);
-  --primary-hover: hsl(3, 82%, 48%);
+  --primary-color: hsl(3, 85%, 44%);
+  --primary-hover: hsl(3, 85%, 38%);
   --secondary-color: hsl(28, 100%, 50%);
   --secondary-hover: hsl(25, 96%, 45%);
   --accent-color: hsl(57, 100%, 54%);

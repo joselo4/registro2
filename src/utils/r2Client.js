@@ -55,47 +55,69 @@ export const compressToWebP = (file, maxDimension = 800, quality = 0.82) => {
 };
 
 /**
- * Sube un archivo a Cloudflare R2 por medio de una Pages Function.
+ * Convierte un archivo de imagen a Data URL WebP compacta.
+ */
+export const compressToWebPDataUrl = (file, maxDimension = 800, quality = 0.82) => {
+  return new Promise((resolve, reject) => {
+    compressToWebP(file, maxDimension, quality)
+      .then((blob) => {
+        const reader = new FileReader();
+        reader.onload = () => resolve(reader.result);
+        reader.onerror = (err) => reject(err);
+        reader.readAsDataURL(blob);
+      })
+      .catch(reject);
+  });
+};
+
+/**
+ * Sube un archivo a Cloudflare R2 por medio de una Pages Function,
+ * convirtiéndolo automáticamente a formato WebP optimizado.
+ * Si R2 no está disponible o no hay sesión remota, almacena la imagen
+ * como WebP comprimida en Data URL para garantizar disponibilidad total.
  * @param {File} file Archivo cargado desde el input file
  * @param {string} prefix Carpeta de destino (ej: 'sabores', 'toppings')
- * @returns {Promise<string>} URL pública de la imagen
+ * @returns {Promise<string>} URL pública o DataURL WebP de la imagen
  */
 export const uploadToR2 = async (file, prefix = 'productos') => {
   // 1. Convertir a WebP y redimensionar
-  console.log("⚡ Optimizando imagen a formato WebP en el navegador del cliente...");
+  console.log("⚡ Optimizando imagen automáticamente a formato WebP...");
   const webpBlob = await compressToWebP(file, 800, 0.82);
 
   // 2. Crear nombre de archivo único
-  const cleanName = file.name
+  const cleanName = (file.name || 'image')
     .toLowerCase()
     .replace(/[^a-z0-9]/g, '_')
     .substring(0, 15);
   const fileName = `${prefix}/${Date.now()}_${cleanName}.webp`;
 
-  // 3. Enviar el archivo optimizado a la función segura del servidor
-  const formData = new FormData();
-  formData.append('file', webpBlob, fileName);
-  formData.append('prefix', prefix);
+  // 3. Intentar subir al almacenamiento Cloudflare R2 si hay token de acceso
+  try {
+    const { data } = supabase?.auth ? await supabase.auth.getSession() : { data: null };
+    const accessToken = data?.session?.access_token;
+    if (accessToken) {
+      const formData = new FormData();
+      formData.append('file', webpBlob, fileName);
+      formData.append('prefix', prefix);
 
-  const { data } = supabase?.auth ? await supabase.auth.getSession() : { data: null };
-  const accessToken = data?.session?.access_token;
-  if (!accessToken) {
-    throw new Error('Debes iniciar sesion para subir imagenes.');
+      const response = await fetch('/api/r2-upload', {
+        method: 'POST',
+        headers: {
+          Authorization: `Bearer ${accessToken}`
+        },
+        body: formData
+      });
+
+      const payload = await response.json().catch(() => ({}));
+      if (response.ok && payload.url) {
+        console.log("✅ Imagen subida a Cloudflare R2 con éxito en formato WebP.");
+        return payload.url;
+      }
+    }
+  } catch (err) {
+    console.warn("Aviso: No se pudo subir a R2 remoto, usando WebP local optimizado:", err?.message || err);
   }
 
-  const response = await fetch('/api/r2-upload', {
-    method: 'POST',
-    headers: {
-      Authorization: `Bearer ${accessToken}`
-    },
-    body: formData
-  });
-
-  const payload = await response.json().catch(() => ({}));
-  if (!response.ok) {
-    throw new Error(payload.error || 'No se pudo subir la imagen.');
-  }
-
-  console.log("✅ Imagen subida a Cloudflare R2 con éxito.");
-  return payload.url;
+  // Fallback seguro: Retorna la imagen compactada a WebP en formato Data URL
+  return await compressToWebPDataUrl(file, 800, 0.82);
 };

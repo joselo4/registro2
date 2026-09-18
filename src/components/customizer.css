@@ -58,7 +58,7 @@
 .atelier-flavor-photo {position:relative;height:77px;display:grid;place-items:center}
 .scoop-photo {position:relative;display:block;width:85px;height:85px;isolation:isolate}
 .scoop-photo img {width:100%;height:100%;object-fit:contain;filter:grayscale(1)}
-.scoop-photo>span {position:absolute;inset:0;background:var(--flavor-color);mix-blend-mode:multiply;mask:url('/customizer/gelato-scoop-neutral.png') center/contain no-repeat}
+.scoop-photo>span {position:absolute;inset:0;background:var(--flavor-color);mix-blend-mode:multiply;mask:url('/customizer/gelato-scoop-neutral.webp') center/contain no-repeat}
 .atelier-flavor-photo>span:not(.scoop-photo) {position:absolute;top:-3px;right:-3px;color:var(--primary-color);font-size:.43rem;letter-spacing:.07em;font-weight:800}
 .atelier-flavor h3 {font-size:.74rem;margin:9px 0 7px;line-height:1.4;flex:1}
 .atelier-unit-price {font-size:.75rem;font-weight:700}

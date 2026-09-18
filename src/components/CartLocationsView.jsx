@@ -330,9 +330,17 @@ export default function CartLocationsView({
         const lng = Number(cart.lng);
         bounds.push([lat, lng]);
         const popupHtml = `
-          <div style="min-width: 180px;">
-            <strong>${cart.label || cart.name || 'Carrito'}</strong><br/>
-            <span>Actualizacion: ${formatTime(cart.updatedAt || cart.lastUpdated)}</span>
+          <div style="min-width: 190px; padding: 4px;">
+            <strong style="font-size: 13px; color: #2d3436;">${cart.label || cart.name || 'Carrito'}</strong><br/>
+            <span style="font-size: 11px; color: #636e72;">🕒 ${formatTime(cart.updatedAt || cart.lastUpdated)}</span>
+            <div style="display: flex; gap: 6px; margin-top: 8px;">
+              <a href="https://www.google.com/maps/search/?api=1&query=${lat},${lng}" target="_blank" rel="noopener noreferrer" style="flex: 1; background: #4285F4; color: #ffffff; text-align: center; padding: 4px 6px; border-radius: 4px; text-decoration: none; font-size: 11px; font-weight: bold;">
+                📍 Google Maps
+              </a>
+              <a href="https://waze.com/ul?ll=${lat},${lng}&navigate=yes" target="_blank" rel="noopener noreferrer" style="flex: 1; background: #00b894; color: #ffffff; text-align: center; padding: 4px 6px; border-radius: 4px; text-decoration: none; font-size: 11px; font-weight: bold;">
+                🧭 Waze
+              </a>
+            </div>
           </div>
         `;
         L.marker([lat, lng], {
@@ -627,15 +635,15 @@ export default function CartLocationsView({
                       En Línea
                     </span>
 
-                    {mode === 'public' && (
+                    <div style={{ display: 'flex', gap: '6px', flexWrap: 'wrap' }}>
                       <a
-                        href={`https://www.google.com/maps/dir/?api=1&destination=${cart.lat},${cart.lng}`}
+                        href={`https://www.google.com/maps/search/?api=1&query=${cart.lat},${cart.lng}`}
                         target="_blank"
                         rel="noreferrer"
                         className="btn btn-secondary"
                         style={{ 
-                          padding: '6px 12px', 
-                          fontSize: '0.8rem', 
+                          padding: '5px 10px', 
+                          fontSize: '0.75rem', 
                           textDecoration: 'none',
                           display: 'inline-flex',
                           alignItems: 'center',
@@ -643,12 +651,36 @@ export default function CartLocationsView({
                           borderRadius: 'var(--radius-sm)',
                           backgroundColor: 'var(--bg-primary)',
                           borderColor: 'var(--border-color)',
-                          color: 'var(--primary-color)'
+                          color: '#4285F4',
+                          fontWeight: 600
                         }}
+                        title="Abrir ubicación en Google Maps"
                       >
-                        📍 Cómo llegar
+                        📍 Google Maps
                       </a>
-                    )}
+                      <a
+                        href={`https://waze.com/ul?ll=${cart.lat},${cart.lng}&navigate=yes`}
+                        target="_blank"
+                        rel="noreferrer"
+                        className="btn btn-secondary"
+                        style={{ 
+                          padding: '5px 10px', 
+                          fontSize: '0.75rem', 
+                          textDecoration: 'none',
+                          display: 'inline-flex',
+                          alignItems: 'center',
+                          gap: '4px',
+                          borderRadius: 'var(--radius-sm)',
+                          backgroundColor: 'var(--bg-primary)',
+                          borderColor: 'var(--border-color)',
+                          color: '#00b894',
+                          fontWeight: 600
+                        }}
+                        title="Abrir ruta en Waze"
+                      >
+                        🧭 Waze
+                      </a>
+                    </div>
                   </div>
                 </div>
               ))}
