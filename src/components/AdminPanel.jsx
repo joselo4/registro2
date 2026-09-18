@@ -676,7 +676,7 @@ export default function AdminPanel({
               <button className={`sidebar-btn ${activeTab === 'orders' ? 'active' : ''}`} onClick={() => setActiveTab('orders')}>
                 📦 Pedidos ({orders.filter(o => o.status === 'Pendiente').length})
               </button>
-              {(userRole === 'Administrador' || userRole === 'Vendedor') && (
+              {(currentUser?.role === 'Administrador' || currentUser?.role === 'Vendedor') && (
                 <button className={`sidebar-btn ${activeTab === 'ordertaker' ? 'active' : ''}`} onClick={() => setActiveTab('ordertaker')}>
                   🛒 Tomador de Pedidos
                 </button>
