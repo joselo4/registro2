@@ -518,7 +518,7 @@ export default function TableOrderManager({
           <span style={{ fontSize: '0.65rem', marginTop: '4px', opacity: 0.85, fontWeight: 'bold' }}>{statusLabel}</span>
           {activeOrder && (
             <span style={{ fontSize: '0.65rem', marginTop: '2px', display: 'block', padding: '1px 6px', background: isSelected ? 'rgba(255,255,255,0.2)' : 'rgba(0,0,0,0.05)', borderRadius: '8px' }}>
-              S/. {activeOrder.grandTotal.toFixed(2)}
+              S/. {Number(activeOrder.grandTotal || 0).toFixed(2)}
             </span>
           )}
         </div>
@@ -1057,17 +1057,17 @@ export default function TableOrderManager({
                 <div style={{ borderTop: '2px solid var(--border-color)', paddingTop: '8px', fontSize: '0.8rem', marginBottom: '15px' }}>
                   <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '3px' }}>
                     <span>Subtotal:</span>
-                    <span>S/. {activeOrder.total.toFixed(2)}</span>
+                    <span>S/. {Number(activeOrder.total || 0).toFixed(2)}</span>
                   </div>
                   {activeOrder.discount > 0 && (
                     <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '3px', color: 'var(--success)', fontWeight: 'bold' }}>
                       <span>Descuento cupón ({activeOrder.couponCode}):</span>
-                      <span>- S/. {activeOrder.discount.toFixed(2)}</span>
+                      <span>- S/. {Number(activeOrder.discount || 0).toFixed(2)}</span>
                     </div>
                   )}
                   <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.95rem', fontWeight: 'bold', color: 'var(--primary-color)', marginTop: '4px' }}>
                     <span>Total a Pagar:</span>
-                    <span>S/. {activeOrder.grandTotal.toFixed(2)}</span>
+                    <span>S/. {Number(activeOrder.grandTotal || 0).toFixed(2)}</span>
                   </div>
                 </div>
 
@@ -1094,7 +1094,7 @@ export default function TableOrderManager({
                         style={{ flex: 1, padding: '6px', fontSize: '0.75rem', background: 'var(--success)', border: 'none' }}
                         onClick={() => handleCheckoutTable(activeOrder)}
                       >
-                        ✅ Registrar Pago (S/. {activeOrder.grandTotal.toFixed(2)})
+                        ✅ Registrar Pago (S/. {Number(activeOrder.grandTotal || 0).toFixed(2)})
                       </button>
                       <button 
                         type="button" 
@@ -1199,7 +1199,7 @@ export default function TableOrderManager({
                           textAlign: 'center'
                         }}>
                           <div style={{ fontSize: '0.75rem', color: 'var(--text-light)' }}>
-                            Monto total: S/. {activeOrder.grandTotal.toFixed(2)} ÷ {splitPeopleCount} personas
+                            Monto total: S/. {Number(activeOrder.grandTotal || 0).toFixed(2)} ÷ {splitPeopleCount} personas
                           </div>
                           <div style={{ fontSize: '1.25rem', fontWeight: 'bold', color: '#2980b9', marginTop: '4px' }}>
                             S/. {(activeOrder.grandTotal / splitPeopleCount).toFixed(2)} <span style={{ fontSize: '0.75rem', fontWeight: 'normal', color: '#555' }}>cada uno</span>

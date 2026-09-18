@@ -295,7 +295,7 @@ export default function CartLocationsView({
         updateTimerRef.current = null;
       }
     };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
+     
   }, [canManageLocation, isSharing, shopConfig?.locationTrackingEnabled]);
 
   useEffect(() => {

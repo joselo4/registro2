@@ -1,4 +1,4 @@
-/* eslint-disable react-hooks/set-state-in-effect */
+ 
 import React, { useState, useEffect, useRef, Suspense } from 'react';
 import { supabase } from '../utils/supabaseClient';
 import { updateSyncedData } from '../utils/supabaseSync';
@@ -174,8 +174,30 @@ export default function AdminPanel({
   }, [activeTab]);
 
   // --- Estados de AutenticaciÃ³n y Seguridad ---
-  const [emailInput, setEmailInput] = useState('');
-  const [passwordInput, setPasswordInput] = useState('');
+  const [rememberMe, setRememberMe] = useState(() => {
+    return localStorage.getItem('friozo_operator_remember') === 'true';
+  });
+  const [emailInput, setEmailInput] = useState(() => {
+    try {
+      const saved = localStorage.getItem('friozo_saved_operator_login');
+      if (saved) {
+        const parsed = JSON.parse(saved);
+        return parsed.user || '';
+      }
+    } catch {}
+    return '';
+  });
+  const [passwordInput, setPasswordInput] = useState(() => {
+    try {
+      const saved = localStorage.getItem('friozo_saved_operator_login');
+      if (saved) {
+        const parsed = JSON.parse(saved);
+        return parsed.pass || '';
+      }
+    } catch {}
+    return '';
+  });
+  const [showPassword, setShowPassword] = useState(false);
   const [authError, setAuthError] = useState('');
 
   const [loginAttempts, setLoginAttempts] = useState(() => {
@@ -373,6 +395,13 @@ export default function AdminPanel({
     const handleLoginSuccess = (userObj, isSupabase) => {
       setLoginAttempts(0);
       setLockoutUntil(0);
+      if (rememberMe) {
+        localStorage.setItem('friozo_saved_operator_login', JSON.stringify({ user: userInput, pass: passwordSanitized }));
+        localStorage.setItem('friozo_operator_remember', 'true');
+      } else {
+        localStorage.removeItem('friozo_saved_operator_login');
+        localStorage.setItem('friozo_operator_remember', 'false');
+      }
       sessionStorage.setItem('helados_admin_login_timestamp', Date.now().toString());
       setIsLoggedIn(true);
       setCurrentUser(userObj);
@@ -677,7 +706,12 @@ export default function AdminPanel({
               <button className={`sidebar-btn ${activeTab === 'orders' ? 'active' : ''}`} onClick={() => setActiveTab('orders')}>
                 📦 Pedidos ({orders.filter(o => o.status === 'Pendiente').length})
               </button>
-              {(currentUser?.role === 'Administrador' || currentUser?.role === 'Vendedor') && (
+              {isTabAllowed('crm') && (
+            <button className={`sidebar-btn ${activeTab === 'crm' ? 'active' : ''}`} onClick={() => setActiveTab('crm')}>
+              📇 CRM Clientes
+            </button>
+          )}
+          {(currentUser?.role === 'Administrador' || currentUser?.role === 'Vendedor') && (
                 <button className={`sidebar-btn ${activeTab === 'ordertaker' ? 'active' : ''}`} onClick={() => setActiveTab('ordertaker')}>
                   🛒 Tomador de Pedidos
                 </button>

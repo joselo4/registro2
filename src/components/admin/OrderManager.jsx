@@ -221,9 +221,9 @@ export default function OrderManager({
         `"${o.customer.phone}"`,
         `"${o.customer.address.replace(/"/g, '""')}"`,
         o.customer.paymentMethod,
-        o.total.toFixed(2),
-        o.deliveryFee.toFixed(2),
-        o.grandTotal.toFixed(2),
+        Number(o.total || 0).toFixed(2),
+        Number(o.deliveryFee || 0).toFixed(2),
+        Number(o.grandTotal || 0).toFixed(2),
         o.status
       ].join(",");
       csvContent += row + "\n";
@@ -254,7 +254,7 @@ export default function OrderManager({
       `• Ticket Promedio Hoy: S/. ${avgTicket.toFixed(2)}\n` +
       `---------------------------\n` +
       (ordersToday.length > 0 
-        ? ordersToday.map(o => `[${o.status}] ${o.id} - ${o.customer.name} - S/. ${o.grandTotal.toFixed(2)}`).join('\n')
+        ? ordersToday.map(o => `[${o.status}] ${o.id} - ${o.customer.name} - S/. ${Number(o.grandTotal || 0).toFixed(2)}`).join('\n')
         : 'Sin pedidos el día de hoy.'
       );
       
@@ -1040,7 +1040,7 @@ export default function OrderManager({
                       </td>
                       <td>
                         <strong style={{ color: 'var(--primary-color)', fontSize: '0.95rem', display: 'block' }}>
-                          S/. {order.grandTotal.toFixed(2)}
+                          S/. {Number(order.grandTotal || 0).toFixed(2)}
                         </strong>
                         {/* Insignias de Forma de Pago y Estado de Verificación */}
                         <div style={{ display: 'flex', flexDirection: 'column', gap: '3px', marginTop: '4px' }}>
@@ -1274,7 +1274,7 @@ export default function OrderManager({
                           {/* Botón rápido para solicitar voucher por WhatsApp si es Yape/Plin y no está verificado */}
                           {requiresAdvancePayment(order) && !order.paymentVerified && (
                             <a
-                              href={`https://wa.me/${String(order.customer?.phone || '').replace(/\D/g, '')}?text=${encodeURIComponent(`¡Hola ${order.customer?.name || ''}! Te saludamos de ${storeName}. Por favor compártenos la captura o constancia de tu transferencia por ${order.customer?.paymentMethod} (S/. ${order.grandTotal.toFixed(2)}) para iniciar la preparación de tu pedido #${order.id}. ¡Muchas gracias!`)}`}
+                              href={`https://wa.me/${String(order.customer?.phone || '').replace(/\D/g, '')}?text=${encodeURIComponent(`¡Hola ${order.customer?.name || ''}! Te saludamos de ${storeName}. Por favor compártenos la captura o constancia de tu transferencia por ${order.customer?.paymentMethod} (S/. ${Number(order.grandTotal || 0).toFixed(2)}) para iniciar la preparación de tu pedido #${order.id}. ¡Muchas gracias!`)}`}
                               target="_blank"
                               rel="noopener noreferrer"
                               className="admin-action-btn"

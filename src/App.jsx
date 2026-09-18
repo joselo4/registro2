@@ -1,4 +1,4 @@
-/* eslint-disable react-hooks/set-state-in-effect */
+ 
 import React, { useState, useEffect, useRef } from 'react';
 import { 
   INITIAL_FLAVORS, 
@@ -264,7 +264,7 @@ export default function App() {
     if (metaPixelId && metaPixelId.trim()) {
       const pixelId = metaPixelId.trim();
       if (!window.fbq) {
-        /* eslint-disable */
+         
         !(function (f, b, e, v, n, t, s) {
           if (f.fbq) return;
           n = f.fbq = function () {
@@ -281,7 +281,7 @@ export default function App() {
           s = b.getElementsByTagName(e)[0];
           s.parentNode.insertBefore(t, s);
         })(window, document, "script", "https://connect.facebook.net/en_US/fbevents.js");
-        /* eslint-enable */
+         
         window.fbq('init', pixelId);
       }
       window.fbq('track', 'PageView');

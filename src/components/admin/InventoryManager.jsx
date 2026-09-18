@@ -1,4 +1,4 @@
-/* eslint-disable react-hooks/set-state-in-effect */
+ 
 import { useState, useEffect } from 'react';
 import { uploadToR2 } from '../../utils/r2Client';
 import { BasePhoto } from '../DessertPreview';
