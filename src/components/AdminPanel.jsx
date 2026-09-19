@@ -12,6 +12,8 @@ const UserManager = React.lazy(() => import('./admin/UserManager'));
 const TableOrderManager = React.lazy(() => import('./admin/TableOrderManager'));
 const OrderTaker = React.lazy(() => import('./admin/OrderTaker'));
 const CustomerCRM = React.lazy(() => import('./admin/CustomerCRM'));
+const DriverDeliveryPanel = React.lazy(() => import('./admin/DriverDeliveryPanel'));
+const KitchenDisplaySystem = React.lazy(() => import('./admin/KitchenDisplaySystem'));
 import CartLocationsView from './CartLocationsView';
 
 // --- FUNCIONES DE SANITIZACIÃ“N Y SEGURIDAD ---
@@ -364,15 +366,20 @@ export default function AdminPanel({
     const role = normalizeText(currentUser.role);
     if (role.includes('vendedor')) return ['orders', 'crm', 'ordertaker', 'inventory', 'surveys', 'table_orders', 'locations'].includes(tabId);
     if (role.includes('cajero')) return ['orders', 'crm', 'ordertaker', 'finance'].includes(tabId);
-    if (role.includes('cocina')) return ['orders'].includes(tabId);
+    if (role.includes('cocina')) return ['orders', 'kds'].includes(tabId);
+    if (role.includes('repartidor') || role.includes('delivery')) return ['driver_panel', 'orders', 'locations'].includes(tabId);
     if (role.includes('mozo') || role.includes('salon')) return ['table_orders', 'ordertaker'].includes(tabId);
     return false;
   };
 
   useEffect(() => {
     if (currentUser && !isTabAllowed(activeTab)) {
-      const fallbackTab = ['operations', 'orders', 'crm', 'ordertaker', 'inventory', 'packs', 'users', 'finance', 'locations', 'settings', 'stats', 'surveys', 'table_orders']
-        .find((tabId) => isTabAllowed(tabId));
+      const role = normalizeText(currentUser.role);
+      const isDriver = role.includes('repartidor') || role.includes('delivery');
+      const fallbackTab = (isDriver && isTabAllowed('driver_panel'))
+        ? 'driver_panel'
+        : ['operations', 'driver_panel', 'orders', 'kds', 'crm', 'ordertaker', 'inventory', 'packs', 'users', 'finance', 'locations', 'settings', 'stats', 'surveys', 'table_orders']
+            .find((tabId) => isTabAllowed(tabId));
       if (fallbackTab) setActiveTab(fallbackTab);
     }
   }, [currentUser, activeTab]);
@@ -708,6 +715,23 @@ export default function AdminPanel({
         )}
         <div className="sidebar-menu">
           {isAdminUser(currentUser) && <button className={`sidebar-btn ${activeTab === 'operations' ? 'active' : ''}`} onClick={() => setActiveTab('operations')}>◉ Centro de operaciones</button>}
+          {isTabAllowed('driver_panel') && (
+            <button className={`sidebar-btn ${activeTab === 'driver_panel' ? 'active' : ''}`} onClick={() => setActiveTab('driver_panel')}>
+              🛵 Mis Repartos ({orders.filter(o => {
+                if (!o || o.status === 'Cancelado' || o.status === 'Entregado') return false;
+                const d = o.assignedDriver;
+                if (!d) return false;
+                if (isAdminUser(currentUser)) return true;
+                return String(d.email || '').toLowerCase().trim() === String(currentUser?.email || '').toLowerCase().trim() ||
+                       String(d.id || '').trim() === String(currentUser?.id || '').trim();
+              }).length})
+            </button>
+          )}
+          {isTabAllowed('kds') && (
+            <button className={`sidebar-btn ${activeTab === 'kds' ? 'active' : ''}`} onClick={() => setActiveTab('kds')}>
+              👨‍🍳 KDS Cocina ({orders.filter(o => o.status === 'Pendiente' || o.status === 'Preparando').length})
+            </button>
+          )}
           {isTabAllowed('orders') && (
             <>
               <button className={`sidebar-btn ${activeTab === 'orders' ? 'active' : ''}`} onClick={() => setActiveTab('orders')}>
@@ -798,6 +822,31 @@ export default function AdminPanel({
           />
         )}
 
+        {activeTab === 'driver_panel' && isTabAllowed('driver_panel') && (
+          <DriverDeliveryPanel
+            orders={orders}
+            onUpdateOrderStatus={onUpdateOrderStatus}
+            currentUser={currentUser}
+            storeName={storeName}
+            shopConfig={shopConfig}
+            showAlert={showAlert}
+            staffUsers={staffUsers}
+          />
+        )}
+
+        {activeTab === 'kds' && isTabAllowed('kds') && (
+          <KitchenDisplaySystem
+            orders={orders}
+            onUpdateOrderStatus={onUpdateOrderStatus}
+            shopConfig={shopConfig}
+            storeName={storeName}
+            ticketCustomMessage={ticketCustomMessage}
+            addLog={addLog}
+            currentUser={currentUser}
+            showAlert={showAlert}
+          />
+        )}
+
         {(activeTab === 'orders' || activeTab === 'surveys') && (
           <OrderManager
             orders={orders}
@@ -814,6 +863,8 @@ export default function AdminPanel({
             showAlert={showAlert}
             shopConfig={shopConfig}
             activeSubTab={activeTab === 'orders' ? 'orders' : 'surveys'}
+            staffUsers={staffUsers}
+            onUpdateStaffUsers={onUpdateStaffUsers}
           />
         )}
         

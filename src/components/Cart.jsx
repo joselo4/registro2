@@ -2,33 +2,34 @@ import React, { useState, useEffect } from 'react';
 import CartItemPreview from './CartItemPreview';
 import DessertPreview from './DessertPreview';
 import { generateOrderId } from '../utils/orderId';
+import { getEnabledPaymentMethods, selectPaymentMethod } from '../utils/paymentMethods';
 
 export default function Cart({ 
   cart, 
   onUpdateQuantity, 
   onRemoveFromCart, 
   onPlaceOrder, 
-  deliveryFee, 
-  setView,
-  onAddToCart,
-  flavors,
-  freeDeliveryThreshold,
-  freeDeliveryEnabled = true,
-  storePhone,
-  storeName,
-  coupons,
-  whatsappGreeting,
-  whatsappFooter,
-  cartRecommendedPack,
-  literConfig,
-  showAlert,
-  shopOpen = true,
-  tableOrdersEnabled = false,
-  tableNumber = null,
-  setTableNumber,
-  occupiedTables = [],
-  shopConfig,
-  trackEvent
+  deliveryFee = 0, 
+  setView, 
+  onAddToCart, 
+  flavors, 
+  freeDeliveryThreshold, 
+  freeDeliveryEnabled = true, 
+  storePhone, 
+  storeName, 
+  coupons, 
+  whatsappGreeting, 
+  whatsappFooter, 
+  cartRecommendedPack, 
+  literConfig, 
+  showAlert, 
+  shopOpen = true, 
+  tableOrdersEnabled = false, 
+  tableNumber = null, 
+  setTableNumber, 
+  occupiedTables = [], 
+  shopConfig, 
+  trackEvent 
 }) {
   const alert = (msg) => {
     if (showAlert) {
@@ -43,10 +44,12 @@ export default function Cart({
   };
 
   // Cargar datos autocompletados desde LocalStorage si existen
-  const [name, setName] = useState(() => localStorage.getItem('last_customer_name') || '');
-  const [phone, setPhone] = useState(() => localStorage.getItem('last_customer_phone') || '');
-  const [address, setAddress] = useState(() => localStorage.getItem('last_customer_address') || '');
-  const [paymentMethod, setPaymentMethod] = useState('Yape'); // Yape, Plin, Efectivo, Transferencia
+  const [name, setName] = useState(() => (typeof localStorage !== 'undefined' ? localStorage.getItem('last_customer_name') : '') || '');
+  const [phone, setPhone] = useState(() => (typeof localStorage !== 'undefined' ? localStorage.getItem('last_customer_phone') : '') || '');
+  const [address, setAddress] = useState(() => (typeof localStorage !== 'undefined' ? localStorage.getItem('last_customer_address') : '') || '');
+  const [selectedPaymentMethod, setPaymentMethod] = useState('Yape'); // Yape, Plin, Efectivo, Transferencia, Tarjeta
+  const enabledPaymentMethods = getEnabledPaymentMethods(shopConfig);
+  const paymentMethod = selectPaymentMethod(selectedPaymentMethod, enabledPaymentMethods);
   const [operationCode, setOperationCode] = useState('');
   const [copiedPhone, setCopiedPhone] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -385,20 +388,20 @@ export default function Cart({
 
   const renderItemDetails = (item) => {
     if (item.type === 'custom') {
-      const scoopsText = item.scoops.map(s => typeof s === 'string' ? s : s.name).join(', ');
-      const toppingsText = item.toppings.map(t => typeof t === 'string' ? t : t.name).join(', ');
-      const syrupText = item.syrup ? item.syrup.name : '';
+      const scoopsText = (item.scoops || []).map(s => typeof s === 'string' ? s : s?.name).filter(Boolean).join(', ');
+      const toppingsText = (item.toppings || []).map(t => typeof t === 'string' ? t : t?.name).filter(Boolean).join(', ');
+      const syrupText = item.syrup ? (typeof item.syrup === 'string' ? item.syrup : item.syrup?.name) : '';
       
       return (
         <span style={{ fontSize: '0.8rem', color: 'var(--text-light)', display: 'block', marginTop: '4px' }}>
-          Base: {item.base.name} <br />
-          Sabores: {scoopsText}
+          {item.base?.name && <>Base: {item.base.name} <br /></>}
+          {scoopsText && <>Sabores: {scoopsText}</>}
           {toppingsText && <><br />Toppings: {toppingsText}</>}
           {syrupText && <><br />Salsa: {syrupText}</>}
         </span>
       );
     } else if (item.type === 'liter') {
-      const scoopsText = item.scoops.map(s => typeof s === 'string' ? s : s.name).join(', ');
+      const scoopsText = (item.scoops || []).map(s => typeof s === 'string' ? s : s?.name).filter(Boolean).join(', ');
       return (
         <span style={{ fontSize: '0.8rem', color: 'var(--text-light)', display: 'block', marginTop: '4px' }}>
           🏺 Pote de 1 Litro <br />
@@ -414,6 +417,34 @@ export default function Cart({
     }
     return null;
   };
+
+  if (!cart || cart.length === 0) {
+    return (
+      <div className="cart-container">
+        <div style={{ marginBottom: '15px', display: 'flex', alignItems: 'center', gap: '10px' }}>
+          <button className="btn btn-secondary" style={{ padding: '6px 12px', fontSize: '0.85rem' }} onClick={() => setView('shop')}>
+            ← Tienda
+          </button>
+          <h2 style={{ fontSize: '1.5rem' }}>Mi Carrito</h2>
+        </div>
+        <div className="cart-empty" style={{ textAlign: 'center', padding: '50px 20px', background: 'var(--bg-secondary)', borderRadius: '16px', border: '1px dashed var(--border-color)' }}>
+          <div style={{ fontSize: '3rem', marginBottom: '12px' }}>🛒</div>
+          <h3 style={{ fontSize: '1.25rem', marginBottom: '8px' }}>Tu carrito está vacío</h3>
+          <p style={{ color: 'var(--text-light)', fontSize: '0.9rem', marginBottom: '20px' }}>
+            Aún no has agregado ningún helado o producto a tu pedido.
+          </p>
+          <button
+            type="button"
+            className="btn btn-primary"
+            style={{ padding: '12px 24px', fontSize: '1rem', fontWeight: 700 }}
+            onClick={() => setView('shop')}
+          >
+            Ver la carta
+          </button>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="cart-container">
@@ -517,13 +548,13 @@ export default function Cart({
 
               <div className="cart-item-actions" style={{ flexDirection: 'column', alignItems: 'flex-end', gap: '4px' }}>
                 <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-                  <button className="qty-btn" disabled={!shopOpen} onClick={() => shopOpen && onUpdateQuantity(index, item.quantity - 1)} style={{ width: '24px', height: '24px', fontSize: '0.8rem', opacity: !shopOpen ? 0.5 : 1, cursor: !shopOpen ? 'not-allowed' : 'pointer' }}>-</button>
+                  <button className="qty-btn" disabled={!shopOpen} onClick={() => shopOpen && onUpdateQuantity(index, item.quantity - 1)} style={{ width: '24px', height: '24px', fontSize: '0.8rem', opacity: !shopOpen ? 0.5 : 1, cursor: !shopOpen ? 'not-allowed' : 'pointer' }} aria-label={`Quitar una unidad de ${item.name}`}>-</button>
                   <span style={{ fontWeight: 700, minWidth: '15px', textAlign: 'center', fontSize: '0.85rem' }}>{item.quantity}</span>
-                  <button className="qty-btn" disabled={!shopOpen} onClick={() => shopOpen && onUpdateQuantity(index, item.quantity + 1)} style={{ width: '24px', height: '24px', fontSize: '0.8rem', opacity: !shopOpen ? 0.5 : 1, cursor: !shopOpen ? 'not-allowed' : 'pointer' }}>+</button>
+                  <button className="qty-btn" aria-label={`Agregar una unidad de ${item.name}`} disabled={!shopOpen || item.quantity >= 99} onClick={() => shopOpen && onUpdateQuantity(index, item.quantity + 1)} style={{ width: '24px', height: '24px', fontSize: '0.8rem', opacity: (!shopOpen || item.quantity >= 99) ? 0.5 : 1, cursor: (!shopOpen || item.quantity >= 99) ? 'not-allowed' : 'pointer' }}>+</button>
                 </div>
                 <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
                   <span style={{ fontWeight: 600, fontSize: '0.9rem' }}>S/. {(item.price * item.quantity).toFixed(2)}</span>
-                  <button className="remove-btn" disabled={!shopOpen} onClick={() => shopOpen && onRemoveFromCart(index)} style={{ padding: '2px', fontSize: '0.9rem', opacity: !shopOpen ? 0.5 : 1, cursor: !shopOpen ? 'not-allowed' : 'pointer' }}>🗑️</button>
+                  <button className="remove-btn" aria-label={`Eliminar ${item.name}`} title={`Eliminar ${item.name}`} disabled={!shopOpen} onClick={() => shopOpen && onRemoveFromCart(index)} style={{ padding: '2px', fontSize: '0.9rem', opacity: !shopOpen ? 0.5 : 1, cursor: !shopOpen ? 'not-allowed' : 'pointer' }}>🗑️</button>
                 </div>
               </div>
             </div>
@@ -816,35 +847,23 @@ export default function Cart({
 
             <div className="form-group">
               <label style={{ fontSize: '0.8rem' }}>Forma de Pago</label>
-              <div className="payment-options" style={{ gap: '6px' }}>
-                <button
-                  type="button"
-                  className={`payment-btn ${paymentMethod === 'Yape' ? 'selected' : ''}`}
-                  onClick={() => shopOpen && setPaymentMethod('Yape')}
-                  style={{ fontSize: '0.75rem', padding: '6px', opacity: !shopOpen ? 0.5 : 1, cursor: !shopOpen ? 'not-allowed' : 'pointer' }}
-                  disabled={!shopOpen}
-                >
-                  📱 Yape
-                </button>
-                <button
-                  type="button"
-                  className={`payment-btn ${paymentMethod === 'Plin' ? 'selected' : ''}`}
-                  onClick={() => shopOpen && setPaymentMethod('Plin')}
-                  style={{ fontSize: '0.75rem', padding: '6px', opacity: !shopOpen ? 0.5 : 1, cursor: !shopOpen ? 'not-allowed' : 'pointer' }}
-                  disabled={!shopOpen}
-                >
-                  💸 Plin
-                </button>
-                <button
-                  type="button"
-                  className={`payment-btn ${paymentMethod === 'Efectivo' ? 'selected' : ''}`}
-                  onClick={() => shopOpen && setPaymentMethod('Efectivo')}
-                  style={{ fontSize: '0.75rem', padding: '6px', opacity: !shopOpen ? 0.5 : 1, cursor: !shopOpen ? 'not-allowed' : 'pointer' }}
-                  disabled={!shopOpen}
-                >
-                  💵 Efectivo
-                </button>
+              <div className="payment-options" style={{ gap: '6px', flexWrap: 'wrap' }}>
+                {enabledPaymentMethods.map(method => (
+                  <button
+                    key={method}
+                    type="button"
+                    className={`payment-btn ${paymentMethod === method ? 'selected' : ''}`}
+                    aria-pressed={paymentMethod === method}
+                    onClick={() => shopOpen && setPaymentMethod(method)}
+                    style={{ fontSize: '0.75rem', padding: '6px', opacity: !shopOpen ? 0.5 : 1, cursor: !shopOpen ? 'not-allowed' : 'pointer' }}
+                    disabled={!shopOpen}
+                  >
+                    {method === 'Yape' ? '📱 Yape' : method === 'Plin' ? '💸 Plin' : method === 'Efectivo' ? '💵 Efectivo' : method === 'Transferencia' ? '🏦 Transferencia' : '💳 Tarjeta'}
+                  </button>
+                ))}
               </div>
+              {!enabledPaymentMethods.length && <p role="alert" style={{ fontSize: '0.875rem', margin: '8px 0', color: 'var(--danger)' }}>No hay métodos de pago disponibles. Intenta más tarde.</p>}
+              {paymentMethod === 'Tarjeta' && <p style={{ fontSize: '0.875rem', margin: '8px 0', color: 'var(--text-light)' }}>Pago con tarjeta al recibir el pedido, mediante POS.</p>}
             </div>
 
             {/* Cajón Interactivo para Pago Digital (Yape / Plin) */}
@@ -1038,7 +1057,7 @@ export default function Cart({
                 justifyContent: 'center',
                 gap: '8px'
               }}
-              disabled={isSubmitting || !shopOpen}
+              disabled={isSubmitting || !shopOpen || !paymentMethod}
             >
               {!shopOpen ? (
                 '🔒 Tienda Cerrada (Fuera de Horario)'
@@ -1047,11 +1066,10 @@ export default function Cart({
                   <span aria-hidden="true">⏳</span>
                   <span>Asegurando tu pedido...</span>
                 </>
+              ) : !paymentMethod ? (
+                'Confirmar pedido'
               ) : (
-                <>
-                  <span>🚀 Confirmar y Enviar Pedido</span>
-                  <span style={{ opacity: 0.9 }}>• S/. {total.toFixed(2)}</span>
-                </>
+                `Confirmar pedido · S/. ${total.toFixed(2)}`
               )}
             </button>
           </form>

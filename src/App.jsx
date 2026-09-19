@@ -99,7 +99,8 @@ const renderLogo = (logo, size = '38px') => {
 // Usuarios de personal por defecto para la administración
 const DEFAULT_STAFF_USERS = [
   { email: 'vendedor@donhelado.com', name: 'Vendedor de Turno', role: 'Vendedor', status: 'Activo' },
-  { email: 'cocina@donhelado.com', name: 'Preparador de Cocina', role: 'Cocina', status: 'Activo' }
+  { email: 'cocina@donhelado.com', name: 'Preparador de Cocina', role: 'Cocina', status: 'Activo' },
+  { email: 'delivery@donhelado.com', name: 'Repartidor de Turno', role: 'Repartidor', status: 'Activo', phone: '987654321' }
 ];
 
 const normalizeRoleLabel = (role, email = '') => {
@@ -450,7 +451,11 @@ export default function App() {
 
   const [staffUsers, setStaffUsers] = useState(() => {
     const saved = localStorage.getItem('helados_staff_users');
-    return saved ? JSON.parse(saved) : DEFAULT_STAFF_USERS;
+    let list = saved ? JSON.parse(saved) : DEFAULT_STAFF_USERS;
+    if (Array.isArray(list) && !list.some(u => String(u.role || '').toLowerCase().includes('repartidor'))) {
+      list = [...list, { email: 'delivery@donhelado.com', name: 'Repartidor de Turno', role: 'Repartidor', status: 'Activo', phone: '987654321' }];
+    }
+    return list;
   });
 
   const [staffPermissions, setStaffPermissions] = useState(() => {

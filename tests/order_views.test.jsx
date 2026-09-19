@@ -59,3 +59,38 @@ test('management accepts payment on arrival without requesting an advance vouche
   assert.ok(html.includes('Pendiente de cobro'));
   assert.ok(!html.includes('para iniciar la preparaci'));
 });
+
+test('OrderManager renders staff drivers in the assignment select and includes quick register option', () => {
+  const staff = [
+    { id: 'drv1', name: 'Carlos Motorizado', email: 'carlos@donhelado.com', role: 'Repartidor', phone: '987654321' },
+    { id: 'col1', name: 'Maria Staff', email: 'maria@donhelado.com', role: 'Vendedor' }
+  ];
+  const deliveryOrder = order('Listo');
+  deliveryOrder.customer.orderType = 'delivery';
+  const html = renderToStaticMarkup(<OrderManager {...props} staffUsers={staff} orders={[deliveryOrder]} />);
+  assert.ok(html.includes('Carlos Motorizado'));
+  assert.ok(html.includes('Registrar nuevo repartidor'));
+  assert.ok(html.includes('Asignar repartidor...'));
+});
+
+test('DriverDeliveryPanel in admin mode renders driver filter selector and shows deliveries across drivers', () => {
+  const staff = [
+    { id: 'drv1', name: 'Carlos Motorizado', email: 'carlos@donhelado.com', role: 'Repartidor' }
+  ];
+  const orderForDriver = order('Listo');
+  orderForDriver.assignedDriver = { id: 'drv1', name: 'Carlos Motorizado', email: 'carlos@donhelado.com' };
+  
+  const html = renderToStaticMarkup(
+    <DriverDeliveryPanel
+      {...props}
+      currentUser={{ id: 'admin1', email: 'admin@donhelado.com', role: 'Administrador' }}
+      staffUsers={staff}
+      orders={[orderForDriver]}
+    />
+  );
+  assert.ok(html.includes('Despacho y Repartos'));
+  assert.ok(html.includes('Filtrar Repartidor:'));
+  assert.ok(html.includes('Todos los Repartidores'));
+  assert.ok(html.includes('Carlos Motorizado'));
+});
+

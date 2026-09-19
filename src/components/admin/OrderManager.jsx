@@ -32,7 +32,8 @@ export default function OrderManager({
   showAlert,
   shopConfig,
   activeSubTab: activeSubTabProp,
-  staffUsers = []
+  staffUsers = [],
+  onUpdateStaffUsers
 }) {
   const alert = (msg) => {
     if (showAlert) {
@@ -64,6 +65,9 @@ export default function OrderManager({
   const [ratingFilter, setRatingFilter] = useState('all'); // all, low, high
   const [ordersLimit, setOrdersLimit] = useState(20); // 20, 40, 60, all
   const [driverFilter, setDriverFilter] = useState('all'); // all, unassigned, driverIdentifier
+  const [quickDriverModal, setQuickDriverModal] = useState(null); // { order }
+  const [quickDriverName, setQuickDriverName] = useState('');
+  const [quickDriverPhone, setQuickDriverPhone] = useState('');
 
   const openStatusSms = (order, newStatus) => {
     if (shopConfig?.smsNotificationsEnabled !== true) return;
@@ -151,23 +155,88 @@ export default function OrderManager({
   const handleCompleteOrder = order => handleStatusChange(order, 'Entregado', `Pedido ${order.id} entregado por ${currentUser?.name}`);
 
   const handleAssignDriver = async (order, driverIdentifier) => {
+    if (driverIdentifier === '__NEW_DRIVER__') {
+      setQuickDriverModal({ order });
+      return;
+    }
+    let assignedDriver = null;
     const selectedUser = (staffUsers || []).find(u => String(u.id || u.email) === String(driverIdentifier));
-    const assignedDriver = selectedUser ? {
-      id: selectedUser.id || selectedUser.email,
-      name: selectedUser.name || selectedUser.email,
-      email: selectedUser.email,
-      phone: selectedUser.phone || ''
-    } : null;
+    if (selectedUser) {
+      assignedDriver = {
+        id: selectedUser.id || selectedUser.email,
+        name: selectedUser.name || selectedUser.email,
+        email: selectedUser.email,
+        phone: selectedUser.phone || ''
+      };
+    } else if (order.assignedDriver && String(order.assignedDriver.id || order.assignedDriver.email) === String(driverIdentifier)) {
+      assignedDriver = order.assignedDriver;
+    }
 
     const updated = {
       ...order,
       assignedDriver,
       updatedAt: new Date().toISOString()
     };
-    if (!await onUpdateOrders(orders.map(o => o.id === order.id ? updated : o))) return;
-    if (addLog) {
-      addLog(`Repartidor ${assignedDriver ? assignedDriver.name : 'desasignado'} para pedido ${order.id}`);
+    const success = await onUpdateOrders(orders.map(o => o.id === order.id ? updated : o));
+    if (success !== false) {
+      if (addLog) {
+        addLog(`Repartidor ${assignedDriver ? assignedDriver.name : 'desasignado'} para pedido ${order.id}`);
+      }
+      if (assignedDriver) {
+        alert(`🛵 Repartidor ${assignedDriver.name} asignado al pedido ${order.id}.`);
+      }
+    } else {
+      alert("No se pudo asignar el repartidor. Por favor verifica tu conexión.");
     }
+  };
+
+  const handleSaveQuickDriver = async (e) => {
+    e.preventDefault();
+    if (!quickDriverModal?.order) return;
+    const cleanName = sanitizeHTML(quickDriverName).trim();
+    const cleanPhone = sanitizeHTML(quickDriverPhone).trim();
+    if (!cleanName) {
+      alert("Por favor ingresa el nombre del repartidor.");
+      return;
+    }
+    const slug = cleanName.toLowerCase().replace(/[^a-z0-9]/g, '');
+    const newDriverUser = {
+      id: `driver_${Date.now()}`,
+      name: cleanName,
+      email: `${slug || 'repartidor'}@donhelado.com`,
+      phone: cleanPhone,
+      role: 'Repartidor',
+      status: 'Activo'
+    };
+
+    const nextStaff = [...(staffUsers || []), newDriverUser];
+    if (onUpdateStaffUsers) {
+      onUpdateStaffUsers(nextStaff);
+    }
+
+    const assignedDriver = {
+      id: newDriverUser.id,
+      name: newDriverUser.name,
+      email: newDriverUser.email,
+      phone: newDriverUser.phone
+    };
+
+    const targetOrder = quickDriverModal.order;
+    const updated = {
+      ...targetOrder,
+      assignedDriver,
+      updatedAt: new Date().toISOString()
+    };
+
+    setQuickDriverModal(null);
+    setQuickDriverName('');
+    setQuickDriverPhone('');
+
+    await onUpdateOrders(orders.map(o => o.id === targetOrder.id ? updated : o));
+    if (addLog) {
+      addLog(`Repartidor ${assignedDriver.name} registrado y asignado al pedido ${targetOrder.id}`);
+    }
+    alert(`¡Repartidor ${assignedDriver.name} registrado y asignado con éxito!`);
   };
 
   const handleDispatchToDriverWhatsApp = (order) => {
@@ -180,6 +249,10 @@ export default function OrderManager({
     let targetPhone = driverUser?.phone || assigned.phone || '';
     if (!targetPhone) {
       targetPhone = window.prompt(`Ingresa el número de WhatsApp del repartidor (${assigned.name || 'Repartidor'}):`, '987654321');
+      if (targetPhone && driverUser && onUpdateStaffUsers) {
+        const updatedStaff = (staffUsers || []).map(u => String(u.id || u.email) === String(driverUser.id || driverUser.email) ? { ...u, phone: targetPhone.trim() } : u);
+        onUpdateStaffUsers(updatedStaff);
+      }
     }
     if (!targetPhone) return;
 
@@ -935,7 +1008,7 @@ export default function OrderManager({
                   </tr>
                 ) : (
                   displayedOrders.map(order => {
-                    const isDelivery = order.customer?.orderType === 'Delivery' || (order.deliveryFee > 0);
+                    const isDelivery = String(order.customer?.orderType || '').toLowerCase() === 'delivery' || (order.deliveryFee > 0);
                     const isMesa = order.customer?.orderType === 'Mesa' || Boolean(order.customer?.tableNumber);
 
                     const stage = getOrderStageInfo(order.status, isDelivery);
@@ -1060,15 +1133,22 @@ export default function OrderManager({
                                 border: '1px solid var(--delivery-color, #FF441F)',
                                 background: 'var(--bg-secondary, #fff)',
                                 color: 'var(--text-dark)',
-                                maxWidth: '140px'
+                                maxWidth: '150px'
                               }}
                             >
                               <option value="">🛵 Asignar repartidor...</option>
+                              {order.assignedDriver && !staffUsers.some(u => String(u.id || u.email) === String(order.assignedDriver.id || order.assignedDriver.email)) && (
+                                <option value={order.assignedDriver.id || order.assignedDriver.email}>
+                                  🛵 {order.assignedDriver.name || order.assignedDriver.email} (Asignado)
+                                </option>
+                              )}
                               {staffUsers.map(u => (
                                 <option key={u.id || u.email} value={u.id || u.email}>
+                                  {String(u.role || '').toLowerCase().includes('repartidor') ? '🛵 ' : '👤 '}
                                   {u.name || u.email} {u.role ? `(${u.role})` : ''}
                                 </option>
                               ))}
+                              <option value="__NEW_DRIVER__">➕ Registrar nuevo repartidor...</option>
                             </select>
                             {order.assignedDriver && (
                               <button
@@ -1282,7 +1362,14 @@ export default function OrderManager({
                                 boxShadow: '0 2px 6px rgba(255,68,31,0.3)',
                                 cursor: 'pointer'
                               }}
-                              onClick={() => handleStatusChange(order, 'En camino', `Pedido ${order.id} despachado a ruta por ${currentUser?.name}`)}
+                              onClick={() => {
+                                if (!order.assignedDriver) {
+                                  alert("⚠️ Para despachar a ruta, primero debes asignar un repartidor al pedido.");
+                                  setQuickDriverModal({ order });
+                                  return;
+                                }
+                                handleStatusChange(order, 'En camino', `Pedido ${order.id} despachado a ruta por ${currentUser?.name}`);
+                              }}
                               title="Despachar con repartidor a domicilio"
                             >
                               🛵 Despachar a Ruta
@@ -1696,6 +1783,144 @@ export default function OrderManager({
               })}
             </div>
           )}
+        </div>
+      )}
+
+      {/* Modal Rápido para Registrar y Asignar Repartidor */}
+      {quickDriverModal && (
+        <div style={{
+          position: 'fixed',
+          top: 0,
+          left: 0,
+          right: 0,
+          bottom: 0,
+          backgroundColor: 'rgba(0, 0, 0, 0.65)',
+          backdropFilter: 'blur(4px)',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          zIndex: 9999999,
+          padding: '16px'
+        }}>
+          <div style={{
+            background: 'var(--bg-secondary, #fff)',
+            borderRadius: '14px',
+            maxWidth: '460px',
+            width: '100%',
+            padding: '24px',
+            boxShadow: '0 20px 40px rgba(0,0,0,0.25)',
+            border: '1px solid var(--border-color)'
+          }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '14px' }}>
+              <h3 style={{ margin: 0, fontSize: '1.15rem', color: 'var(--text-dark)', display: 'flex', alignItems: 'center', gap: '8px' }}>
+                🛵 Asignar Repartidor a Pedido #{quickDriverModal.order?.id}
+              </h3>
+              <button
+                type="button"
+                onClick={() => { setQuickDriverModal(null); setQuickDriverName(''); setQuickDriverPhone(''); }}
+                style={{ background: 'transparent', border: 'none', fontSize: '1.2rem', cursor: 'pointer', color: 'var(--text-light)' }}
+              >
+                ✕
+              </button>
+            </div>
+
+            <div style={{ fontSize: '0.82rem', color: 'var(--text-light)', marginBottom: '16px' }}>
+              Cliente: <strong>{quickDriverModal.order?.customer?.name}</strong> · Dirección: {quickDriverModal.order?.customer?.address || 'Por coordinar'}
+            </div>
+
+            {/* Si ya hay personal registrado, permitir seleccionar uno rápidamente */}
+            {staffUsers.length > 0 && (
+              <div style={{ marginBottom: '16px', padding: '12px', background: 'rgba(0,0,0,0.02)', borderRadius: '8px', border: '1px solid var(--border-color)' }}>
+                <label style={{ display: 'block', fontSize: '0.8rem', fontWeight: 700, marginBottom: '6px' }}>
+                  Seleccionar colaborador existente:
+                </label>
+                <div style={{ display: 'flex', gap: '8px' }}>
+                  <select
+                    id="quick-select-existing-driver"
+                    defaultValue=""
+                    style={{ flex: 1, padding: '8px', borderRadius: '6px', border: '1px solid var(--border-color)', fontSize: '0.85rem' }}
+                  >
+                    <option value="">-- Seleccionar de la lista --</option>
+                    {staffUsers.map(u => (
+                      <option key={u.id || u.email} value={u.id || u.email}>
+                        {String(u.role || '').toLowerCase().includes('repartidor') ? '🛵 ' : '👤 '}
+                        {u.name || u.email} {u.role ? `(${u.role})` : ''} {u.phone ? `· 📞 ${u.phone}` : ''}
+                      </option>
+                    ))}
+                  </select>
+                  <button
+                    type="button"
+                    className="btn btn-primary"
+                    style={{ padding: '8px 14px', fontSize: '0.8rem', whiteSpace: 'nowrap' }}
+                    onClick={() => {
+                      const sel = document.getElementById('quick-select-existing-driver');
+                      if (sel && sel.value) {
+                        handleAssignDriver(quickDriverModal.order, sel.value);
+                        setQuickDriverModal(null);
+                      } else {
+                        alert("Selecciona un colaborador de la lista.");
+                      }
+                    }}
+                  >
+                    Asignar
+                  </button>
+                </div>
+              </div>
+            )}
+
+            {/* O registrar un nuevo repartidor en 1 paso */}
+            <form onSubmit={handleSaveQuickDriver} style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+              <div style={{ fontSize: '0.85rem', fontWeight: 700, color: 'var(--delivery-color, #FF441F)' }}>
+                O registrar nuevo repartidor / motorizado:
+              </div>
+              <div>
+                <label style={{ display: 'block', fontSize: '0.78rem', fontWeight: 600, marginBottom: '4px' }}>
+                  Nombre completo del motorizado:
+                </label>
+                <input
+                  type="text"
+                  placeholder="Ej: Carlos Mendoza"
+                  value={quickDriverName}
+                  onChange={(e) => setQuickDriverName(e.target.value)}
+                  style={{ width: '100%', padding: '8px 10px', borderRadius: '6px', border: '1px solid var(--border-color)', fontSize: '0.85rem' }}
+                  required
+                />
+              </div>
+              <div>
+                <label style={{ display: 'block', fontSize: '0.78rem', fontWeight: 600, marginBottom: '4px' }}>
+                  Celular / WhatsApp para despacho (9 dígitos):
+                </label>
+                <input
+                  type="tel"
+                  placeholder="Ej: 987654321"
+                  value={quickDriverPhone}
+                  onChange={(e) => setQuickDriverPhone(e.target.value)}
+                  style={{ width: '100%', padding: '8px 10px', borderRadius: '6px', border: '1px solid var(--border-color)', fontSize: '0.85rem' }}
+                />
+                <small style={{ color: 'var(--text-light)', fontSize: '0.7rem' }}>
+                  Permite despacharle la hoja de ruta con 1 toque al WhatsApp y que el cliente lo contacte.
+                </small>
+              </div>
+
+              <div style={{ display: 'flex', gap: '10px', marginTop: '10px' }}>
+                <button
+                  type="submit"
+                  className="btn btn-primary"
+                  style={{ flex: 1, padding: '10px', fontSize: '0.85rem', fontWeight: 700, background: 'var(--delivery-color, #FF441F)', borderColor: 'var(--delivery-color, #FF441F)' }}
+                >
+                  ✓ Guardar y Asignar
+                </button>
+                <button
+                  type="button"
+                  className="btn btn-secondary"
+                  style={{ padding: '10px 16px', fontSize: '0.85rem' }}
+                  onClick={() => { setQuickDriverModal(null); setQuickDriverName(''); setQuickDriverPhone(''); }}
+                >
+                  Cancelar
+                </button>
+              </div>
+            </form>
+          </div>
         </div>
       )}
     </div>
