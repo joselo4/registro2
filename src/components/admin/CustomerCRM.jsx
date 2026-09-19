@@ -1,4 +1,6 @@
 import { useState, useMemo, useEffect, useCallback, Component } from 'react';
+import { sanitizeText } from '../../utils/security';
+
 
 /**
  * Componente de protección contra errores inesperados (Error Boundary)
@@ -45,11 +47,6 @@ class CRMErrorBoundary extends Component {
 }
 
 // --- UTILIDADES DEFENSIVAS Y DE SEGURIDAD ---
-const sanitizeText = (val) => {
-  if (typeof val !== 'string') return '';
-  return val.replace(/<[^>]*>/g, '').trim();
-};
-
 const safeNum = (val, defaultVal = 0) => {
   const n = parseFloat(val);
   return Number.isFinite(n) ? n : defaultVal;

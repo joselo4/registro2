@@ -15,12 +15,7 @@ const CustomerCRM = lazy(() => import('./admin/CustomerCRM'));
 const DriverDeliveryPanel = lazy(() => import('./admin/DriverDeliveryPanel'));
 const KitchenDisplaySystem = lazy(() => import('./admin/KitchenDisplaySystem'));
 import CartLocationsView from './CartLocationsView';
-
-// --- FUNCIONES DE SANITIZACIÃ“N Y SEGURIDAD ---
-const sanitizeHTML = (text) => {
-  if (typeof text !== 'string') return '';
-  return text.replace(/<[^>]*>/g, '').trim();
-};
+import { sanitizeHTML } from '../utils/security';
 
 // eslint-disable-next-line no-unused-vars
 const isValidEmail = (email) => {

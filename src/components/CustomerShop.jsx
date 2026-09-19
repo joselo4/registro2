@@ -6,6 +6,8 @@ import WelcomePromotion from './WelcomePromotion';
 import PackIllustration from './PackIllustration';
 import { normalizePromotion, DEFAULT_POPUP_PROMOTION, DEFAULT_WEB_PROMOTION } from '../utils/promotion';
 import { updateSyncedData } from '../utils/supabaseSync';
+import { sanitizeHTML } from '../utils/security';
+
 
 export default function CustomerShop({ 
   flavors = [],
@@ -143,9 +145,9 @@ export default function CustomerShop({
     if (!tableNumber) return;
     if (isCalling) return;
     setIsCalling(true);
-    const cleanType = String(type || '').replace(/<[^>]*>/g, '').trim();
+    const cleanType = sanitizeHTML(type);
     const cartSummary = getCartSummary();
-    const cleanCartSummary = cartSummary.replace(/<[^>]*>/g, '').trim();
+    const cleanCartSummary = sanitizeHTML(cartSummary);
     const fullRequest = `${cleanType} | Carrito: ${cleanCartSummary}`;
 
     const callData = {
@@ -161,8 +163,8 @@ export default function CustomerShop({
 
       try {
         const messageText = `🛎️ *Llamado de Mesa ${tableNumber}*\n\n` +
-                            `*Solicitud:* ${type}\n` +
-                            `*Detalles del Pedido en Carrito:*\n${cartSummary}`;
+                            `*Solicitud:* ${cleanType}\n` +
+                            `*Detalles del Pedido en Carrito:*\n${cleanCartSummary}`;
         await fetch('/api/telegram', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },

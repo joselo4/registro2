@@ -2,12 +2,8 @@
 import { useState, useEffect } from 'react';
 import { uploadToR2 } from '../../utils/r2Client';
 import { BasePhoto } from '../DessertPreview';
+import { sanitizeHTML } from '../../utils/security';
 
-// --- FUNCIONES DE SANITIZACIÓN ---
-const sanitizeHTML = (text) => {
-  if (typeof text !== 'string') return '';
-  return text.replace(/<[^>]*>/g, '').trim();
-};
 
 export default function InventoryManager({
   flavors,

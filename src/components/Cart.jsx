@@ -3,6 +3,9 @@ import CartItemPreview from './CartItemPreview';
 import DessertPreview from './DessertPreview';
 import { generateOrderId } from '../utils/orderId';
 import { getEnabledPaymentMethods, selectPaymentMethod } from '../utils/paymentMethods';
+import { buildWhatsAppHref } from '../utils/orderMessaging';
+import { sanitizeHTML, sanitizeText, safeStorage } from '../utils/security';
+
 
 export default function Cart({ 
   cart, 
@@ -44,9 +47,9 @@ export default function Cart({
   };
 
   // Cargar datos autocompletados desde LocalStorage si existen
-  const [name, setName] = useState(() => (typeof localStorage !== 'undefined' ? localStorage.getItem('last_customer_name') : '') || '');
-  const [phone, setPhone] = useState(() => (typeof localStorage !== 'undefined' ? localStorage.getItem('last_customer_phone') : '') || '');
-  const [address, setAddress] = useState(() => (typeof localStorage !== 'undefined' ? localStorage.getItem('last_customer_address') : '') || '');
+  const [name, setName] = useState(() => safeStorage.getItem('last_customer_name', ''));
+  const [phone, setPhone] = useState(() => safeStorage.getItem('last_customer_phone', ''));
+  const [address, setAddress] = useState(() => safeStorage.getItem('last_customer_address', ''));
   const [selectedPaymentMethod, setPaymentMethod] = useState('Yape'); // Yape, Plin, Efectivo, Transferencia, Tarjeta
   const enabledPaymentMethods = getEnabledPaymentMethods(shopConfig);
   const paymentMethod = selectPaymentMethod(selectedPaymentMethod, enabledPaymentMethods);
@@ -172,9 +175,9 @@ export default function Cart({
 
   // Guardar datos del cliente para futura compra
   useEffect(() => {
-    localStorage.setItem('last_customer_name', name);
-    localStorage.setItem('last_customer_phone', phone);
-    localStorage.setItem('last_customer_address', address);
+    safeStorage.setItem('last_customer_name', name);
+    safeStorage.setItem('last_customer_phone', phone);
+    safeStorage.setItem('last_customer_address', address);
   }, [name, phone, address]);
 
   // InitiateCheckout tracking
@@ -200,7 +203,7 @@ export default function Cart({
       return;
     }
 
-    const cleanAddress = address.replace(/<[^>]*>/g, '').trim();
+    const cleanAddress = sanitizeHTML(address);
     let finalAddress = cleanAddress;
     if (orderType === 'Mesa') {
       finalAddress = `Mesa ${localTableNumber}`;
@@ -218,7 +221,7 @@ export default function Cart({
     const rawName = (needsTable && !name.trim()) ? `Cliente Mesa ${localTableNumber || tableNumber}` : name.trim();
     const rawPhone = (needsTable && !phone.trim()) ? `Mesa` : phone.trim();
 
-    const finalName = rawName.replace(/<[^>]*>/g, '').trim();
+    const finalName = sanitizeHTML(rawName);
     const finalPhone = rawPhone.replace(/[^0-9A-Za-z+\s-]/g, '').trim();
 
     // Validar según tipo de pedido
@@ -249,6 +252,7 @@ export default function Cart({
     try {
       setIsSubmitting(true);
       const orderId = generateOrderId();
+      const sanitizedOpCode = sanitizeText(operationCode, 50);
       const newOrder = {
         id: orderId,
         customer: { 
@@ -256,7 +260,7 @@ export default function Cart({
           phone: finalPhone, 
           address: finalAddress, 
           paymentMethod,
-          operationCode: operationCode.trim() || undefined,
+          operationCode: sanitizedOpCode || undefined,
           orderType,
           tableNumber: activeMesaNumber
         },
@@ -289,7 +293,7 @@ export default function Cart({
       }).join('\n');
 
       const couponLine = appliedCoupon ? `\n*Cupón:* ${appliedCoupon.code} (-S/. ${discount.toFixed(2)})` : '';
-      let destLine = `*Dirección:* ${address}`;
+      let destLine = `*Dirección:* ${finalAddress}`;
       if (orderType === 'Mesa') {
         destLine = `*Mesa:* ${activeMesaNumber} (Consumo Local)`;
       } else if (orderType === 'Mesa_Llevar') {
@@ -299,13 +303,11 @@ export default function Cart({
       } else if (orderType === 'Llevar') {
         destLine = `*Pedido:* Recojo en Tienda / Llevar`;
       }
-      const opCodeLine = operationCode.trim() ? `\n*N° Operación (${paymentMethod}):* ${operationCode.trim()}` : '';
+      const opCodeLine = sanitizedOpCode ? `\n*N° Operación (${paymentMethod}):* ${sanitizedOpCode}` : '';
       const trackerLink = `\n\n*Sigue tu pedido en vivo aquí:*\n${window.location.origin}${window.location.pathname}?track=${orderId}`;
       const whatsappMessage = `${whatsappGreeting}\n\n*Código:* ${orderId}\n*Cliente:* ${finalName}\n${destLine}\n*WhatsApp:* ${finalPhone}\n*Pago:* ${paymentMethod}${opCodeLine}\n\n*Pedido:*\n${itemsText}\n\n*Subtotal:* S/. ${cartSubtotal.toFixed(2)}${couponLine}\n*Delivery:* S/. ${activeDeliveryFee.toFixed(2)}\n*Total:* S/. ${total.toFixed(2)}${trackerLink}\n\n${whatsappFooter}`;
       
-      const encodedText = encodeURIComponent(whatsappMessage);
-      const cleanPhone = String(storePhone || '').replace(/\D/g, ''); // Limpiar caracteres no numéricos
-      const whatsappUrl = `https://wa.me/${cleanPhone}?text=${encodedText}`;
+      const whatsappUrl = buildWhatsAppHref(storePhone, whatsappMessage);
 
       // Registrar pedido en la base de datos (y esperar a que finalice la sincronización en Supabase)
       await onPlaceOrder(newOrder);
@@ -322,7 +324,7 @@ export default function Cart({
   
        // Redirigir a WhatsApp del local si el cliente lo prefiere y la config lo permite
        const whatsappGlobalEnabled = shopConfig?.whatsappEnabled !== false;
-       if (sendToWhatsApp && whatsappGlobalEnabled) {
+       if (sendToWhatsApp && whatsappGlobalEnabled && whatsappUrl) {
          const waWindow = window.open(whatsappUrl, '_blank', 'noopener,noreferrer');
          if (waWindow) waWindow.opener = null;
        }

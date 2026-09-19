@@ -1,12 +1,8 @@
 import { useState } from 'react';
 import { supabase } from '../../utils/supabaseClient';
 import { updateSyncedData } from '../../utils/supabaseSync';
+import { sanitizeHTML } from '../../utils/security';
 
-// --- FUNCIONES DE SANITIZACIÓN ---
-const sanitizeHTML = (text) => {
-  if (typeof text !== 'string') return '';
-  return text.replace(/<[^>]*>/g, '').trim();
-};
 
 const isValidEmail = (email) => {
   const re = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;

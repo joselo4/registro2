@@ -9,12 +9,8 @@ import {
   playKitchenSound,
   triggerDeviceVibration
 } from '../../utils/appAudioNotifications';
+import { sanitizeHTML } from '../../utils/security';
 
-// --- FUNCIONES DE SANITIZACIÓN ---
-const sanitizeHTML = (text) => {
-  if (typeof text !== 'string') return '';
-  return text.replace(/<[^>]*>/g, '').trim();
-};
 
 export default function OrderManager({
   orders,
@@ -1700,8 +1696,7 @@ export default function OrderManager({
           ) : (
             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))', gap: '15px' }}>
               {filteredSurveys.map(order => {
-                const cleanPhone = String(order.customer.phone || '').replace(/\D/g, '');
-                const waUrl = cleanPhone ? `https://wa.me/${cleanPhone}?text=${encodeURIComponent(`Hola ${order.customer.name}, nos comunicamos de ${storeName} con relación a tu pedido ${order.id}...`)}` : null;
+                const waUrl = buildWhatsAppHref(order.customer?.phone, `Hola ${order.customer?.name || 'cliente'}, nos comunicamos de ${storeName} con relación a tu pedido ${order.id}...`);
                 
                 const surveyDateStr = order.survey.date 
                   ? new Date(order.survey.date).toLocaleString('es-PE', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' }) 

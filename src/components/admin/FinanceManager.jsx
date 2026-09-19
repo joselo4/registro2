@@ -1,11 +1,7 @@
 import { useState, Fragment } from 'react';
 import { getEnabledPaymentMethods, selectPaymentMethod } from '../../utils/paymentMethods';
+import { sanitizeHTML } from '../../utils/security';
 
-// --- FUNCIONES DE SANITIZACIÓN ---
-const sanitizeHTML = (text) => {
-  if (typeof text !== 'string') return '';
-  return text.replace(/<[^>]*>/g, '').trim();
-};
 
 export default function FinanceManager({
   orders,

@@ -1,6 +1,10 @@
 import { useState, useEffect, useRef } from 'react';
 import { readOrder, requestOrder } from '../utils/apiClient';
 import { mergeOrders, isDeliveryOrder, orderStatusLabel, paymentDescription } from '../utils/orderLifecycle';
+import { sanitizeText, safeStorage } from '../utils/security';
+import { buildWhatsAppHref } from '../utils/orderMessaging';
+
+
 
 export default function OrderTracker({ orderId, orders, setView, storePhone, onClearActiveOrder }) {
   const TRACKING_WINDOW_HOURS = 72;
@@ -26,16 +30,12 @@ export default function OrderTracker({ orderId, orders, setView, storePhone, onC
       setActiveSearchId(clean);
       setHasSearched(true);
     } else {
-      try {
-        const saved = localStorage.getItem('helados_active_order_id');
-        if (saved && !activeSearchId) {
-          const cleanSaved = String(saved).replace(/\s+/g, '').toUpperCase();
-          setInputVal(cleanSaved);
-          setActiveSearchId(cleanSaved);
-          setHasSearched(true);
-        }
-      } catch (err) {
-        console.warn('Could not read active order id from localStorage', err);
+      const saved = safeStorage.getItem('helados_active_order_id');
+      if (saved && !activeSearchId) {
+        const cleanSaved = String(saved).replace(/\s+/g, '').toUpperCase();
+        setInputVal(cleanSaved);
+        setActiveSearchId(cleanSaved);
+        setHasSearched(true);
       }
     }
   }, [orderId, activeSearchId]);
@@ -51,7 +51,7 @@ export default function OrderTracker({ orderId, orders, setView, storePhone, onC
   useEffect(() => {
     if (activeSearchId) {
       const orderIdUpper = activeSearchId.trim().toUpperCase();
-      setSurveySubmitted(localStorage.getItem(`helados_survey_submitted_${orderIdUpper}`) === 'true');
+      setSurveySubmitted(safeStorage.getItem(`helados_survey_submitted_${orderIdUpper}`) === 'true');
       setRating(0);
       setComment('');
     }
@@ -63,9 +63,10 @@ export default function OrderTracker({ orderId, orders, setView, storePhone, onC
     setSubmittingSurvey(true);
     const id = activeSearchId.trim().toUpperCase();
     try {
-      const order = await requestOrder('/api/order', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ id, order: { survey: { rating, comment: comment.trim(), date: new Date().toISOString() } } }) });
+      const cleanComment = sanitizeText(comment, 500);
+      const order = await requestOrder('/api/order', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ id, order: { survey: { rating, comment: cleanComment, date: new Date().toISOString() } } }) });
       setFetchedOrder(order);
-      localStorage.setItem(`helados_survey_submitted_${id}`, 'true');
+      safeStorage.setItem(`helados_survey_submitted_${id}`, 'true');
       setSurveySubmitted(true);
     } catch (error) { window.alert(error.message || 'No se pudo guardar tu valoración. Inténtalo nuevamente.'); }
     finally { setSubmittingSurvey(false); }
@@ -93,36 +94,21 @@ export default function OrderTracker({ orderId, orders, setView, storePhone, onC
 
   // Cargar pedidos recientes
   useEffect(() => {
-    try {
-      const saved = localStorage.getItem('helados_recent_order_ids');
-      if (saved) {
-        const parsed = JSON.parse(saved);
-        if (Array.isArray(parsed)) setRecentOrders(parsed);
-      }
-    } catch (e) {
-      console.warn('Could not read recent orders from localStorage', e);
-    }
+    const parsed = safeStorage.getJSON('helados_recent_order_ids', []);
+    if (Array.isArray(parsed)) setRecentOrders(parsed);
   }, []);
 
   // Helper para guardar en el historial
   const saveToRecentOrders = (id) => {
     if (!id) return;
     const cleanId = id.trim();
-    try {
-      const saved = localStorage.getItem('helados_recent_order_ids');
-      let list = [];
-      if (saved) {
-        const parsed = JSON.parse(saved);
-        if (Array.isArray(parsed)) list = parsed;
-      }
-      list = list.filter(item => typeof item === 'string' && item.toLowerCase() !== cleanId.toLowerCase());
-      list.unshift(cleanId);
-      const trimmedList = list.slice(0, 5);
-      localStorage.setItem('helados_recent_order_ids', JSON.stringify(trimmedList));
-      setRecentOrders(trimmedList);
-    } catch (e) {
-      console.warn('Could not save recent orders to localStorage', e);
-    }
+    const parsed = safeStorage.getJSON('helados_recent_order_ids', []);
+    let list = Array.isArray(parsed) ? parsed : [];
+    list = list.filter(item => typeof item === 'string' && item.toLowerCase() !== cleanId.toLowerCase());
+    list.unshift(cleanId);
+    const trimmedList = list.slice(0, 5);
+    safeStorage.setJSON('helados_recent_order_ids', trimmedList);
+    setRecentOrders(trimmedList);
   };
 
   const isOrderExpired = (order) => {
@@ -316,8 +302,6 @@ export default function OrderTracker({ orderId, orders, setView, storePhone, onC
     setSearchNonce((value) => value + 1);
   };
 
-  const cleanPhone = String(storePhone || '').replace(/\D/g, '');
-
   const renderSearchForm = (expiredOrder = null) => {
     return (
       <div className="glass" style={{ padding: '30px 20px', maxWidth: '500px', margin: '40px auto', borderRadius: 'var(--radius-lg)' }}>
@@ -348,7 +332,7 @@ export default function OrderTracker({ orderId, orders, setView, storePhone, onC
           }}>
             <span>¿Tienes alguna duda sobre tu entrega? Nuestro equipo puede ayudarte:</span>
             <a 
-              href={`https://wa.me/${cleanPhone || '51987654321'}?text=${encodeURIComponent(`Hola, tengo una consulta sobre mi pedido ${expiredOrder.id}`)}`}
+              href={buildWhatsAppHref(storePhone || '51987654321', `Hola, tengo una consulta sobre mi pedido ${expiredOrder.id}`)}
               target="_blank" 
               rel="noopener noreferrer" 
               className="btn btn-primary"
@@ -464,7 +448,7 @@ export default function OrderTracker({ orderId, orders, setView, storePhone, onC
               margin: 0
             }}
             onClick={() => {
-              const waUrl = `https://wa.me/${cleanPhone || '51987654321'}?text=${encodeURIComponent('¡Hola! Tengo una consulta sobre el estado de un pedido 🍦')}`;
+              const waUrl = buildWhatsAppHref(storePhone || '51987654321', '¡Hola! Tengo una consulta sobre el estado de un pedido 🍦');
               const waWindow = window.open(waUrl, '_blank', 'noopener,noreferrer');
               if (waWindow) waWindow.opener = null;
             }}
@@ -1084,7 +1068,7 @@ export default function OrderTracker({ orderId, orders, setView, storePhone, onC
           {copiedTrackingLink ? '✅ ¡Enlace Copiado!' : '📋 Copiar Enlace'}
         </button>
         <a 
-          href={`https://wa.me/${cleanPhone}?text=${encodeURIComponent(`¡Hola! Quisiera consultar el estado de mi pedido #${currentOrder.id} a nombre de ${currentOrder.customer?.name || 'Cliente'} 🍦`)}`} 
+          href={buildWhatsAppHref(storePhone || '51987654321', `¡Hola! Quisiera consultar el estado de mi pedido #${currentOrder.id} a nombre de ${currentOrder.customer?.name || 'Cliente'} 🍦`)} 
           target="_blank" 
           rel="noopener noreferrer" 
           className="btn btn-primary"
