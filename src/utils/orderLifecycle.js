@@ -1,8 +1,8 @@
 import { PAYMENT_METHODS } from './paymentMethods.js';
 
 export const ORDER_STATUSES = ['Por Corroborar', 'Pendiente', 'Preparando', 'Listo', 'En camino', 'Entregado', 'Cancelado'];
-export const isDeliveryOrder = order => order?.customer?.orderType === 'Delivery' || Number(order?.deliveryFee) > 0;
-export const isTableOrder = order => ['Mesa', 'Mesa_Llevar'].includes(order?.customer?.orderType);
+export const isDeliveryOrder = order => String(order?.customer?.orderType || '').toLowerCase() === 'delivery' || Number(order?.deliveryFee) > 0;
+export const isTableOrder = order => ['mesa', 'mesa_llevar'].includes(String(order?.customer?.orderType || '').toLowerCase()) || Boolean(order?.customer?.tableNumber);
 export const DELIVERY_PAYMENT_METHODS = PAYMENT_METHODS;
 export const isDigitalPayment = order => /yape|plin|transferencia/i.test(order?.customer?.paymentMethod || '');
 export const isPaymentOnArrival = order => order?.customer?.paymentTiming === 'Al llegar' || /efectivo|tarjeta/i.test(order?.customer?.paymentMethod || '');

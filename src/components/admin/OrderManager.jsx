@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import { useState, useEffect } from 'react';
 import { buildSmsHref, formatOrderStatusMessage, normalizeSmsTemplates, formatDriverDispatchMessage, buildWhatsAppHref } from '../../utils/orderMessaging';
 import { getCollectionPaymentMethods } from '../../utils/paymentMethods';
 import { isDigitalPayment, isPaymentOnArrival, requiresAdvancePayment } from '../../utils/orderLifecycle';
@@ -21,7 +21,6 @@ export default function OrderManager({
   onUpdateOrders,
   onUpdateOrderStatus,
   flavors,
-  toppings,
   bases,
   packs,
   storeName,
@@ -648,11 +647,14 @@ export default function OrderManager({
   // --- FILTRAR PEDIDOS ---
   let filtered = orderFilter === 'all' ? orders : orders.filter(o => o.status === orderFilter);
   if (searchQuery.trim() !== '') {
-    const q = searchQuery.toLowerCase();
+    const q = searchQuery.toLowerCase().trim();
     filtered = filtered.filter(o => 
-      o.id.toLowerCase().includes(q) || 
-      o.customer.name.toLowerCase().includes(q) || 
-      o.customer.phone.includes(q)
+      (o?.id || '').toLowerCase().includes(q) || 
+      (o?.customer?.name || '').toLowerCase().includes(q) || 
+      (o?.customer?.phone || '').toLowerCase().includes(q) ||
+      (o?.customer?.address || '').toLowerCase().includes(q) ||
+      (o?.assignedDriver?.name || '').toLowerCase().includes(q) ||
+      (o?.assignedDriver?.phone || '').toLowerCase().includes(q)
     );
   }
 

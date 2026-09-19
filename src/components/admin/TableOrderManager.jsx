@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { updateSyncedData } from '../../utils/supabaseSync';
 import { getEnabledPaymentMethods, getCollectionPaymentMethods, selectPaymentMethod } from '../../utils/paymentMethods';
 import { nextOrderStatus, orderStatusLabel } from '../../utils/orderLifecycle';
@@ -404,9 +404,11 @@ export default function TableOrderManager({
 
   // Cierre y Cobro de Mesa
   const handleCheckoutTable = async (activeOrder) => {
-    if (!checkoutPaymentMethod) { alert('No hay métodos de pago activos. Activa uno en Ajustes.', 'error'); return; }
+    const methods = getCollectionPaymentMethods(shopConfig, activeOrder);
+    const methodToUse = selectPaymentMethod(selectedPaymentMethod, methods);
+    if (!methodToUse) { alert('No hay métodos de pago activos. Activa uno en Ajustes.', 'error'); return; }
     if (activeOrder.status !== 'Entregado') { alert('Primero completa la preparación y entrega del pedido. Después podrás cobrar y liberar la mesa.', 'error'); return; }
-    if (!window.confirm('¿Confirmas el cobro de S/ ' + Number(activeOrder.grandTotal || 0).toFixed(2) + ' vía ' + checkoutPaymentMethod + '?')) return;
+    if (!window.confirm('¿Confirmas el cobro de S/ ' + Number(activeOrder.grandTotal || 0).toFixed(2) + ' vía ' + methodToUse + '?')) return;
     let orderVal = null;
     const statusTimestamp = new Date().toISOString();
     const updatedOrders = orders.map(o => {
@@ -421,7 +423,7 @@ export default function TableOrderManager({
           updatedAt: statusTimestamp,
           customer: {
             ...o.customer,
-            paymentMethod: checkoutPaymentMethod
+            paymentMethod: methodToUse
           }
         };
         return orderVal;
@@ -430,7 +432,7 @@ export default function TableOrderManager({
     });
 
     if (!await onUpdateOrders(updatedOrders)) return;
-    addLog(`Mesa ${selectedTable} pagada y cerrada vía ${checkoutPaymentMethod}. Pedido ${activeOrder.id} cobrado.`);
+    addLog(`Mesa ${selectedTable} pagada y cerrada vía ${methodToUse}. Pedido ${activeOrder.id} cobrado.`);
 
     alert(`Mesa ${selectedTable} cerrada y liberada exitosamente.`);
     

@@ -1,6 +1,7 @@
-import React, { useState, useEffect, useMemo, useRef } from 'react';
+import { useState, useEffect, useMemo, useRef } from 'react';
 import { printThermalTicket } from '../../utils/escposTicket';
 import { triggerDeviceVibration } from '../../utils/appAudioNotifications';
+import { isDeliveryOrder, isTableOrder } from '../../utils/orderLifecycle';
 
 // Sonidos Web Audio API sintetizados (sin depender de archivos de audio externos)
 const playBeep = (type = 'delivery') => {
@@ -93,7 +94,7 @@ export default function KitchenDisplaySystem({
       if (!knownOrderIdsRef.current.has(o.id) && (o.status === 'Pendiente' || o.status === 'Preparando')) {
         knownOrderIdsRef.current.add(o.id);
         triggerDeviceVibration([250, 100, 250]);
-        const isDelivery = o.customer?.orderType === 'Delivery' || (o.deliveryFee > 0);
+        const isDelivery = isDeliveryOrder(o);
         if (isDelivery) {
           playBeep('delivery');
         } else {
@@ -123,13 +124,13 @@ export default function KitchenDisplaySystem({
       }
     }).filter(o => {
       if (filterType === 'delivery') {
-        return o.customer?.orderType === 'Delivery' || (o.deliveryFee > 0);
+        return isDeliveryOrder(o);
       }
       if (filterType === 'mesa') {
-        return o.customer?.orderType === 'Mesa' || Boolean(o.customer?.tableNumber);
+        return isTableOrder(o);
       }
       if (filterType === 'llevar') {
-        return o.customer?.orderType === 'Llevar' || (!o.deliveryFee && !o.customer?.tableNumber);
+        return !isDeliveryOrder(o) && !isTableOrder(o);
       }
       return true;
     }).sort((a, b) => new Date(a.date) - new Date(b.date)); // Las órdenes más antiguas primero

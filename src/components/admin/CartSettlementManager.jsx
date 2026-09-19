@@ -1,17 +1,15 @@
-import React, { useState, useEffect, useMemo } from 'react';
+import { useState, useMemo } from 'react';
 import { printThermalTicket } from '../../utils/escposTicket';
 
 export default function CartSettlementManager({
   settlements = [],
   onUpdateSettlements,
   popsicles = [],
-  flavors = [],
   packs = [],
   bases = [],
   literConfig,
   currentUser,
   cartLocations = [],
-  onUpdateCartLocations,
   shopConfig = {},
   onChangeShopConfig,
   storeName = 'Friozo',

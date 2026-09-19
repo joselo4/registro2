@@ -1,4 +1,4 @@
-import React, { useState, useMemo } from 'react';
+import { useState, useMemo } from 'react';
 import { printThermalTicket } from '../../utils/escposTicket';
 
 export default function CashRegisterManager({
@@ -373,6 +373,19 @@ export default function CashRegisterManager({
                   </div>
                 </div>
               ))}
+            </div>
+
+            <div style={{ marginBottom: '16px' }}>
+              <label style={{ fontSize: '0.78rem', fontWeight: 600, display: 'block', marginBottom: '4px' }}>
+                📝 Observaciones del Cierre (Opcional):
+              </label>
+              <textarea
+                className="form-control"
+                placeholder="Ej: Diferencia por redondeo en sencillo, rotura de cono, billete deteriorado..."
+                value={closingNotes}
+                onChange={(e) => setClosingNotes(e.target.value)}
+                style={{ fontSize: '0.8rem', padding: '8px', minHeight: '60px', width: '100%' }}
+              />
             </div>
 
             {/* Resultado de la Comparación */}

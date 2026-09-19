@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import { useState, Fragment } from 'react';
 import { getEnabledPaymentMethods, selectPaymentMethod } from '../../utils/paymentMethods';
 
 // --- FUNCIONES DE SANITIZACIÓN ---
@@ -135,10 +135,11 @@ export default function FinanceManager({
 
     setQuickSaleSubmitting(true);
     const saleId = `FIS-${Math.floor(1000 + Math.random() * 9000)}`;
+    const now = new Date().toISOString();
     const newOrder = {
       id: saleId,
       customer: {
-        name: quickSaleName.trim() || 'Cliente de Tienda',
+        name: sanitizeHTML(quickSaleName) || 'Cliente de Tienda',
         phone: 'N/A',
         address: 'Consumo en Tienda / Venta Presencial',
         paymentMethod: quickSalePaymentMethod
@@ -160,10 +161,13 @@ export default function FinanceManager({
       couponCode: null,
       grandTotal: amountVal,
       status: 'Entregado',
+      paymentVerified: true,
+      revision: 1,
+      date: now,
+      updatedAt: now,
       statusHistory: [
-        { status: 'Entregado', timestamp: new Date().toISOString() }
-      ],
-      date: new Date().toISOString()
+        { status: 'Entregado', timestamp: now }
+      ]
     };
 
     if (!await onUpdateOrders([newOrder, ...orders])) { setQuickSaleSubmitting(false); return; }
@@ -179,7 +183,8 @@ export default function FinanceManager({
     if (expenseSubmitting) return;
 
     const amountVal = parseFloat(expenseAmount) || 0;
-    if (!expenseConcept.trim()) {
+    const cleanConcept = sanitizeHTML(expenseConcept);
+    if (!cleanConcept) {
       alert("El concepto del gasto es obligatorio.");
       return;
     }
@@ -191,7 +196,7 @@ export default function FinanceManager({
     setExpenseSubmitting(true);
     const newExpense = {
       id: `EXP-${Date.now()}`,
-      concept: expenseConcept.trim(),
+      concept: cleanConcept,
       amount: amountVal,
       category: expenseCategory,
       date: expenseDate || new Date().toISOString().split('T')[0]
@@ -536,7 +541,7 @@ export default function FinanceManager({
                     const bal = data.sales - data.expTotal;
                     const isExp = expandedDay === day;
                     return (
-                      <React.Fragment key={day}>
+                      <Fragment key={day}>
                         <tr
                           style={{ cursor: data.orders.length > 0 ? 'pointer' : 'default', background: isExp ? 'rgba(255,107,129,0.04)' : '' }}
                           onClick={() => setExpandedDay(isExp ? null : day)}
@@ -559,7 +564,7 @@ export default function FinanceManager({
                             </tr>
                           );
                         })}
-                      </React.Fragment>
+                      </Fragment>
                     );
                   })}
                 </tbody>

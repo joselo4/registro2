@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import { useState } from 'react';
 import { generateOrderId } from '../../utils/orderId';
 import { INITIAL_POPSICLES } from '../../utils/mockData';
 
@@ -132,21 +132,32 @@ export default function OrderTaker({ catalog, onPlaceOrder, showAlert }) {
     }
 
     const orderId = generateOrderId();
+    const now = new Date().toISOString();
+    const isMesa = orderType === 'Mesa';
+    const parsedTable = isMesa ? (customerName.replace(/[^0-9]/g, '') || customerName || '1') : undefined;
     const newOrder = {
       id: orderId,
       customer: {
-        name: customerName || (orderType === 'Barra' ? 'Cliente en Barra' : 'Mesa'),
+        name: customerName.trim() || (isMesa ? `Mesa ${parsedTable}` : 'Cliente en Barra'),
         phone: 'Operador',
-        address: orderType === 'Barra' ? 'Atención en Barra' : 'Atención en Mesa',
+        address: isMesa ? `Mesa ${parsedTable}` : 'Atención en Barra',
         orderType: orderType,
+        tableNumber: parsedTable,
         paymentMethod: computedTotal === 0 ? 'Cortesía/Gratis' : 'Efectivo'
       },
       items: cart,
       total: computedTotal,
       deliveryFee: 0,
       grandTotal: computedTotal,
-      status: 'Aceptado',
-      date: new Date().toISOString(),
+      status: 'Pendiente',
+      paymentVerified: true,
+      tablePaid: isMesa ? false : true,
+      revision: 1,
+      date: now,
+      updatedAt: now,
+      statusHistory: [
+        { status: 'Pendiente', timestamp: now }
+      ],
       paymentMethod: computedTotal === 0 ? 'Cortesía/Gratis' : 'Efectivo',
       orderType: orderType,
       isOperator: true

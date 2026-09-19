@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import { useState, useEffect } from 'react';
 import { supabase } from '../../utils/supabaseClient';
 import { uploadToR2, compressToWebP } from '../../utils/r2Client';
 import { updateMultipleSyncedData } from '../../utils/supabaseSync';
@@ -7,12 +7,6 @@ import PaymentMethodsSettings from './PaymentMethodsSettings';
 import PromotionEditor from './PromotionEditor';
 import { DEFAULT_PROMOTION, DEFAULT_POPUP_PROMOTION, DEFAULT_WEB_PROMOTION, normalizePromotion, validatePromotion } from '../../utils/promotion';
 import { sendDailySalesReportToTelegram } from '../../utils/telegramDailyReport';
-
-// --- FUNCIONES DE SANITIZACIÓN ---
-const sanitizeHTML = (text) => {
-  if (typeof text !== 'string') return '';
-  return text.replace(/<[^>]*>/g, '').trim();
-};
 
 const sanitizeUrlToHTTPS = (url) => {
   if (typeof url !== 'string') return '';
@@ -30,8 +24,6 @@ export default function SettingsManager({
   salesGoal, onChangeSalesGoal,
   freeDeliveryThreshold, onChangeFreeDeliveryThreshold,
   deliveryCampaignText, onChangeDeliveryCampaignText,
-  telegramToken, onChangeTelegramToken,
-  telegramChatId, onChangeTelegramChatId,
   soundEnabled, onToggleSoundEnabled,
   shopOpen, onToggleShopOpen,
   isCloudSynced,
@@ -40,7 +32,6 @@ export default function SettingsManager({
   qrCustomUrl, onChangeQrCustomUrl,
   ticketCustomMessage, onUpdateTicketCustomMessage,
   catalogOrder, onUpdateCatalogOrder,
-  r2Config, onUpdateR2Config,
   literConfig, onUpdateLiterConfig,
   coupons, onUpdateCoupons,
   logs, addLog, currentUser, onLogout,
@@ -51,7 +42,6 @@ export default function SettingsManager({
   orders, onUpdateOrders,
   expenses, onUpdateExpenses,
   deliveryFee, onChangeDeliveryFee,
-  onToggleShopOpen: onToggleShopOpenProp,
   recommendations, onUpdateRecommendations,
   cartRecommendedPack, onUpdateCartRecommendedPack,
   staffUsers, onUpdateStaffUsers,

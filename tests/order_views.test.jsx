@@ -1,6 +1,5 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import React from 'react';
 import { renderToStaticMarkup } from 'react-dom/server';
 import OrderManager from '../src/components/admin/OrderManager.jsx';
 import KitchenDisplaySystem from '../src/components/admin/KitchenDisplaySystem.jsx';

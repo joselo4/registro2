@@ -1,19 +1,19 @@
  
-import React, { useState, useEffect, useRef, Suspense } from 'react';
+import { useState, useEffect, useRef, useCallback, lazy, Suspense } from 'react';
 import { supabase } from '../utils/supabaseClient';
 import { updateSyncedData } from '../utils/supabaseSync';
-const SettingsManager = React.lazy(() => import('./admin/SettingsManager'));
-const InventoryManager = React.lazy(() => import('./admin/InventoryManager'));
-const FinanceManager = React.lazy(() => import('./admin/FinanceManager'));
-const OrderManager = React.lazy(() => import('./admin/OrderManager'));
-const DashboardView = React.lazy(() => import('./admin/DashboardView'));
-const OperationsCenter = React.lazy(() => import('./admin/OperationsCenter'));
-const UserManager = React.lazy(() => import('./admin/UserManager'));
-const TableOrderManager = React.lazy(() => import('./admin/TableOrderManager'));
-const OrderTaker = React.lazy(() => import('./admin/OrderTaker'));
-const CustomerCRM = React.lazy(() => import('./admin/CustomerCRM'));
-const DriverDeliveryPanel = React.lazy(() => import('./admin/DriverDeliveryPanel'));
-const KitchenDisplaySystem = React.lazy(() => import('./admin/KitchenDisplaySystem'));
+const SettingsManager = lazy(() => import('./admin/SettingsManager'));
+const InventoryManager = lazy(() => import('./admin/InventoryManager'));
+const FinanceManager = lazy(() => import('./admin/FinanceManager'));
+const OrderManager = lazy(() => import('./admin/OrderManager'));
+const DashboardView = lazy(() => import('./admin/DashboardView'));
+const OperationsCenter = lazy(() => import('./admin/OperationsCenter'));
+const UserManager = lazy(() => import('./admin/UserManager'));
+const TableOrderManager = lazy(() => import('./admin/TableOrderManager'));
+const OrderTaker = lazy(() => import('./admin/OrderTaker'));
+const CustomerCRM = lazy(() => import('./admin/CustomerCRM'));
+const DriverDeliveryPanel = lazy(() => import('./admin/DriverDeliveryPanel'));
+const KitchenDisplaySystem = lazy(() => import('./admin/KitchenDisplaySystem'));
 import CartLocationsView from './CartLocationsView';
 
 // --- FUNCIONES DE SANITIZACIÃ“N Y SEGURIDAD ---
@@ -242,10 +242,10 @@ export default function AdminPanel({
     setLogs(prev => [newLog, ...prev.slice(0, 499)]); // Mantener Ãºltimas 500 operaciones
   };
 
-  // --- Detector de Nuevos Pedidos (Alerta Sonora) ---
+   // --- Detector de Nuevos Pedidos (Alerta Sonora) ---
   const prevOrdersCount = useRef(orders.length);
 
-  const playNewOrderSound = () => {
+  const playNewOrderSound = useCallback(() => {
     if (!soundEnabled) return;
     try {
       const AudioContext = window.AudioContext || window.webkitAudioContext;
@@ -278,7 +278,7 @@ export default function AdminPanel({
     } catch {
       console.warn("Audio chime blocked by autoplay policies.");
     }
-  };
+  }, [soundEnabled]);
 
   useEffect(() => {
     if (orders.length > prevOrdersCount.current) {
@@ -294,12 +294,12 @@ export default function AdminPanel({
       }
     }
     prevOrdersCount.current = orders.length;
-  }, [orders, soundEnabled, canUseNotifications, storeName]);
+  }, [orders, soundEnabled, canUseNotifications, storeName, playNewOrderSound]);
 
   // --- Detector de Nuevos Llamados en Mesa (Alerta Sonora y Visual) ---
   const prevCallsCount = useRef(tableCalls.filter(c => !c.resolved).length);
 
-  const playCallWaiterSound = () => {
+  const playCallWaiterSound = useCallback(() => {
     if (!soundEnabled) return;
     try {
       const AudioContext = window.AudioContext || window.webkitAudioContext;
@@ -324,7 +324,7 @@ export default function AdminPanel({
     } catch {
       console.warn("Audio chime blocked by autoplay policies.");
     }
-  };
+  }, [soundEnabled]);
 
   useEffect(() => {
     const activeCalls = tableCalls.filter(c => !c.resolved);
@@ -332,7 +332,7 @@ export default function AdminPanel({
       playCallWaiterSound();
       const latestCall = activeCalls[activeCalls.length - 1];
       if (latestCall) {
-        addLog(`ðŸ›Žï¸ Mesa ${latestCall.table} solicita atenciÃ³n: ${latestCall.request}`);
+        addLog(`🛎️ Mesa ${latestCall.table} solicita atención: ${latestCall.request}`);
         if (canUseNotifications && window.Notification.permission === 'granted') {
           new window.Notification(`🛎️ ¡Mesa ${latestCall.table} solicita atención!`, {
             body: `Solicitud: ${latestCall.request}`
@@ -341,7 +341,7 @@ export default function AdminPanel({
       }
     }
     prevCallsCount.current = activeCalls.length;
-  }, [tableCalls, soundEnabled, canUseNotifications]);
+  }, [tableCalls, soundEnabled, canUseNotifications, playCallWaiterSound]);
 
   useEffect(() => {
     if (isLoggedIn && canUseNotifications && window.Notification.permission === 'default') {
@@ -349,8 +349,8 @@ export default function AdminPanel({
     }
   }, [isLoggedIn, canUseNotifications]);
 
-  // --- Control de Acceso por Ventanas/MÃ³dulos ---
-  const isTabAllowed = (tabId) => {
+  // --- Control de Acceso por Ventanas/Módulos ---
+  const isTabAllowed = useCallback((tabId) => {
     if (!currentUser) return false;
     if (isAdminUser(currentUser)) return true;
 
@@ -370,7 +370,7 @@ export default function AdminPanel({
     if (role.includes('repartidor') || role.includes('delivery')) return ['driver_panel', 'orders', 'locations'].includes(tabId);
     if (role.includes('mozo') || role.includes('salon')) return ['table_orders', 'ordertaker'].includes(tabId);
     return false;
-  };
+  }, [currentUser, staffPermissions]);
 
   useEffect(() => {
     if (currentUser && !isTabAllowed(activeTab)) {
@@ -382,7 +382,7 @@ export default function AdminPanel({
             .find((tabId) => isTabAllowed(tabId));
       if (fallbackTab) setActiveTab(fallbackTab);
     }
-  }, [currentUser, activeTab]);
+  }, [currentUser, activeTab, isTabAllowed]);
 
   // --- Manejo del Inicio de SesiÃ³n ---
   const handleLogin = async (e) => {
@@ -431,7 +431,7 @@ export default function AdminPanel({
         setAuthError('Has superado los 5 intentos de inicio de sesión fallidos. El panel administrativo fue bloqueado temporalmente por 15 minutos.');
         addLog(`BLOQUEO DE SEGURIDAD: 5 intentos fallidos en login para usuario: ${userInput}`);
       } else {
-        setAuthError(`Contraseña errada. Intentos restantes: ${5 - nextAttempts}`);
+        setAuthError(customMsg ? `${customMsg} Intentos restantes: ${5 - nextAttempts}` : `Contraseña errada. Intentos restantes: ${5 - nextAttempts}`);
       }
     };
 
@@ -614,15 +614,47 @@ export default function AdminPanel({
           </div>
 
           <div className="form-group">
-            <label>Contrasena de Acceso</label>
+            <label>Contraseña de Acceso</label>
+            <div style={{ position: 'relative' }}>
+              <input
+                type={showPassword ? 'text' : 'password'}
+                className="form-control"
+                placeholder="Contraseña"
+                value={passwordInput}
+                onChange={(e) => setPasswordInput(e.target.value)}
+                required
+              />
+              <button
+                type="button"
+                onClick={() => setShowPassword(!showPassword)}
+                style={{
+                  position: 'absolute',
+                  right: '10px',
+                  top: '50%',
+                  transform: 'translateY(-50%)',
+                  background: 'none',
+                  border: 'none',
+                  cursor: 'pointer',
+                  fontSize: '1rem',
+                  padding: '4px'
+                }}
+                title={showPassword ? 'Ocultar contraseña' : 'Ver contraseña'}
+              >
+                {showPassword ? '👁️' : '🔒'}
+              </button>
+            </div>
+          </div>
+
+          <div style={{ display: 'flex', alignItems: 'center', gap: '8px', fontSize: '0.85rem' }}>
             <input
-              type="password"
-              className="form-control"
-              placeholder="Contrasena"
-              value={passwordInput}
-              onChange={(e) => setPasswordInput(e.target.value)}
-              required
+              type="checkbox"
+              id="rememberMe"
+              checked={rememberMe}
+              onChange={(e) => setRememberMe(e.target.checked)}
             />
+            <label htmlFor="rememberMe" style={{ cursor: 'pointer', margin: 0 }}>
+              Recordar credenciales en este equipo
+            </label>
           </div>
 
           {authError && (

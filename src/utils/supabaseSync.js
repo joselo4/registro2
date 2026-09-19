@@ -6,7 +6,6 @@ import { apiUrl, fetchOperatorOrders } from './apiClient.js';
 // Solo almacena datos por 5 minutos. Si hay un cambio en tiempo real, se invalida.
 const _syncCache = { admin: null, client: null };
 const _syncCacheTime = { admin: 0, client: 0 };
-const CACHE_TTL_MS = 5 * 60 * 1000; // 5 minutos
 
 export const invalidateSyncCache = () => {
   _syncCache.admin = null;

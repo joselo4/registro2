@@ -33,6 +33,7 @@ export const printThermalTicket = ({
     contentHtml = `
       <div class="ticket">
         <div class="center bold title">${storeName.toUpperCase()}</div>
+        ${storePhone ? `<div class="center" style="font-size: 11px;">Tel: ${storePhone}</div>` : ''}
         <div class="center subtitle">${type === 'comanda' ? '🍳 COMANDA DE COCINA' : '🛵 TICKET DE DESPACHO'}</div>
         <div class="divider"></div>
         <div class="row"><span>ORDEN:</span> <b class="highlight">${order.id}</b></div>

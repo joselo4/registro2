@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import CartItemPreview from './CartItemPreview';
 import DessertPreview from './DessertPreview';
 import { generateOrderId } from '../utils/orderId';
@@ -178,15 +178,17 @@ export default function Cart({
   }, [name, phone, address]);
 
   // InitiateCheckout tracking
+  const initiatedRef = useRef(false);
   useEffect(() => {
-    if (trackEvent && cart && cart.length > 0) {
+    if (!initiatedRef.current && trackEvent && cart && cart.length > 0) {
+      initiatedRef.current = true;
       trackEvent('InitiateCheckout', {
         num_items: cart.reduce((sum, item) => sum + item.quantity, 0),
         value: cartSubtotal,
         currency: 'PEN'
       });
     }
-  }, [trackEvent]);
+  }, [trackEvent, cart, cartSubtotal]);
 
 
   const handleSubmit = async (e) => {

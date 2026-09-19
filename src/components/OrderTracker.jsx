@@ -1,8 +1,8 @@
-import React, { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { readOrder, requestOrder } from '../utils/apiClient';
 import { mergeOrders, isDeliveryOrder, orderStatusLabel, paymentDescription } from '../utils/orderLifecycle';
 
-export default function OrderTracker({ orderId, orders, setView, storePhone, onClearActiveOrder, cartLocations = [] }) {
+export default function OrderTracker({ orderId, orders, setView, storePhone, onClearActiveOrder }) {
   const TRACKING_WINDOW_HOURS = 72;
   const showDetailedTracker = true;
   const [inputVal, setInputVal] = useState(orderId || '');
@@ -26,15 +26,19 @@ export default function OrderTracker({ orderId, orders, setView, storePhone, onC
       setActiveSearchId(clean);
       setHasSearched(true);
     } else {
-      const saved = localStorage.getItem('helados_active_order_id');
-      if (saved && !activeSearchId) {
-        const cleanSaved = String(saved).replace(/\s+/g, '').toUpperCase();
-        setInputVal(cleanSaved);
-        setActiveSearchId(cleanSaved);
-        setHasSearched(true);
+      try {
+        const saved = localStorage.getItem('helados_active_order_id');
+        if (saved && !activeSearchId) {
+          const cleanSaved = String(saved).replace(/\s+/g, '').toUpperCase();
+          setInputVal(cleanSaved);
+          setActiveSearchId(cleanSaved);
+          setHasSearched(true);
+        }
+      } catch (err) {
+        console.warn('Could not read active order id from localStorage', err);
       }
     }
-  }, [orderId]);
+  }, [orderId, activeSearchId]);
 
   // --- ESTADOS Y LÓGICA PARA LA ENCUESTA DE SATISFACCIÓN ---
   const [rating, setRating] = useState(0);
@@ -82,16 +86,21 @@ export default function OrderTracker({ orderId, orders, setView, storePhone, onC
         hour12: true
       };
       return new Intl.DateTimeFormat('es-PE', options).format(date);
-    } catch (e) {
+    } catch {
       return '';
     }
   };
 
   // Cargar pedidos recientes
   useEffect(() => {
-    const saved = localStorage.getItem('helados_recent_order_ids');
-    if (saved) {
-      setRecentOrders(JSON.parse(saved));
+    try {
+      const saved = localStorage.getItem('helados_recent_order_ids');
+      if (saved) {
+        const parsed = JSON.parse(saved);
+        if (Array.isArray(parsed)) setRecentOrders(parsed);
+      }
+    } catch (e) {
+      console.warn('Could not read recent orders from localStorage', e);
     }
   }, []);
 
@@ -99,15 +108,21 @@ export default function OrderTracker({ orderId, orders, setView, storePhone, onC
   const saveToRecentOrders = (id) => {
     if (!id) return;
     const cleanId = id.trim();
-    const saved = localStorage.getItem('helados_recent_order_ids');
-    let list = saved ? JSON.parse(saved) : [];
-    
-    list = list.filter(item => item.toLowerCase() !== cleanId.toLowerCase());
-    list.unshift(cleanId);
-    
-    const trimmedList = list.slice(0, 5);
-    localStorage.setItem('helados_recent_order_ids', JSON.stringify(trimmedList));
-    setRecentOrders(trimmedList);
+    try {
+      const saved = localStorage.getItem('helados_recent_order_ids');
+      let list = [];
+      if (saved) {
+        const parsed = JSON.parse(saved);
+        if (Array.isArray(parsed)) list = parsed;
+      }
+      list = list.filter(item => typeof item === 'string' && item.toLowerCase() !== cleanId.toLowerCase());
+      list.unshift(cleanId);
+      const trimmedList = list.slice(0, 5);
+      localStorage.setItem('helados_recent_order_ids', JSON.stringify(trimmedList));
+      setRecentOrders(trimmedList);
+    } catch (e) {
+      console.warn('Could not save recent orders to localStorage', e);
+    }
   };
 
   const isOrderExpired = (order) => {
@@ -162,6 +177,11 @@ export default function OrderTracker({ orderId, orders, setView, storePhone, onC
   const localMatch = orders?.find(o => String(o.id || '').replace(/\s+/g, '').toUpperCase() === normalizedSearchId);
   const currentOrder = (fetchedOrder && String(fetchedOrder.id || '').replace(/\s+/g, '').toUpperCase() === normalizedSearchId ? fetchedOrder : null) || localMatch || null;
 
+  const ordersRef = useRef(orders);
+  useEffect(() => {
+    ordersRef.current = orders;
+  }, [orders]);
+
   // A failed lookup is not evidence that an order does not exist.
   useEffect(() => {
     const id = (activeSearchId || '').replace(/\s+/g, '').toUpperCase();
@@ -182,7 +202,7 @@ export default function OrderTracker({ orderId, orders, setView, storePhone, onC
         saveToRecentOrders(id);
       } catch (error) {
         if (!cancelled) {
-          const localOrder = orders?.find(o => String(o.id || '').replace(/\s+/g, '').toUpperCase() === id);
+          const localOrder = ordersRef.current?.find(o => String(o.id || '').replace(/\s+/g, '').toUpperCase() === id);
           if (localOrder) {
             setTrackingError('');
             // Si el pedido existe en local pero la API retornó 404, podría estar 'Por Corroborar'
@@ -208,7 +228,7 @@ export default function OrderTracker({ orderId, orders, setView, storePhone, onC
     window.addEventListener('online', resume);
     document.addEventListener('visibilitychange', resume);
     return () => { cancelled = true; clearInterval(timer); window.removeEventListener('online', resume); document.removeEventListener('visibilitychange', resume); };
-  }, [activeSearchId, searchNonce, orders]);
+  }, [activeSearchId, searchNonce]);
 
   // Efecto para animar y reproducir sonido cuando cambia el estado del pedido tracked
   useEffect(() => {
@@ -233,7 +253,7 @@ export default function OrderTracker({ orderId, orders, setView, storePhone, onC
             osc.start();
             osc.stop(ctx.currentTime + 0.5);
           }
-        } catch (e) {
+        } catch {
           console.warn("Autoplay block prevents tracker sound.");
         }
 
@@ -241,7 +261,7 @@ export default function OrderTracker({ orderId, orders, setView, storePhone, onC
       }
       setPrevStatus(currentOrder.status);
     }
-  }, [currentOrder?.status, prevStatus]);
+  }, [currentOrder, prevStatus]);
 
 
   const renderItemDetails = (item) => {

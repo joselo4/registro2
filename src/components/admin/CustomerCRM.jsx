@@ -131,8 +131,7 @@ function CustomerCRMContent({
   onUpdateCoupons,
   shopConfig = {},
   onChangeShopConfig,
-  onNavigate,
-  onPlaceOrder
+  onNavigate
 }) {
   // Estados de vista y filtros
   const [search, setSearch] = useState('');

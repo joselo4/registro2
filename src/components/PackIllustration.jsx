@@ -1,4 +1,3 @@
-import React from 'react';
 
 export default function PackIllustration({ pack }) {
   const isDuo = /dúo|duo|pareja|romántico|romantico/i.test(`${pack?.id || ''} ${pack?.name || ''}`);

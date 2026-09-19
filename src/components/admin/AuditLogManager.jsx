@@ -1,6 +1,6 @@
-import React, { useState, useMemo } from 'react';
+import { useState, useMemo } from 'react';
 
-export default function AuditLogManager({ logs = [], currentUser, storeName = 'Friozo', showAlert }) {
+export default function AuditLogManager({ logs = [], storeName = 'Friozo', showAlert }) {
   const [searchQuery, setSearchQuery] = useState('');
   const [filterCategory, setFilterCategory] = useState('all'); // 'all' | 'orders' | 'cash' | 'staff' | 'settings'
 

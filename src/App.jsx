@@ -678,6 +678,11 @@ export default function App() {
     if (serverData.google_analytics_id !== undefined) setGoogleAnalyticsId(serverData.google_analytics_id);
   };
 
+  const applyLoadedDataRef = useRef(applyLoadedData);
+  useEffect(() => {
+    applyLoadedDataRef.current = applyLoadedData;
+  });
+
   // --- NUEVO: Efecto de Sincronización e Inicialización Supabase ---
   useEffect(() => {
     let authSubscription = null;
@@ -733,7 +738,7 @@ export default function App() {
           isRemoteUpdate.current[k] = true;
         });
 
-        applyLoadedData(serverData);
+        applyLoadedDataRef.current(serverData);
 
         // Habilitar escrituras después de que las actualizaciones del estado de React se procesen
         setTimeout(() => {
@@ -783,7 +788,7 @@ export default function App() {
             Object.keys(updatedServerData).forEach(k => {
               isRemoteUpdate.current[k] = true;
             });
-            applyLoadedData(updatedServerData);
+            applyLoadedDataRef.current(updatedServerData);
             if (updatedServerData.staff_users !== undefined) setStaffUsers(updatedServerData.staff_users);
             
             setTimeout(() => {
@@ -886,7 +891,7 @@ export default function App() {
 
         updateSyncedData(key, value);
       }
-    }, [value, isLoggedIn, isSyncLoaded, currentUser]);
+    }, [value, key, isJSON]);
   };
 
   // --- Invocaciones de Sincronización de Estados ---
@@ -1161,7 +1166,7 @@ export default function App() {
         supabase.removeChannel(activeChannel);
       }
     };
-  }, [isLoggedIn, isSyncLoaded, tableNumber, view]);
+  }, [isLoggedIn, isSyncLoaded, tableNumber, view, isVendorApp]);
 
   // Calcular automáticamente la lista de mesas ocupadas a partir de pedidos activos
   useEffect(() => {
@@ -1180,6 +1185,11 @@ export default function App() {
     }
   }, [orders, isLoggedIn, shopConfig.occupiedTables]);
 
+  const handleLogoutRef = useRef(handleLogout);
+  useEffect(() => {
+    handleLogoutRef.current = handleLogout;
+  });
+
   // Control de Expiración de Sesión de Admin (10 Días)
   useEffect(() => {
     if (isLoggedIn) {
@@ -1189,8 +1199,8 @@ export default function App() {
         const elapsed = Date.now() - parseInt(loginAt, 10);
         if (elapsed > tenDaysMs) {
           console.log("🔒 Sesión caducada tras 10 días. Cerrando sesión automáticamente...");
-          alert("🔒 Por razones de seguridad, tu sesión administrativa ha expirado tras 10 días de uso continuo. Por favor, inicia sesión de nuevo.");
-          handleLogout();
+          window.alert("🔒 Por razones de seguridad, tu sesión administrativa ha expirado tras 10 días de uso continuo. Por favor, inicia sesión de nuevo.");
+          handleLogoutRef.current?.();
         }
       }
     }
@@ -1299,7 +1309,7 @@ export default function App() {
     const trackerLink = `${window.location.origin}${window.location.pathname}?track=${order.id}`;
     
     // Formatear fecha legible en hora de Perú (PET)
-    let dateStr = '';
+    let dateStr;
     try {
       dateStr = new Date(order.date).toLocaleString('es-PE', {
         timeZone: 'America/Lima',
@@ -1315,7 +1325,7 @@ export default function App() {
     }
 
     let destLine = order.customer?.address || 'Recojo en tienda';
-    let typeLabel = order.customer?.orderType || 'Delivery';
+    let typeLabel;
     if (order.customer?.orderType === 'Mesa') {
       typeLabel = `Consumo Local (Mesa ${order.customer?.tableNumber})`;
       destLine = `Mesa ${order.customer?.tableNumber}`;
