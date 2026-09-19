@@ -11,6 +11,7 @@ const OperationsCenter = React.lazy(() => import('./admin/OperationsCenter'));
 const UserManager = React.lazy(() => import('./admin/UserManager'));
 const TableOrderManager = React.lazy(() => import('./admin/TableOrderManager'));
 const OrderTaker = React.lazy(() => import('./admin/OrderTaker'));
+const CustomerCRM = React.lazy(() => import('./admin/CustomerCRM'));
 import CartLocationsView from './CartLocationsView';
 
 // --- FUNCIONES DE SANITIZACIÃ“N Y SEGURIDAD ---
@@ -184,7 +185,9 @@ export default function AdminPanel({
         const parsed = JSON.parse(saved);
         return parsed.user || '';
       }
-    } catch {}
+    } catch {
+      /* ignore invalid saved login */
+    }
     return '';
   });
   const [passwordInput, setPasswordInput] = useState(() => {
@@ -194,7 +197,9 @@ export default function AdminPanel({
         const parsed = JSON.parse(saved);
         return parsed.pass || '';
       }
-    } catch {}
+    } catch {
+      /* ignore invalid saved password */
+    }
     return '';
   });
   const [showPassword, setShowPassword] = useState(false);
@@ -357,14 +362,16 @@ export default function AdminPanel({
     }
 
     const role = normalizeText(currentUser.role);
-    if (role.includes('vendedor')) return ['orders', 'inventory', 'surveys', 'table_orders', 'locations'].includes(tabId);
+    if (role.includes('vendedor')) return ['orders', 'crm', 'ordertaker', 'inventory', 'surveys', 'table_orders', 'locations'].includes(tabId);
+    if (role.includes('cajero')) return ['orders', 'crm', 'ordertaker', 'finance'].includes(tabId);
     if (role.includes('cocina')) return ['orders'].includes(tabId);
+    if (role.includes('mozo') || role.includes('salon')) return ['table_orders', 'ordertaker'].includes(tabId);
     return false;
   };
 
   useEffect(() => {
     if (currentUser && !isTabAllowed(activeTab)) {
-      const fallbackTab = ['orders', 'inventory', 'packs', 'users', 'finance', 'locations', 'settings', 'stats', 'surveys', 'table_orders']
+      const fallbackTab = ['operations', 'orders', 'crm', 'ordertaker', 'inventory', 'packs', 'users', 'finance', 'locations', 'settings', 'stats', 'surveys', 'table_orders']
         .find((tabId) => isTabAllowed(tabId));
       if (fallbackTab) setActiveTab(fallbackTab);
     }
@@ -777,6 +784,19 @@ export default function AdminPanel({
           {key:'packs',name:'Packs',items:packs,update:onUpdatePacks}
         ]} />}
         {activeTab === 'ordertaker' && <OrderTaker catalog={{ bases, flavors, toppings, packs, popsicles, literConfig }} onPlaceOrder={onPlaceOrder} showAlert={showAlert} />}
+        {activeTab === 'crm' && (
+          <CustomerCRM
+            orders={orders}
+            storeName={storeName}
+            showAlert={showAlert}
+            coupons={coupons}
+            onUpdateCoupons={onUpdateCoupons}
+            shopConfig={shopConfig}
+            onChangeShopConfig={onChangeShopConfig}
+            onNavigate={setActiveTab}
+            onPlaceOrder={onPlaceOrder}
+          />
+        )}
 
         {(activeTab === 'orders' || activeTab === 'surveys') && (
           <OrderManager
