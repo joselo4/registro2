@@ -17,7 +17,7 @@ async function validatePaymentAvailability(client, previous, next) {
 
 const ORDER_ID_RE = /^PED-[A-Z0-9-]{4,40}$/;
 
-const cleanOrderId = (value) => String(value || '').trim().toUpperCase();
+const cleanOrderId = (value) => String(value || '').replace(/\s+/g, '').toUpperCase();
 
 const isPlainObject = (value) =>
   value !== null && typeof value === 'object' && !Array.isArray(value);

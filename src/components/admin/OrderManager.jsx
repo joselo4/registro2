@@ -887,14 +887,31 @@ export default function OrderManager({
           </div>
 
           <div style={{ display: 'flex', gap: '5px', overflowX: 'auto', paddingBottom: '6px', marginBottom: '15px' }}>
-            {['all', 'Por Corroborar', 'Pendiente', 'Preparando', 'Listo', 'En camino', 'Entregado', 'Cancelado'].map(f => (
+            {[
+              { id: 'all', label: 'Todos', count: orders.length },
+              { id: 'Por Corroborar', label: '⏳ Por Validar', count: kpis.toCorroborate, highlight: kpis.toCorroborate > 0 },
+              { id: 'Pendiente', label: '📋 Confirmados (Cocina)', count: kpis.pending },
+              { id: 'Preparando', label: '👨‍🍳 Preparando', count: kpis.preparing },
+              { id: 'Listo', label: '✅ Listos', count: kpis.ready },
+              { id: 'En camino', label: '🛵 En camino', count: kpis.delivery },
+              { id: 'Entregado', label: '🎉 Entregados', count: kpis.delivered },
+              { id: 'Cancelado', label: '🛑 Cancelados', count: orders.filter(o => o.status === 'Cancelado').length }
+            ].map(f => (
               <button
-                key={f}
-                className={`filter-btn ${orderFilter === f ? 'active' : ''}`}
-                onClick={() => setOrderFilter(f)}
-                style={{ fontSize: '0.75rem', padding: '5px 10px', whiteSpace: 'nowrap' }}
+                key={f.id}
+                className={`filter-btn ${orderFilter === f.id ? 'active' : ''}`}
+                onClick={() => setOrderFilter(f.id)}
+                style={{
+                  fontSize: '0.75rem',
+                  padding: '5px 11px',
+                  whiteSpace: 'nowrap',
+                  fontWeight: f.highlight ? 800 : 500,
+                  borderColor: f.highlight ? '#e67e22' : undefined,
+                  color: f.highlight && orderFilter !== f.id ? '#b45309' : undefined,
+                  background: f.highlight && orderFilter !== f.id ? '#fffbeb' : undefined
+                }}
               >
-                {f === 'all' ? 'Todos' : f}
+                {f.label} ({f.count})
               </button>
             ))}
           </div>
@@ -985,6 +1002,51 @@ export default function OrderManager({
                             {new Date(order.date).toLocaleDateString('es-PE')} {new Date(order.date).toLocaleTimeString('es-PE', { hour: '2-digit', minute: '2-digit', hour12: true })}
                           </span>
                         </div>
+
+                        {/* Aviso específico para pedidos Por Validar */}
+                        {order.status === 'Por Corroborar' && (
+                          <div style={{
+                            marginTop: '6px',
+                            padding: '6px 9px',
+                            borderRadius: '6px',
+                            background: '#fffbeb',
+                            border: '1px solid #fcd34d',
+                            fontSize: '0.73rem',
+                            color: '#92400e',
+                            lineHeight: 1.35
+                          }}>
+                            <div style={{ fontWeight: 800, display: 'flex', alignItems: 'center', gap: '4px', color: '#b45309', marginBottom: '2px' }}>
+                              <span>⚠️</span>
+                              <span>VALIDACIÓN REQUERIDA:</span>
+                            </div>
+                            {isDigitalPayment(order) ? (
+                              <div>
+                                Verificar abono de <strong>S/. {Number(order.grandTotal || 0).toFixed(2)}</strong> por <strong>{order.customer?.paymentMethod || 'Pago digital'}</strong>.
+                                {order.customer?.operationCode ? (
+                                  <div style={{ marginTop: '2px', fontWeight: 700, color: '#6b21a8' }}>
+                                    N° Op: <span style={{ fontFamily: 'monospace', background: '#f3e8ff', padding: '1px 5px', borderRadius: '3px' }}>{order.customer.operationCode}</span>
+                                  </div>
+                                ) : (
+                                  <div style={{ marginTop: '2px', color: '#b91c1c' }}>
+                                    (Sin N° de operación · Pedir voucher o verificar en app bancaria)
+                                  </div>
+                                )}
+                              </div>
+                            ) : order.customer?.orderType === 'Mesa' ? (
+                              <div>
+                                Validar comanda de <strong>Mesa {order.customer?.tableNumber || ''}</strong> con el mozo antes de pasar a cocina.
+                              </div>
+                            ) : isDelivery ? (
+                              <div>
+                                Confirmar dirección de entrega y cambio para cobrar <strong>S/. {Number(order.grandTotal || 0).toFixed(2)}</strong> en efectivo.
+                              </div>
+                            ) : (
+                              <div>
+                                Confirmar recepción de comanda para iniciar preparación en barra.
+                              </div>
+                            )}
+                          </div>
+                        )}
                         {isDelivery && (
                           <div style={{ marginTop: '5px', display: 'flex', alignItems: 'center', gap: '4px', flexWrap: 'wrap' }}>
                             <select

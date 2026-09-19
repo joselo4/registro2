@@ -18,6 +18,24 @@ export default function OrderTracker({ orderId, orders, setView, storePhone, onC
   const [loadingOrder, setLoadingOrder] = useState(false);
   const [trackingError, setTrackingError] = useState('');
 
+  // Sincronizar reactivamente si cambia orderId desde la URL o el estado global
+  useEffect(() => {
+    if (orderId) {
+      const clean = String(orderId).replace(/\s+/g, '').toUpperCase();
+      setInputVal(clean);
+      setActiveSearchId(clean);
+      setHasSearched(true);
+    } else {
+      const saved = localStorage.getItem('helados_active_order_id');
+      if (saved && !activeSearchId) {
+        const cleanSaved = String(saved).replace(/\s+/g, '').toUpperCase();
+        setInputVal(cleanSaved);
+        setActiveSearchId(cleanSaved);
+        setHasSearched(true);
+      }
+    }
+  }, [orderId]);
+
   // --- ESTADOS Y LÓGICA PARA LA ENCUESTA DE SATISFACCIÓN ---
   const [rating, setRating] = useState(0);
   const [hoverRating, setHoverRating] = useState(0);
@@ -140,13 +158,14 @@ export default function OrderTracker({ orderId, orders, setView, storePhone, onC
     }
   };
 
-  const currentOrder = fetchedOrder?.id?.toUpperCase() === activeSearchId.trim().toUpperCase() ? fetchedOrder : null;
-
+  const normalizedSearchId = (activeSearchId || '').replace(/\s+/g, '').toUpperCase();
+  const localMatch = orders?.find(o => String(o.id || '').replace(/\s+/g, '').toUpperCase() === normalizedSearchId);
+  const currentOrder = (fetchedOrder && String(fetchedOrder.id || '').replace(/\s+/g, '').toUpperCase() === normalizedSearchId ? fetchedOrder : null) || localMatch || null;
 
   // A failed lookup is not evidence that an order does not exist.
   useEffect(() => {
-    if (!activeSearchId) { setLoadingOrder(false); return; }
-    const id = activeSearchId.trim().toUpperCase();
+    const id = (activeSearchId || '').replace(/\s+/g, '').toUpperCase();
+    if (!id) { setLoadingOrder(false); return; }
     setFetchedOrder(null);
     setTrackingError('');
     let cancelled = false;
@@ -158,13 +177,20 @@ export default function OrderTracker({ orderId, orders, setView, storePhone, onC
       try {
         const order = await readOrder(id);
         if (cancelled) return;
-        setFetchedOrder(prev => mergeOrders(prev?.id === id ? [prev] : [], [order])[0]);
+        setFetchedOrder(prev => mergeOrders(String(prev?.id || '').replace(/\s+/g, '').toUpperCase() === id ? [prev] : [], [order])[0]);
         setTrackingError('');
         saveToRecentOrders(id);
       } catch (error) {
-        if (!cancelled) setTrackingError(error.status === 404
-          ? 'No encontramos un pedido confirmado con ese código. Revisa el código o contacta a la tienda.'
-          : 'No pudimos actualizar el seguimiento. Revisa tu conexión; volveremos a intentarlo.');
+        if (!cancelled) {
+          const localOrder = orders?.find(o => String(o.id || '').replace(/\s+/g, '').toUpperCase() === id);
+          if (localOrder) {
+            setTrackingError('');
+          } else {
+            setTrackingError(error.status === 404 || error.status === 400
+              ? `No encontramos un pedido confirmado con el código ${id}. Revisa que el código coincida con tu ticket o mensaje de WhatsApp.`
+              : 'No pudimos actualizar el seguimiento. Revisa tu conexión; volveremos a intentarlo.');
+          }
+        }
       } finally {
         busy = false;
         if (!cancelled) setLoadingOrder(false);
@@ -176,7 +202,7 @@ export default function OrderTracker({ orderId, orders, setView, storePhone, onC
     window.addEventListener('online', resume);
     document.addEventListener('visibilitychange', resume);
     return () => { cancelled = true; clearInterval(timer); window.removeEventListener('online', resume); document.removeEventListener('visibilitychange', resume); };
-  }, [activeSearchId, searchNonce]);
+  }, [activeSearchId, searchNonce, orders]);
 
   // Efecto para animar y reproducir sonido cuando cambia el estado del pedido tracked
   useEffect(() => {
@@ -252,13 +278,14 @@ export default function OrderTracker({ orderId, orders, setView, storePhone, onC
 
   const handleSearchSubmit = (e) => {
     e.preventDefault();
-    let cleanId = inputVal.trim().toUpperCase();
+    let cleanId = inputVal.replace(/\s+/g, '').toUpperCase();
     if (!cleanId) return;
     if (!cleanId.startsWith('PED-') && !cleanId.startsWith('ORD-') && cleanId.length >= 3) {
       cleanId = `PED-${cleanId}`;
     }
     setLoadingOrder(false);
     setActiveSearchId(cleanId);
+    setInputVal(cleanId);
     setHasSearched(true);
     setSearchNonce((value) => value + 1);
   };
@@ -757,11 +784,17 @@ export default function OrderTracker({ orderId, orders, setView, storePhone, onC
         };
 
         const statusMeta = {
-          'Por Corroborar': { emoji: '⏳', label: 'Esperando Confirmación de Mozo', color: '#e67e22', bg: 'rgba(230,126,34,0.10)' },
-          'Pendiente':  { emoji: '⏳', label: 'Pedido Recibido',         color: '#f39c12', bg: 'rgba(243,156,18,0.10)' },
+          'Por Corroborar': { 
+            emoji: '⏳', 
+            label: currentOrder?.customer?.orderType === 'Mesa' ? 'Validación de Mesa' : 'Validando Pago / Pedido', 
+            color: '#e67e22', 
+            bg: 'rgba(230,126,34,0.10)' 
+          },
+          'Pendiente':  { emoji: '📋', label: 'Confirmado · En Cola de Cocina', color: '#f39c12', bg: 'rgba(243,156,18,0.10)' },
           'Preparando': { emoji: '👨‍🍳', label: 'En Cocina / Preparando', color: '#3498db', bg: 'rgba(52,152,219,0.10)' },
+          'Listo':      { emoji: '✅', label: 'Listo para Entrega',       color: '#27ae60', bg: 'rgba(39,174,96,0.10)' },
           'En camino':  { emoji: '🛵', label: 'En Ruta de Entrega',      color: '#9b59b6', bg: 'rgba(155,89,182,0.10)' },
-          'Entregado':  { emoji: '🎉', label: 'Entregado al Cliente',    color: '#2ecc71', bg: 'rgba(46,204,113,0.10)' },
+          'Entregado':  { emoji: '🎉', label: 'Entregado con Éxito',     color: '#2ecc71', bg: 'rgba(46,204,113,0.10)' },
           'Cancelado':  { emoji: '🛑', label: 'Pedido Cancelado',        color: '#e74c3c', bg: 'rgba(231,76,60,0.10)' }
         };
 
@@ -891,12 +924,25 @@ export default function OrderTracker({ orderId, orders, setView, storePhone, onC
       {/* Mensaje Informativo */}
       {showDetailedTracker && (
         <p style={{ fontSize: '0.85rem', color: 'var(--text-light)', textAlign: 'center', marginBottom: '25px', lineHeight: '1.4' }}>
-        {currentOrder.status === 'Listo' && "Tu pedido está listo. Falta entregarlo en mesa o para llevar."}
-        {currentOrder.status === 'Por Corroborar' && "El mesero está corroborando tu pedido. En breve se enviará a preparación."}
-        {currentOrder.status === 'Pendiente' && "Estamos validando tu pedido. En breve coordinaremos la entrega."}
-        {currentOrder.status === 'Preparando' && "¡Nuestros maestros heladeros están sirviendo tu combinación favorita!"}
-        {currentOrder.status === 'En camino' && "¡El motorizado va en ruta rápida hacia tu dirección!"}
-        {currentOrder.status === 'Entregado' && "¡Helados recibidos! Esperamos que disfrutes de tu deliciosa experiencia."}
+          {currentOrder.status === 'Por Corroborar' && (
+            currentOrder.customer?.orderType === 'Mesa'
+              ? '🍽️ El personal de sala está corroborando tu comanda en mesa. En breve pasará a cocina.'
+              : String(currentOrder.customer?.paymentMethod || '').match(/yape|plin/i)
+                ? '📱 Estamos validando tu comprobante de abono con caja. En breve cocina comenzará a preparar tus helados.'
+                : '⏳ Estamos confirmando los detalles de tu pedido. En breve pasará a preparación en cocina.'
+          )}
+          {currentOrder.status === 'Pendiente' && '📋 ¡Pedido confirmado! Está en cola de cocina y en breves momentos nuestros maestros heladeros iniciarán su preparación.'}
+          {currentOrder.status === 'Preparando' && '👨‍🍳 ¡Nuestros maestros heladeros están sirviendo tu combinación favorita con la temperatura y textura ideal!'}
+          {currentOrder.status === 'Listo' && (
+            currentOrder.customer?.orderType === 'Mesa'
+              ? '🍽️ ¡Tus helados están listos! El personal de sala los llevará a tu mesa en instantes.'
+              : currentOrder.customer?.orderType === 'Llevar' || currentOrder.customer?.orderType === 'Barra'
+                ? '🥡 ¡Tu pedido está listo en barra! Puedes acercarte a recoger tus helados.'
+                : '🛵 ¡Tus helados están listos y empacados! Esperando salida del repartidor.'
+          )}
+          {currentOrder.status === 'En camino' && '🛵 ¡El motorizado va en camino hacia tu dirección! Prepárate para recibir tus helados.'}
+          {currentOrder.status === 'Entregado' && '🎉 ¡Helados entregados! Esperamos que disfrutes de tu deliciosa experiencia.'}
+          {currentOrder.status === 'Cancelado' && '🛑 Tu pedido ha sido cancelado. Si tienes dudas, contáctanos por WhatsApp.'}
         </p>
       )}
 

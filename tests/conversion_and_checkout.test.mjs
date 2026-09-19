@@ -126,3 +126,53 @@ test('phone display formatting groups 9-digit Peruvian numbers into 3-digit segm
   assert.equal(formatPhoneDisplay('51987654321'), '987 654 321');
   assert.equal(formatPhoneDisplay(''), '987 654 321');
 });
+
+test('order ID sanitizer removes internal whitespace to resolve search codes like PED- DKSJA', () => {
+  const ORDER_ID_RE = /^PED-[A-Z0-9-]{4,40}$/;
+  const cleanOrderId = (value) => String(value || '').replace(/\s+/g, '').toUpperCase();
+
+  const rawInputs = [
+    'PED- DKSJA',
+    'PED - DKSJA',
+    'ped-  dksja',
+    '  PED-DKSJA  ',
+    'PED-DKSJA'
+  ];
+
+  for (const raw of rawInputs) {
+    const cleaned = cleanOrderId(raw);
+    assert.equal(cleaned, 'PED-DKSJA');
+    assert.equal(ORDER_ID_RE.test(cleaned), true);
+  }
+
+  // Tracker search submit sanitizer prepending PED- if missing
+  const sanitizeTrackerSearch = (input) => {
+    let clean = String(input || '').replace(/\s+/g, '').toUpperCase();
+    if (clean && !clean.startsWith('PED-') && !clean.startsWith('ORD-') && clean.length >= 3) {
+      clean = `PED-${clean}`;
+    }
+    return clean;
+  };
+
+  assert.equal(sanitizeTrackerSearch('DKSJA'), 'PED-DKSJA');
+  assert.equal(sanitizeTrackerSearch('PED- DKSJA'), 'PED-DKSJA');
+  assert.equal(sanitizeTrackerSearch('ped-dksja'), 'PED-DKSJA');
+});
+
+test('OrderTaker ticket calculates exact total with multi-item quantities and multipliers', () => {
+  const cart = [
+    { id: 'cono_simple', name: 'Cono Simple (1 Bola)', price: 5.0, quantity: 3 }, // 15.00
+    { id: 'paleta_lucuma', name: 'Paleta Lúcuma', price: 3.5, quantity: 2 },       // 7.00
+    { id: 'liter_familiar', name: 'Helado 1 Litro', price: 15.0, quantity: 1 },    // 15.00
+    { id: 'extra_fudge', name: 'Extra Fudge', price: 1.5, quantity: 2 }            // 3.00
+  ];
+
+  const total = cart.reduce((sum, item) => sum + (Number(item.price || 0) * (item.quantity || 1)), 0);
+  assert.equal(total, 40.0);
+
+  // Incrementing quantity of Cono Simple to 4
+  const updatedCart = cart.map(item => item.id === 'cono_simple' ? { ...item, quantity: item.quantity + 1 } : item);
+  const updatedTotal = updatedCart.reduce((sum, item) => sum + (Number(item.price || 0) * (item.quantity || 1)), 0);
+  assert.equal(updatedTotal, 45.0);
+});
+

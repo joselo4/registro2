@@ -51,6 +51,7 @@ export default function Cart({
   const [copiedPhone, setCopiedPhone] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [sendToWhatsApp, setSendToWhatsApp] = useState(shopConfig?.defaultWhatsAppEnabled ?? false);
+  const [showValidationModal, setShowValidationModal] = useState(false);
 
   const IMPULSE_ITEMS = [
     { id: 'impulse_fudge', name: 'Salsa Fudge Artesanal', price: 1.5, icon: '🍫' },
@@ -312,6 +313,10 @@ export default function Cart({
          const waWindow = window.open(whatsappUrl, '_blank', 'noopener,noreferrer');
          if (waWindow) waWindow.opener = null;
        }
+
+       if (setView) {
+         setView('tracker');
+       }
         
         // Permitimos volver a enviar después de abrir WhatsApp por si acaso
         setTimeout(() => setIsSubmitting(false), 2000);
@@ -320,6 +325,17 @@ export default function Cart({
       alert("⚠️ Lo sentimos, ocurrió un error al estructurar el pedido. Vuelve a intentarlo.");
       setIsSubmitting(false);
     }
+  };
+
+  const handleProceedToSubmit = (e) => {
+    e.preventDefault();
+    if (isSubmitting || !shopOpen) return;
+    const hasCustomItems = cart.some(item => item.type === 'custom');
+    if (hasCustomItems && !showValidationModal) {
+      setShowValidationModal(true);
+      return;
+    }
+    handleSubmit(e);
   };
 
   const handleAddRandomScoop = () => {
@@ -628,7 +644,7 @@ export default function Cart({
             </div>
           )}
           
-          <form className="checkout-form" onSubmit={handleSubmit} style={{ gap: '10px', marginTop: '10px' }}>
+          <form className="checkout-form" onSubmit={handleProceedToSubmit} style={{ gap: '10px', marginTop: '10px' }}>
             
             {tableOrdersEnabled && (
               <div className="form-group">
@@ -1029,6 +1045,116 @@ export default function Cart({
         </div>
 
       </div>
+
+      {showValidationModal && (
+        <div style={{
+          position: 'fixed', top: 0, left: 0, right: 0, bottom: 0,
+          backgroundColor: 'rgba(0, 0, 0, 0.78)',
+          display: 'flex', alignItems: 'center', justifyContent: 'center',
+          zIndex: 100000, padding: '20px', backdropFilter: 'blur(6px)',
+          WebkitBackdropFilter: 'blur(6px)'
+        }}>
+          <div style={{
+            background: 'var(--bg-primary, #ffffff)',
+            color: 'var(--text-dark, #1e293b)',
+            borderRadius: '24px', 
+            padding: '26px', 
+            width: '100%', 
+            maxWidth: '460px',
+            maxHeight: '90vh', 
+            overflowY: 'auto', 
+            textAlign: 'center',
+            boxShadow: '0 25px 60px -10px rgba(0, 0, 0, 0.6)',
+            border: '1px solid var(--border-color)'
+          }}>
+            <div style={{ fontSize: '2.2rem', marginBottom: '8px' }}>🔍</div>
+            <h3 style={{ fontSize: '1.4rem', color: 'var(--primary-color)', margin: '0 0 8px 0', fontFamily: 'var(--font-title)', fontWeight: 800 }}>
+              Verifica tu diseño
+            </h3>
+            <p style={{ fontSize: '0.88rem', color: 'var(--text-dark)', opacity: 0.85, margin: '0 0 16px 0', lineHeight: 1.45 }}>
+              Asegúrate de haber elegido todos los sabores y toppings que deseas antes de confirmarlo.
+            </p>
+            
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '14px', marginBottom: '20px' }}>
+              {cart.filter(item => item.type === 'custom').map((item, idx) => (
+                <div key={idx} style={{ 
+                  background: 'var(--bg-secondary, #f8fafc)',
+                  border: '1px solid var(--border-color)', 
+                  borderRadius: '16px', 
+                  padding: '16px',
+                  boxShadow: '0 2px 8px rgba(0,0,0,0.05)'
+                }}>
+                  <strong style={{ fontSize: '0.95rem', display: 'block', marginBottom: '10px', color: 'var(--text-dark)' }}>{item.name}</strong>
+                  <div style={{ width: '130px', height: '170px', margin: '0 auto' }}>
+                    <DessertPreview 
+                      base={item.base}
+                      scoops={item.scoops}
+                      toppings={item.toppings}
+                      syrup={item.syrup}
+                    />
+                  </div>
+                  <div style={{ 
+                    fontSize: '0.82rem', 
+                    color: 'var(--text-dark)', 
+                    marginTop: '12px', 
+                    textAlign: 'left', 
+                    lineHeight: 1.5, 
+                    background: 'var(--bg-primary, #ffffff)', 
+                    padding: '10px 12px', 
+                    borderRadius: '10px', 
+                    border: '1px solid var(--border-color)' 
+                  }}>
+                    <div><strong>🍨 Sabores:</strong> {item.scoops.map(s => typeof s === 'string' ? s : s.name).join(', ')}</div>
+                    {item.toppings.length > 0 && <div style={{ marginTop: '3px' }}><strong>✨ Toppings:</strong> {item.toppings.map(t => typeof t === 'string' ? t : t.name).join(', ')}</div>}
+                    {item.syrup && <div style={{ marginTop: '3px' }}><strong>🍫 Salsa:</strong> {item.syrup.name}</div>}
+                  </div>
+                </div>
+              ))}
+            </div>
+
+            <div style={{ display: 'flex', gap: '10px', flexDirection: 'column' }}>
+              <button 
+                type="button"
+                className="btn btn-primary"
+                onClick={(e) => {
+                  setShowValidationModal(false);
+                  handleSubmit(e);
+                }}
+                style={{ 
+                  padding: '14px', 
+                  fontSize: '1rem', 
+                  fontWeight: 700, 
+                  width: '100%',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  gap: '8px',
+                  boxShadow: '0 4px 12px rgba(255, 71, 87, 0.35)'
+                }}
+                disabled={isSubmitting}
+              >
+                <span>✅ Sí, ¡es lo que quiero!</span>
+                <span style={{ opacity: 0.9 }}>• S/. {total.toFixed(2)}</span>
+              </button>
+              <button 
+                type="button"
+                className="btn btn-secondary"
+                onClick={() => setShowValidationModal(false)}
+                style={{ 
+                  padding: '11px', 
+                  fontSize: '0.9rem', 
+                  width: '100%', 
+                  background: 'var(--bg-secondary, #f1f5f9)', 
+                  color: 'var(--text-dark, #334155)',
+                  border: '1px solid var(--border-color)' 
+                }}
+              >
+                ✏️ Corregir / Volver al carrito
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

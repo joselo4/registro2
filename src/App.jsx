@@ -543,12 +543,20 @@ export default function App() {
     return saved || 'light';
   });
 
-  // --- NUEVO: Rastrear automáticamente desde la URL (?track=PED-XXXX) ---
+  // --- NUEVO: Rastrear automáticamente desde la URL (?track=PED-XXXX o ?track) ---
   useEffect(() => {
     const params = new URLSearchParams(window.location.search);
     const trackId = params.get('track') || params.get('orderId');
-    if (trackId) {
-      setActiveOrderId(trackId);
+    if (trackId && trackId.trim()) {
+      const cleanTrackId = trackId.replace(/\s+/g, '').toUpperCase();
+      setActiveOrderId(cleanTrackId);
+      localStorage.setItem('helados_active_order_id', cleanTrackId);
+      setView('tracker');
+    } else if (params.has('track') || params.has('rastreo')) {
+      const saved = localStorage.getItem('helados_active_order_id');
+      if (saved) {
+        setActiveOrderId(saved.replace(/\s+/g, '').toUpperCase());
+      }
       setView('tracker');
     }
 
@@ -1386,6 +1394,7 @@ export default function App() {
       
       // Guardar pedido activo en localStorage para rastreo y control de mesa ocupada
       localStorage.setItem('helados_active_order_id', newOrder.id);
+      localStorage.setItem('helados_active_order_time', String(Date.now()));
       if (newOrder.customer?.orderType === 'Mesa' || newOrder.customer?.orderType === 'Mesa_Llevar') {
         localStorage.setItem('helados_active_order_table', String(newOrder.customer?.tableNumber));
       } else {
@@ -2099,12 +2108,12 @@ export default function App() {
               animation: scaleUp 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275);
             }
           ` }} />
-          <div className="glass alert-modal-content" style={{
+          <div className="alert-modal-content" style={{
             width: '90%',
             maxWidth: '400px',
-            background: 'var(--glass-bg, rgba(255, 255, 255, 0.95))',
+            background: 'var(--bg-primary, #ffffff)',
             border: '1px solid var(--border-color)',
-            boxShadow: 'var(--shadow-lg)',
+            boxShadow: '0 20px 45px rgba(0, 0, 0, 0.35)',
             borderRadius: '24px',
             padding: '24px',
             textAlign: 'center',
