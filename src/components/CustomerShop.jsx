@@ -663,11 +663,9 @@ export default function CustomerShop({
                   const badgeClass = `badge-${String(pack.badge || '').toLowerCase().replace(/\s+/g, '-')}`;
                   return (
                     <div key={pack.id} className="glass-card product-card">
-                      {pack.badge && (
-                        <span className={`product-badge ${badgeClass}`}>
-                          {pack.badge}
-                        </span>
-                      )}
+                      <span className={`product-badge ${pack.badge ? badgeClass : 'badge-popular'}`}>
+                        {pack.badge || '🎉 Pack Ahorro'}
+                      </span>
                       
                       <div className="product-illustration pack-illustration" style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', minHeight: '120px' }}>
                         {pack.image ? (

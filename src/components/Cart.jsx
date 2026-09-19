@@ -15,6 +15,7 @@ export default function Cart({
   freeDeliveryThreshold,
   freeDeliveryEnabled = true,
   storePhone,
+  storeName,
   coupons,
   whatsappGreeting,
   whatsappFooter,
@@ -46,9 +47,51 @@ export default function Cart({
   const [phone, setPhone] = useState(() => localStorage.getItem('last_customer_phone') || '');
   const [address, setAddress] = useState(() => localStorage.getItem('last_customer_address') || '');
   const [paymentMethod, setPaymentMethod] = useState('Yape'); // Yape, Plin, Efectivo
+  const [operationCode, setOperationCode] = useState('');
+  const [copiedPhone, setCopiedPhone] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [sendToWhatsApp, setSendToWhatsApp] = useState(shopConfig?.defaultWhatsAppEnabled ?? false);
-  const [showValidationModal, setShowValidationModal] = useState(false);
+
+  const IMPULSE_ITEMS = [
+    { id: 'impulse_fudge', name: 'Salsa Fudge Artesanal', price: 1.5, icon: '🍫' },
+    { id: 'impulse_oreo', name: 'Topping Galleta Oreo', price: 1.5, icon: '🍪' },
+    { id: 'impulse_chispas', name: 'Lentejitas Chocolate', price: 1.0, icon: '🍬' },
+    { id: 'impulse_cono', name: 'Cono Artesanal Extra', price: 1.5, icon: '🧇' }
+  ];
+
+  const formatPhoneDisplay = (raw) => {
+    const digits = String(raw || '').replace(/\D/g, '');
+    const clean = digits.length === 11 && digits.startsWith('51') ? digits.slice(2) : digits;
+    if (clean.length === 9) {
+      return `${clean.slice(0, 3)} ${clean.slice(3, 6)} ${clean.slice(6)}`;
+    }
+    return clean || '987 654 321';
+  };
+
+  const handleCopyStorePhone = () => {
+    const raw = String(storePhone || '987654321').replace(/\D/g, '');
+    const numToCopy = raw.length === 11 && raw.startsWith('51') ? raw.slice(2) : raw;
+    if (navigator.clipboard && navigator.clipboard.writeText) {
+      navigator.clipboard.writeText(numToCopy);
+      setCopiedPhone(true);
+      setTimeout(() => setCopiedPhone(false), 2200);
+    } else {
+      alert(`Número para ${paymentMethod}: ${numToCopy}`);
+    }
+  };
+
+  const handleAddImpulseItem = (item) => {
+    if (!shopOpen) return;
+    onAddToCart({
+      type: 'extra',
+      id: item.id,
+      name: item.name,
+      price: item.price,
+      quantity: 1,
+      icon: item.icon,
+      image: ''
+    });
+  };
 
   // Módulo de Mesas
   const [orderType, setOrderType] = useState(() => {
@@ -144,12 +187,6 @@ export default function Cart({
       return;
     }
 
-    const hasCustomItems = cart.some(item => item.type === 'custom');
-    if (hasCustomItems && !showValidationModal) {
-      setShowValidationModal(true);
-      return;
-    }
-
     const cleanAddress = address.replace(/<[^>]*>/g, '').trim();
     let finalAddress = cleanAddress;
     if (orderType === 'Mesa') {
@@ -206,6 +243,7 @@ export default function Cart({
           phone: finalPhone, 
           address: finalAddress, 
           paymentMethod,
+          operationCode: operationCode.trim() || undefined,
           orderType,
           tableNumber: activeMesaNumber
         },
@@ -248,8 +286,9 @@ export default function Cart({
       } else if (orderType === 'Llevar') {
         destLine = `*Pedido:* Recojo en Tienda / Llevar`;
       }
+      const opCodeLine = operationCode.trim() ? `\n*N° Operación (${paymentMethod}):* ${operationCode.trim()}` : '';
       const trackerLink = `\n\n*Sigue tu pedido en vivo aquí:*\n${window.location.origin}${window.location.pathname}?track=${orderId}`;
-      const whatsappMessage = `${whatsappGreeting}\n\n*Código:* ${orderId}\n*Cliente:* ${finalName}\n${destLine}\n*WhatsApp:* ${finalPhone}\n*Pago:* ${paymentMethod}\n\n*Pedido:*\n${itemsText}\n\n*Subtotal:* S/. ${cartSubtotal.toFixed(2)}${couponLine}\n*Delivery:* S/. ${activeDeliveryFee.toFixed(2)}\n*Total:* S/. ${total.toFixed(2)}${trackerLink}\n\n${whatsappFooter}`;
+      const whatsappMessage = `${whatsappGreeting}\n\n*Código:* ${orderId}\n*Cliente:* ${finalName}\n${destLine}\n*WhatsApp:* ${finalPhone}\n*Pago:* ${paymentMethod}${opCodeLine}\n\n*Pedido:*\n${itemsText}\n\n*Subtotal:* S/. ${cartSubtotal.toFixed(2)}${couponLine}\n*Delivery:* S/. ${activeDeliveryFee.toFixed(2)}\n*Total:* S/. ${total.toFixed(2)}${trackerLink}\n\n${whatsappFooter}`;
       
       const encodedText = encodeURIComponent(whatsappMessage);
       const cleanPhone = String(storePhone || '').replace(/\D/g, ''); // Limpiar caracteres no numéricos
@@ -342,6 +381,12 @@ export default function Cart({
           Sabores: {scoopsText}
         </span>
       );
+    } else if (item.type === 'extra') {
+      return (
+        <span style={{ fontSize: '0.8rem', color: 'var(--text-light)', display: 'block', marginTop: '4px' }}>
+          Topping / Agregado especial 🍨
+        </span>
+      );
     }
     return null;
   };
@@ -357,35 +402,71 @@ export default function Cart({
 
       {/* 💰 BARRA DE PROGRESO DE ENVÍO GRATIS DINÁMICA */}
       {freeDeliveryEnabled && freeDeliveryThreshold > 0 && !tableNumber && (
-        <div className="glass" style={{ padding: '12px', marginBottom: '15px', borderLeft: `5px solid ${isFreeDelivery ? 'var(--success)' : 'var(--warning)'}` }}>
+        <div className="glass free-delivery-card" style={{
+          padding: '14px',
+          marginBottom: '16px',
+          borderRadius: '14px',
+          border: isFreeDelivery ? '2px solid var(--success)' : '1px solid var(--border-color)',
+          background: isFreeDelivery 
+            ? 'linear-gradient(135deg, rgba(46, 204, 113, 0.14) 0%, rgba(46, 204, 113, 0.04) 100%)' 
+            : 'linear-gradient(135deg, rgba(255, 107, 129, 0.08) 0%, rgba(255, 160, 0, 0.05) 100%)',
+          boxShadow: isFreeDelivery ? '0 4px 15px rgba(46, 204, 113, 0.15)' : 'none'
+        }}>
           {isFreeDelivery ? (
-            <div>
-              <span style={{ fontSize: '1rem' }}>🎉 <strong>¡Tienes Delivery Gratis!</strong></span>
-              <p style={{ fontSize: '0.8rem', color: 'var(--text-light)', marginTop: '2px' }}>Has superado el monto mínimo de S/. {freeDeliveryThreshold.toFixed(2)}.</p>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+              <span style={{ fontSize: '2.2rem' }}>🎉</span>
+              <div>
+                <strong style={{ fontSize: '1rem', color: 'var(--success)', display: 'block' }}>
+                  ¡Genial! Calificas para DELIVERY GRATIS
+                </strong>
+                <p style={{ fontSize: '0.8rem', color: 'var(--text-light)', marginTop: '2px', margin: 0 }}>
+                  Has superado los S/. {freeDeliveryThreshold.toFixed(2)}. ¡Tu envío corre por cuenta de la casa!
+                </p>
+              </div>
             </div>
           ) : (
             <div>
-              <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.8rem', fontWeight: 'bold' }}>
-                <span>🚚 Envío Gratis desde S/. {freeDeliveryThreshold.toFixed(2)}</span>
-                <span style={{ color: 'var(--primary-color)' }}>Falta S/. {missingForFreeDelivery.toFixed(2)}</span>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', fontSize: '0.85rem' }}>
+                <span style={{ fontWeight: 700, color: 'var(--text-dark)' }}>
+                  🛵 Delivery Gratis desde S/. {freeDeliveryThreshold.toFixed(2)}
+                </span>
+                <span style={{ color: 'var(--primary-color)', fontWeight: 800 }}>
+                  ¡Falta solo S/. {missingForFreeDelivery.toFixed(2)}!
+                </span>
               </div>
-              <div style={{ width: '100%', height: '6px', background: 'var(--border-color)', borderRadius: '3px', marginTop: '6px', overflow: 'hidden' }}>
-                <div style={{ width: `${Math.min(100, (cartSubtotal / freeDeliveryThreshold) * 100)}%`, height: '100%', background: 'var(--primary-color)', transition: 'width 0.4s ease' }}></div>
+
+              <div style={{
+                width: '100%',
+                height: '8px',
+                background: 'var(--border-color)',
+                borderRadius: '6px',
+                marginTop: '8px',
+                overflow: 'hidden'
+              }}>
+                <div style={{
+                  width: `${Math.min(100, (cartSubtotal / freeDeliveryThreshold) * 100)}%`,
+                  height: '100%',
+                  background: 'linear-gradient(90deg, var(--primary-color), #ffa502)',
+                  borderRadius: '6px',
+                  transition: 'width 0.4s ease'
+                }}></div>
               </div>
               
-              <div style={{ marginTop: '8px', display: 'flex', gap: '8px' }}>
+              <div style={{ marginTop: '10px', display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
                 <button 
+                  type="button"
                   onClick={handleAddRandomScoop}
                   className="btn btn-secondary" 
-                  style={{ padding: '6px 10px', fontSize: '0.75rem', flex: 1 }}
+                  style={{ padding: '6px 12px', fontSize: '0.75rem', flex: '1 1 120px' }}
                 >
-                  🎲 Sorpréndeme
+                  🎲 + Bola Sorpresa
                 </button>
                 {cartRecommendedPack && !cart.some(i => i.id === (cartRecommendedPack.id || 'pack_pareja')) && (
                   <button 
+                    type="button"
                     onClick={handleAddSuggestedPack}
                     className="btn btn-primary animate-pulse" 
-                    style={{ padding: '6px 10px', fontSize: '0.75rem', flex: 1 }}
+                    style={{ padding: '6px 12px', fontSize: '0.75rem', flex: '1 1 140px' }}
                   >
                     🎁 Añadir Combo Sugerido
                   </button>
@@ -442,6 +523,59 @@ export default function Cart({
               </button>
             </div>
           )}
+
+          {/* Venta Cruzada por Impulso (Toppings y Agregados Rápidos) */}
+          <div className="glass-card impulse-cross-sells" style={{
+            padding: '12px',
+            marginTop: '10px',
+            borderRadius: 'var(--radius-md)',
+            background: 'linear-gradient(135deg, rgba(255, 107, 129, 0.05) 0%, rgba(255, 160, 0, 0.03) 100%)',
+            border: '1px solid rgba(255, 107, 129, 0.2)'
+          }}>
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '8px' }}>
+              <span style={{ fontSize: '0.82rem', fontWeight: 700, color: 'var(--text-dark)', display: 'flex', alignItems: 'center', gap: '5px' }}>
+                <span>🧁</span> Añade un toque especial a tu helado
+              </span>
+              <span style={{ fontSize: '0.68rem', color: 'var(--text-light)' }}>1-toque</span>
+            </div>
+            <div style={{ display: 'flex', gap: '6px', overflowX: 'auto', paddingBottom: '4px', scrollbarWidth: 'none' }}>
+              {IMPULSE_ITEMS.map(imp => {
+                const inCart = cart.find(i => i.id === imp.id);
+                return (
+                  <button
+                    key={imp.id}
+                    type="button"
+                    disabled={!shopOpen}
+                    onClick={() => handleAddImpulseItem(imp)}
+                    className="impulse-chip"
+                    style={{
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: '5px',
+                      padding: '6px 10px',
+                      borderRadius: '20px',
+                      border: inCart ? '1.5px solid var(--success)' : '1px solid var(--border-color)',
+                      background: inCart ? 'rgba(46, 204, 113, 0.1)' : 'var(--bg-secondary)',
+                      cursor: shopOpen ? 'pointer' : 'not-allowed',
+                      whiteSpace: 'nowrap',
+                      fontSize: '0.74rem',
+                      color: 'var(--text-dark)',
+                      transition: 'all 0.2s ease',
+                      flexShrink: 0
+                    }}
+                    title={`Agregar ${imp.name}`}
+                  >
+                    <span>{imp.icon}</span>
+                    <span>{imp.name}</span>
+                    <strong style={{ color: 'var(--primary-color)', marginLeft: '2px' }}>
+                      +S/. {imp.price.toFixed(2)}
+                    </strong>
+                    {inCart && <span style={{ fontSize: '0.68rem', color: 'var(--success)', fontWeight: 700 }}>({inCart.quantity})</span>}
+                  </button>
+                );
+              })}
+            </div>
+          </div>
         </div>
 
         {/* Formulario Exprés */}
@@ -689,6 +823,90 @@ export default function Cart({
               </div>
             </div>
 
+            {/* Cajón Interactivo para Pago Digital (Yape / Plin) */}
+            {(paymentMethod === 'Yape' || paymentMethod === 'Plin') && (
+              <div className="payment-drawer-card" style={{
+                marginTop: '10px',
+                padding: '12px 14px',
+                borderRadius: '12px',
+                background: paymentMethod === 'Yape'
+                  ? 'linear-gradient(135deg, rgba(116, 34, 132, 0.08) 0%, rgba(116, 34, 132, 0.02) 100%)'
+                  : 'linear-gradient(135deg, rgba(0, 168, 150, 0.08) 0%, rgba(0, 168, 150, 0.02) 100%)',
+                border: `1.5px solid ${paymentMethod === 'Yape' ? '#742284' : '#00a896'}`,
+              }}>
+                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '8px' }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                    <span style={{ fontSize: '1.2rem' }}>{paymentMethod === 'Yape' ? '📱' : '💸'}</span>
+                    <strong style={{ fontSize: '0.85rem', color: paymentMethod === 'Yape' ? '#742284' : '#00a896' }}>
+                      Paga con {paymentMethod} a:
+                    </strong>
+                  </div>
+                  <span style={{
+                    fontSize: '0.7rem',
+                    fontWeight: 'bold',
+                    padding: '2px 8px',
+                    borderRadius: '10px',
+                    background: paymentMethod === 'Yape' ? '#742284' : '#00a896',
+                    color: '#fff'
+                  }}>
+                    {storeName || 'Friozo Helados'}
+                  </span>
+                </div>
+
+                <div style={{
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'space-between',
+                  background: 'var(--bg-secondary)',
+                  padding: '8px 12px',
+                  borderRadius: '8px',
+                  border: '1px dashed var(--border-color)',
+                  marginBottom: '10px'
+                }}>
+                  <div>
+                    <span style={{ fontSize: '0.7rem', color: 'var(--text-light)', display: 'block' }}>Número oficial:</span>
+                    <strong style={{ fontSize: '1.05rem', letterSpacing: '0.5px' }}>
+                      {formatPhoneDisplay(storePhone || '987654321')}
+                    </strong>
+                  </div>
+                  <button
+                    type="button"
+                    className="btn btn-secondary"
+                    onClick={handleCopyStorePhone}
+                    style={{
+                      fontSize: '0.75rem',
+                      padding: '5px 10px',
+                      borderRadius: '6px',
+                      borderColor: paymentMethod === 'Yape' ? '#742284' : '#00a896',
+                      color: paymentMethod === 'Yape' ? '#742284' : '#00a896',
+                      cursor: 'pointer'
+                    }}
+                  >
+                    {copiedPhone ? '✅ ¡Copiado!' : '📋 Copiar'}
+                  </button>
+                </div>
+
+                <div>
+                  <label style={{ fontSize: '0.78rem', fontWeight: 600, display: 'block', marginBottom: '4px' }}>
+                    🔢 N° de Operación {paymentMethod} (Opcional - Acelera tu pedido):
+                  </label>
+                  <input
+                    type="text"
+                    className="form-control"
+                    placeholder="Ej. 123456 (Últimos dígitos de tu comprobante)"
+                    value={operationCode}
+                    onChange={(e) => setOperationCode(e.target.value.replace(/[^0-9A-Za-z]/g, ''))}
+                    style={{ padding: '7px 10px', fontSize: '0.82rem', fontFamily: 'monospace' }}
+                    maxLength={12}
+                    disabled={!shopOpen}
+                  />
+                  <span style={{ fontSize: '0.68rem', color: 'var(--text-light)', display: 'block', marginTop: '3px' }}>
+                    💡 Si aún no has pagado, puedes confirmarlo ahora y adjuntar la captura al WhatsApp.
+                  </span>
+                </div>
+              </div>
+            )}
+
             {/* Campo de Cupón de Descuento */}
             <div className="form-group" style={{ borderTop: '1px solid var(--border-color)', paddingTop: '10px', marginTop: '10px' }}>
               <label style={{ fontSize: '0.8rem', display: 'block', marginBottom: '4px', fontWeight: 600 }}>🎟️ ¿Tienes un Cupón de Descuento?</label>
@@ -778,76 +996,39 @@ export default function Cart({
             <button 
               type="submit" 
               className="btn btn-primary" 
-              style={{ width: '100%', marginTop: '10px', padding: '10px', fontSize: '0.9rem', opacity: (isSubmitting || !shopOpen) ? 0.6 : 1, cursor: (isSubmitting || !shopOpen) ? 'not-allowed' : 'pointer' }}
+              style={{ 
+                width: '100%', 
+                marginTop: '10px', 
+                padding: '12px', 
+                fontSize: '0.95rem', 
+                fontWeight: 700,
+                opacity: (isSubmitting || !shopOpen) ? 0.6 : 1, 
+                cursor: (isSubmitting || !shopOpen) ? 'not-allowed' : 'pointer',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                gap: '8px'
+              }}
               disabled={isSubmitting || !shopOpen}
             >
-              {!shopOpen ? '🔒 Tienda Cerrada (Fuera de Horario)' : isSubmitting ? '⏳ Procesando Pedido...' : '🚀 Confirmar y Enviar Pedido'}
+              {!shopOpen ? (
+                '🔒 Tienda Cerrada (Fuera de Horario)'
+              ) : isSubmitting ? (
+                <>
+                  <span aria-hidden="true">⏳</span>
+                  <span>Asegurando tu pedido...</span>
+                </>
+              ) : (
+                <>
+                  <span>🚀 Confirmar y Enviar Pedido</span>
+                  <span style={{ opacity: 0.9 }}>• S/. {total.toFixed(2)}</span>
+                </>
+              )}
             </button>
           </form>
         </div>
 
       </div>
-
-      {showValidationModal && (
-        <div style={{
-          position: 'fixed', top: 0, left: 0, right: 0, bottom: 0,
-          backgroundColor: 'rgba(0, 0, 0, 0.75)',
-          display: 'flex', alignItems: 'center', justifyContent: 'center',
-          zIndex: 100000, padding: '20px', backdropFilter: 'blur(5px)'
-        }}>
-          <div className="glass" style={{
-            background: 'var(--bg-color)',
-            borderRadius: '24px', padding: '24px', width: '100%', maxWidth: '450px',
-            maxHeight: '90vh', overflowY: 'auto', textAlign: 'center'
-          }}>
-            <h3 style={{ fontSize: '1.4rem', color: 'var(--primary-color)', marginBottom: '10px' }}>🔍 Verifica tu diseño</h3>
-            <p style={{ fontSize: '0.9rem', color: 'var(--text-light)', marginBottom: '15px' }}>
-              Asegúrate de haber elegido todos los sabores y toppings que deseas antes de enviarlo.
-            </p>
-            
-            <div style={{ display: 'flex', flexDirection: 'column', gap: '15px', marginBottom: '20px' }}>
-              {cart.filter(item => item.type === 'custom').map((item, idx) => (
-                <div key={idx} style={{ border: '1px solid var(--border-color)', borderRadius: '12px', padding: '10px' }}>
-                  <strong style={{ fontSize: '0.9rem', display: 'block', marginBottom: '8px' }}>{item.name}</strong>
-                  <div style={{ width: '120px', height: '160px', margin: '0 auto' }}>
-                    <DessertPreview 
-                      base={item.base}
-                      scoops={item.scoops}
-                      toppings={item.toppings}
-                      syrup={item.syrup}
-                    />
-                  </div>
-                  <div style={{ fontSize: '0.8rem', color: 'var(--text-light)', marginTop: '8px' }}>
-                    Sabores: {item.scoops.map(s => typeof s === 'string' ? s : s.name).join(', ')}<br/>
-                    {item.toppings.length > 0 && <>Toppings: {item.toppings.map(t => typeof t === 'string' ? t : t.name).join(', ')}<br/></>}
-                    {item.syrup && <>Salsa: {item.syrup.name}</>}
-                  </div>
-                </div>
-              ))}
-            </div>
-
-            <div style={{ display: 'flex', gap: '10px', flexDirection: 'column' }}>
-              <button 
-                className="btn btn-primary"
-                onClick={(e) => {
-                  setShowValidationModal(false);
-                  handleSubmit(e);
-                }}
-                style={{ padding: '12px', fontSize: '1rem', width: '100%' }}
-              >
-                ✅ Sí, ¡es lo que quiero!
-              </button>
-              <button 
-                className="btn btn-secondary"
-                onClick={() => setShowValidationModal(false)}
-                style={{ padding: '10px', fontSize: '0.9rem', width: '100%', backgroundColor: 'transparent', color: 'var(--text-light)' }}
-              >
-                ✏️ Corregir / Volver
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
     </div>
   );
 }

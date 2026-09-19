@@ -99,6 +99,47 @@ export default function OrderTracker({ orderId, orders, setView, storePhone, onC
     return (Date.now() - orderDate.getTime()) > TRACKING_WINDOW_HOURS * 60 * 60 * 1000;
   };
 
+  const [copiedTrackingLink, setCopiedTrackingLink] = useState(false);
+
+  const computeEstimatedArrival = (order) => {
+    if (!order?.date || ['Entregado', 'Cancelado'].includes(order.status)) return null;
+    const orderTime = new Date(order.date).getTime();
+    if (Number.isNaN(orderTime)) return null;
+
+    const minEta = new Date(orderTime + 25 * 60 * 1000);
+    const maxEta = new Date(orderTime + 40 * 60 * 1000);
+
+    const formatTime = (d) => {
+      try {
+        return new Intl.DateTimeFormat('es-PE', {
+          timeZone: 'America/Lima',
+          hour: '2-digit',
+          minute: '2-digit',
+          hour12: true
+        }).format(d);
+      } catch {
+        return '';
+      }
+    };
+
+    return {
+      rangeText: `${formatTime(minEta)} - ${formatTime(maxEta)}`,
+      minutesEstimate: '25 - 35 min'
+    };
+  };
+
+  const handleShareTrackingLink = () => {
+    if (!currentOrder?.id) return;
+    const url = `${window.location.origin}${window.location.pathname}?track=${currentOrder.id}`;
+    if (navigator.clipboard && navigator.clipboard.writeText) {
+      navigator.clipboard.writeText(url);
+      setCopiedTrackingLink(true);
+      setTimeout(() => setCopiedTrackingLink(false), 2500);
+    } else {
+      window.prompt('Copia este enlace para seguir tu pedido:', url);
+    }
+  };
+
   const currentOrder = fetchedOrder?.id?.toUpperCase() === activeSearchId.trim().toUpperCase() ? fetchedOrder : null;
 
 
@@ -466,6 +507,54 @@ export default function OrderTracker({ orderId, orders, setView, storePhone, onC
       {currentOrder.status !== 'Cancelado' ? <ol aria-label="Etapas del pedido" style={{ display: 'flex', flexWrap: 'wrap', gap: '8px', padding: 0, listStyle: 'none', marginBottom: '24px' }}>
         {(isDeliveryOrder(currentOrder) ? ['Por Corroborar', 'Pendiente', 'Preparando', 'Listo', 'En camino', 'Entregado'] : ['Por Corroborar', 'Pendiente', 'Preparando', 'Listo', 'Entregado']).map((status, index) => <li key={status} aria-current={status === currentOrder.status ? 'step' : undefined} style={{ padding: '10px', borderRadius: '8px', fontSize: '14px', border: '1px solid var(--border-color)', background: status === currentOrder.status ? 'var(--primary-color)' : 'var(--bg-secondary)', color: status === currentOrder.status ? '#fff' : 'var(--text-dark)', fontWeight: status === currentOrder.status ? 800 : 400 }}>{index + 1}. {orderStatusLabel(status)}</li>)}
       </ol> : <p role="status">Este pedido fue cancelado por la tienda.</p>}
+
+      {/* ⏱️ TARJETA DE TIEMPO ESTIMADO DE LLEGADA */}
+      {(() => {
+        const eta = computeEstimatedArrival(currentOrder);
+        if (!eta) return null;
+        return (
+          <div className="glass order-tracker-eta-card" style={{
+            padding: '14px 18px',
+            marginBottom: '22px',
+            borderRadius: '14px',
+            background: 'linear-gradient(135deg, rgba(255, 107, 129, 0.08) 0%, rgba(255, 160, 0, 0.06) 100%)',
+            border: '1px solid rgba(255, 107, 129, 0.25)',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'space-between',
+            flexWrap: 'wrap',
+            gap: '12px'
+          }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+              <span style={{ fontSize: '1.8rem' }}>⏱️</span>
+              <div>
+                <strong style={{ fontSize: '0.92rem', color: 'var(--text-dark)', display: 'block' }}>
+                  Tiempo Estimado de Entrega: {eta.minutesEstimate}
+                </strong>
+                <span style={{ fontSize: '0.78rem', color: 'var(--text-light)' }}>
+                  Llegada estimada entre <strong>{eta.rangeText}</strong> (Hora Lima)
+                </span>
+              </div>
+            </div>
+            <button
+              type="button"
+              className="btn btn-secondary"
+              onClick={handleShareTrackingLink}
+              style={{
+                fontSize: '0.75rem',
+                padding: '6px 12px',
+                borderRadius: '8px',
+                display: 'inline-flex',
+                alignItems: 'center',
+                gap: '5px',
+                cursor: 'pointer'
+              }}
+            >
+              {copiedTrackingLink ? '✅ ¡Enlace Copiado!' : '📋 Compartir Rastreo'}
+            </button>
+          </div>
+        );
+      })()}
 
       {/* 🛵 INFORMACIÓN DEL REPARTIDOR ASIGNADO */}
       {currentOrder && currentOrder.assignedDriver && (
@@ -836,6 +925,11 @@ export default function OrderTracker({ orderId, orders, setView, storePhone, onC
           <div>
             <strong>Método de Pago:</strong> <span style={{ color: 'var(--text-dark)' }}>{paymentDescription(currentOrder)} · {currentOrder.paymentVerified ? 'Pago confirmado' : 'Pago pendiente'}</span>
           </div>
+          {currentOrder.customer?.operationCode && (
+            <div>
+              <strong>N° Operación ({currentOrder.customer.paymentMethod}):</strong> <span style={{ color: 'var(--primary-color)', fontFamily: 'monospace', fontWeight: 700 }}>{currentOrder.customer.operationCode}</span>
+            </div>
+          )}
         </div>
 
         <div style={{ marginTop: '20px', background: 'rgba(0,0,0,0.02)', padding: '12px', borderRadius: 'var(--radius-md)', border: '1px solid var(--border-color)' }}>
@@ -882,15 +976,23 @@ export default function OrderTracker({ orderId, orders, setView, storePhone, onC
       )}
 
       <div style={{ display: 'flex', gap: '12px', justifyContent: 'center', flexWrap: 'wrap' }}>
-        <button className="btn btn-secondary" style={{ flex: '1 1 150px' }} onClick={() => setView('shop')}>
+        <button className="btn btn-secondary" style={{ flex: '1 1 140px' }} onClick={() => setView('shop')}>
           🍨 Volver a la Tienda
         </button>
+        <button 
+          type="button" 
+          className="btn btn-secondary" 
+          style={{ flex: '1 1 150px' }} 
+          onClick={handleShareTrackingLink}
+        >
+          {copiedTrackingLink ? '✅ ¡Enlace Copiado!' : '📋 Copiar Enlace'}
+        </button>
         <a 
-          href={`https://wa.me/${cleanPhone}?text=Hola,%20quisiera%20saber%20el%20estado%20de%20mi%20pedido%20${currentOrder.id}`} 
+          href={`https://wa.me/${cleanPhone}?text=${encodeURIComponent(`¡Hola! Quisiera consultar el estado de mi pedido #${currentOrder.id} a nombre de ${currentOrder.customer?.name || 'Cliente'} 🍦`)}`} 
           target="_blank" 
           rel="noopener noreferrer" 
           className="btn btn-primary"
-          style={{ background: '#25D366', borderColor: '#25D366', color: 'white', textDecoration: 'none', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '6px', flex: '1 1 150px' }}
+          style={{ background: '#25D366', borderColor: '#25D366', color: 'white', textDecoration: 'none', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '6px', flex: '1 1 160px' }}
         >
           💬 WhatsApp Soporte
         </a>

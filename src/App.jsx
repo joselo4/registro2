@@ -1214,7 +1214,7 @@ export default function App() {
       return false;
     }
 
-    if (item.type === 'pack' || item.type === 'popsicle') {
+    if (item.type === 'pack' || item.type === 'popsicle' || item.type === 'extra') {
       const idx = cart.findIndex(i => i.type === item.type && i.id === item.id);
       if (idx !== -1) {
         const newCart = [...cart];

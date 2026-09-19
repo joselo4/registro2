@@ -1092,6 +1092,20 @@ export default function OrderManager({
                               💵 Efectivo
                             </span>
                           )}
+                          {order.customer?.operationCode && (
+                            <span style={{
+                              fontSize: '0.66rem',
+                              fontFamily: 'monospace',
+                              fontWeight: 700,
+                              color: 'var(--primary-color)',
+                              background: 'rgba(255, 107, 129, 0.1)',
+                              padding: '1px 5px',
+                              borderRadius: '4px',
+                              width: 'fit-content'
+                            }} title={`Código de operación: ${order.customer.operationCode}`}>
+                              Op: {order.customer.operationCode}
+                            </span>
+                          )}
 
                           {isPaymentOnArrival(order) && <span style={{ fontSize: '0.875rem', fontWeight: 700 }}>Pago al llegar · {order.paymentVerified ? 'Cobrado' : 'Pendiente de cobro'}</span>}
                           {['Transferencia', 'Tarjeta'].includes(order.customer?.paymentMethod) && <span>{order.customer.paymentMethod}</span>}
