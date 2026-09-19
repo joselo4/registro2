@@ -1448,6 +1448,29 @@ export default function App() {
     return false;
   };
 
+  // handleUpdateOrders: actualiza el estado local Y sincroniza cada pedido modificado en Supabase
+  const handleUpdateOrders = async (newOrders) => {
+    // Detectar órdenes que realmente cambiaron respecto al estado actual
+    const changedOrders = newOrders.filter(newO => {
+      const existing = orders.find(o => o.id === newO.id);
+      return !existing || JSON.stringify(existing) !== JSON.stringify(newO);
+    });
+    setOrders(newOrders);
+    // Persistir cada pedido modificado individualmente en Supabase
+    if (changedOrders.length > 0) {
+      try {
+        await Promise.all(
+          changedOrders.map(o => updateSyncedData(`order_${String(o.id).trim().toUpperCase()}`, o))
+        );
+        return true;
+      } catch (err) {
+        console.warn('⚠️ No se pudieron sincronizar algunos pedidos en Supabase:', err);
+        return false;
+      }
+    }
+    return true;
+  };
+
   async function handleLogout() {
     logoutInProgressRef.current = true;
     window.setTimeout(() => {
@@ -1848,7 +1871,7 @@ export default function App() {
               onUpdateRecommendations={setRecommendations}
               expenses={expenses}
               onUpdateExpenses={setExpenses}
-              onUpdateOrders={setOrders}
+              onUpdateOrders={handleUpdateOrders}
               cartRecommendedPack={cartRecommendedPack}
               onUpdateCartRecommendedPack={setCartRecommendedPack}
               staffPermissions={staffPermissions}

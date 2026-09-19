@@ -185,10 +185,16 @@ export default function OrderTracker({ orderId, orders, setView, storePhone, onC
           const localOrder = orders?.find(o => String(o.id || '').replace(/\s+/g, '').toUpperCase() === id);
           if (localOrder) {
             setTrackingError('');
+            // Si el pedido existe en local pero la API retornó 404, podría estar 'Por Corroborar'
           } else {
-            setTrackingError(error.status === 404 || error.status === 400
-              ? `No encontramos un pedido confirmado con el código ${id}. Revisa que el código coincida con tu ticket o mensaje de WhatsApp.`
-              : 'No pudimos actualizar el seguimiento. Revisa tu conexión; volveremos a intentarlo.');
+            if (error.status === 404 || error.status === 400) {
+              // Verificar si hay alguna orden local con ese código en estado 'Por Corroborar'
+              setTrackingError(
+                `No encontramos ningún pedido con ese código. Verifica el código en tu ticket o mensaje de confirmación.`
+              );
+            } else {
+              setTrackingError('No pudimos actualizar el seguimiento. Revisa tu conexión; volveremos a intentarlo.');
+            }
           }
         }
       } finally {
@@ -262,7 +268,7 @@ export default function OrderTracker({ orderId, orders, setView, storePhone, onC
   };
 
   const formatStatusText = (status, orderType = 'Delivery') => {
-    if (status === 'Por Corroborar') return '⏳ Por Corroborar · Verificando pedido';
+    if (status === 'Por Corroborar') return '⏳ Verificando · Tu pedido está siendo revisado por la tienda';
     if (status === 'Pendiente') return '📋 Confirmado · En cola de cocina';
     if (status === 'Preparando') return '👨‍🍳 En Preparación · Armando tus helados';
     if (status === 'Listo') return '✅ Listo · Esperando entrega o repartidor';
@@ -531,6 +537,30 @@ export default function OrderTracker({ orderId, orders, setView, storePhone, onC
       </div>
 
       {trackingError && <p role="status" style={{ padding: '12px', background: '#fff3cd', color: '#664d03', borderRadius: '8px' }}>{trackingError} Mostramos el último estado confirmado.</p>}
+
+      {/* Banner informativo especial para estado 'Por Corroborar' */}
+      {currentOrder.status === 'Por Corroborar' && (
+        <div style={{
+          padding: '14px 18px',
+          marginBottom: '18px',
+          borderRadius: '14px',
+          background: 'linear-gradient(135deg, rgba(230,126,34,0.10) 0%, rgba(243,156,18,0.07) 100%)',
+          border: '1.5px solid rgba(230,126,34,0.35)',
+          display: 'flex',
+          alignItems: 'center',
+          gap: '14px'
+        }}>
+          <span style={{ fontSize: '2rem' }}>⏳</span>
+          <div>
+            <strong style={{ fontSize: '0.95rem', color: '#e67e22', display: 'block' }}>
+              Tu pedido está siendo verificado por la tienda
+            </strong>
+            <span style={{ fontSize: '0.8rem', color: 'var(--text-light)', display: 'block', marginTop: '3px' }}>
+              En breve recibirás confirmación y tu pedido pasará a preparación. ¡Gracias por tu paciencia! 🍦
+            </span>
+          </div>
+        </div>
+      )}
       {currentOrder.status !== 'Cancelado' ? <ol aria-label="Etapas del pedido" style={{ display: 'flex', flexWrap: 'wrap', gap: '8px', padding: 0, listStyle: 'none', marginBottom: '24px' }}>
         {(isDeliveryOrder(currentOrder) ? ['Por Corroborar', 'Pendiente', 'Preparando', 'Listo', 'En camino', 'Entregado'] : ['Por Corroborar', 'Pendiente', 'Preparando', 'Listo', 'Entregado']).map((status, index) => <li key={status} aria-current={status === currentOrder.status ? 'step' : undefined} style={{ padding: '10px', borderRadius: '8px', fontSize: '14px', border: '1px solid var(--border-color)', background: status === currentOrder.status ? 'var(--primary-color)' : 'var(--bg-secondary)', color: status === currentOrder.status ? '#fff' : 'var(--text-dark)', fontWeight: status === currentOrder.status ? 800 : 400 }}>{index + 1}. {orderStatusLabel(status)}</li>)}
       </ol> : <p role="status">Este pedido fue cancelado por la tienda.</p>}

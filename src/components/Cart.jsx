@@ -46,12 +46,19 @@ export default function Cart({
   const [name, setName] = useState(() => localStorage.getItem('last_customer_name') || '');
   const [phone, setPhone] = useState(() => localStorage.getItem('last_customer_phone') || '');
   const [address, setAddress] = useState(() => localStorage.getItem('last_customer_address') || '');
-  const [paymentMethod, setPaymentMethod] = useState('Yape'); // Yape, Plin, Efectivo
+  const [paymentMethod, setPaymentMethod] = useState('Yape'); // Yape, Plin, Efectivo, Transferencia
   const [operationCode, setOperationCode] = useState('');
   const [copiedPhone, setCopiedPhone] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [sendToWhatsApp, setSendToWhatsApp] = useState(shopConfig?.defaultWhatsAppEnabled ?? false);
   const [showValidationModal, setShowValidationModal] = useState(false);
+
+  // Determinar si el método de pago es digital/previo (requiere código de operación)
+  const DIGITAL_PAYMENT_METHODS = ['Yape', 'Plin', 'Transferencia', 'Transferencia Bancaria', 'BCP', 'Interbank', 'BBVA', 'Lukita'];
+  const isDigitalPayment = DIGITAL_PAYMENT_METHODS.some(m => paymentMethod.toLowerCase().includes(m.toLowerCase()));
+  // ¿Mostrar el campo de operación? Solo si el pago es digital y la config lo permite
+  const showOpCodeField = isDigitalPayment && shopConfig?.showOperationCodeField !== false;
+  const requireOpCode = showOpCodeField && shopConfig?.requireOperationCode === true;
 
   const IMPULSE_ITEMS = [
     { id: 'impulse_fudge', name: 'Salsa Fudge Artesanal', price: 1.5, icon: '🍫' },
@@ -308,8 +315,9 @@ export default function Cart({
          });
        }
   
-       // Redirigir a WhatsApp del local si el cliente lo prefiere
-       if (sendToWhatsApp) {
+       // Redirigir a WhatsApp del local si el cliente lo prefiere y la config lo permite
+       const whatsappGlobalEnabled = shopConfig?.whatsappEnabled !== false;
+       if (sendToWhatsApp && whatsappGlobalEnabled) {
          const waWindow = window.open(whatsappUrl, '_blank', 'noopener,noreferrer');
          if (waWindow) waWindow.opener = null;
        }
@@ -902,24 +910,29 @@ export default function Cart({
                   </button>
                 </div>
 
-                <div>
-                  <label style={{ fontSize: '0.78rem', fontWeight: 600, display: 'block', marginBottom: '4px' }}>
-                    🔢 N° de Operación {paymentMethod} (Opcional - Acelera tu pedido):
-                  </label>
-                  <input
-                    type="text"
-                    className="form-control"
-                    placeholder="Ej. 123456 (Últimos dígitos de tu comprobante)"
-                    value={operationCode}
-                    onChange={(e) => setOperationCode(e.target.value.replace(/[^0-9A-Za-z]/g, ''))}
-                    style={{ padding: '7px 10px', fontSize: '0.82rem', fontFamily: 'monospace' }}
-                    maxLength={12}
-                    disabled={!shopOpen}
-                  />
-                  <span style={{ fontSize: '0.68rem', color: 'var(--text-light)', display: 'block', marginTop: '3px' }}>
-                    💡 Si aún no has pagado, puedes confirmarlo ahora y adjuntar la captura al WhatsApp.
-                  </span>
-                </div>
+                {showOpCodeField && (
+                  <div>
+                    <label style={{ fontSize: '0.78rem', fontWeight: 600, display: 'block', marginBottom: '4px' }}>
+                      🔢 N° de Operación {paymentMethod}{requireOpCode ? ' *' : ' (Opcional - Acelera tu pedido)'}:
+                    </label>
+                    <input
+                      type="text"
+                      className="form-control"
+                      placeholder="Ej. 123456 (Últimos dígitos de tu comprobante)"
+                      value={operationCode}
+                      onChange={(e) => setOperationCode(e.target.value.replace(/[^0-9A-Za-z]/g, ''))}
+                      style={{ padding: '7px 10px', fontSize: '0.82rem', fontFamily: 'monospace' }}
+                      maxLength={12}
+                      disabled={!shopOpen}
+                      required={requireOpCode}
+                    />
+                    <span style={{ fontSize: '0.68rem', color: 'var(--text-light)', display: 'block', marginTop: '3px' }}>
+                      {requireOpCode
+                        ? '⚠️ Este campo es obligatorio para procesar tu pedido.'
+                        : '💡 Si aún no has pagado, puedes confirmarlo ahora y adjuntar la captura al WhatsApp.'}
+                    </span>
+                  </div>
+                )}
               </div>
             )}
 
@@ -1049,23 +1062,23 @@ export default function Cart({
       {showValidationModal && (
         <div style={{
           position: 'fixed', top: 0, left: 0, right: 0, bottom: 0,
-          backgroundColor: 'rgba(0, 0, 0, 0.78)',
+          backgroundColor: 'rgba(0, 0, 0, 0.87)',
           display: 'flex', alignItems: 'center', justifyContent: 'center',
-          zIndex: 100000, padding: '20px', backdropFilter: 'blur(6px)',
-          WebkitBackdropFilter: 'blur(6px)'
+          zIndex: 100000, padding: '20px', backdropFilter: 'blur(8px)',
+          WebkitBackdropFilter: 'blur(8px)'
         }}>
           <div style={{
             background: 'var(--bg-primary, #ffffff)',
             color: 'var(--text-dark, #1e293b)',
             borderRadius: '24px', 
-            padding: '26px', 
+            padding: '28px', 
             width: '100%', 
             maxWidth: '460px',
             maxHeight: '90vh', 
             overflowY: 'auto', 
             textAlign: 'center',
-            boxShadow: '0 25px 60px -10px rgba(0, 0, 0, 0.6)',
-            border: '1px solid var(--border-color)'
+            boxShadow: '0 30px 80px -10px rgba(0, 0, 0, 0.75)',
+            border: '1.5px solid var(--border-color)'
           }}>
             <div style={{ fontSize: '2.2rem', marginBottom: '8px' }}>🔍</div>
             <h3 style={{ fontSize: '1.4rem', color: 'var(--primary-color)', margin: '0 0 8px 0', fontFamily: 'var(--font-title)', fontWeight: 800 }}>

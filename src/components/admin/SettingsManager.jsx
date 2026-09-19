@@ -1253,6 +1253,59 @@ export default function SettingsManager({
           </label>
         </div>
 
+        {/* Toggle: Enviar comanda a WhatsApp al confirmar pedido */}
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderBottom: '1px solid var(--border-color)', paddingBottom: '10px' }}>
+          <div>
+            <strong style={{ display: 'block' }}>📲 Enviar comanda a WhatsApp al confirmar pedido</strong>
+            <span style={{ fontSize: '0.75rem', color: 'var(--text-light)', display: 'block' }}>Al confirmar un pedido, abre automáticamente WhatsApp para notificar al equipo.</span>
+          </div>
+          <label className="toggle-switch" htmlFor="whatsapp-order-enabled-input">
+            <input
+              id="whatsapp-order-enabled-input"
+              type="checkbox"
+              checked={localShopConfig.whatsappEnabled !== false}
+              onChange={(e) => setLocalShopConfig(prev => ({ ...prev, whatsappEnabled: e.target.checked }))}
+            />
+            <span className="slider"></span>
+          </label>
+        </div>
+
+        {/* Toggle: Mostrar campo N° de Operación en pagos digitales */}
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderBottom: '1px solid var(--border-color)', paddingBottom: '10px' }}>
+          <div>
+            <strong style={{ display: 'block' }}>🔢 Solicitar N° de Operación en pagos digitales (Yape/Plin)</strong>
+            <span style={{ fontSize: '0.75rem', color: 'var(--text-light)', display: 'block' }}>Muestra el campo para ingresar el número de operación en pagos previos.</span>
+          </div>
+          <label className="toggle-switch" htmlFor="show-operation-code-field-input">
+            <input
+              id="show-operation-code-field-input"
+              type="checkbox"
+              checked={localShopConfig.showOperationCodeField !== false}
+              onChange={(e) => setLocalShopConfig(prev => ({ ...prev, showOperationCodeField: e.target.checked, requireOperationCode: e.target.checked ? (prev.requireOperationCode || false) : false }))}
+            />
+            <span className="slider"></span>
+          </label>
+        </div>
+
+        {/* Toggle: Hacer obligatorio N° de Operación (solo si showOperationCodeField es true) */}
+        {localShopConfig.showOperationCodeField !== false && (
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderBottom: '1px solid var(--border-color)', paddingBottom: '10px' }}>
+            <div>
+              <strong style={{ display: 'block' }}>⚠️ Hacer obligatorio el N° de Operación</strong>
+              <span style={{ fontSize: '0.75rem', color: 'var(--text-light)', display: 'block' }}>Si está activado, el cliente no podrá confirmar sin ingresar el código.</span>
+            </div>
+            <label className="toggle-switch" htmlFor="require-operation-code-input">
+              <input
+                id="require-operation-code-input"
+                type="checkbox"
+                checked={localShopConfig.requireOperationCode === true}
+                onChange={(e) => setLocalShopConfig(prev => ({ ...prev, requireOperationCode: e.target.checked }))}
+              />
+              <span className="slider"></span>
+            </label>
+          </div>
+        )}
+
         {/* Envío Gratis */}
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderBottom: '1px solid var(--border-color)', paddingBottom: '10px' }}>
           <div>
