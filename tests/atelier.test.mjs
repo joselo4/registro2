@@ -59,6 +59,14 @@ test('sales exclude cancelled and pending orders; demand respects quantity and d
   assert.equal(s.revenue,20);assert.equal(s.yesterday,10);assert.equal(s.average,20);assert.equal(s.change,100);
   assert.equal(s.queue.length,2);assert.equal(s.overdue.length,1);assert.deepEqual(s.production,[['Fresa',6]]);
 });
+test('sales are recognized only when both delivery and collection are complete',()=>{
+  const now=Date.parse('2026-09-19T20:00:00Z');
+  const prepaidThenDelivered={id:'prepaid',status:'Entregado',date:'2026-09-18T14:00:00Z',grandTotal:25,paymentVerified:true,paymentVerifiedAt:'2026-09-18T15:00:00Z',statusHistory:[{status:'Entregado',timestamp:'2026-09-19T18:00:00Z'}]};
+  const deliveredUnpaid={id:'unpaid',status:'Entregado',date:'2026-09-19T14:00:00Z',grandTotal:50,paymentVerified:false,statusHistory:[{status:'Entregado',timestamp:'2026-09-19T17:00:00Z'}]};
+  const summary=operationsSummary([prepaidThenDelivered,deliveredUnpaid],now);
+  assert.equal(summary.revenue,25);
+  assert.equal(summary.delivered.length,1);
+});
 test('unrecorded stock or cost never becomes zero; depleted stock is flagged',()=>{
   const health=catalogHealth([{key:'flavors',name:'Sabores',items:[{id:'a',active:true,price:5},{id:'b',active:true,price:5,cost:4,stock:0,lowStockThreshold:3},{id:'c',active:false,price:5,cost:5,stock:15}]}]);
   assert.equal(health.measured.length,2);assert.equal(health.lowStock.length,1);assert.equal(health.missingCost.length,1);assert.equal(health.lowMargin.length,1);assert.equal(health.lowMargin[0].margin,20);

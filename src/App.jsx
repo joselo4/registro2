@@ -12,6 +12,7 @@ import { fetchSyncedData, updateSyncedData, subscribeToSync, invalidateSyncCache
 import { supabase } from './utils/supabaseClient';
 import { Capacitor } from '@capacitor/core';
 import { DEFAULT_SMS_TEMPLATES } from './utils/orderMessaging';
+import { createOrder, updateOrder } from './utils/apiClient';
 
 import CustomerShop from './components/CustomerShop';
 import IceCreamCustomizer from './components/IceCreamCustomizer';
@@ -1401,14 +1402,21 @@ export default function App() {
   };
 
   const handlePlaceOrder = async (newOrder) => {
-    setOrders(prev => [newOrder, ...prev]);
+    let savedOrder = newOrder;
+    if (newOrder.isOperator) {
+      const dbSuccess = await updateSyncedData(`order_${newOrder.id}`, newOrder);
+      if (!dbSuccess) throw new Error('No se pudo confirmar el pedido del operador. Intenta nuevamente.');
+    } else {
+      savedOrder = await createOrder(newOrder);
+    }
+    setOrders(prev => [savedOrder, ...prev.filter(order => order.id !== savedOrder.id)]);
     if (!newOrder.isOperator) {
       setCart([]);
-      setActiveOrderId(newOrder.id);
+      setActiveOrderId(savedOrder.id);
       setView('tracker');
       
       // Guardar pedido activo en localStorage para rastreo y control de mesa ocupada
-      localStorage.setItem('helados_active_order_id', newOrder.id);
+      localStorage.setItem('helados_active_order_id', savedOrder.id);
       localStorage.setItem('helados_active_order_time', String(Date.now()));
       if (newOrder.customer?.orderType === 'Mesa' || newOrder.customer?.orderType === 'Mesa_Llevar') {
         localStorage.setItem('helados_active_order_table', String(newOrder.customer?.tableNumber));
@@ -1429,38 +1437,24 @@ export default function App() {
       });
     }
 
-    // Subir el pedido individual bajo su propia clave para evitar descargar toda la lista de otros clientes
-    const dbSuccess = await updateSyncedData(`order_${newOrder.id}`, newOrder);
-
-    if (dbSuccess) {
-      // Enviar notificación a Telegram
-      await sendTelegramNotification(newOrder);
-    } else {
-      console.warn("⚠️ No se pudo guardar el pedido en base de datos. Se omitió la notificación a Telegram.");
-    }
+    await sendTelegramNotification(savedOrder);
+    return savedOrder;
   };
 
-  const handleUpdateOrderStatus = async (orderId, newStatus) => {
+  const handleUpdateOrderStatus = async (orderId, newStatus, patch = {}) => {
     const cleanOrderId = String(orderId || '').trim().toUpperCase();
-    const statusTimestamp = new Date().toISOString();
-    let updatedOrder = null;
-    const updated = orders.map(o => {
-      if (String(o.id || '').trim().toUpperCase() === cleanOrderId) {
-        const history = o.statusHistory || [{ status: 'Pendiente', timestamp: o.date || new Date().toISOString() }];
-        const lastStatus = history[history.length - 1]?.status;
-        const newHistory = lastStatus === newStatus ? history : [...history, { status: newStatus, timestamp: statusTimestamp }];
-        updatedOrder = { ...o, id: cleanOrderId, status: newStatus, statusHistory: newHistory, updatedAt: statusTimestamp };
-        return updatedOrder;
-      }
-      return o;
-    });
-    setOrders(updated);
-
-    // Actualizar el pedido individual en la nube para que el cliente reciba la actualización en tiempo real en su rastreador
-    if (updatedOrder) {
-      return await updateSyncedData(`order_${cleanOrderId}`, updatedOrder);
+    const previous = orders.find(o => String(o.id || '').trim().toUpperCase() === cleanOrderId);
+    if (!previous || !supabase) return false;
+    try {
+      const proposed = { ...previous, ...patch, id: cleanOrderId, status: newStatus };
+      const saved = await updateOrder(supabase, previous, proposed);
+      setOrders(current => current.map(order => order.id === previous.id ? saved : order));
+      return true;
+    } catch (error) {
+      console.warn('No se pudo actualizar el pedido:', error.message);
+      showAlert('No se confirmó el cambio', error.message || 'Actualiza la lista e intenta nuevamente.', 'warning');
+      return false;
     }
-    return false;
   };
 
   // handleUpdateOrders: actualiza el estado local Y sincroniza cada pedido modificado en Supabase
@@ -1470,19 +1464,26 @@ export default function App() {
       const existing = orders.find(o => o.id === newO.id);
       return !existing || JSON.stringify(existing) !== JSON.stringify(newO);
     });
-    setOrders(newOrders);
     // Persistir cada pedido modificado individualmente en Supabase
     if (changedOrders.length > 0) {
       try {
-        await Promise.all(
-          changedOrders.map(o => updateSyncedData(`order_${String(o.id).trim().toUpperCase()}`, o))
-        );
+        const savedChanges = await Promise.all(changedOrders.map(async proposed => {
+          const previous = orders.find(order => order.id === proposed.id);
+          if (previous && supabase) return updateOrder(supabase, previous, proposed);
+          const saved = await updateSyncedData(`order_${String(proposed.id).trim().toUpperCase()}`, proposed);
+          if (!saved) throw new Error(`No se pudo guardar el pedido ${proposed.id}.`);
+          return proposed;
+        }));
+        const savedById = new Map(savedChanges.map(order => [order.id, order]));
+        setOrders(newOrders.map(order => savedById.get(order.id) || order));
         return true;
       } catch (err) {
         console.warn('⚠️ No se pudieron sincronizar algunos pedidos en Supabase:', err);
+        showAlert('No se confirmó el cambio', err.message || 'Actualiza la lista e intenta nuevamente.', 'warning');
         return false;
       }
     }
+    setOrders(newOrders);
     return true;
   };
 

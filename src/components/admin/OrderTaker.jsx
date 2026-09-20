@@ -118,7 +118,7 @@ export default function OrderTaker({ catalog, onPlaceOrder, showAlert }) {
     setCart(prev => prev.filter((_, i) => i !== index));
   };
 
-  const handleCreateOrder = () => {
+  const handleCreateOrder = async () => {
     if (cart.length === 0) {
       if (showAlert) showAlert('Error', 'El pedido está vacío.', 'error');
       return;
@@ -163,12 +163,16 @@ export default function OrderTaker({ catalog, onPlaceOrder, showAlert }) {
       isOperator: true
     };
 
-    onPlaceOrder(newOrder);
-    if (showAlert) showAlert('Éxito', 'Pedido registrado correctamente. Código: ' + orderId, 'success');
-    setCart([]);
-    setActiveIceCream(null);
-    setActiveQuantity(1);
-    setCustomerName('');
+    try {
+      await onPlaceOrder(newOrder);
+      if (showAlert) showAlert('Éxito', 'Pedido registrado correctamente. Código: ' + orderId, 'success');
+      setCart([]);
+      setActiveIceCream(null);
+      setActiveQuantity(1);
+      setCustomerName('');
+    } catch (error) {
+      if (showAlert) showAlert('No se confirmó el pedido', error.message || 'Revisa la conexión e intenta nuevamente.', 'warning');
+    }
   };
 
   return (

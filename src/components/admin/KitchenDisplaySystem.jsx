@@ -187,7 +187,7 @@ export default function KitchenDisplaySystem({
               style={{ padding: '6px 14px', fontSize: '0.78rem', borderRadius: '8px' }}
               onClick={() => setCurrentViewTab('active')}
             >
-              🔥 Por Preparar ({orders.filter(o => o.status === 'Pendiente' || o.status === 'Preparando' || o.status === 'Por Corroborar').length})
+              🔥 Por Preparar ({orders.filter(o => o.status === 'Pendiente' || o.status === 'Preparando').length})
             </button>
             <button
               className={`btn ${currentViewTab === 'ready' ? 'btn-primary' : 'btn-secondary'}`}

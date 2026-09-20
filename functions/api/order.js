@@ -137,9 +137,21 @@ export async function onRequestPost({ request, env }, makeClient = createAdminCl
       if (!isPlainObject(body.order) || !/^(PED|FIS|ORD)-[A-Z0-9-]{3,40}$/.test(body.order.id) || JSON.stringify(body).length > 150000) return fail(400, 'input', 'Pedido inválido.');
       if (!allowedOrderChange(user, body.previous, body.order)) return fail(403, 'auth', 'Tu rol no permite este cambio de pedido.');
       try {
-        const paymentError = await validatePaymentAvailability(client, body.previous, body.order);
+        let proposedOrder = body.order;
+        if (!body.previous.paymentVerified && proposedOrder.paymentVerified) {
+          proposedOrder = {
+            ...proposedOrder,
+            paymentVerifiedAt: new Date().toISOString(),
+            paymentVerifiedBy: {
+              id: user.id || null,
+              email: user.email || null,
+              role: orderStaffRole(user),
+            },
+          };
+        }
+        const paymentError = await validatePaymentAvailability(client, body.previous, proposedOrder);
         if (paymentError) return fail(400, 'payment', paymentError);
-        const order = await saveOrderChange(client, body.previous, body.order);
+        const order = await saveOrderChange(client, body.previous, proposedOrder);
         return json({ ok: true, order });
       } catch (error) { return fail(409, 'update', error.message || 'No se pudo guardar el pedido.'); }
     }

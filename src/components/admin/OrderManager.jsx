@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import { buildSmsHref, formatOrderStatusMessage, normalizeSmsTemplates, formatDriverDispatchMessage, buildWhatsAppHref } from '../../utils/orderMessaging';
 import { getCollectionPaymentMethods } from '../../utils/paymentMethods';
-import { isDigitalPayment, isPaymentOnArrival, requiresAdvancePayment } from '../../utils/orderLifecycle';
+import { isDigitalPayment, isPaymentOnArrival, requiresAdvancePayment, isRecognizedSale, orderRecognizedAt } from '../../utils/orderLifecycle';
 import { getOrderStageInfo } from '../../utils/orderValidation';
 import { printThermalTicket } from '../../utils/escposTicket';
 import {
@@ -82,14 +82,18 @@ export default function OrderManager({
     window.location.assign(href);
   };
 
-  const handleStatusChange = async (order, newStatus, logText) => {
-    if (!await onUpdateOrderStatus(order.id, newStatus)) return false;
+  const handleStatusChange = async (order, newStatus, logText, patch = {}) => {
+    if (!await onUpdateOrderStatus(order.id, newStatus, patch)) return false;
     addLog(logText);
     openStatusSms(order, newStatus);
     return true;
   };
 
   const handleTogglePaymentVerified = async (order) => {
+    if (order.paymentVerified) {
+      alert('El cobro ya fue confirmado y no puede volver a marcarse como pendiente. Registra una devolución por separado si corresponde.');
+      return;
+    }
     const nextVerified = !order.paymentVerified;
     if (nextVerified && !window.confirm(`¿Confirmas que recibiste S/. ${Number(order.grandTotal || 0).toFixed(2)} por ${order.customer?.paymentMethod}? Verifica el abono real antes de registrar el cobro.`)) return;
     const updated = {
@@ -147,7 +151,22 @@ export default function OrderManager({
 
   };
 
-  const handleCompleteOrder = order => handleStatusChange(order, 'Entregado', `Pedido ${order.id} entregado por ${currentUser?.name}`);
+  const handleCompleteOrder = async order => {
+    if (order.paymentVerified) return handleStatusChange(order, 'Entregado', `Pedido ${order.id} entregado por ${currentUser?.name}`);
+    if (!isPaymentOnArrival(order)) {
+      alert('El pago anticipado sigue pendiente. Verifica primero que el abono ingresó a la cuenta de la tienda.');
+      return false;
+    }
+    const total = Number(order.grandTotal || 0).toFixed(2);
+    const method = order.customer?.paymentMethod || 'el medio acordado';
+    if (!window.confirm(`¿Confirmas que recibiste S/. ${total} por ${method} y entregaste el pedido #${order.id}?`)) return false;
+    return handleStatusChange(
+      order,
+      'Entregado',
+      `Pedido ${order.id} entregado y cobrado por ${currentUser?.name}`,
+      { paymentVerified: true }
+    );
+  };
 
   const handleAssignDriver = async (order, driverIdentifier) => {
     if (driverIdentifier === '__NEW_DRIVER__') {
@@ -204,11 +223,6 @@ export default function OrderManager({
       status: 'Activo'
     };
 
-    const nextStaff = [...(staffUsers || []), newDriverUser];
-    if (onUpdateStaffUsers) {
-      onUpdateStaffUsers(nextStaff);
-    }
-
     const assignedDriver = {
       id: newDriverUser.id,
       name: newDriverUser.name,
@@ -223,11 +237,13 @@ export default function OrderManager({
       updatedAt: new Date().toISOString()
     };
 
+    const saved = await onUpdateOrders(orders.map(o => o.id === targetOrder.id ? updated : o));
+    if (!saved) return;
     setQuickDriverModal(null);
     setQuickDriverName('');
     setQuickDriverPhone('');
-
-    await onUpdateOrders(orders.map(o => o.id === targetOrder.id ? updated : o));
+    const nextStaff = [...(staffUsers || []), newDriverUser];
+    if (onUpdateStaffUsers) onUpdateStaffUsers(nextStaff);
     if (addLog) {
       addLog(`Repartidor ${assignedDriver.name} registrado y asignado al pedido ${targetOrder.id}`);
     }
@@ -310,7 +326,7 @@ export default function OrderManager({
 
   // --- Reporte de WhatsApp ---
   const todayString = new Date().toDateString();
-  const ordersToday = orders.filter(o => o.status !== 'Cancelado' && new Date(o.date).toDateString() === todayString);
+  const ordersToday = orders.filter(o => isRecognizedSale(o) && new Date(orderRecognizedAt(o)).toDateString() === todayString);
   const salesToday = ordersToday.reduce((sum, o) => sum + o.grandTotal, 0);
   const avgTicket = ordersToday.length > 0 ? (salesToday / ordersToday.length) : 0;
 
@@ -1251,9 +1267,7 @@ export default function OrderManager({
                           {['Transferencia', 'Tarjeta'].includes(order.customer?.paymentMethod) && <span>{order.customer.paymentMethod}</span>}
                           {isDigitalPayment(order) ? (
                             order.paymentVerified ? (
-                              <button
-                                type="button"
-                                onClick={() => handleTogglePaymentVerified(order)}
+                              <span
                                 style={{
                                   background: '#dcfce7',
                                   color: '#15803d',
@@ -1262,16 +1276,15 @@ export default function OrderManager({
                                   padding: '2px 6px',
                                   fontSize: '0.64rem',
                                   fontWeight: 700,
-                                  cursor: 'pointer',
                                   display: 'inline-flex',
                                   alignItems: 'center',
                                   gap: '2px',
                                   width: 'fit-content'
                                 }}
-                                title="Abono verificado. Clic para alternar"
+                                title="Cobro confirmado. Para mantener la trazabilidad no se puede revertir desde el pedido."
                               >
                                 ✓ Abono Verificado
-                              </button>
+                              </span>
                             ) : (
                               <button
                                 type="button"

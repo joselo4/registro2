@@ -1,5 +1,6 @@
 import { useState, useMemo } from 'react';
 import { printThermalTicket } from '../../utils/escposTicket';
+import { isRecognizedSale, orderRecognizedAt, orderPaymentMethod } from '../../utils/orderLifecycle';
 
 export default function CashRegisterManager({
   orders = [],
@@ -38,8 +39,8 @@ export default function CashRegisterManager({
     const shiftStartTime = new Date(activeShift.openedAt).getTime();
 
     const ordersInShift = orders.filter(o => {
-      if (o.status === 'Cancelado') return false;
-      const orderTime = new Date(o.date).getTime();
+      if (!isRecognizedSale(o)) return false;
+      const orderTime = new Date(orderRecognizedAt(o)).getTime();
       return orderTime >= shiftStartTime;
     });
 
@@ -49,7 +50,7 @@ export default function CashRegisterManager({
 
     ordersInShift.forEach(o => {
       const amount = Number(o.grandTotal) || 0;
-      const method = String(o.paymentMethod || '').toLowerCase();
+      const method = orderPaymentMethod(o).toLowerCase();
       if (method.includes('efectivo')) {
         cash += amount;
       } else if (method.includes('yape') || method.includes('plin')) {

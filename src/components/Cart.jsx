@@ -51,6 +51,7 @@ export default function Cart({
   const [phone, setPhone] = useState(() => safeStorage.getItem('last_customer_phone', ''));
   const [address, setAddress] = useState(() => safeStorage.getItem('last_customer_address', ''));
   const [selectedPaymentMethod, setPaymentMethod] = useState('Yape'); // Yape, Plin, Efectivo, Transferencia, Tarjeta
+  const [paymentTiming, setPaymentTiming] = useState('Al llegar');
   const enabledPaymentMethods = getEnabledPaymentMethods(shopConfig);
   const paymentMethod = selectPaymentMethod(selectedPaymentMethod, enabledPaymentMethods);
   const [operationCode, setOperationCode] = useState('');
@@ -63,7 +64,7 @@ export default function Cart({
   const DIGITAL_PAYMENT_METHODS = ['Yape', 'Plin', 'Transferencia', 'Transferencia Bancaria', 'BCP', 'Interbank', 'BBVA', 'Lukita'];
   const isDigitalPayment = DIGITAL_PAYMENT_METHODS.some(m => paymentMethod.toLowerCase().includes(m.toLowerCase()));
   // ¿Mostrar el campo de operación? Solo si el pago es digital y la config lo permite
-  const showOpCodeField = isDigitalPayment && shopConfig?.showOperationCodeField !== false;
+  const showOpCodeField = isDigitalPayment && paymentTiming === 'Anticipado' && shopConfig?.showOperationCodeField !== false;
   const requireOpCode = showOpCodeField && shopConfig?.requireOperationCode === true;
 
   const IMPULSE_ITEMS = [
@@ -182,6 +183,7 @@ export default function Cart({
 
   // InitiateCheckout tracking
   const initiatedRef = useRef(false);
+  const pendingSubmissionRef = useRef(safeStorage.getJSON('pending_order_submission', null));
   useEffect(() => {
     if (!initiatedRef.current && trackEvent && cart && cart.length > 0) {
       initiatedRef.current = true;
@@ -251,15 +253,38 @@ export default function Cart({
 
     try {
       setIsSubmitting(true);
-      const orderId = generateOrderId();
       const sanitizedOpCode = sanitizeText(operationCode, 50);
+      const effectivePaymentTiming = (paymentMethod === 'Efectivo' || paymentMethod === 'Tarjeta') ? 'Al llegar' : paymentTiming;
+      const submissionFingerprint = JSON.stringify({
+        cart,
+        name: finalName,
+        phone: finalPhone,
+        address: finalAddress,
+        orderType,
+        tableNumber: activeMesaNumber,
+        paymentMethod,
+        paymentTiming: effectivePaymentTiming,
+        operationCode: sanitizedOpCode,
+        total,
+      });
+      if (!pendingSubmissionRef.current || pendingSubmissionRef.current.fingerprint !== submissionFingerprint) {
+        pendingSubmissionRef.current = {
+          id: generateOrderId(),
+          key: globalThis.crypto?.randomUUID?.() || `submit-${Date.now()}-${Math.random().toString(36).slice(2)}`,
+          fingerprint: submissionFingerprint,
+        };
+        safeStorage.setJSON('pending_order_submission', pendingSubmissionRef.current);
+      }
+      const orderId = pendingSubmissionRef.current.id;
       const newOrder = {
         id: orderId,
+        submissionKey: pendingSubmissionRef.current.key,
         customer: { 
           name: finalName, 
           phone: finalPhone, 
           address: finalAddress, 
           paymentMethod,
+          paymentTiming: effectivePaymentTiming,
           operationCode: sanitizedOpCode || undefined,
           orderType,
           tableNumber: activeMesaNumber
@@ -305,12 +330,14 @@ export default function Cart({
       }
       const opCodeLine = sanitizedOpCode ? `\n*N° Operación (${paymentMethod}):* ${sanitizedOpCode}` : '';
       const trackerLink = `\n\n*Sigue tu pedido en vivo aquí:*\n${window.location.origin}${window.location.pathname}?track=${orderId}`;
-      const whatsappMessage = `${whatsappGreeting}\n\n*Código:* ${orderId}\n*Cliente:* ${finalName}\n${destLine}\n*WhatsApp:* ${finalPhone}\n*Pago:* ${paymentMethod}${opCodeLine}\n\n*Pedido:*\n${itemsText}\n\n*Subtotal:* S/. ${cartSubtotal.toFixed(2)}${couponLine}\n*Delivery:* S/. ${activeDeliveryFee.toFixed(2)}\n*Total:* S/. ${total.toFixed(2)}${trackerLink}\n\n${whatsappFooter}`;
+      const whatsappMessage = `${whatsappGreeting}\n\n*Código:* ${orderId}\n*Cliente:* ${finalName}\n${destLine}\n*WhatsApp:* ${finalPhone}\n*Pago:* ${paymentMethod} · ${effectivePaymentTiming}${opCodeLine}\n\n*Pedido:*\n${itemsText}\n\n*Subtotal:* S/. ${cartSubtotal.toFixed(2)}${couponLine}\n*Delivery:* S/. ${activeDeliveryFee.toFixed(2)}\n*Total:* S/. ${total.toFixed(2)}${trackerLink}\n\n${whatsappFooter}`;
       
       const whatsappUrl = buildWhatsAppHref(storePhone, whatsappMessage);
 
       // Registrar pedido en la base de datos (y esperar a que finalice la sincronización en Supabase)
       await onPlaceOrder(newOrder);
+      pendingSubmissionRef.current = null;
+      safeStorage.removeItem('pending_order_submission');
 
        // Track purchase event
        if (trackEvent) {
@@ -337,7 +364,7 @@ export default function Cart({
         setTimeout(() => setIsSubmitting(false), 2000);
     } catch (err) {
       console.error("Fallo al enviar pedido:", err);
-      alert("⚠️ Lo sentimos, ocurrió un error al estructurar el pedido. Vuelve a intentarlo.");
+      alert(`⚠️ ${err?.message || 'No se pudo confirmar el pedido. Conservamos tu carrito para que vuelvas a intentarlo.'}`);
       setIsSubmitting(false);
     }
   };
@@ -868,10 +895,20 @@ export default function Cart({
               </div>
               {!enabledPaymentMethods.length && <p role="alert" style={{ fontSize: '0.875rem', margin: '8px 0', color: 'var(--danger)' }}>No hay métodos de pago disponibles. Intenta más tarde.</p>}
               {paymentMethod === 'Tarjeta' && <p style={{ fontSize: '0.875rem', margin: '8px 0', color: 'var(--text-light)' }}>Pago con tarjeta al recibir el pedido, mediante POS.</p>}
+              {isDigitalPayment && (
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '6px', marginTop: '10px' }}>
+                  <button type="button" className={`payment-btn ${paymentTiming === 'Al llegar' ? 'selected' : ''}`} aria-pressed={paymentTiming === 'Al llegar'} onClick={() => setPaymentTiming('Al llegar')}>
+                    🛵 Pagar al llegar
+                  </button>
+                  <button type="button" className={`payment-btn ${paymentTiming === 'Anticipado' ? 'selected' : ''}`} aria-pressed={paymentTiming === 'Anticipado'} onClick={() => setPaymentTiming('Anticipado')}>
+                    ✅ Pagar ahora
+                  </button>
+                </div>
+              )}
             </div>
 
             {/* Cajón Interactivo para Pago Digital (Yape / Plin) */}
-            {(paymentMethod === 'Yape' || paymentMethod === 'Plin') && (
+            {(paymentMethod === 'Yape' || paymentMethod === 'Plin') && paymentTiming === 'Anticipado' && (
               <div className="payment-drawer-card" style={{
                 marginTop: '10px',
                 padding: '12px 14px',

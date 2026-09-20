@@ -1,6 +1,7 @@
 import { useState, Fragment } from 'react';
 import { getEnabledPaymentMethods, selectPaymentMethod } from '../../utils/paymentMethods';
 import { sanitizeHTML } from '../../utils/security';
+import { isRecognizedSale, orderRecognizedAt } from '../../utils/orderLifecycle';
 
 
 export default function FinanceManager({
@@ -58,8 +59,8 @@ export default function FinanceManager({
     const startOfMonth = new Date(today.getFullYear(), today.getMonth(), 1);
 
     const filteredOrders = orders.filter(o => {
-      if (o.status === 'Cancelado') return false;
-      const oDate = new Date(o.date);
+      if (!isRecognizedSale(o)) return false;
+      const oDate = new Date(orderRecognizedAt(o));
       if (financeRange === 'today') {
         return oDate.toDateString() === todayStr;
       }
@@ -498,7 +499,7 @@ export default function FinanceManager({
       {financeRange !== 'today' && (() => {
         const dayMap = {};
         filteredOrders.forEach(o => {
-          const d = new Date(o.date).toLocaleDateString('es-PE', { timeZone: 'America/Lima', year: 'numeric', month: '2-digit', day: '2-digit' });
+          const d = new Date(orderRecognizedAt(o)).toLocaleDateString('es-PE', { timeZone: 'America/Lima', year: 'numeric', month: '2-digit', day: '2-digit' });
           if (!dayMap[d]) dayMap[d] = { orders: [], expTotal: 0, sales: 0 };
           dayMap[d].orders.push(o);
           dayMap[d].sales += o.grandTotal;
@@ -549,7 +550,7 @@ export default function FinanceManager({
                           <td style={{ color: bal >= 0 ? 'var(--success)' : 'var(--danger)', fontWeight: 'bold' }}>{bal.toFixed(2)}</td>
                         </tr>
                         {isExp && data.orders.map(o => {
-                          const hora = new Date(o.date).toLocaleTimeString('es-PE', { timeZone: 'America/Lima', hour: '2-digit', minute: '2-digit', hour12: true });
+                          const hora = new Date(orderRecognizedAt(o)).toLocaleTimeString('es-PE', { timeZone: 'America/Lima', hour: '2-digit', minute: '2-digit', hour12: true });
                           return (
                             <tr key={o.id} style={{ background: 'rgba(0,0,0,0.018)', fontSize: '0.75rem' }}>
                               <td style={{ paddingLeft: '22px' }}><span style={{ color: 'var(--text-light)', fontFamily: 'monospace' }}>{hora}</span> · <strong>{o.id}</strong></td>
@@ -588,7 +589,7 @@ export default function FinanceManager({
               </thead>
               <tbody>
                 {filteredOrders.map(o => {
-                  const hora = new Date(o.date).toLocaleTimeString('es-PE', { timeZone: 'America/Lima', hour: '2-digit', minute: '2-digit', hour12: true });
+                  const hora = new Date(orderRecognizedAt(o)).toLocaleTimeString('es-PE', { timeZone: 'America/Lima', hour: '2-digit', minute: '2-digit', hour12: true });
                   return (
                     <tr key={o.id}>
                       <td><strong>{o.id}</strong></td>

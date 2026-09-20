@@ -1,7 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { onRequestGet, onRequestPost } from '../functions/api/order.js';
-import { mergeOrders, nextOrderStatus, prepareOrderUpdate } from '../src/utils/orderLifecycle.js';
+import { mergeOrders, nextOrderStatus, prepareOrderUpdate, isRecognizedSale, orderRecognizedAt } from '../src/utils/orderLifecycle.js';
 import { saveOrderChange, fetchAllSyncRows } from '../src/utils/orderRepository.js';
 import { allowedOrderChange } from '../functions/api/_orderAccess.js';
 import { sameOriginRequest } from '../functions/api/_security.js';
@@ -145,6 +145,27 @@ test('cash delivery requires receipt; serving a table does not automatically mar
   assert.equal(prepareOrderUpdate(table, { ...table, status: 'Entregado' }).tablePaid, false);
 });
 
+test('confirmed collections and assigned routes cannot be silently reversed', () => {
+  const delivered = fixture({
+    status: 'Entregado',
+    paymentVerified: true,
+    assignedDriver: { id: 'driver' },
+    customer: { orderType: 'Delivery', paymentMethod: 'Efectivo', paymentTiming: 'Al llegar' },
+  });
+  assert.throws(() => prepareOrderUpdate(delivered, { ...delivered, paymentVerified: false }), /no se puede/);
+  assert.throws(() => prepareOrderUpdate(delivered, { ...delivered, assignedDriver: null }), /repartidor asignado/);
+
+  const prepaidYesterday = {
+    ...delivered,
+    date: '2026-09-18T15:00:00Z',
+    paymentVerifiedAt: '2026-09-18T16:00:00Z',
+    deliveredAt: '2026-09-19T18:00:00Z',
+    statusHistory: [{ status: 'Entregado', timestamp: '2026-09-19T18:00:00Z' }],
+  };
+  assert.equal(isRecognizedSale(prepaidYesterday), true);
+  assert.equal(orderRecognizedAt(prepaidYesterday), '2026-09-19T18:00:00.000Z');
+});
+
 test('partial/stale list refreshes retain newer statuses, assignment and all order IDs', () => {
   const old = fixture();
   const fresh = { ...old, status: 'Listo', updatedAt: '2026-09-06T11:00:00Z', assignedDriver: { id: 'driver' } };
@@ -204,7 +225,11 @@ for (const method of ['Yape', 'Plin', 'Efectivo', 'Transferencia', 'Tarjeta']) {
     assert.equal(unpaid.status, 409);
     const delivered = await post(db, { ...saved, status: 'Entregado', paymentVerified: true }, { action: 'update', previous: saved });
     assert.equal(delivered.status, 200);
-    assert.equal((await delivered.json()).order.paymentVerified, true);
+    const completed = (await delivered.json()).order;
+    assert.equal(completed.paymentVerified, true);
+    assert.ok(Number.isFinite(Date.parse(completed.paymentVerifiedAt)));
+    assert.equal(completed.paymentVerifiedBy.role, 'repartidor');
+    assert.ok(Number.isFinite(Date.parse(completed.deliveredAt)));
   });
 }
 

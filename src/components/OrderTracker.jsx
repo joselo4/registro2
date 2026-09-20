@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef } from 'react';
 import { readOrder, requestOrder } from '../utils/apiClient';
-import { mergeOrders, isDeliveryOrder, orderStatusLabel, paymentDescription } from '../utils/orderLifecycle';
+import { mergeOrders, isDeliveryOrder, orderStatusLabel, paymentDescription, requiresAdvancePayment } from '../utils/orderLifecycle';
 import { sanitizeText, safeStorage } from '../utils/security';
 import { buildWhatsAppHref } from '../utils/orderMessaging';
 
@@ -917,7 +917,10 @@ export default function OrderTracker({ orderId, orders, setView, storePhone, onC
               {/* Mostrar estados pendientes como grises */}
               {currentOrder.status !== 'Cancelado' && currentOrder.status !== 'Entregado' && (() => {
                 const completedStatuses = allHistory.map(h => h.status);
-                const pendingStatuses = ['Pendiente', 'Preparando', 'En camino', 'Entregado'].filter(s => !completedStatuses.includes(s));
+                const stages = isDeliveryOrder(currentOrder)
+                  ? ['Por Corroborar', 'Pendiente', 'Preparando', 'Listo', 'En camino', 'Entregado']
+                  : ['Por Corroborar', 'Pendiente', 'Preparando', 'Listo', 'Entregado'];
+                const pendingStatuses = stages.filter(s => !completedStatuses.includes(s));
                 return pendingStatuses.map((s, idx) => {
                   const meta = statusMeta[s];
                   return (
@@ -961,7 +964,7 @@ export default function OrderTracker({ orderId, orders, setView, storePhone, onC
           {currentOrder.status === 'Por Corroborar' && (
             currentOrder.customer?.orderType === 'Mesa'
               ? '🍽️ El personal de sala está corroborando tu comanda en mesa. En breve pasará a cocina.'
-              : String(currentOrder.customer?.paymentMethod || '').match(/yape|plin/i)
+              : requiresAdvancePayment(currentOrder)
                 ? '📱 Estamos validando tu comprobante de abono con caja. En breve cocina comenzará a preparar tus helados.'
                 : '⏳ Estamos confirmando los detalles de tu pedido. En breve pasará a preparación en cocina.'
           )}

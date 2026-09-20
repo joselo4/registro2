@@ -1,6 +1,7 @@
 /**
  * Utilidad para generar y despachar el Reporte Nocturno Automático de Ventas a Telegram.
  */
+import { isRecognizedSale, orderRecognizedAt, orderPaymentMethod } from './orderLifecycle.js';
 
 export const generateDailyReportText = ({
   orders = [],
@@ -20,10 +21,10 @@ export const generateDailyReportText = ({
     year: 'numeric'
   });
 
-  // Filtrar órdenes completadas o activas del día (excluyendo canceladas)
+  // Una venta se reconoce únicamente cuando fue entregada y su cobro quedó confirmado.
   const todayOrders = orders.filter(o => {
-    if (o.status === 'Cancelado') return false;
-    const orderLimaDate = new Date(o.date).toLocaleDateString('en-CA', { timeZone: 'America/Lima' });
+    if (!isRecognizedSale(o)) return false;
+    const orderLimaDate = new Date(orderRecognizedAt(o)).toLocaleDateString('en-CA', { timeZone: 'America/Lima' });
     return orderLimaDate === limaDateStr;
   });
 
@@ -50,7 +51,7 @@ export const generateDailyReportText = ({
   const itemCounts = {};
 
   todayOrders.forEach(o => {
-    const method = String(o.paymentMethod || '').toLowerCase();
+    const method = orderPaymentMethod(o).toLowerCase();
     const amount = Number(o.grandTotal) || 0;
 
     if (method.includes('efectivo')) {

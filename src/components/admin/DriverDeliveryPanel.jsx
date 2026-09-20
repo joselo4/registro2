@@ -1,6 +1,6 @@
 import { useState, useMemo, useEffect, useRef } from 'react';
 import { getCollectionPaymentMethods, selectPaymentMethod } from '../../utils/paymentMethods';
-import { isPaymentOnArrival } from '../../utils/orderLifecycle';
+import { isPaymentOnArrival, orderPaymentMethod, orderStatusTimestamp } from '../../utils/orderLifecycle';
 import { buildWhatsAppHref } from '../../utils/orderMessaging';
 import { notifyOperationalEvent, playCashReminderSound, triggerDeviceVibration } from '../../utils/appAudioNotifications';
 
@@ -76,20 +76,20 @@ export default function DriverDeliveryPanel({
     return myAssignedOrders.filter(o => o.status === 'Listo' || o.status === 'En camino');
   }, [myAssignedOrders]);
 
-  const todayIso = new Date().toDateString();
+  const todayIso = new Date().toLocaleDateString('en-CA', { timeZone: 'America/Lima' });
   const completedToday = useMemo(() => {
-    return myAssignedOrders.filter(o => o.status === 'Entregado' && new Date(o.date).toDateString() === todayIso);
+    return myAssignedOrders.filter(o => o.status === 'Entregado' && new Date(orderStatusTimestamp(o, 'Entregado')).toLocaleDateString('en-CA', { timeZone: 'America/Lima' }) === todayIso);
   }, [myAssignedOrders, todayIso]);
 
   const cashCollectedToday = useMemo(() => {
     return completedToday
-      .filter(o => String(o.customer?.paymentMethod || '').toLowerCase().includes('efectivo'))
+      .filter(o => orderPaymentMethod(o).toLowerCase().includes('efectivo'))
       .reduce((sum, o) => sum + Number(o.grandTotal || 0), 0);
   }, [completedToday]);
 
   const digitalCollectedToday = useMemo(() => {
     return completedToday
-      .filter(o => !String(o.customer?.paymentMethod || '').toLowerCase().includes('efectivo'))
+      .filter(o => !orderPaymentMethod(o).toLowerCase().includes('efectivo'))
       .reduce((sum, o) => sum + Number(o.grandTotal || 0), 0);
   }, [completedToday]);
 
