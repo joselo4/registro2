@@ -370,15 +370,17 @@ export default function KitchenDisplaySystem({
 
                 {/* Acciones de Cocina de 1 Toque */}
                 <div style={{ borderTop: '1px solid var(--border-color)', paddingTop: '10px', display: 'flex', gap: '8px' }}>
-                  <button
-                    type="button"
-                    className="btn btn-secondary"
-                    onClick={() => printThermalTicket({ type: 'comanda', order, storeName, ticketCustomMessage })}
-                    style={{ padding: '8px 10px', fontSize: '0.8rem' }}
-                    title="Imprimir comanda térmica para cocina"
-                  >
-                    🖨️
-                  </button>
+                  {shopConfig?.escposPrintEnabled !== false && (
+                    <button
+                      type="button"
+                      className="btn btn-secondary"
+                      onClick={() => printThermalTicket({ type: 'comanda', order, storeName, ticketCustomMessage })}
+                      style={{ padding: '8px 10px', fontSize: '0.8rem' }}
+                      title="Imprimir comanda térmica para cocina"
+                    >
+                      🖨️
+                    </button>
+                  )}
 
                   {order.status === 'Pendiente' ? (
                     <button

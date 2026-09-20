@@ -56,10 +56,25 @@ test('management accepts payment on arrival without requesting an advance vouche
   const html = renderToStaticMarkup(<OrderManager {...props} orders={[pending]} />);
   assert.ok(html.includes('PAGO AL LLEGAR'));
   assert.ok(html.includes('Informa al repartidor'));
+  assert.ok(html.includes('Aceptar · cobra reparto'));
   assert.ok(html.includes('Pago al llegar'));
   assert.ok(html.includes('Pendiente de cobro'));
   assert.ok(!html.includes('Validar Abono'));
   assert.ok(!html.includes('para iniciar la preparaci'));
+});
+
+test('delivered and cancelled orders no longer expose assignment or dispatch controls', () => {
+  const delivered = { ...order('Entregado'), paymentVerified: true };
+  const deliveredHtml = renderToStaticMarkup(<OrderManager {...props} orders={[delivered]} />);
+  assert.ok(deliveredHtml.includes('Entregado por'));
+  assert.ok(!deliveredHtml.includes('aria-label="Asignar repartidor"'));
+  assert.ok(!deliveredHtml.includes('title="Enviar hoja de ruta'));
+
+  const cancelled = order('Cancelado');
+  const cancelledHtml = renderToStaticMarkup(<OrderManager {...props} orders={[cancelled]} />);
+  assert.ok(cancelledHtml.includes('Pedido cancelado · sin despacho'));
+  assert.ok(cancelledHtml.includes('Pedido cancelado · sin cobro'));
+  assert.ok(!cancelledHtml.includes('aria-label="Asignar repartidor"'));
 });
 
 test('legacy unpaid digital delivery remains collectible and visible to driver and operator', () => {

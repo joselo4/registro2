@@ -935,15 +935,18 @@ export default function AdminPanel({
 
         {activeTab === 'finance' && (
           <div style={{ display: 'flex', flexDirection: 'column', gap: '24px' }}>
-            <CashRegisterManager
-              orders={orders}
-              shifts={cashShifts}
-              onUpdateShifts={onUpdateCashShifts}
-              currentUser={currentUser}
-              storeName={storeName}
-              addLog={addLog}
-              showAlert={showAlert}
-            />
+            {shopConfig?.cashRegisterEnabled !== false && (
+              <CashRegisterManager
+                orders={orders}
+                shifts={cashShifts}
+                onUpdateShifts={onUpdateCashShifts}
+                currentUser={currentUser}
+                storeName={storeName}
+                printEnabled={shopConfig?.escposPrintEnabled !== false}
+                addLog={addLog}
+                showAlert={showAlert}
+              />
+            )}
             <FinanceManager
               orders={orders}
               onUpdateOrders={onUpdateOrders}

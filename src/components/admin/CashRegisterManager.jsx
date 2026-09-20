@@ -8,6 +8,7 @@ export default function CashRegisterManager({
   onUpdateShifts,
   currentUser,
   storeName = 'Friozo',
+  printEnabled = true,
   addLog,
   showAlert
 }) {
@@ -192,13 +193,15 @@ export default function CashRegisterManager({
     addLog?.(`Cierre Z completado por ${currentUser?.name || 'Caja'}. Diferencia: S/ ${difference.toFixed(2)}.`);
 
     // Imprimir ticket de Cierre Z automáticamente
-    printThermalTicket({
-      type: 'cierre_z',
-      shift: closedShift,
-      storeName
-    });
+    if (printEnabled) {
+      printThermalTicket({
+        type: 'cierre_z',
+        shift: closedShift,
+        storeName
+      });
+    }
 
-    if (showAlert) showAlert('Turno Cerrado', 'El Cierre Z se generó exitosamente y se envió a imprimir.', 'success');
+    if (showAlert) showAlert('Turno Cerrado', printEnabled ? 'El Cierre Z se generó y se envió a imprimir.' : 'El Cierre Z se guardó correctamente.', 'success');
   };
 
   return (
@@ -463,14 +466,16 @@ export default function CashRegisterManager({
                       {(shift.difference || 0) >= 0 ? `+S/ ${(shift.difference || 0).toFixed(2)}` : `-S/ ${Math.abs(shift.difference || 0).toFixed(2)}`}
                     </td>
                     <td>
-                      <button
-                        type="button"
-                        className="btn btn-secondary"
-                        style={{ padding: '4px 8px', fontSize: '0.72rem' }}
-                        onClick={() => printThermalTicket({ type: 'cierre_z', shift, storeName })}
-                      >
-                        🖨️ Re-imprimir
-                      </button>
+                      {printEnabled && (
+                        <button
+                          type="button"
+                          className="btn btn-secondary"
+                          style={{ padding: '4px 8px', fontSize: '0.72rem' }}
+                          onClick={() => printThermalTicket({ type: 'cierre_z', shift, storeName })}
+                        >
+                          🖨️ Re-imprimir
+                        </button>
+                      )}
                     </td>
                   </tr>
                 ))}

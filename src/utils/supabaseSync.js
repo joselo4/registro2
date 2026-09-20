@@ -14,8 +14,9 @@ export const invalidateSyncCache = () => {
   _syncCacheTime.client = 0;
 };
 
-// Cola de timeouts para debouncing de escrituras por llave
-const _writeTimeouts = {};
+// Una cola por llave agrupa cambios rápidos en una sola escritura y resuelve a
+// todos los consumidores que estaban esperando confirmación.
+const _writeQueues = {};
 // ─────────────────────────────────────────────────────────────────────────────
 
 /**
@@ -147,16 +148,17 @@ export const updateSyncedData = async (key, value) => {
   const shouldDebounce = !key.startsWith('order_');
 
   if (shouldDebounce) {
-    if (_writeTimeouts[key]) {
-      clearTimeout(_writeTimeouts[key]);
-    }
-
     return new Promise((resolve) => {
-      _writeTimeouts[key] = setTimeout(async () => {
-        delete _writeTimeouts[key];
+      const queue = _writeQueues[key] || { timer: null, resolvers: [] };
+      queue.resolvers.push(resolve);
+      if (queue.timer) clearTimeout(queue.timer);
+      queue.timer = setTimeout(async () => {
+        const resolvers = [...queue.resolvers];
+        delete _writeQueues[key];
         const res = await _executeUpsert(key, value);
-        resolve(res);
+        resolvers.forEach(done => done(res));
       }, 800); // 800ms de retraso para agrupar escrituras concurrentes
+      _writeQueues[key] = queue;
     });
   } else {
     return _executeUpsert(key, value);

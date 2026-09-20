@@ -1004,7 +1004,7 @@ export default function OrderManager({
           </div>
 
           <div className="glass admin-table-container">
-            <table className="admin-table">
+            <table className="admin-table order-management-table">
               <thead>
                 <tr>
                   <th>Pedido</th>
@@ -1016,7 +1016,7 @@ export default function OrderManager({
               <tbody>
                 {filtered.length === 0 ? (
                   <tr>
-                    <td colSpan="4" style={{ textAlign: 'center', color: 'var(--text-light)', padding: '20px' }}>
+                    <td colSpan="4" className="order-empty-cell" style={{ textAlign: 'center', color: 'var(--text-light)', padding: '20px' }}>
                       No se encontraron pedidos.
                     </td>
                   </tr>
@@ -1029,7 +1029,7 @@ export default function OrderManager({
 
                     return (
                     <tr key={order.id} style={isDelivery ? { background: 'rgba(255, 68, 31, 0.02)' } : {}}>
-                      <td>
+                      <td data-label="Pedido">
                         <div style={{ display: 'flex', alignItems: 'center', gap: '6px', flexWrap: 'wrap' }}>
                           <strong>{order.id}</strong>
                           {isDelivery && (
@@ -1104,7 +1104,7 @@ export default function OrderManager({
                           }}>
                             <div style={{ fontWeight: 800, display: 'flex', alignItems: 'center', gap: '4px', color: '#b45309', marginBottom: '2px' }}>
                               <span>⚠️</span>
-                              <span>VALIDACIÓN REQUERIDA:</span>
+                              <span>{requiresAdvancePayment(order) ? 'VALIDACIÓN DE PAGO:' : 'CONFIRMACIÓN DEL PEDIDO:'}</span>
                             </div>
                             {requiresAdvancePayment(order) ? (
                               <div>
@@ -1155,35 +1155,49 @@ export default function OrderManager({
                         )}
                         {isDelivery && (
                           <div style={{ marginTop: '5px', display: 'flex', alignItems: 'center', gap: '4px', flexWrap: 'wrap' }}>
-                            <select
-                              aria-label="Asignar repartidor"
-                              value={order.assignedDriver?.id || order.assignedDriver?.email || ''}
-                              onChange={(e) => handleAssignDriver(order, e.target.value)}
-                              style={{
-                                fontSize: '0.72rem',
-                                padding: '2px 4px',
-                                borderRadius: '4px',
-                                border: '1px solid var(--delivery-color, #FF441F)',
-                                background: 'var(--bg-secondary, #fff)',
-                                color: 'var(--text-dark)',
-                                maxWidth: '150px'
-                              }}
-                            >
-                              <option value="">🛵 Asignar repartidor...</option>
-                              {order.assignedDriver && !staffUsers.some(u => String(u.id || u.email) === String(order.assignedDriver.id || order.assignedDriver.email)) && (
-                                <option value={order.assignedDriver.id || order.assignedDriver.email}>
-                                  🛵 {order.assignedDriver.name || order.assignedDriver.email} (Asignado)
-                                </option>
-                              )}
-                              {staffUsers.map(u => (
-                                <option key={u.id || u.email} value={u.id || u.email}>
-                                  {String(u.role || '').toLowerCase().includes('repartidor') ? '🛵 ' : '👤 '}
-                                  {u.name || u.email} {u.role ? `(${u.role})` : ''}
-                                </option>
-                              ))}
-                              <option value="__NEW_DRIVER__">➕ Registrar nuevo repartidor...</option>
-                            </select>
-                            {order.assignedDriver && (
+                            {!['En camino', 'Entregado', 'Cancelado'].includes(order.status) ? (
+                              <select
+                                aria-label="Asignar repartidor"
+                                value={order.assignedDriver?.id || order.assignedDriver?.email || ''}
+                                onChange={(e) => handleAssignDriver(order, e.target.value)}
+                                style={{
+                                  fontSize: '0.72rem',
+                                  padding: '4px 7px',
+                                  borderRadius: '6px',
+                                  border: '1px solid var(--delivery-color, #FF441F)',
+                                  background: 'var(--bg-secondary, #fff)',
+                                  color: 'var(--text-dark)',
+                                  maxWidth: '185px'
+                                }}
+                              >
+                                <option value="">🛵 Asignar repartidor...</option>
+                                {order.assignedDriver && !staffUsers.some(u => String(u.id || u.email) === String(order.assignedDriver.id || order.assignedDriver.email)) && (
+                                  <option value={order.assignedDriver.id || order.assignedDriver.email}>
+                                    🛵 {order.assignedDriver.name || order.assignedDriver.email} (Asignado)
+                                  </option>
+                                )}
+                                {staffUsers.map(u => (
+                                  <option key={u.id || u.email} value={u.id || u.email}>
+                                    {String(u.role || '').toLowerCase().includes('repartidor') ? '🛵 ' : '👤 '}
+                                    {u.name || u.email} {u.role ? `(${u.role})` : ''}
+                                  </option>
+                                ))}
+                                <option value="__NEW_DRIVER__">➕ Registrar nuevo repartidor...</option>
+                              </select>
+                            ) : (
+                              <span style={{
+                                padding: '4px 8px', borderRadius: '6px', fontSize: '0.7rem', fontWeight: 700,
+                                background: order.status === 'Cancelado' ? '#fee2e2' : '#e0f2fe',
+                                color: order.status === 'Cancelado' ? '#b91c1c' : '#075985'
+                              }}>
+                                {order.status === 'Cancelado'
+                                  ? '🚫 Pedido cancelado · sin despacho'
+                                  : order.status === 'Entregado'
+                                    ? `✅ Entregado por ${order.assignedDriver?.name || 'repartidor'}`
+                                    : `🛵 En ruta con ${order.assignedDriver?.name || 'repartidor'}`}
+                              </span>
+                            )}
+                            {order.assignedDriver && order.status === 'Listo' && (
                               <button
                                 type="button"
                                 className="admin-action-btn"
@@ -1209,11 +1223,11 @@ export default function OrderManager({
                           </div>
                         )}
                       </td>
-                      <td>
+                      <td data-label="Cliente">
                         <div style={{ fontWeight: 600, fontSize: '0.85rem' }}>{order.customer.name}</div>
                         <div style={{ fontSize: '0.75rem', color: 'var(--text-light)' }}>{order.customer.address}</div>
                       </td>
-                      <td>
+                      <td data-label="Monto y pago">
                         <strong style={{ color: 'var(--primary-color)', fontSize: '0.95rem', display: 'block' }}>
                           S/. {Number(order.grandTotal || 0).toFixed(2)}
                         </strong>
@@ -1282,9 +1296,15 @@ export default function OrderManager({
                             </span>
                           )}
 
-                          {isPaymentOnArrival(order) && <span style={{ fontSize: '0.875rem', fontWeight: 700 }}>Pago al llegar · {order.paymentVerified ? 'Cobrado' : 'Pendiente de cobro'}</span>}
+                          {order.status === 'Cancelado' ? (
+                            <span style={{ fontSize: '0.75rem', fontWeight: 700, color: '#b91c1c' }}>Pedido cancelado · sin cobro</span>
+                          ) : Number(order.grandTotal || 0) <= 0 ? (
+                            <span style={{ fontSize: '0.75rem', fontWeight: 700, color: '#15803d' }}>Cortesía · sin importe pendiente</span>
+                          ) : isPaymentOnArrival(order) && (
+                            <span style={{ fontSize: '0.875rem', fontWeight: 700 }}>Pago al llegar · {order.paymentVerified ? 'Cobrado' : 'Pendiente de cobro'}</span>
+                          )}
                           {['Transferencia', 'Tarjeta'].includes(order.customer?.paymentMethod) && <span>{order.customer.paymentMethod}</span>}
-                          {order.paymentVerified ? (
+                          {order.status === 'Cancelado' || Number(order.grandTotal || 0) <= 0 ? null : order.paymentVerified ? (
                             <span
                               style={{
                                 background: '#dcfce7',
@@ -1325,16 +1345,18 @@ export default function OrderManager({
                               >
                                 ⚠️ Validar Abono
                               </button>
-                          ) : isPaymentOnArrival(order) ? (
+                          ) : isPaymentOnArrival(order) && isDelivery ? (
                             <span style={{ fontSize: '0.64rem', color: '#b45309', fontWeight: 700 }}>
                               🚚 Cobro a cargo del repartidor
                             </span>
+                          ) : isPaymentOnArrival(order) ? (
+                            <span style={{ fontSize: '0.64rem', color: '#b45309', fontWeight: 700 }}>🏪 Cobro pendiente en tienda</span>
                           ) : (
                             <span style={{ fontSize: '0.64rem', color: '#b91c1c', fontWeight: 700 }}>Pago pendiente de validar</span>
                           )}
                         </div>
                       </td>
-                      <td>
+                      <td data-label="Acciones" className="order-actions-cell">
                         <div style={{ display: 'flex', gap: '5px', flexWrap: 'wrap', alignItems: 'center' }}>
                           {/* Acciones principales secuenciales adaptadas al canal */}
                           {order.status === 'Por Corroborar' && (
@@ -1352,9 +1374,9 @@ export default function OrderManager({
                                 cursor: 'pointer'
                               }}
                               onClick={() => handleValidateAndAcceptOrder(order)}
-                              title="Validar comprobante de pago y aceptar pedido a preparación"
+                              title={requiresAdvancePayment(order) ? 'Validar el abono y aceptar el pedido' : 'Aceptar el pedido sin validar pago; cobrará el repartidor al entregar'}
                             >
-                              ✅ Validar y Aceptar
+                              {requiresAdvancePayment(order) ? '✅ Validar pago y aceptar' : '✅ Aceptar · cobra reparto'}
                             </button>
                           )}
                           {order.status === 'Pendiente' && (
@@ -1524,23 +1546,25 @@ export default function OrderManager({
                           >
                             💬 Chat
                           </a>
-                          <button
-                            type="button"
-                            className="admin-action-btn"
-                            style={{ color: 'var(--delivery-color, #FF441F)', fontWeight: 600 }}
-                            title="Imprimir ticket térmico ESC/POS (58mm / 80mm)"
-                            onClick={() => {
-                              printThermalTicket({
-                                type: isDelivery ? 'delivery' : 'comanda',
-                                order,
-                                storeName: storeName || 'Friozo',
-                                storePhone: storePhone || '',
-                                ticketCustomMessage: ticketCustomMessage || ''
-                              });
-                            }}
-                          >
-                            🧾 Térmica ESC/POS
-                          </button>
+                          {shopConfig?.escposPrintEnabled !== false && (
+                            <button
+                              type="button"
+                              className="admin-action-btn"
+                              style={{ color: 'var(--delivery-color, #FF441F)', fontWeight: 600 }}
+                              title="Imprimir ticket térmico ESC/POS (58mm / 80mm)"
+                              onClick={() => {
+                                printThermalTicket({
+                                  type: isDelivery ? 'delivery' : 'comanda',
+                                  order,
+                                  storeName: storeName || 'Friozo',
+                                  storePhone: storePhone || '',
+                                  ticketCustomMessage: ticketCustomMessage || ''
+                                });
+                              }}
+                            >
+                              🧾 Térmica ESC/POS
+                            </button>
+                          )}
                           <button
                             type="button"
                             className="admin-action-btn"
@@ -1666,7 +1690,7 @@ export default function OrderManager({
                                     <div class="footer">
                                       <div style="font-weight: bold; font-size: 0.85rem; margin-bottom: 4px;">⚠️ ¡ATENCIÓN COCINA / REPARTO!</div>
                                       <div style="margin-bottom: 8px; font-size: 0.75rem;">Mantener cadena de frío. Entregar con máxima higiene.</div>
-                                      ${ticketCustomMessage ? `<div style="margin-top: 6px; font-size: 0.8rem; font-style: italic; font-weight: bold; border-top: 1px dashed #000; padding-top: 6px; color: #111;">${ticketCustomMessage}</div>` : ''}
+                                      ${ticketCustomMessage ? `<div style="margin-top: 6px; font-size: 0.8rem; font-style: italic; font-weight: bold; border-top: 1px dashed #000; padding-top: 6px; color: #111;">${sanitizeHTML(ticketCustomMessage)}</div>` : ''}
                                       <div style="margin-top: 8px; font-size: 0.7rem; color: #555;">Impreso desde el panel de Friozo.</div>
                                     </div>
                                   </body>

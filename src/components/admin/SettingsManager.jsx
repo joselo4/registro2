@@ -227,7 +227,7 @@ export default function SettingsManager({
     onChangeWhatsappGreeting(localWhatsappGreeting);
     onChangeWhatsappFooter(localWhatsappFooter);
     onChangeQrCustomUrl(sanitizedQrUrl);
-    onUpdateTicketCustomMessage(localTicketCustomMessage);
+    onUpdateTicketCustomMessage(localTicketCustomMessage.trim().slice(0, 240));
 
     onUpdateLiterConfig({
       active: !!localLiterActive,
@@ -1872,21 +1872,49 @@ export default function SettingsManager({
             </div>
 
             {/* Impresión Térmica ESC/POS */}
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderBottom: '1px solid rgba(0,0,0,0.05)', paddingBottom: '10px' }}>
-              <div>
-                <strong style={{ fontSize: '0.85rem', display: 'block' }}>🧾 Impresión Térmica ESC/POS (58mm / 80mm)</strong>
-                <span style={{ fontSize: '0.72rem', color: 'var(--text-light)' }}>
-                  Tickets compactos para cocina, despacho de delivery y tiras de Cierre Z.
-                </span>
+            <div style={{ borderBottom: '1px solid rgba(0,0,0,0.05)', paddingBottom: '12px', background: 'rgba(255,255,255,0.55)', borderRadius: '10px', padding: '12px' }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: '12px' }}>
+                <div>
+                  <strong style={{ fontSize: '0.85rem', display: 'block' }}>🧾 Impresión Térmica ESC/POS (58mm / 80mm)</strong>
+                  <span style={{ fontSize: '0.72rem', color: 'var(--text-light)' }}>
+                    Tickets compactos para cocina, despacho de delivery y tiras de Cierre Z.
+                  </span>
+                </div>
+                <label className="toggle-switch">
+                  <input
+                    type="checkbox"
+                    checked={localShopConfig.escposPrintEnabled !== false}
+                    onChange={(e) => setLocalShopConfig(prev => ({ ...prev, escposPrintEnabled: e.target.checked }))}
+                  />
+                  <span className="slider"></span>
+                </label>
               </div>
-              <label className="toggle-switch">
-                <input
-                  type="checkbox"
-                  checked={localShopConfig.escposPrintEnabled !== false}
-                  onChange={(e) => setLocalShopConfig(prev => ({ ...prev, escposPrintEnabled: e.target.checked }))}
-                />
-                <span className="slider"></span>
-              </label>
+              {localShopConfig.escposPrintEnabled !== false && (
+                <div style={{ marginTop: '12px', paddingTop: '10px', borderTop: '1px dashed rgba(0,0,0,0.12)' }}>
+                  <label htmlFor="escpos-store-message" style={{ display: 'block', fontSize: '0.75rem', fontWeight: 700, marginBottom: '5px' }}>
+                    Mensaje personalizado de la tienda
+                  </label>
+                  <textarea
+                    id="escpos-store-message"
+                    className="form-control"
+                    rows="3"
+                    maxLength="240"
+                    value={localTicketCustomMessage}
+                    onChange={(event) => setLocalTicketCustomMessage(event.target.value)}
+                    placeholder="Ej: ¡Gracias por tu compra! Síguenos en redes y vuelve pronto."
+                    style={{ width: '100%', resize: 'vertical', fontSize: '0.8rem' }}
+                  />
+                  <div style={{ display: 'flex', justifyContent: 'space-between', gap: '10px', marginTop: '5px', fontSize: '0.68rem', color: 'var(--text-light)' }}>
+                    <span>Se imprimirá al pie de la comanda y del ticket de delivery.</span>
+                    <span>{localTicketCustomMessage.length}/240</span>
+                  </div>
+                  {localTicketCustomMessage.trim() && (
+                    <div style={{ marginTop: '8px', padding: '8px', border: '1px dashed #64748b', background: '#fff', color: '#111', textAlign: 'center', fontFamily: 'monospace', fontSize: '0.72rem', whiteSpace: 'pre-wrap' }}>
+                      {localTicketCustomMessage.trim()}
+                    </div>
+                  )}
+                </div>
+              )}
             </div>
 
             {/* Bitácora de Auditoría */}
@@ -2355,27 +2383,6 @@ alter table public.helados_sync enable row level security;`}
                 onChange={(e) => setLocalWhatsappFooter(e.target.value)}
               />
             </div>
-          </div>
-        </div>
-
-        {/* Ticket Customization */}
-        <div className="glass" style={{ borderLeft: '4px solid var(--warning)', padding: '15px', background: 'rgba(229, 142, 38, 0.02)', borderRadius: '8px', marginBottom: '15px' }}>
-          <strong style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '0.9rem' }}>
-            🖨️ Personalización de Ticket de Entrega
-          </strong>
-          <p style={{ fontSize: '0.75rem', color: 'var(--text-light)', marginTop: '4px', marginBottom: '12px' }}>
-            Define un mensaje personalizado que aparecerá en el pie de página de los tickets físicos impresos para los clientes.
-          </p>
-          <div className="form-group">
-            <label style={{ fontSize: '0.75rem', fontWeight: 600 }}>Mensaje al Pie del Ticket:</label>
-            <textarea
-              className="form-control"
-              rows="2"
-              style={{ fontSize: '0.8rem', padding: '6px', resize: 'vertical', width: '100%', fontFamily: 'inherit' }}
-              value={localTicketCustomMessage}
-              onChange={(e) => setLocalTicketCustomMessage(e.target.value)}
-              placeholder="Ej: ¡Gracias por tu compra! Conserva tu helado en el congelador."
-            />
           </div>
         </div>
 

@@ -758,14 +758,16 @@ export default function App() {
       }
 
       // 2. Recuperar la lista de personal desde Supabase de forma segura (multidispositivo)
-      try {
-        const { data: adminList, error: adminListError } = await supabase.rpc('get_all_admins');
-        if (!adminListError && Array.isArray(adminList) && adminList.length > 0) {
-          console.log("👥 Personal recuperado de Supabase:", adminList.length);
-          setStaffUsers(adminList);
+      if (hasActiveSession) {
+        try {
+          const { data: adminList, error: adminListError } = await supabase.rpc('get_all_admins');
+          if (!adminListError && Array.isArray(adminList) && adminList.length > 0) {
+            console.log("👥 Personal recuperado de Supabase:", adminList.length);
+            setStaffUsers(adminList);
+          }
+        } catch (err) {
+          console.warn("⚠️ No se pudo obtener la lista de personal de Supabase:", err.message);
         }
-      } catch (err) {
-        console.warn("⚠️ No se pudo obtener la lista de personal de Supabase:", err.message);
       }
 
       // La suscripción en tiempo real ahora se maneja de forma reactiva y separada
@@ -774,6 +776,9 @@ export default function App() {
       // 3. Suscribirse a cambios del estado de autenticación de Supabase
       const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event, session) => {
         console.log(`🔔 Supabase Auth Evento: ${event}`);
+        // getSession() ya realizó la carga inicial. Evita duplicar todas las
+        // lecturas de configuración y pedidos al abrir o recargar la app.
+        if (event === 'INITIAL_SESSION') return;
         if (session) {
           const userRole = normalizeRoleLabel(session.user.app_metadata?.role, session.user.email);
           const userName = session.user.user_metadata?.name || 'Administrador Supabase';
@@ -843,7 +848,7 @@ export default function App() {
   };
 
   // --- Hook de Sincronización Consolidado y Seguro ---
-  const useSyncEffect = (key, value, isJSON = false) => {
+  const useSyncEffect = (key, value, isJSON = false, syncCloud = true) => {
     const prevValueRef = useRef(value);
 
     useEffect(() => {
@@ -874,7 +879,7 @@ export default function App() {
       prevValueRef.current = value;
 
       // 5. Si está logueado, subir a la nube de forma segura
-      if (isLoggedIn) {
+      if (isLoggedIn && syncCloud) {
         const isConfigKey = ![
           'cart_locations',
           'flavors',
@@ -898,7 +903,7 @@ export default function App() {
 
         updateSyncedData(key, value);
       }
-    }, [value, key, isJSON]);
+    }, [value, key, isJSON, syncCloud]);
   };
 
   // --- Invocaciones de Sincronización de Estados ---
@@ -913,7 +918,9 @@ export default function App() {
   useSyncEffect('bases', bases, true);
   useSyncEffect('packs', packs, true);
   useSyncEffect('popsicles', popsicles, true);
-  useSyncEffect('orders', orders, true);
+  // Los pedidos se guardan individualmente mediante /api/order. Mantener aquí
+  // solo la copia local evita reescribir y transferir todo el historial en cada cambio.
+  useSyncEffect('orders', orders, true, false);
   useSyncEffect('delivery_fee', deliveryFee, false);
   useSyncEffect('shop_open', shopConfig, true);
   useSyncEffect('free_delivery_threshold', freeDeliveryThreshold, false);
