@@ -4,6 +4,12 @@ const conflict = () => new Error('Otro operador modificó este pedido. Actualiza
 const canonical = value => JSON.stringify(value, function (key, item) {
   return item && typeof item === 'object' && !Array.isArray(item) ? Object.fromEntries(Object.keys(item).sort().map(k => [k, item[k]])) : item;
 });
+const withoutServerAudit = order => {
+  const requested = { ...(order || {}) };
+  ['revision', 'updatedAt', 'statusHistory', 'deliveredAt', 'paymentVerifiedAt', 'paymentVerifiedBy'].forEach(key => delete requested[key]);
+  return requested;
+};
+const alreadyApplied = (current, proposed) => canonical(withoutServerAudit(current)) === canonical(withoutServerAudit(proposed));
 
 // Compare-and-swap prevents an old operator snapshot from overwriting newer work.
 export async function saveOrderChange(client, previous, proposed) {
@@ -12,7 +18,12 @@ export async function saveOrderChange(client, previous, proposed) {
   const key = `order_${id}`;
   const { data: row, error: readError } = await client.from('helados_sync').select('value,updated_at').eq('key', key).maybeSingle();
   if (readError) throw readError;
-  if (row && (!previous || canonical(row.value) !== canonical(previous))) throw conflict();
+  if (row && (!previous || canonical(row.value) !== canonical(previous))) {
+    // A lost response can make a successful save look stale on retry. Returning
+    // the durable row is safe only when every requested business field matches.
+    if (alreadyApplied(row.value, proposed)) return row.value;
+    throw conflict();
+  }
   if (!row && previous) {
     const { data: legacy, error } = await client.from('helados_sync').select('value').eq('key', 'orders').maybeSingle();
     if (error) throw error;

@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import { buildSmsHref, formatOrderStatusMessage, normalizeSmsTemplates, formatDriverDispatchMessage, buildWhatsAppHref } from '../../utils/orderMessaging';
 import { getCollectionPaymentMethods } from '../../utils/paymentMethods';
-import { isDigitalPayment, isPaymentOnArrival, requiresAdvancePayment, isRecognizedSale, orderRecognizedAt } from '../../utils/orderLifecycle';
+import { isPaymentOnArrival, orderPaymentTiming, requiresAdvancePayment, isRecognizedSale, orderRecognizedAt } from '../../utils/orderLifecycle';
 import { getOrderStageInfo } from '../../utils/orderValidation';
 import { printThermalTicket } from '../../utils/escposTicket';
 import {
@@ -499,7 +499,7 @@ export default function OrderManager({
             {editingOrder.customer.orderType === 'Delivery' && !['Efectivo', 'Tarjeta'].includes(editingOrder.customer.paymentMethod) && (
               <div className="form-group">
                 <label htmlFor="order-payment-timing">Modalidad de pago</label>
-                <select id="order-payment-timing" className="form-control" value={editingOrder.customer.paymentTiming || 'Anticipado'}
+                <select id="order-payment-timing" className="form-control" value={orderPaymentTiming(editingOrder)}
                   onChange={event => setEditingOrder({ ...editingOrder, customer: { ...editingOrder.customer, paymentTiming: event.target.value } })}>
                   <option value="Al llegar">Pago al llegar</option>
                   <option value="Anticipado">Pago anticipado</option>
@@ -1106,7 +1106,7 @@ export default function OrderManager({
                               <span>⚠️</span>
                               <span>VALIDACIÓN REQUERIDA:</span>
                             </div>
-                            {isDigitalPayment(order) ? (
+                            {requiresAdvancePayment(order) ? (
                               <div>
                                 Verificar abono de <strong>S/. {Number(order.grandTotal || 0).toFixed(2)}</strong> por <strong>{order.customer?.paymentMethod || 'Pago digital'}</strong>.
                                 {order.customer?.operationCode ? (
@@ -1118,6 +1118,10 @@ export default function OrderManager({
                                     (Sin N° de operación · Pedir voucher o verificar en app bancaria)
                                   </div>
                                 )}
+                              </div>
+                            ) : isDelivery && isPaymentOnArrival(order) && !order.paymentVerified ? (
+                              <div>
+                                <strong>PAGO AL LLEGAR:</strong> acepta el pedido sin validar un abono. Informa al repartidor que debe cobrar <strong>S/. {Number(order.grandTotal || 0).toFixed(2)}</strong> por <strong>{order.customer?.paymentMethod || 'el medio acordado'}</strong> antes de entregarlo.
                               </div>
                             ) : order.customer?.orderType === 'Mesa' ? (
                               <div>
@@ -1132,6 +1136,21 @@ export default function OrderManager({
                                 Confirmar recepción de comanda para iniciar preparación en barra.
                               </div>
                             )}
+                          </div>
+                        )}
+                        {isDelivery && order.status !== 'Por Corroborar' && !['Entregado', 'Cancelado'].includes(order.status) && isPaymentOnArrival(order) && !order.paymentVerified && (
+                          <div role="status" style={{
+                            marginTop: '6px',
+                            padding: '7px 9px',
+                            borderRadius: '6px',
+                            background: '#fff7ed',
+                            border: '1px solid #fb923c',
+                            color: '#9a3412',
+                            fontSize: '0.72rem',
+                            fontWeight: 700,
+                            lineHeight: 1.35
+                          }}>
+                            💰 COBRO PENDIENTE EN REPARTO: el cliente eligió pagar al llegar. El repartidor debe cobrar S/. {Number(order.grandTotal || 0).toFixed(2)} por {order.customer?.paymentMethod || 'el medio acordado'} antes de entregar.
                           </div>
                         )}
                         {isDelivery && (
@@ -1265,27 +1284,26 @@ export default function OrderManager({
 
                           {isPaymentOnArrival(order) && <span style={{ fontSize: '0.875rem', fontWeight: 700 }}>Pago al llegar · {order.paymentVerified ? 'Cobrado' : 'Pendiente de cobro'}</span>}
                           {['Transferencia', 'Tarjeta'].includes(order.customer?.paymentMethod) && <span>{order.customer.paymentMethod}</span>}
-                          {isDigitalPayment(order) ? (
-                            order.paymentVerified ? (
-                              <span
-                                style={{
-                                  background: '#dcfce7',
-                                  color: '#15803d',
-                                  border: '1px solid #86efac',
-                                  borderRadius: '4px',
-                                  padding: '2px 6px',
-                                  fontSize: '0.64rem',
-                                  fontWeight: 700,
-                                  display: 'inline-flex',
-                                  alignItems: 'center',
-                                  gap: '2px',
-                                  width: 'fit-content'
-                                }}
-                                title="Cobro confirmado. Para mantener la trazabilidad no se puede revertir desde el pedido."
-                              >
-                                ✓ Abono Verificado
-                              </span>
-                            ) : (
+                          {order.paymentVerified ? (
+                            <span
+                              style={{
+                                background: '#dcfce7',
+                                color: '#15803d',
+                                border: '1px solid #86efac',
+                                borderRadius: '4px',
+                                padding: '2px 6px',
+                                fontSize: '0.64rem',
+                                fontWeight: 700,
+                                display: 'inline-flex',
+                                alignItems: 'center',
+                                gap: '2px',
+                                width: 'fit-content'
+                              }}
+                              title="Cobro confirmado. Para mantener la trazabilidad no se puede revertir desde el pedido."
+                            >
+                              ✓ Cobro Verificado
+                            </span>
+                          ) : requiresAdvancePayment(order) ? (
                               <button
                                 type="button"
                                 onClick={() => handleTogglePaymentVerified(order)}
@@ -1307,11 +1325,12 @@ export default function OrderManager({
                               >
                                 ⚠️ Validar Abono
                               </button>
-                            )
-                          ) : (
-                            <span style={{ fontSize: '0.64rem', color: '#b45309', fontWeight: 600 }}>
-                              Cobrar en entrega
+                          ) : isPaymentOnArrival(order) ? (
+                            <span style={{ fontSize: '0.64rem', color: '#b45309', fontWeight: 700 }}>
+                              🚚 Cobro a cargo del repartidor
                             </span>
+                          ) : (
+                            <span style={{ fontSize: '0.64rem', color: '#b91c1c', fontWeight: 700 }}>Pago pendiente de validar</span>
                           )}
                         </div>
                       </td>

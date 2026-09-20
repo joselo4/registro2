@@ -1,6 +1,6 @@
 import { createAdminClient, fail, json, sameOriginRequest } from './_security.js';
 import { saveOrderChange, fetchAllSyncRows } from '../../src/utils/orderRepository.js';
-import { mergeOrders } from '../../src/utils/orderLifecycle.js';
+import { mergeOrders, orderPaymentTiming } from '../../src/utils/orderLifecycle.js';
 import { orderStaffRole, driverOwnsOrder, allowedOrderChange } from './_orderAccess.js';
 import { getEnabledPaymentMethods } from '../../src/utils/paymentMethods.js';
 import { money } from '../../src/utils/checkout.js';
@@ -196,7 +196,11 @@ export async function onRequestPost({ request, env }, makeClient = createAdminCl
       const nextOrder = {
         id,
         revision: 1,
-        customer: { ...order.customer, orderType: order.customer.orderType || 'Barra' },
+        customer: {
+          ...order.customer,
+          orderType: order.customer.orderType || 'Barra',
+          paymentTiming: orderPaymentTiming({ ...order, paymentVerified }),
+        },
         items: order.items,
         total: money(order.items.reduce((sum, item) => sum + money(item.price) * Number(item.quantity), 0)),
         deliveryFee: Number(order.deliveryFee) || 0,
@@ -263,7 +267,7 @@ export async function onRequestPost({ request, env }, makeClient = createAdminCl
       nextOrder = {
         id,
         revision: 1,
-        customer: order.customer,
+        customer: { ...order.customer, paymentTiming: orderPaymentTiming({ ...order, paymentVerified: false }) },
         items: order.items,
         total: money(order.items.reduce((sum, item) => sum + money(item.price) * Number(item.quantity), 0)),
         deliveryFee: Number(order.deliveryFee) || 0,

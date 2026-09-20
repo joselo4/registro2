@@ -1,7 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { onRequestGet, onRequestPost } from '../functions/api/order.js';
-import { mergeOrders, nextOrderStatus, prepareOrderUpdate, isRecognizedSale, orderRecognizedAt } from '../src/utils/orderLifecycle.js';
+import { mergeOrders, nextOrderStatus, prepareOrderUpdate, isRecognizedSale, orderRecognizedAt, orderPaymentTiming } from '../src/utils/orderLifecycle.js';
 import { saveOrderChange, fetchAllSyncRows } from '../src/utils/orderRepository.js';
 import { allowedOrderChange } from '../functions/api/_orderAccess.js';
 import { sameOriginRequest } from '../functions/api/_security.js';
@@ -72,6 +72,7 @@ test('creation confirms durable storage and does not accept injected paid/driver
   assert.equal(order.paymentVerified, false);
   assert.equal(order.tablePaid, false);
   assert.equal(order.assignedDriver, null);
+  assert.equal(order.customer.paymentTiming, 'Al llegar');
   assert.deepEqual(db.rows.get(`order_${order.id}`).value, order);
   assert.deepEqual((await (await get(db, `id=${order.id}`)).json()).order, order);
 });
@@ -151,9 +152,25 @@ test('two operators cannot overwrite one another or resurrect an absent order', 
   await assert.rejects(saveOrderChange(database(), previous, { ...previous, status: 'Pendiente', paymentVerified: true }), /Otro operador/);
 });
 
+test('retry after a lost update response returns the durable completed delivery', async () => {
+  const previous = fixture({
+    status: 'En camino',
+    paymentVerified: false,
+    assignedDriver: { id: 'driver' },
+    customer: { name: 'Cliente', paymentMethod: 'Yape', paymentTiming: 'Al llegar' },
+  });
+  const proposed = { ...previous, status: 'Entregado', paymentVerified: true };
+  const db = database([{ key: `order_${previous.id}`, value: previous, updated_at: previous.date }]);
+  const saved = await saveOrderChange(db, previous, proposed);
+  const retried = await saveOrderChange(db, previous, proposed);
+  assert.deepEqual(retried, saved);
+  assert.equal(retried.status, 'Entregado');
+  assert.equal(retried.revision, saved.revision);
+});
+
 test('all channels follow validation, queue, preparation, ready and confirmed delivery', () => {
   for (const type of ['Delivery', 'Mesa', 'Mesa_Llevar', 'Barra', 'Llevar']) {
-    let order = fixture({ customer: { orderType: type, paymentMethod: 'Yape' } });
+    let order = fixture({ customer: { orderType: type, paymentMethod: 'Yape', paymentTiming: 'Anticipado' } });
     assert.throws(() => prepareOrderUpdate(order, { ...order, status: 'Preparando' }), /paso anterior/);
     assert.throws(() => prepareOrderUpdate(order, { ...order, status: 'Pendiente' }), /abono/);
     order = prepareOrderUpdate(order, { ...order, status: 'Pendiente', paymentVerified: true });
@@ -288,6 +305,31 @@ test('driver records a changed collection method without permission to alter cus
   assert.equal(allowedOrderChange(user, prepaid, { ...prepaid, status: 'Entregado', paymentVerified: true }), false);
   const paid = { ...previous, paymentVerified: true };
   assert.equal(allowedOrderChange(user, paid, { ...paid, paymentVerified: false }), false);
+});
+
+test('legacy digital delivery without timing can be collected once and backfills pay on arrival', async () => {
+  const user = { id: 'driver', email: 'driver@example.test', app_metadata: { role: 'Repartidor' } };
+  const previous = fixture({
+    status: 'En camino',
+    paymentVerified: false,
+    assignedDriver: { id: 'driver', email: 'driver@example.test' },
+    customer: { name: 'Cliente', paymentMethod: 'Yape' },
+  });
+  assert.equal(orderPaymentTiming(previous), 'Al llegar');
+  const next = {
+    ...previous,
+    status: 'Entregado',
+    paymentVerified: true,
+    customer: { ...previous.customer, paymentMethod: 'Yape', paymentTiming: 'Al llegar' },
+  };
+  const db = database([{ key: `order_${previous.id}`, value: previous, updated_at: null }], { user });
+  const response = await post(db, next, { action: 'update', previous });
+  assert.equal(response.status, 200);
+  const completed = (await response.json()).order;
+  assert.equal(completed.status, 'Entregado');
+  assert.equal(completed.paymentVerified, true);
+  assert.equal(completed.customer.paymentTiming, 'Al llegar');
+  assert.equal(completed.paymentVerifiedBy.role, 'repartidor');
 });
 
 test('disabled methods reject new orders, allow reactivation and preserve retry receipts', async () => {

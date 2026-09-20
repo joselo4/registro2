@@ -5,7 +5,16 @@ export const isDeliveryOrder = order => String(order?.customer?.orderType || '')
 export const isTableOrder = order => ['mesa', 'mesa_llevar'].includes(String(order?.customer?.orderType || '').toLowerCase()) || Boolean(order?.customer?.tableNumber);
 export const DELIVERY_PAYMENT_METHODS = PAYMENT_METHODS;
 export const isDigitalPayment = order => /yape|plin|transferencia/i.test(order?.customer?.paymentMethod || '');
-export const isPaymentOnArrival = order => order?.customer?.paymentTiming === 'Al llegar' || /efectivo|tarjeta/i.test(order?.customer?.paymentMethod || '');
+export const orderPaymentTiming = order => {
+  const explicitTiming = order?.customer?.paymentTiming;
+  if (explicitTiming === 'Al llegar' || explicitTiming === 'Anticipado') return explicitTiming;
+  if (/efectivo|tarjeta/i.test(order?.customer?.paymentMethod || '')) return 'Al llegar';
+  // Older orders could lose this field. An unpaid order without an operation code
+  // must remain collectible at delivery instead of becoming impossible to complete.
+  if (order?.customer?.operationCode || order?.paymentVerified === true) return 'Anticipado';
+  return 'Al llegar';
+};
+export const isPaymentOnArrival = order => orderPaymentTiming(order) === 'Al llegar';
 export const requiresAdvancePayment = order => isDigitalPayment(order) && !isPaymentOnArrival(order);
 export const paymentDescription = order => `${order?.customer?.paymentMethod || 'Por definir'} · ${isPaymentOnArrival(order) ? 'Pago al llegar' : 'Pago anticipado'}`;
 export const orderFreshness = order => Date.parse(order?.updatedAt || order?.statusHistory?.at(-1)?.timestamp || order?.date) || 0;

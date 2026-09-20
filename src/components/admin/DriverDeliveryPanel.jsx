@@ -1,6 +1,6 @@
 import { useState, useMemo, useEffect, useRef } from 'react';
 import { getCollectionPaymentMethods, selectPaymentMethod } from '../../utils/paymentMethods';
-import { isPaymentOnArrival, orderPaymentMethod, orderStatusTimestamp } from '../../utils/orderLifecycle';
+import { isPaymentOnArrival, orderPaymentMethod, orderPaymentTiming, orderStatusTimestamp } from '../../utils/orderLifecycle';
 import { buildWhatsAppHref } from '../../utils/orderMessaging';
 import { notifyOperationalEvent, playCashReminderSound, triggerDeviceVibration } from '../../utils/appAudioNotifications';
 
@@ -147,7 +147,10 @@ export default function DriverDeliveryPanel({
 
     setSavingOrderId(order.id);
     try {
-      const patch = needsCollection ? { paymentVerified: true, customer: { ...order.customer, paymentMethod: method } } : {};
+      const patch = needsCollection ? {
+        paymentVerified: true,
+        customer: { ...order.customer, paymentMethod: method, paymentTiming: orderPaymentTiming(order) }
+      } : {};
       if (!await onUpdateOrderStatus(order.id, 'Entregado', patch)) return;
       showAlert?.('¡Entrega completada!', `Pedido #${order.id} entregado.${needsCollection ? ` Cobro registrado: S/. ${totalStr} por ${method}.` : ''}`, 'success');
     } catch {
@@ -356,7 +359,7 @@ export default function DriverDeliveryPanel({
                     </strong>
                     <strong style={{ display: 'block', marginTop: '6px', fontSize: '1.25rem' }}>S/. {Number(order.grandTotal || 0).toFixed(2)}</strong>
                     <p style={{ fontSize: '0.875rem', margin: '8px 0' }}>
-                      {needsCollection ? (isPaymentOnArrival(order) ? 'Pago al llegar. Solicita el pago por uno de los medios disponibles y confirma que recibiste el total para dar como entregado.' : 'Pago anticipado pendiente de validación. Solicita a caja que lo verifique antes de completar la entrega.') : `Pagado por ${customer.paymentMethod}. No volver a cobrar al cliente.`}
+                      {needsCollection ? (isPaymentOnArrival(order) ? `El cliente eligió PAGAR AL LLEGAR por ${orderPaymentMethod(order)}. No entregues el pedido hasta recibir y verificar el total.` : 'Pago anticipado pendiente de validación. Solicita a caja que lo verifique antes de completar la entrega.') : `Pagado por ${customer.paymentMethod}. No volver a cobrar al cliente.`}
                     </p>
                     {needsCollection && isPaymentOnArrival(order) && (
                       <label style={{ display: 'block', fontSize: '0.875rem', fontWeight: 700 }}>

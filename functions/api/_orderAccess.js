@@ -1,5 +1,5 @@
 import { normalizeEmail, isTrustedAdmin } from './_security.js';
-import { isPaymentOnArrival, DELIVERY_PAYMENT_METHODS } from '../../src/utils/orderLifecycle.js';
+import { isPaymentOnArrival, orderPaymentTiming, DELIVERY_PAYMENT_METHODS } from '../../src/utils/orderLifecycle.js';
 
 export function orderStaffRole(user) {
   if (isTrustedAdmin(user)) return 'admin';
@@ -26,6 +26,7 @@ export function allowedOrderChange(user, previous, next) {
   if (role === 'repartidor' && JSON.stringify(previous.customer) !== JSON.stringify(next.customer)) {
     if (!collecting || !DELIVERY_PAYMENT_METHODS.includes(next.customer?.paymentMethod)) return false;
     const expectedCustomer = { ...previous.customer, paymentMethod: next.customer.paymentMethod };
+    if (!['Al llegar', 'Anticipado'].includes(previous.customer?.paymentTiming)) expectedCustomer.paymentTiming = orderPaymentTiming(previous);
     if (JSON.stringify(expectedCustomer) !== JSON.stringify(next.customer)) return false;
   }
   if (!['cocina', 'repartidor'].includes(role)) return false;

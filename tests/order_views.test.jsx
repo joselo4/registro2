@@ -54,9 +54,29 @@ test('management accepts payment on arrival without requesting an advance vouche
   const pending = order('Por Corroborar');
   pending.customer = { ...pending.customer, paymentMethod: 'Yape', paymentTiming: 'Al llegar' };
   const html = renderToStaticMarkup(<OrderManager {...props} orders={[pending]} />);
+  assert.ok(html.includes('PAGO AL LLEGAR'));
+  assert.ok(html.includes('Informa al repartidor'));
   assert.ok(html.includes('Pago al llegar'));
   assert.ok(html.includes('Pendiente de cobro'));
+  assert.ok(!html.includes('Validar Abono'));
   assert.ok(!html.includes('para iniciar la preparaci'));
+});
+
+test('legacy unpaid digital delivery remains collectible and visible to driver and operator', () => {
+  const legacy = order('En camino');
+  legacy.customer = { ...legacy.customer, paymentMethod: 'Yape' };
+  delete legacy.customer.paymentTiming;
+  legacy.paymentVerified = false;
+
+  const driverHtml = renderToStaticMarkup(<DriverDeliveryPanel {...props} currentUser={{ id: 'driver' }} orders={[legacy]} />);
+  assert.ok(driverHtml.includes('El cliente eligió PAGAR AL LLEGAR por Yape'));
+  assert.ok(driverHtml.includes('Confirmar cobro y entrega'));
+  assert.ok(!driverHtml.includes('Pago anticipado pendiente'));
+
+  const operatorHtml = renderToStaticMarkup(<OrderManager {...props} orders={[legacy]} />);
+  assert.ok(operatorHtml.includes('COBRO PENDIENTE EN REPARTO'));
+  assert.ok(operatorHtml.includes('Cobro a cargo del repartidor'));
+  assert.ok(!operatorHtml.includes('Validar Abono'));
 });
 
 test('OrderManager renders staff drivers in the assignment select and includes quick register option', () => {
@@ -92,4 +112,3 @@ test('DriverDeliveryPanel in admin mode renders driver filter selector and shows
   assert.ok(html.includes('Todos los Repartidores'));
   assert.ok(html.includes('Carlos Motorizado'));
 });
-
