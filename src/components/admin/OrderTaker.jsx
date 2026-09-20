@@ -9,6 +9,7 @@ export default function OrderTaker({ catalog, onPlaceOrder, showAlert }) {
   const [orderType, setOrderType] = useState('Barra');
   const [activeIceCream, setActiveIceCream] = useState(null);
   const [activeQuantity, setActiveQuantity] = useState(1);
+  const [isSavingOrder, setIsSavingOrder] = useState(false);
 
   // Paletas disponibles (catálogo o mock inicial si viene vacío)
   const allPopsicles = (popsicles && popsicles.length > 0)
@@ -119,6 +120,7 @@ export default function OrderTaker({ catalog, onPlaceOrder, showAlert }) {
   };
 
   const handleCreateOrder = async () => {
+    if (isSavingOrder) return;
     if (cart.length === 0) {
       if (showAlert) showAlert('Error', 'El pedido está vacío.', 'error');
       return;
@@ -134,7 +136,8 @@ export default function OrderTaker({ catalog, onPlaceOrder, showAlert }) {
     const orderId = generateOrderId();
     const now = new Date().toISOString();
     const isMesa = orderType === 'Mesa';
-    const parsedTable = isMesa ? (customerName.replace(/[^0-9]/g, '') || customerName || '1') : undefined;
+    const parsedTable = isMesa ? (customerName.match(/\d{1,3}/)?.[0] || '1') : undefined;
+    const isCourtesy = computedTotal === 0;
     const newOrder = {
       id: orderId,
       customer: {
@@ -143,26 +146,28 @@ export default function OrderTaker({ catalog, onPlaceOrder, showAlert }) {
         address: isMesa ? `Mesa ${parsedTable}` : 'Atención en Barra',
         orderType: orderType,
         tableNumber: parsedTable,
-        paymentMethod: computedTotal === 0 ? 'Cortesía/Gratis' : 'Efectivo'
+        paymentMethod: isCourtesy ? 'Cortesía/Gratis' : 'Efectivo',
+        paymentTiming: isCourtesy ? 'Anticipado' : 'Al llegar'
       },
       items: cart,
       total: computedTotal,
       deliveryFee: 0,
       grandTotal: computedTotal,
       status: 'Pendiente',
-      paymentVerified: true,
-      tablePaid: isMesa ? false : true,
+      paymentVerified: isCourtesy,
+      tablePaid: false,
       revision: 1,
       date: now,
       updatedAt: now,
       statusHistory: [
         { status: 'Pendiente', timestamp: now }
       ],
-      paymentMethod: computedTotal === 0 ? 'Cortesía/Gratis' : 'Efectivo',
+      paymentMethod: isCourtesy ? 'Cortesía/Gratis' : 'Efectivo',
       orderType: orderType,
       isOperator: true
     };
 
+    setIsSavingOrder(true);
     try {
       await onPlaceOrder(newOrder);
       if (showAlert) showAlert('Éxito', 'Pedido registrado correctamente. Código: ' + orderId, 'success');
@@ -172,6 +177,8 @@ export default function OrderTaker({ catalog, onPlaceOrder, showAlert }) {
       setCustomerName('');
     } catch (error) {
       if (showAlert) showAlert('No se confirmó el pedido', error.message || 'Revisa la conexión e intenta nuevamente.', 'warning');
+    } finally {
+      setIsSavingOrder(false);
     }
   };
 
@@ -356,9 +363,9 @@ export default function OrderTaker({ catalog, onPlaceOrder, showAlert }) {
             className="btn btn-primary" 
             style={{ width: '100%', marginTop: '12px', padding: '12px', fontSize: '0.95rem', fontWeight: 700 }} 
             onClick={handleCreateOrder} 
-            disabled={cart.length === 0}
+            disabled={cart.length === 0 || isSavingOrder}
           >
-            ✅ Confirmar y Registrar Pedido
+            {isSavingOrder ? 'Guardando pedido…' : '✅ Confirmar y Registrar Pedido'}
           </button>
         </div>
       </div>

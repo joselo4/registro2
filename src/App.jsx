@@ -12,7 +12,7 @@ import { fetchSyncedData, updateSyncedData, subscribeToSync, invalidateSyncCache
 import { supabase } from './utils/supabaseClient';
 import { Capacitor } from '@capacitor/core';
 import { DEFAULT_SMS_TEMPLATES } from './utils/orderMessaging';
-import { createOrder, updateOrder } from './utils/apiClient';
+import { createOrder, createOperatorOrder, updateOrder } from './utils/apiClient';
 
 import CustomerShop from './components/CustomerShop';
 import IceCreamCustomizer from './components/IceCreamCustomizer';
@@ -506,6 +506,11 @@ export default function App() {
     return saved ? JSON.parse(saved) : [];
   });
 
+  const [cashShifts, setCashShifts] = useState(() => {
+    const saved = localStorage.getItem('helados_cash_shifts');
+    return saved ? JSON.parse(saved) : [];
+  });
+
   // --- Estados de Flujo de Cliente ---
   const [cartLocations, setCartLocations] = useState(() => {
     const saved = localStorage.getItem('helados_cart_locations');
@@ -651,6 +656,7 @@ export default function App() {
     if (serverData.recommendations !== undefined) setRecommendations(serverData.recommendations);
     if (serverData.cart_recommended_pack !== undefined) setCartRecommendedPack(serverData.cart_recommended_pack);
     if (serverData.expenses !== undefined) setExpenses(serverData.expenses);
+    if (serverData.cash_shifts !== undefined) setCashShifts(serverData.cash_shifts);
     if (serverData.staff_users !== undefined) setStaffUsers(serverData.staff_users);
     if (serverData.staff_permissions !== undefined) setStaffPermissions(serverData.staff_permissions);
     if (serverData.liter_config !== undefined) setLiterConfig(serverData.liter_config);
@@ -924,6 +930,7 @@ export default function App() {
   useSyncEffect('recommendations', recommendations, true);
   useSyncEffect('cart_recommended_pack', cartRecommendedPack, true);
   useSyncEffect('expenses', expenses, true);
+  useSyncEffect('cash_shifts', cashShifts, true);
   useSyncEffect('liter_config', literConfig, true);
   useSyncEffect('ticket_custom_message', ticketCustomMessage, false);
   useSyncEffect('store_instagram', storeInstagram, false);
@@ -1113,6 +1120,9 @@ export default function App() {
           break;
         case 'expenses':
           updateStateIfChanged(setExpenses, 'expenses', value);
+          break;
+        case 'cash_shifts':
+          updateStateIfChanged(setCashShifts, 'cash_shifts', value);
           break;
         case 'staff_permissions':
           updateStateIfChanged(setStaffPermissions, 'staff_permissions', value);
@@ -1404,8 +1414,8 @@ export default function App() {
   const handlePlaceOrder = async (newOrder) => {
     let savedOrder = newOrder;
     if (newOrder.isOperator) {
-      const dbSuccess = await updateSyncedData(`order_${newOrder.id}`, newOrder);
-      if (!dbSuccess) throw new Error('No se pudo confirmar el pedido del operador. Intenta nuevamente.');
+      if (!supabase) throw new Error('No hay conexión con la tienda. Reconecta antes de registrar el pedido.');
+      savedOrder = await createOperatorOrder(supabase, newOrder);
     } else {
       savedOrder = await createOrder(newOrder);
     }
@@ -1470,9 +1480,8 @@ export default function App() {
         const savedChanges = await Promise.all(changedOrders.map(async proposed => {
           const previous = orders.find(order => order.id === proposed.id);
           if (previous && supabase) return updateOrder(supabase, previous, proposed);
-          const saved = await updateSyncedData(`order_${String(proposed.id).trim().toUpperCase()}`, proposed);
-          if (!saved) throw new Error(`No se pudo guardar el pedido ${proposed.id}.`);
-          return proposed;
+          if (!supabase) throw new Error('No hay conexión con la tienda. Reconecta antes de registrar el pedido.');
+          return createOperatorOrder(supabase, proposed);
         }));
         const savedById = new Map(savedChanges.map(order => [order.id, order]));
         setOrders(newOrders.map(order => savedById.get(order.id) || order));
@@ -1486,6 +1495,20 @@ export default function App() {
     setOrders(newOrders);
     return true;
   };
+
+  const persistAdminCollection = async (key, value, setter) => {
+    const saved = await updateSyncedData(key, value);
+    if (!saved) {
+      showAlert('No se confirmó el guardado', 'Revisa la conexión e inténtalo nuevamente. Los datos visibles no fueron modificados.', 'warning');
+      return false;
+    }
+    isRemoteUpdate.current[key] = true;
+    setter(value);
+    return true;
+  };
+
+  const handleUpdateExpenses = value => persistAdminCollection('expenses', value, setExpenses);
+  const handleUpdateCashShifts = value => persistAdminCollection('cash_shifts', value, setCashShifts);
 
   async function handleLogout() {
     logoutInProgressRef.current = true;
@@ -1886,7 +1909,9 @@ export default function App() {
               recommendations={recommendations}
               onUpdateRecommendations={setRecommendations}
               expenses={expenses}
-              onUpdateExpenses={setExpenses}
+              onUpdateExpenses={handleUpdateExpenses}
+              cashShifts={cashShifts}
+              onUpdateCashShifts={handleUpdateCashShifts}
               onUpdateOrders={handleUpdateOrders}
               cartRecommendedPack={cartRecommendedPack}
               onUpdateCartRecommendedPack={setCartRecommendedPack}

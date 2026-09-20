@@ -7,11 +7,11 @@ import { money } from '../../src/utils/checkout.js';
 import { isShopOpenCurrently } from '../../src/utils/storeHours.js';
 import { validateOrderInput } from '../../src/utils/orderValidation.js';
 
-async function validatePaymentAvailability(client, previous, next) {
+async function validatePaymentAvailability(client, previous, next, { enforceStoreHours = true } = {}) {
   if (previous && previous.customer?.paymentMethod === next.customer?.paymentMethod) return null;
   const { data, error } = await client.from('helados_sync').select('value').eq('key', 'shop_open').maybeSingle();
   if (error) throw new Error('No se pudo consultar los métodos de pago. Intenta nuevamente.');
-  if (!previous && !isShopOpenCurrently(data?.value ?? { open: true })) return 'La tienda está cerrada en este momento. Conserva tu carrito e intenta en el horario de atención.';
+  if (!previous && enforceStoreHours && !isShopOpenCurrently(data?.value ?? { open: true })) return 'La tienda está cerrada en este momento. Conserva tu carrito e intenta en el horario de atención.';
   return getEnabledPaymentMethods(data?.value).includes(next.customer?.paymentMethod) ? null : 'Este método de pago ya no está disponible. Selecciona otro método activo.';
 }
 
@@ -70,6 +70,26 @@ const validateOrderForCreate = (order) => {
   if (!Number.isFinite(deliveryFee) || deliveryFee < 0 || !Number.isFinite(discount) || discount < 0 || discount > subtotal) return 'Los importes de envío o descuento no son válidos.';
   if (order.total !== undefined && (!Number.isFinite(Number(order.total)) || Math.abs(Number(order.total) - subtotal) > 0.011)) return 'El subtotal no coincide con los productos. Revisa tu carrito.';
   if (Math.abs(Number(order.grandTotal) - money(subtotal + deliveryFee - discount)) > 0.011) return 'El total no coincide con los productos, envío y descuento. Revisa tu carrito.';
+  return null;
+};
+
+const validateOperatorOrderForCreate = (order) => {
+  if (!isPlainObject(order) || JSON.stringify(order).length > 50000) return 'Pedido inválido.';
+  if (!/^(PED|FIS|ORD)-[A-Z0-9-]{3,40}$/.test(cleanOrderId(order.id))) return 'Código de pedido inválido.';
+  if (!Array.isArray(order.items) || order.items.length === 0 || order.items.length > 40 || !order.items.every(isValidOrderItem)) return 'El pedido contiene productos inválidos.';
+  if (!isPlainObject(order.customer) || !trimText(order.customer.name, 80)) return 'Faltan los datos del cliente.';
+  const orderType = order.customer.orderType || 'Barra';
+  if (!['Delivery', 'Mesa', 'Mesa_Llevar', 'Barra', 'Llevar'].includes(orderType)) return 'Tipo de atención inválido.';
+  if (['Mesa', 'Mesa_Llevar'].includes(orderType) && !/^[1-9]\d{0,2}$/.test(String(order.customer.tableNumber || ''))) return 'Número de mesa inválido.';
+  if (orderType === 'Delivery' && trimText(order.customer.address, 200).length < 5) return 'Falta la dirección de entrega.';
+  if (!trimText(order.customer.paymentMethod, 60)) return 'Selecciona un método de pago.';
+  if (!['Pendiente', 'Entregado'].includes(order.status)) return 'El pedido del operador debe iniciar en cola o como venta terminada.';
+  if (order.status === 'Entregado' && order.paymentVerified !== true) return 'Una venta terminada requiere cobro confirmado.';
+  const subtotal = money(order.items.reduce((sum, item) => sum + money(item.price) * Number(item.quantity), 0));
+  const deliveryFee = Number(order.deliveryFee ?? 0);
+  const discount = Number(order.discount ?? 0);
+  if (!Number.isFinite(deliveryFee) || deliveryFee < 0 || !Number.isFinite(discount) || discount < 0 || discount > subtotal) return 'Los importes de envío o descuento no son válidos.';
+  if (!Number.isFinite(Number(order.grandTotal)) || Math.abs(Number(order.grandTotal) - money(subtotal + deliveryFee - discount)) > 0.011) return 'El total no coincide con los productos.';
   return null;
 };
 
@@ -154,6 +174,57 @@ export async function onRequestPost({ request, env }, makeClient = createAdminCl
         const order = await saveOrderChange(client, body.previous, proposedOrder);
         return json({ ok: true, order });
       } catch (error) { return fail(409, 'update', error.message || 'No se pudo guardar el pedido.'); }
+    }
+    if (body?.action === 'create_operator') {
+      const client = await makeClient(env);
+      const user = await staffSession(request, client);
+      const role = orderStaffRole(user);
+      if (!['admin', 'vendedor', 'cajero', 'mozo'].includes(role)) return fail(403, 'auth', 'Tu rol no permite registrar pedidos o ventas.');
+      const order = body.order;
+      const validationError = validateOperatorOrderForCreate(order);
+      if (validationError) return fail(400, 'input', validationError);
+
+      const id = cleanOrderId(order.id);
+      const isCourtesy = Number(order.grandTotal) === 0 && order.customer.paymentMethod === 'Cortesía/Gratis';
+      if (!isCourtesy) {
+        const paymentError = await validatePaymentAvailability(client, null, order, { enforceStoreHours: false });
+        if (paymentError) return fail(400, 'payment', paymentError);
+      }
+
+      const now = new Date().toISOString();
+      const paymentVerified = order.paymentVerified === true;
+      const nextOrder = {
+        id,
+        revision: 1,
+        customer: { ...order.customer, orderType: order.customer.orderType || 'Barra' },
+        items: order.items,
+        total: money(order.items.reduce((sum, item) => sum + money(item.price) * Number(item.quantity), 0)),
+        deliveryFee: Number(order.deliveryFee) || 0,
+        discount: Number(order.discount) || 0,
+        couponCode: trimText(order.couponCode, 80) || null,
+        grandTotal: Number(order.grandTotal),
+        paymentVerified,
+        tablePaid: order.status === 'Entregado' && order.tablePaid === true && paymentVerified,
+        assignedDriver: null,
+        status: order.status,
+        statusHistory: [{ status: order.status, timestamp: now }],
+        date: safeDate(order.date),
+        updatedAt: now,
+        isOperator: true,
+        ...(paymentVerified ? {
+          paymentVerifiedAt: now,
+          paymentVerifiedBy: { id: user.id || null, email: user.email || null, role },
+        } : {}),
+        ...(order.status === 'Entregado' ? { deliveredAt: now } : {}),
+      };
+      const { data: saved, error } = await client
+        .from('helados_sync')
+        .insert({ key: `order_${id}`, value: nextOrder, updated_at: now })
+        .select('value')
+        .maybeSingle();
+      if (error?.code === '23505') return fail(409, 'conflict', 'Este código ya pertenece a otro pedido.');
+      if (error || !saved?.value) return fail(502, 'write', 'No se pudo guardar el pedido del operador.');
+      return json({ ok: true, order: saved.value });
     }
     const order = body?.order || body?.value;
     const id = cleanOrderId(body?.id || order?.id);

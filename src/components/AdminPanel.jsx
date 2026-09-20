@@ -5,6 +5,7 @@ import { updateSyncedData } from '../utils/supabaseSync';
 const SettingsManager = lazy(() => import('./admin/SettingsManager'));
 const InventoryManager = lazy(() => import('./admin/InventoryManager'));
 const FinanceManager = lazy(() => import('./admin/FinanceManager'));
+const CashRegisterManager = lazy(() => import('./admin/CashRegisterManager'));
 const OrderManager = lazy(() => import('./admin/OrderManager'));
 const DashboardView = lazy(() => import('./admin/DashboardView'));
 const OperationsCenter = lazy(() => import('./admin/OperationsCenter'));
@@ -106,6 +107,8 @@ export default function AdminPanel({
   onUpdateRecommendations,
   expenses,
   onUpdateExpenses,
+  cashShifts = [],
+  onUpdateCashShifts,
   onUpdateOrders,
   cartRecommendedPack,
   onUpdateCartRecommendedPack,
@@ -931,16 +934,28 @@ export default function AdminPanel({
         )}
 
         {activeTab === 'finance' && (
-          <FinanceManager
-            orders={orders}
-            onUpdateOrders={onUpdateOrders}
-            expenses={expenses}
-            onUpdateExpenses={onUpdateExpenses}
-            packs={packs}
-            addLog={addLog}
-            currentUser={currentUser}
-            showAlert={showAlert}
-          />
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '24px' }}>
+            <CashRegisterManager
+              orders={orders}
+              shifts={cashShifts}
+              onUpdateShifts={onUpdateCashShifts}
+              currentUser={currentUser}
+              storeName={storeName}
+              addLog={addLog}
+              showAlert={showAlert}
+            />
+            <FinanceManager
+              orders={orders}
+              onUpdateOrders={onUpdateOrders}
+              expenses={expenses}
+              onUpdateExpenses={onUpdateExpenses}
+              packs={packs}
+              addLog={addLog}
+              currentUser={currentUser}
+              showAlert={showAlert}
+              shopConfig={shopConfig}
+            />
+          </div>
         )}
 
         {activeTab === 'locations' && (
@@ -1048,6 +1063,8 @@ export default function AdminPanel({
             onUpdateOrders={onUpdateOrders}
             expenses={expenses}
             onUpdateExpenses={onUpdateExpenses}
+            cashShifts={cashShifts}
+            onUpdateCashShifts={onUpdateCashShifts}
             deliveryFee={deliveryFee}
             onChangeDeliveryFee={onChangeDeliveryFee}
             recommendations={recommendations}

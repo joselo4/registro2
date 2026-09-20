@@ -1,5 +1,6 @@
 import { useState, useMemo, useEffect, useCallback, Component } from 'react';
 import { sanitizeText } from '../../utils/security';
+import { isRecognizedSale, orderPaymentMethod } from '../../utils/orderLifecycle';
 
 
 /**
@@ -283,10 +284,11 @@ function CustomerCRMContent({
 
       const client = map.get(key);
       const grandTotal = safeNum(order.grandTotal, 0);
+      const recognizedSale = isRecognizedSale(order);
 
       if (order.status === 'Cancelado') {
         client.cancelledOrders += 1;
-      } else {
+      } else if (recognizedSale) {
         client.totalOrders += 1;
         client.totalSpent += grandTotal;
       }
@@ -305,16 +307,18 @@ function CustomerCRMContent({
       }
 
       // Método de pago recurrente
-      const pMethod = order.paymentMethod || 'Efectivo';
-      client.paymentMethods[pMethod] = (client.paymentMethods[pMethod] || 0) + 1;
+      if (recognizedSale) {
+        const pMethod = orderPaymentMethod(order);
+        client.paymentMethods[pMethod] = (client.paymentMethods[pMethod] || 0) + 1;
 
-      // Conteo de productos
-      (order.items || []).forEach(item => {
-        if (!item) return;
-        const iName = item.name || 'Helado';
-        const qty = safeNum(item.quantity, 1);
-        client.itemCounts[iName] = (client.itemCounts[iName] || 0) + qty;
-      });
+        // Las preferencias se calculan sobre compras terminadas, no sobre carritos pendientes.
+        (order.items || []).forEach(item => {
+          if (!item) return;
+          const iName = item.name || 'Helado';
+          const qty = safeNum(item.quantity, 1);
+          client.itemCounts[iName] = (client.itemCounts[iName] || 0) + qty;
+        });
+      }
 
       client.orders.push(order);
     });
@@ -1126,15 +1130,15 @@ function CustomerCRMContent({
                         fontWeight: 700,
                         padding: '2px 8px',
                         borderRadius: '8px',
-                        backgroundColor: order.status === 'Cancelado' ? '#e74c3c20' : '#2ecc7120',
-                        color: order.status === 'Cancelado' ? '#e74c3c' : '#27ae60'
+                        backgroundColor: order.status === 'Cancelado' ? '#e74c3c20' : isRecognizedSale(order) ? '#2ecc7120' : '#f59e0b20',
+                        color: order.status === 'Cancelado' ? '#e74c3c' : isRecognizedSale(order) ? '#27ae60' : '#b45309'
                       }}>
                         {order.status || 'Completado'}
                       </span>
                     </div>
 
                     <div style={{ fontSize: '0.78rem', color: 'var(--text-light)', marginBottom: '8px' }}>
-                      🗓️ {safeFormatDateTime(order.date)} • 💳 {order.paymentMethod || 'Efectivo'}
+                      🗓️ {safeFormatDateTime(order.date)} • 💳 {orderPaymentMethod(order)}
                       {order.deliveryType && ` • 🛵 ${order.deliveryType}`}
                     </div>
 

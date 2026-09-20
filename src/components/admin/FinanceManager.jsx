@@ -139,7 +139,9 @@ export default function FinanceManager({
         name: sanitizeHTML(quickSaleName) || 'Cliente de Tienda',
         phone: 'N/A',
         address: 'Consumo en Tienda / Venta Presencial',
-        paymentMethod: quickSalePaymentMethod
+        paymentMethod: quickSalePaymentMethod,
+        paymentTiming: 'Al llegar',
+        orderType: 'Barra'
       },
       items: [
         {
@@ -199,7 +201,10 @@ export default function FinanceManager({
       date: expenseDate || new Date().toISOString().split('T')[0]
     };
 
-    onUpdateExpenses([newExpense, ...expenses]);
+    if (!await onUpdateExpenses([newExpense, ...expenses])) {
+      setExpenseSubmitting(false);
+      return;
+    }
     addLog(`Gasto registrado: ${newExpense.concept} (S/. ${amountVal.toFixed(2)}) por ${currentUser?.name}.`);
     setExpenseConcept('');
     setExpenseAmount('');
@@ -207,10 +212,10 @@ export default function FinanceManager({
     alert("¡Gasto registrado con éxito!");
   };
 
-  const handleDeleteExpense = (id) => {
+  const handleDeleteExpense = async (id) => {
     if (window.confirm("¿Seguro que deseas eliminar este gasto?")) {
       const exp = expenses.find(e => e.id === id);
-      onUpdateExpenses(expenses.filter(e => e.id !== id));
+      if (!await onUpdateExpenses(expenses.filter(e => e.id !== id))) return;
       addLog(`Gasto eliminado: ${exp?.concept || id} por ${currentUser?.name}.`);
     }
   };

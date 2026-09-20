@@ -45,6 +45,16 @@ export async function updateOrder(client, previous, order) {
   return requestOrder('/api/order', { method: 'POST', headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${data.session.access_token}` }, body: JSON.stringify({ action: 'update', previous, order }) });
 }
 
+export async function createOperatorOrder(client, order) {
+  const { data } = await client.auth.getSession();
+  if (!data?.session?.access_token) throw new Error('Tu sesión venció. Inicia sesión nuevamente.');
+  return requestOrder('/api/order', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${data.session.access_token}` },
+    body: JSON.stringify({ action: 'create_operator', order }),
+  });
+}
+
 export async function fetchOperatorOrders(session) {
   const controller = new AbortController();
   const timer = setTimeout(() => controller.abort(), 15000);

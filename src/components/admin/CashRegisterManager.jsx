@@ -104,8 +104,12 @@ export default function CashRegisterManager({
   const difference = countedCash - expectedCash;
 
   // Acción: Abrir Turno de Caja
-  const handleOpenShift = (e) => {
+  const handleOpenShift = async (e) => {
     e.preventDefault();
+    if (activeShift) {
+      showAlert?.('Caja ya abierta', 'Cierra el turno activo antes de iniciar uno nuevo.', 'warning');
+      return;
+    }
     const newShift = {
       id: `Z-${Date.now().toString().slice(-6)}`,
       status: 'open',
@@ -119,13 +123,13 @@ export default function CashRegisterManager({
     };
 
     const nextShifts = [newShift, ...(shifts || [])];
-    onUpdateShifts(nextShifts);
+    if (!await onUpdateShifts(nextShifts)) return;
     addLog?.(`Caja Chica ABIERTA con S/ ${newShift.startingCash.toFixed(2)} por ${newShift.cashierName}.`);
     if (showAlert) showAlert('Caja Abierta', `Turno iniciado con fondo de S/ ${newShift.startingCash.toFixed(2)}.`, 'success');
   };
 
   // Acción: Registrar Movimiento (Ingreso o Retiro menor)
-  const handleAddMovement = (e) => {
+  const handleAddMovement = async (e) => {
     e.preventDefault();
     const amt = Number(movementAmount);
     if (!amt || amt <= 0) {
@@ -152,7 +156,7 @@ export default function CashRegisterManager({
     };
 
     const nextShifts = (shifts || []).map(s => s.id === activeShift.id ? updatedShift : s);
-    onUpdateShifts(nextShifts);
+    if (!await onUpdateShifts(nextShifts)) return;
     addLog?.(`Caja Chica: ${movementType === 'in' ? 'INGRESO' : 'RETIRO'} de S/ ${amt.toFixed(2)} (${movement.reason}).`);
     setMovementAmount('');
     setMovementReason('');
@@ -161,7 +165,8 @@ export default function CashRegisterManager({
   };
 
   // Acción: Cierre Z de Caja
-  const handleCloseShift = () => {
+  const handleCloseShift = async () => {
+    if (!activeShift) return;
     if (!window.confirm('¿Confirmas que deseas cerrar este turno de caja y generar el Cierre Z?')) return;
 
     const closedShift = {
@@ -183,7 +188,7 @@ export default function CashRegisterManager({
     };
 
     const nextShifts = (shifts || []).map(s => s.id === activeShift.id ? closedShift : s);
-    onUpdateShifts(nextShifts);
+    if (!await onUpdateShifts(nextShifts)) return;
     addLog?.(`Cierre Z completado por ${currentUser?.name || 'Caja'}. Diferencia: S/ ${difference.toFixed(2)}.`);
 
     // Imprimir ticket de Cierre Z automáticamente
