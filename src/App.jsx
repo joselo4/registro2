@@ -1568,6 +1568,7 @@ export default function App() {
             href="#" 
             className="logo" 
             onClick={(e) => { e.preventDefault(); setView(isVendorApp ? 'admin' : 'shop'); }}
+            onDoubleClick={(e) => { e.preventDefault(); setView('admin'); }}
             style={{ cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '8px' }}
           >
             {renderLogo(storeLogo)}

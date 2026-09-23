@@ -14,7 +14,7 @@ Para verificar cambios: `npm run lint`, `npm test`, `npm run test:views` y `npm 
 
 ## Canales de venta
 
-El acceso administrativo no se muestra en la tienda pública. El personal puede abrir directamente `https://www.pideanda.com/?admin=1` e iniciar sesión. Esa URL es solo una entrada a la pantalla de acceso: la autorización real sigue dependiendo de Supabase y de las comprobaciones del servidor. Los accesos **Canales y ajustes** y **Conversiones GA4** aparecen al inicio del menú lateral después de iniciar sesión.
+El acceso administrativo no se muestra como botón en la tienda pública. El personal puede hacer doble clic en el logo o abrir directamente `https://www.pideanda.com/?admin=1` e iniciar sesión. La URL y el gesto solo abren la pantalla de acceso: la autorización real sigue dependiendo de Supabase y de las comprobaciones del servidor. Los accesos **Canales y ajustes** y **Conversiones GA4** aparecen al inicio del menú lateral después de iniciar sesión.
 
 La opción de recordar el inicio de sesión conserva únicamente el nombre de usuario. Al abrir la tienda se eliminan las contraseñas que versiones anteriores hayan guardado en el navegador.
 
