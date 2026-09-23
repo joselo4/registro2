@@ -1,5 +1,6 @@
 const GA4_NAMES = {
   ViewCatalog: 'view_item_list',
+  ViewProduct: 'view_item',
   AddToCart: 'add_to_cart',
   InitiateCheckout: 'begin_checkout',
   Purchase: 'purchase'

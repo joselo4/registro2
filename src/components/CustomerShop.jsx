@@ -7,6 +7,7 @@ import PackIllustration from './PackIllustration';
 import { normalizePromotion, DEFAULT_POPUP_PROMOTION, DEFAULT_WEB_PROMOTION } from '../utils/promotion';
 import { updateSyncedData } from '../utils/supabaseSync';
 import { sanitizeHTML } from '../utils/security';
+import './ProductQuickView.css';
 
 const isAvailableProduct = item => item && item.active !== false && Number.isFinite(Number(item.price)) && Number(item.price) >= 0;
 const normalizeSearchValue = value => String(value ?? '').normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLocaleLowerCase('es-PE');
@@ -64,6 +65,18 @@ export default function CustomerShop({
     return 'all';
   });
   const [catalogSearch, setCatalogSearch] = useState('');
+  const [quickView, setQuickView] = useState(null);
+  const openQuickView = useCallback((kind, item) => {
+    const product = kind === 'liter' ? { ...item, id: 'liter', name: 'Helado familiar de 1 litro', type: 'liter' } : { ...item, type: kind };
+    setQuickView({ kind, product });
+    trackEvent?.('ViewProduct', { value: Number(product.price) || 0, items: [product] });
+  }, [trackEvent]);
+  useEffect(() => {
+    if (!quickView) return;
+    const closeOnEscape = event => { if (event.key === 'Escape') setQuickView(null); };
+    window.addEventListener('keydown', closeOnEscape);
+    return () => window.removeEventListener('keydown', closeOnEscape);
+  }, [quickView]);
 
   const popupPromotion = normalizePromotion(
     shopConfig.popupPromotion || (shopConfig.promotion ? {
@@ -608,6 +621,7 @@ export default function CustomerShop({
                         <span className="product-kind">PALETA ARTESANAL</span>
                         <h3>{popsicle.name}</h3>
                         <p className="product-desc">{popsicle.description}</p>
+                        <button type="button" className="product-quick-link" onClick={() => openQuickView('popsicle', popsicle)}>Ver detalles →</button>
                       </div>
                       <div className="product-price-action">
                         <div className="price-tag">S/. {Number(popsicle.price || 0).toFixed(2)}<span> / unidad</span></div>
@@ -660,6 +674,7 @@ export default function CustomerShop({
                       <div>
                         <h3>Helado Familiar de 1 Litro</h3>
                         <p className="product-desc">Lleva a casa el mejor helado artesanal. Combina tus sabores favoritos (hasta {literConfig?.maxFlavors || 3} sabores) en un pote de un litro para compartir.</p>
+                        <button type="button" className="product-quick-link" onClick={() => openQuickView('liter', literConfig || {})}>Ver detalles →</button>
                       </div>
                       <div className="product-price-action">
                         <div className="price-tag">
@@ -718,6 +733,7 @@ export default function CustomerShop({
                         <div>
                           <h3>{flavor.name}</h3>
                           <p className="product-desc">{flavor.description}</p>
+                          <button type="button" className="product-quick-link" onClick={() => openQuickView('classic', flavor)}>Ver detalles →</button>
                         </div>
                         <div className="product-price-action">
                           <div className="price-tag">
@@ -770,6 +786,7 @@ export default function CustomerShop({
                         <div>
                           <h3>{pack.name}</h3>
                           <p className="product-desc">{pack.description}</p>
+                          <button type="button" className="product-quick-link" onClick={() => openQuickView('pack', pack)}>Ver detalles →</button>
                           <p style={{ fontSize: '0.85rem', fontWeight: 600, color: 'var(--primary-color)', marginBottom: '15px' }}>
                             📦 Incluye: {pack.items}
                           </p>
@@ -801,7 +818,7 @@ export default function CustomerShop({
         })}
       </div>
     );
-  }, [tableNumber, catalogOrder, filter, literConfig, literMatches, catalogFlavors, catalogPacks, catalogPopsicles, setView, handleAddClassicToCart, handleAddPackToCart, handleAddPopsicleToCart, shopConfig]);
+  }, [tableNumber, catalogOrder, filter, literConfig, literMatches, catalogFlavors, catalogPacks, catalogPopsicles, setView, handleAddClassicToCart, handleAddPackToCart, handleAddPopsicleToCart, openQuickView, shopConfig]);
 
   const resolvedHeroImage = storeHeroImage || '/hero-friozo-v2.webp';
 
@@ -1089,6 +1106,20 @@ export default function CustomerShop({
           </div>
         </div>
       </section>
+
+      {quickView && <div className="product-quick-backdrop" onClick={() => setQuickView(null)}>
+        <div className="product-quick-dialog" role="dialog" aria-modal="true" aria-label={`Detalles de ${quickView.product.name}`} onClick={event => event.stopPropagation()}>
+          <button type="button" className="product-quick-close" aria-label="Cerrar detalles" onClick={() => setQuickView(null)}>×</button>
+          <div className="product-quick-art">{quickView.product.image ? <img src={quickView.product.image} alt={quickView.product.name} /> : <span aria-hidden="true">{quickView.kind === 'pack' ? '🎁' : quickView.kind === 'popsicle' ? '🍭' : quickView.kind === 'liter' ? '🏺' : '🍦'}</span>}</div>
+          <div className="product-quick-copy"><span className="product-quick-eyebrow">HECHO PARA TU ANTOJO</span><h2>{quickView.product.name}</h2><p>{quickView.product.description || (quickView.kind === 'liter' ? 'Combina tus sabores favoritos en un pote para compartir.' : 'Preparado con el sabor de nuestra carta artesanal.')}</p>{quickView.kind === 'pack' && quickView.product.items && <p><strong>Incluye:</strong> {quickView.product.items}</p>}<strong className="product-quick-price">S/. {Number(quickView.product.price || 0).toFixed(2)}</strong><button type="button" className="btn btn-primary" onClick={() => {
+            if (quickView.kind === 'liter') setView('liter-customizer');
+            else if (quickView.kind === 'pack') handleAddPackToCart(quickView.product);
+            else if (quickView.kind === 'popsicle') handleAddPopsicleToCart(quickView.product);
+            else handleAddClassicToCart(quickView.product);
+            setQuickView(null);
+          }}>{quickView.kind === 'liter' ? 'Personalizar mi litro' : 'Agregar al carrito'} →</button></div>
+        </div>
+      </div>}
 
       {featuredProducts.length > 0 && (
         <section ref={featuredRef} className="featured-section" aria-labelledby="featured-title">

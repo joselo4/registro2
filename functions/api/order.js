@@ -6,12 +6,15 @@ import { getEnabledPaymentMethods } from '../../src/utils/paymentMethods.js';
 import { money } from '../../src/utils/checkout.js';
 import { isShopOpenCurrently } from '../../src/utils/storeHours.js';
 import { validateOrderInput } from '../../src/utils/orderValidation.js';
+import { isOrderTypeEnabled } from '../../src/utils/orderChannels.js';
 
-async function validatePaymentAvailability(client, previous, next, { enforceStoreHours = true } = {}) {
+async function validatePaymentAvailability(client, previous, next, { enforceStoreHours = true, skipPayment = false } = {}) {
   if (previous && previous.customer?.paymentMethod === next.customer?.paymentMethod) return null;
   const { data, error } = await client.from('helados_sync').select('value').eq('key', 'shop_open').maybeSingle();
   if (error) throw new Error('No se pudo consultar los métodos de pago. Intenta nuevamente.');
+  if (!previous && !isOrderTypeEnabled(data?.value, next.customer?.orderType || 'Barra')) return 'Este canal de atención está desactivado. Elige otro antes de confirmar.';
   if (!previous && enforceStoreHours && !isShopOpenCurrently(data?.value ?? { open: true })) return 'La tienda está cerrada en este momento. Conserva tu carrito e intenta en el horario de atención.';
+  if (skipPayment) return null;
   return getEnabledPaymentMethods(data?.value).includes(next.customer?.paymentMethod) ? null : 'Este método de pago ya no está disponible. Selecciona otro método activo.';
 }
 
@@ -186,10 +189,8 @@ export async function onRequestPost({ request, env }, makeClient = createAdminCl
 
       const id = cleanOrderId(order.id);
       const isCourtesy = Number(order.grandTotal) === 0 && order.customer.paymentMethod === 'Cortesía/Gratis';
-      if (!isCourtesy) {
-        const paymentError = await validatePaymentAvailability(client, null, order, { enforceStoreHours: false });
-        if (paymentError) return fail(400, 'payment', paymentError);
-      }
+      const paymentError = await validatePaymentAvailability(client, null, order, { enforceStoreHours: false, skipPayment: isCourtesy });
+      if (paymentError) return fail(400, 'payment', paymentError);
 
       const now = new Date().toISOString();
       const paymentVerified = order.paymentVerified === true;

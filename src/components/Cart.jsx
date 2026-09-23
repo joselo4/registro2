@@ -6,6 +6,7 @@ import { getEnabledPaymentMethods, selectPaymentMethod } from '../utils/paymentM
 import { buildWhatsAppHref } from '../utils/orderMessaging';
 import { checkoutTotals } from '../utils/checkout';
 import { sanitizeHTML, sanitizeText, safeStorage } from '../utils/security';
+import { enabledOrderChannels, isOrderTypeEnabled, preferredOrderType } from '../utils/orderChannels';
 
 
 export default function Cart({ 
@@ -30,7 +31,6 @@ export default function Cart({
   shopOpen = true, 
   tableOrdersEnabled = false, 
   tableNumber = null, 
-  setTableNumber, 
   occupiedTables = [], 
   shopConfig, 
   trackEvent 
@@ -110,11 +110,15 @@ export default function Cart({
   };
 
   // Módulo de Mesas
+  const channels = enabledOrderChannels(shopConfig);
   const [orderType, setOrderType] = useState(() => {
-    return tableNumber ? 'Mesa' : 'Delivery';
+    return preferredOrderType(shopConfig, tableNumber);
   });
   const [localTableNumber, setLocalTableNumber] = useState(tableNumber || '');
   const needsTable = orderType === 'Mesa' || orderType === 'Mesa_Llevar';
+  useEffect(() => {
+    if (!isOrderTypeEnabled(shopConfig, orderType)) setOrderType(preferredOrderType(shopConfig, tableNumber));
+  }, [shopConfig, orderType, tableNumber]);
 
   // Estados para Cupones de Descuento
   const [couponInput, setCouponInput] = useState('');
@@ -184,6 +188,10 @@ export default function Cart({
   const handleSubmit = async (e) => {
     if (e) e.preventDefault();
     if (isSubmitting) return;
+    if (!isOrderTypeEnabled(shopConfig, orderType)) {
+      alert('Este canal de atención no está disponible. Elige otro antes de confirmar.');
+      return;
+    }
     
     if (cart.length === 0) {
       alert("El carrito está vacío.");
@@ -474,7 +482,7 @@ export default function Cart({
       </div>
 
       {/* 💰 BARRA DE PROGRESO DE ENVÍO GRATIS DINÁMICA */}
-      {freeDeliveryEnabled && freeDeliveryThreshold > 0 && !tableNumber && (
+      {orderType === 'Delivery' && freeDeliveryEnabled && freeDeliveryThreshold > 0 && (
         <div className="glass free-delivery-card" style={{
           padding: '14px',
           marginBottom: '16px',
@@ -688,10 +696,10 @@ export default function Cart({
           
           <form className="checkout-form" onSubmit={handleProceedToSubmit} style={{ gap: '10px', marginTop: '10px' }}>
             
-            {tableOrdersEnabled && (
+            {(channels.Mesa || channels.Barra || channels.Delivery) && (
               <div className="form-group">
                 <label style={{ fontSize: '0.8rem', fontWeight: 'bold' }}>Tipo de Servicio</label>
-                {tableNumber ? (
+                {tableNumber && channels.Mesa ? (
                   <div style={{ display: 'flex', gap: '8px', marginBottom: '4px' }}>
                     <button
                       type="button"
@@ -713,21 +721,10 @@ export default function Cart({
                     </button>
                   </div>
                 ) : (
-                  <div style={{ 
-                    background: 'rgba(255, 64, 129, 0.08)', 
-                    border: '1px solid rgba(255, 64, 129, 0.2)', 
-                    color: 'var(--primary-color)', 
-                    padding: '10px 14px', 
-                    borderRadius: '10px', 
-                    fontSize: '0.85rem', 
-                    fontWeight: 'bold',
-                    textAlign: 'center',
-                    display: 'flex',
-                    alignItems: 'center',
-                    justifyContent: 'center',
-                    gap: '6px'
-                  }}>
-                    🛵 Envío a Domicilio (Delivery)
+                  <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
+                    {channels.Mesa && tableOrdersEnabled && <button type="button" className={`payment-btn ${needsTable ? 'selected' : ''}`} onClick={() => setOrderType('Mesa')} disabled={!shopOpen}>🍽️ Mesa</button>}
+                    {channels.Barra && <button type="button" className={`payment-btn ${orderType === 'Barra' ? 'selected' : ''}`} onClick={() => setOrderType('Barra')} disabled={!shopOpen}>🛍️ Recojo en barra</button>}
+                    {channels.Delivery && <button type="button" className={`payment-btn ${orderType === 'Delivery' ? 'selected' : ''}`} onClick={() => setOrderType('Delivery')} disabled={!shopOpen}>🛵 Delivery</button>}
                   </div>
                 )}
               </div>
@@ -788,7 +785,6 @@ export default function Cart({
                     value={localTableNumber || ''}
                     onChange={(e) => {
                       setLocalTableNumber(e.target.value);
-                      if (setTableNumber) setTableNumber(e.target.value);
                     }}
                     style={{ 
                       padding: '8px 10px', 

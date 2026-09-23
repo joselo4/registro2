@@ -6,6 +6,7 @@ import { onRequestPost as handleR2Post } from './functions/api/r2.js'
 import { onRequestGet as handleOrderGet, onRequestPost as handleOrderPost } from './functions/api/order.js'
 import { onRequestPost as handleTableCallPost } from './functions/api/table-call.js'
 import { onRequestGet as handleTelegramGet, onRequestPost as handleTelegramPost } from './functions/api/telegram.js'
+import { onRequestGet as handleGa4ReportGet } from './functions/api/ga4-report.js'
 
 const apiRoutes = {
   '/api/admin-auth-user': { POST: handleAdminAuthUser },
@@ -14,6 +15,7 @@ const apiRoutes = {
   '/api/order': { GET: handleOrderGet, POST: handleOrderPost },
   '/api/table-call': { POST: handleTableCallPost },
   '/api/telegram': { GET: handleTelegramGet, POST: handleTelegramPost },
+  '/api/ga4-report': { GET: handleGa4ReportGet },
 }
 
 function localPagesApiPlugin(env) {
@@ -78,7 +80,9 @@ function localPagesApiPlugin(env) {
                 R2_ACCESS_KEY_ID: env.R2_ACCESS_KEY_ID,
                 R2_SECRET_ACCESS_KEY: env.R2_SECRET_ACCESS_KEY,
                 R2_BUCKET_NAME: env.R2_BUCKET_NAME,
-                R2_PUBLIC_URL: env.R2_PUBLIC_URL
+                R2_PUBLIC_URL: env.R2_PUBLIC_URL,
+                GA4_PROPERTY_ID: env.GA4_PROPERTY_ID,
+                GA4_SERVICE_ACCOUNT_JSON: env.GA4_SERVICE_ACCOUNT_JSON
               }
             })
 

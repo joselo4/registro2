@@ -17,6 +17,7 @@ export default function TableOrderManager({
   deliveryFee = 0,
   storeName,
   waiterTakerEnabled,
+  onOpenOrderTaker,
   addLog,
   currentUser,
   showAlert,
@@ -24,6 +25,9 @@ export default function TableOrderManager({
   shopConfig
 }) {
   const [selectedTable, setSelectedTable] = useState(null);
+  useEffect(() => {
+    if ((selectedTable === 'Barra' && shopConfig?.barOrdersEnabled === false) || (typeof selectedTable === 'number' && shopConfig?.tableOrdersEnabled === false)) setSelectedTable(null);
+  }, [selectedTable, shopConfig?.barOrdersEnabled, shopConfig?.tableOrdersEnabled]);
   const [showNewOrderForm, setShowNewOrderForm] = useState(false);
   const [selectedBarraOrderId, setSelectedBarraOrderId] = useState(null);
   const [newOrderType, setNewOrderType] = useState('Mesa'); // Mesa, Mesa_Llevar, Barra
@@ -470,7 +474,7 @@ export default function TableOrderManager({
   // Renderizar la cuadrícula de mesas
   const renderTablesGrid = () => {
     const tableCards = [];
-    for (let i = 1; i <= totalTables; i++) {
+    for (let i = 1; shopConfig?.tableOrdersEnabled !== false && i <= totalTables; i++) {
       const activeOrder = getActiveTableOrder(i);
       let cardBg = 'rgba(46, 204, 113, 0.1)';
       let cardBorder = '1px solid rgba(46, 204, 113, 0.3)';
@@ -571,7 +575,7 @@ export default function TableOrderManager({
 
     const isBarraSelected = selectedTable === 'Barra';
 
-    tableCards.push(
+    if (shopConfig?.barOrdersEnabled !== false) tableCards.push(
       <div
         key="barra"
         onClick={() => {
@@ -767,14 +771,14 @@ export default function TableOrderManager({
       {/* Columna Izquierda: Monitoreo de Mesas */}
       <div className="glass" style={{ padding: '20px', borderRadius: 'var(--radius-lg)' }}>
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '15px' }}>
-          <h3 style={{ margin: 0, fontSize: '1.15rem' }}>📊 Monitor de Mesas de la Tienda</h3>
+          <h3 style={{ margin: 0, fontSize: '1.15rem' }}>📊 Monitor de Mesas y Barra</h3>
           <span style={{ fontSize: '0.75rem', fontWeight: 'bold', color: 'var(--text-light)' }}>
-            Total: {totalTables} Mesas comerciales
+            {shopConfig?.tableOrdersEnabled === false ? 'Solo barra' : `Total: ${totalTables} mesas`}
           </span>
         </div>
 
         {/* Panel de Llamados Activos (🛎️) */}
-        {tableCalls.filter(c => !c.resolved).length > 0 && (
+        {shopConfig?.tableOrdersEnabled !== false && tableCalls.filter(c => !c.resolved).length > 0 && (
           <div style={{
             background: 'rgba(231, 76, 60, 0.08)',
             border: '1px solid rgba(231, 76, 60, 0.25)',
@@ -833,7 +837,7 @@ export default function TableOrderManager({
 
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '10px' }}>
           <span style={{ fontSize: '0.85rem', fontWeight: 'bold', color: 'var(--text-dark)' }}>
-            🍽️ Mapa de Mesas y Barra
+            {shopConfig?.tableOrdersEnabled === false ? '🛍️ Barra' : shopConfig?.barOrdersEnabled === false ? '🍽️ Mapa de Mesas' : '🍽️ Mapa de Mesas y Barra'}
           </span>
           <button
             type="button"
@@ -1346,6 +1350,8 @@ export default function TableOrderManager({
                     )}
                     
                     {waiterTakerEnabled ? (
+                      <div style={{ display: 'flex', gap: '8px', justifyContent: 'center', flexWrap: 'wrap' }}>
+                      {onOpenOrderTaker && <button type="button" className="btn btn-primary" onClick={() => onOpenOrderTaker({ orderType: selectedTable === 'Barra' ? 'Barra' : 'Mesa', tableNumber: selectedTable === 'Barra' ? null : selectedTable })}>🤵 Abrir en tomador de pedidos</button>}
                       <button
                         type="button"
                         className="btn btn-primary"
@@ -1354,6 +1360,7 @@ export default function TableOrderManager({
                       >
                         {selectedTable === 'Barra' ? '➕ Registrar Nuevo Pedido en Barra' : '➕ Registrar Nuevo Pedido (Abrir Mesa)'}
                       </button>
+                      </div>
                     ) : (
                       <span style={{ fontSize: '0.75rem', fontStyle: 'italic', color: 'var(--text-light)' }}>
                         El tomador de pedidos de mozo está desactivado.

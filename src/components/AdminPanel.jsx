@@ -12,6 +12,7 @@ const OperationsCenter = lazy(() => import('./admin/OperationsCenter'));
 const UserManager = lazy(() => import('./admin/UserManager'));
 const TableOrderManager = lazy(() => import('./admin/TableOrderManager'));
 const OrderTaker = lazy(() => import('./admin/OrderTaker'));
+const AnalyticsPanel = lazy(() => import('./admin/AnalyticsPanel'));
 const CustomerCRM = lazy(() => import('./admin/CustomerCRM'));
 const DriverDeliveryPanel = lazy(() => import('./admin/DriverDeliveryPanel'));
 const KitchenDisplaySystem = lazy(() => import('./admin/KitchenDisplaySystem'));
@@ -169,6 +170,11 @@ export default function AdminPanel({
 
   // --- Estados de UI ---
   const [activeTab, setActiveTab] = useState('operations');
+  const [orderTakerContext, setOrderTakerContext] = useState(null);
+  const storeServiceEnabled = tableOrdersEnabled || shopConfig?.barOrdersEnabled !== false;
+  useEffect(() => {
+    if (!storeServiceEnabled && (activeTab === 'table_orders' || activeTab === 'ordertaker')) setActiveTab('orders');
+  }, [storeServiceEnabled, activeTab]);
 
   useEffect(() => {
     window.scrollTo(0, 0);
@@ -768,16 +774,16 @@ export default function AdminPanel({
                 📦 Pedidos ({orders.filter(o => o.status === 'Pendiente').length})
               </button>
               {isTabAllowed('crm') && (
-            <button className={`sidebar-btn ${activeTab === 'crm' ? 'active' : ''}`} onClick={() => setActiveTab('crm')}>
-              📇 CRM Clientes
-            </button>
-          )}
-          {isTabAllowed('ordertaker') && (
-                <button className={`sidebar-btn ${activeTab === 'ordertaker' ? 'active' : ''}`} onClick={() => setActiveTab('ordertaker')}>
-                  🛒 Tomador de Pedidos
+                <button className={`sidebar-btn ${activeTab === 'crm' ? 'active' : ''}`} onClick={() => setActiveTab('crm')}>
+                  📇 CRM Clientes
                 </button>
               )}
             </>
+          )}
+          {storeServiceEnabled && isTabAllowed('ordertaker') && (
+            <button className={`sidebar-btn ${activeTab === 'ordertaker' ? 'active' : ''}`} onClick={() => { setOrderTakerContext(null); setActiveTab('ordertaker'); }}>
+              🛒 Tomador de Pedidos
+            </button>
           )}
           {isTabAllowed('inventory') && (
             <button className={`sidebar-btn ${activeTab === 'inventory' ? 'active' : ''}`} onClick={() => setActiveTab('inventory')}>
@@ -804,12 +810,17 @@ export default function AdminPanel({
               📈 Meta e Ingresos
             </button>
           )}
+          {isAdminUser(currentUser) && (
+            <button className={`sidebar-btn ${activeTab === 'analytics' ? 'active' : ''}`} onClick={() => setActiveTab('analytics')}>
+              📊 Conversiones GA4
+            </button>
+          )}
           {isTabAllowed('surveys') && (
             <button className={`sidebar-btn ${activeTab === 'surveys' ? 'active' : ''}`} onClick={() => setActiveTab('surveys')}>
               ⭐ Encuestas ({orders.filter(o => o.survey).length})
             </button>
           )}
-          {(tableOrdersEnabled || isAdminUser(currentUser)) && isTabAllowed('table_orders') && (
+          {storeServiceEnabled && isTabAllowed('table_orders') && (
             <button className={`sidebar-btn ${activeTab === 'table_orders' ? 'active' : ''}`} onClick={() => setActiveTab('table_orders')}>
               🍽️ Pedidos en Mesa
             </button>
@@ -837,7 +848,8 @@ export default function AdminPanel({
           {key:'popsicles',name:'Paletas',items:popsicles,update:onUpdatePopsicles},
           {key:'packs',name:'Packs',items:packs,update:onUpdatePacks}
         ]} />}
-        {activeTab === 'ordertaker' && <OrderTaker catalog={{ bases, flavors, toppings, packs, popsicles, literConfig }} onPlaceOrder={onPlaceOrder} showAlert={showAlert} />}
+        {storeServiceEnabled && activeTab === 'ordertaker' && <OrderTaker catalog={{ bases, flavors, toppings, packs, popsicles, literConfig }} onPlaceOrder={onPlaceOrder} showAlert={showAlert} shopConfig={shopConfig} orders={orders} orderContext={orderTakerContext} onBack={() => { setOrderTakerContext(null); setActiveTab('table_orders'); }} onCreated={() => { if (orderTakerContext) { setOrderTakerContext(null); setActiveTab('table_orders'); } }} />}
+        {activeTab === 'analytics' && isAdminUser(currentUser) && <AnalyticsPanel googleAnalyticsId={googleAnalyticsId} />}
         {activeTab === 'crm' && (
           <CustomerCRM
             orders={orders}
@@ -974,7 +986,7 @@ export default function AdminPanel({
           />
         )}
 
-        {(tableOrdersEnabled || isAdminUser(currentUser)) && activeTab === 'table_orders' && (
+        {storeServiceEnabled && activeTab === 'table_orders' && (
           <TableOrderManager
             orders={orders}
             onUpdateOrders={onUpdateOrders}
@@ -992,6 +1004,7 @@ export default function AdminPanel({
             tableCalls={tableCalls}
             onUpdateTableCalls={onUpdateTableCalls}
             shopConfig={shopConfig}
+            onOpenOrderTaker={(context) => { setOrderTakerContext({ ...context, key: Date.now() }); setActiveTab('ordertaker'); }}
           />
         )}
 

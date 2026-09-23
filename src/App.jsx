@@ -257,7 +257,7 @@ export default function App() {
   const trackEvent = (eventName, eventData = {}) => {
     if (window.fbq && metaPixelId) {
       try {
-        window.fbq(eventName === 'ViewCatalog' ? 'trackCustom' : 'track', eventName, toMetaPayload(eventName, eventData));
+        window.fbq(eventName === 'ViewCatalog' ? 'trackCustom' : 'track', eventName === 'ViewProduct' ? 'ViewContent' : eventName, toMetaPayload(eventName, eventData));
       } catch (err) {
         console.warn('Meta Pixel track failed:', err);
       }
@@ -398,6 +398,8 @@ export default function App() {
       sunday: { enabled: true, open: '09:00', close: '22:00' }
     },
     tableOrdersEnabled: true,
+    barOrdersEnabled: true,
+    deliveryOrdersEnabled: true,
     waiterTakerEnabled: true,
     defaultWhatsAppEnabled: false
   };
@@ -1804,7 +1806,6 @@ export default function App() {
             shopOpen={effectiveShopOpen}
             tableOrdersEnabled={shopConfig.tableOrdersEnabled !== false}
             tableNumber={tableNumber}
-            setTableNumber={setTableNumber}
             occupiedTables={shopConfig.occupiedTables || []}
             shopConfig={shopConfig}
             trackEvent={analyticsEnabled ? trackEvent : undefined}

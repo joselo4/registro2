@@ -199,6 +199,10 @@ export default function SettingsManager({
   }, [literConfig]);
 
   const handleSaveSettings = () => {
+    if ([localShopConfig.tableOrdersEnabled, localShopConfig.barOrdersEnabled, localShopConfig.deliveryOrdersEnabled].every(value => value === false)) {
+      alert('Activa al menos un canal de venta: mesas, barra o delivery.');
+      return;
+    }
     if (localGoogleAnalyticsId.trim() && !isGoogleMeasurementId(localGoogleAnalyticsId)) {
       alert('El ID de Google Analytics debe tener el formato G- seguido de letras y números.');
       return;
@@ -1554,6 +1558,19 @@ export default function SettingsManager({
 
         {/* Pedidos en Mesa y Tomador de Pedidos */}
         <div style={{ display: 'flex', flexDirection: 'column', gap: '12px', borderBottom: '1px solid var(--border-color)', paddingBottom: '15px' }}>
+          <div>
+            <strong style={{ display: 'block' }}>Canales de venta activos</strong>
+            <span style={{ fontSize: '0.75rem', color: 'var(--text-light)' }}>Activa cualquier combinación, incluso solo mesas, solo barra o solo delivery.</span>
+          </div>
+          {[{ key: 'barOrdersEnabled', label: '🛍️ Pedidos en barra / recojo', help: 'Permite pedidos para recoger en tienda y verlos en el monitor.' }, { key: 'deliveryOrdersEnabled', label: '🛵 Delivery', help: 'Permite pedidos con entrega a domicilio.' }].map(channel => (
+            <div key={channel.key} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: '16px' }}>
+              <div><strong style={{ display: 'block' }}>{channel.label}</strong><span style={{ fontSize: '0.75rem', color: 'var(--text-light)' }}>{channel.help}</span></div>
+              <label className="toggle-switch" htmlFor={`shop-${channel.key}`}>
+                <input id={`shop-${channel.key}`} type="checkbox" checked={localShopConfig[channel.key] !== false} onChange={e => setLocalShopConfig(prev => ({ ...prev, [channel.key]: e.target.checked }))} />
+                <span className="slider"></span>
+              </label>
+            </div>
+          ))}
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
             <div>
               <strong style={{ display: 'block' }}>🍽️ Módulo de Pedidos en Mesa / Códigos QR</strong>
@@ -1597,9 +1614,9 @@ export default function SettingsManager({
 
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
             <div>
-              <strong style={{ display: 'block' }}>🤵 Tomador de Pedidos de Mesa (Mozo)</strong>
+              <strong style={{ display: 'block' }}>🤵 Tomador de pedidos en tienda</strong>
               <span style={{ fontSize: '0.75rem', color: 'var(--text-light)', display: 'block', marginTop: '2px' }}>
-                Habilita una pestaña dedicada en el panel administrativo para que los mozos registren pedidos de mesa directamente.
+                Habilita al personal para abrir pedidos de mesa o barra desde el monitor y el punto de venta.
               </span>
             </div>
             <label className="toggle-switch" htmlFor="shop-waiter-taker-enabled-input">

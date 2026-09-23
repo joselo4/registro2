@@ -1,12 +1,25 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { generateOrderId } from '../../utils/orderId';
 import { INITIAL_POPSICLES } from '../../utils/mockData';
+import { enabledOrderChannels, isOrderTypeEnabled, preferredOrderType } from '../../utils/orderChannels';
 
-export default function OrderTaker({ catalog, onPlaceOrder, showAlert }) {
+export default function OrderTaker({ catalog, onPlaceOrder, showAlert, shopConfig, orders = [], orderContext, onBack, onCreated }) {
   const { bases = [], flavors = [], toppings = [], packs = [], popsicles = [], literConfig = {} } = catalog || {};
   const [cart, setCart] = useState([]);
   const [customerName, setCustomerName] = useState('');
-  const [orderType, setOrderType] = useState('Barra');
+  const [orderType, setOrderType] = useState(() => enabledOrderChannels(shopConfig).Barra ? 'Barra' : preferredOrderType(shopConfig));
+  const [tableNumber, setTableNumber] = useState('');
+  const channels = enabledOrderChannels(shopConfig);
+  useEffect(() => {
+    if (orderContext) {
+      setOrderType(orderContext.orderType);
+      setTableNumber(orderContext.tableNumber ? String(orderContext.tableNumber) : '');
+      setCustomerName('');
+    }
+  }, [orderContext]);
+  useEffect(() => {
+    if (!isOrderTypeEnabled(shopConfig, orderType)) setOrderType(channels.Barra ? 'Barra' : channels.Mesa ? 'Mesa' : null);
+  }, [shopConfig, orderType, channels.Barra, channels.Mesa]);
   const [activeIceCream, setActiveIceCream] = useState(null);
   const [activeQuantity, setActiveQuantity] = useState(1);
   const [isSavingOrder, setIsSavingOrder] = useState(false);
@@ -121,6 +134,10 @@ export default function OrderTaker({ catalog, onPlaceOrder, showAlert }) {
 
   const handleCreateOrder = async () => {
     if (isSavingOrder) return;
+    if (!isOrderTypeEnabled(shopConfig, orderType) || orderType === 'Delivery') {
+      if (showAlert) showAlert('Atención', 'Activa mesas o barra para tomar pedidos en tienda.', 'warning');
+      return;
+    }
     if (cart.length === 0) {
       if (showAlert) showAlert('Error', 'El pedido está vacío.', 'error');
       return;
@@ -136,7 +153,15 @@ export default function OrderTaker({ catalog, onPlaceOrder, showAlert }) {
     const orderId = generateOrderId();
     const now = new Date().toISOString();
     const isMesa = orderType === 'Mesa';
-    const parsedTable = isMesa ? (customerName.match(/\d{1,3}/)?.[0] || '1') : undefined;
+    const parsedTable = isMesa ? tableNumber : undefined;
+    if (isMesa && (!/^[1-9]\d{0,2}$/.test(parsedTable) || Number(parsedTable) > Number(shopConfig?.totalTables || 12))) {
+      if (showAlert) showAlert('Atención', 'Selecciona una mesa válida.', 'warning');
+      return;
+    }
+    if (isMesa && orders.some(o => ['Mesa', 'Mesa_Llevar'].includes(o.customer?.orderType) && String(o.customer?.tableNumber) === parsedTable && o.status !== 'Cancelado' && !o.tablePaid)) {
+      if (showAlert) showAlert('Mesa ocupada', `La mesa ${parsedTable} ya tiene un pedido activo. Agrégale productos desde el monitor.`, 'warning');
+      return;
+    }
     const isCourtesy = computedTotal === 0;
     const newOrder = {
       id: orderId,
@@ -175,6 +200,7 @@ export default function OrderTaker({ catalog, onPlaceOrder, showAlert }) {
       setActiveIceCream(null);
       setActiveQuantity(1);
       setCustomerName('');
+      if (onCreated) onCreated(newOrder);
     } catch (error) {
       if (showAlert) showAlert('No se confirmó el pedido', error.message || 'Revisa la conexión e intenta nuevamente.', 'warning');
     } finally {
@@ -187,16 +213,19 @@ export default function OrderTaker({ catalog, onPlaceOrder, showAlert }) {
       {/* Columna Izquierda: Punto de Venta */}
       <div style={{ flex: '1 1 350px', background: 'var(--bg-secondary)', borderRadius: '12px', padding: '20px', border: '1px solid var(--border-color)', display: 'flex', flexDirection: 'column' }}>
         <h2 style={{ fontSize: '1.2rem', marginBottom: '15px' }}>🛒 Punto de Venta</h2>
+        {orderContext && onBack && <button type="button" className="btn" onClick={onBack} style={{ marginBottom: '12px' }}>← Volver al monitor</button>}
+        {!channels.Mesa && !channels.Barra && <p style={{ color: 'var(--text-light)' }}>El tomador de pedidos está inactivo. Activa mesas o barra en Ajustes.</p>}
         <div className="form-group">
           <label style={{ fontSize: '0.8rem', fontWeight: 600 }}>Tipo de Atención</label>
           <select className="form-control" value={orderType} onChange={(e) => setOrderType(e.target.value)}>
-            <option value="Barra">Atención en Barra / Tienda</option>
-            <option value="Mesa">Atención en Mesa</option>
+            {channels.Barra && <option value="Barra">Atención en Barra / Tienda</option>}
+            {channels.Mesa && <option value="Mesa">Atención en Mesa</option>}
           </select>
         </div>
+        {orderType === 'Mesa' && <div className="form-group"><label style={{ fontSize: '0.8rem', fontWeight: 600 }}>Número de mesa</label><select className="form-control" value={tableNumber} onChange={e => setTableNumber(e.target.value)}><option value="">Selecciona una mesa</option>{Array.from({ length: Number(shopConfig?.totalTables) || 12 }, (_, i) => i + 1).map(number => <option key={number} value={number} disabled={orders.some(o => ['Mesa', 'Mesa_Llevar'].includes(o.customer?.orderType) && String(o.customer?.tableNumber) === String(number) && o.status !== 'Cancelado' && !o.tablePaid)}>Mesa {number}</option>)}</select></div>}
         <div className="form-group">
-          <label style={{ fontSize: '0.8rem', fontWeight: 600 }}>Nombre del Cliente o N° Mesa</label>
-          <input type="text" className="form-control" placeholder="Ej: Carlos o Mesa 4" value={customerName} onChange={(e) => setCustomerName(e.target.value)} />
+          <label style={{ fontSize: '0.8rem', fontWeight: 600 }}>Nombre del cliente (opcional)</label>
+          <input type="text" className="form-control" placeholder="Ej: Carlos" value={customerName} onChange={(e) => setCustomerName(e.target.value)} />
         </div>
 
         {/* Builder Activo */}
@@ -363,7 +392,7 @@ export default function OrderTaker({ catalog, onPlaceOrder, showAlert }) {
             className="btn btn-primary" 
             style={{ width: '100%', marginTop: '12px', padding: '12px', fontSize: '0.95rem', fontWeight: 700 }} 
             onClick={handleCreateOrder} 
-            disabled={cart.length === 0 || isSavingOrder}
+            disabled={cart.length === 0 || isSavingOrder || !orderType}
           >
             {isSavingOrder ? 'Guardando pedido…' : '✅ Confirmar y Registrar Pedido'}
           </button>
