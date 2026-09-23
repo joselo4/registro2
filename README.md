@@ -14,7 +14,9 @@ Para verificar cambios: `npm run lint`, `npm test`, `npm run test:views` y `npm 
 
 ## Canales de venta
 
-En **Ajustes Tienda → Canales de venta activos** se pueden combinar mesas, barra y delivery, o dejar solo uno. El checkout y el tomador muestran los canales permitidos. La API rechaza pedidos nuevos dirigidos a canales desactivados. Los pedidos ya existentes siguen visibles para poder terminarlos o cobrarlos.
+En la web pública, abre **Acceso al panel de gestión** desde el pie de página e inicia sesión como administrador. Los accesos **Canales y ajustes** y **Conversiones GA4** aparecen al inicio del menú lateral.
+
+En **Canales y ajustes → Canales de venta** se pueden combinar mesas, barra y delivery, o dejar solo uno. Pulsa **Guardar canales** para aplicar el cambio. El checkout y el tomador muestran los canales permitidos. La API rechaza pedidos nuevos dirigidos a canales desactivados. Los pedidos ya existentes siguen visibles para poder terminarlos o cobrarlos.
 
 Desde **Pedidos en Mesa → Monitor de Mesas y Barra** se puede abrir el **Tomador de Pedidos** con la mesa o barra seleccionada. Al confirmar, el pedido aparece en el monitor. Una mesa con pedido activo no se puede abrir por segunda vez desde el tomador.
 

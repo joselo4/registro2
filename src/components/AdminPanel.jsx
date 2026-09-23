@@ -17,6 +17,7 @@ const CustomerCRM = lazy(() => import('./admin/CustomerCRM'));
 const DriverDeliveryPanel = lazy(() => import('./admin/DriverDeliveryPanel'));
 const KitchenDisplaySystem = lazy(() => import('./admin/KitchenDisplaySystem'));
 import CartLocationsView from './CartLocationsView';
+import './admin/AdminGrowth.css';
 import { sanitizeHTML } from '../utils/security';
 
 // eslint-disable-next-line no-unused-vars
@@ -563,9 +564,9 @@ export default function AdminPanel({
       <div className="glass admin-login-container" style={{ maxWidth: '400px', width: '90%', margin: '40px auto', padding: '25px', borderRadius: 'var(--radius-lg)' }}>
         <div style={{ textAlign: 'center', marginBottom: '20px' }}>
           <span style={{ fontSize: '3rem' }}>🔒</span>
-          <h2 style={{ marginTop: '10px' }}>Acceso Administrativo</h2>
+          <h2 style={{ marginTop: '10px' }}>Panel de gestión</h2>
           <p style={{ fontSize: '0.85rem', color: 'var(--text-light)', marginTop: '4px', marginBottom: isVendorApp ? '15px' : '4px' }}>
-            {supabase ? "Conectado a la base de datos Supabase." : "Ingresa con tu usuario o clave maestra."}
+            {supabase ? 'Ingresa para gestionar pedidos, canales de venta y conversiones.' : 'Ingresa con tu usuario o clave maestra.'}
           </p>
           {isVendorApp && (
             <div style={{ display: 'flex', justifyContent: 'center', marginTop: '10px' }}>
@@ -750,6 +751,11 @@ export default function AdminPanel({
           </div>
         )}
         <div className="sidebar-menu">
+          {isAdminUser(currentUser) && <section className="admin-growth-nav" aria-label="Accesos de ventas">
+            <span>CONTROL DE VENTAS</span>
+            <button type="button" className={activeTab === 'settings' ? 'active' : ''} onClick={() => setActiveTab('settings')}><span aria-hidden="true">⚙️</span><span>Canales y ajustes<small>Mesas · barra · delivery</small></span><span aria-hidden="true">↗</span></button>
+            <button type="button" className={activeTab === 'analytics' ? 'active' : ''} onClick={() => setActiveTab('analytics')}><span aria-hidden="true">📊</span><span>Conversiones GA4<small>Del producto a la compra</small></span><span aria-hidden="true">↗</span></button>
+          </section>}
           {isAdminUser(currentUser) && <button className={`sidebar-btn ${activeTab === 'operations' ? 'active' : ''}`} onClick={() => setActiveTab('operations')}>◉ Centro de operaciones</button>}
           {isTabAllowed('driver_panel') && (
             <button className={`sidebar-btn ${activeTab === 'driver_panel' ? 'active' : ''}`} onClick={() => setActiveTab('driver_panel')}>
@@ -810,11 +816,6 @@ export default function AdminPanel({
               📈 Meta e Ingresos
             </button>
           )}
-          {isAdminUser(currentUser) && (
-            <button className={`sidebar-btn ${activeTab === 'analytics' ? 'active' : ''}`} onClick={() => setActiveTab('analytics')}>
-              📊 Conversiones GA4
-            </button>
-          )}
           {isTabAllowed('surveys') && (
             <button className={`sidebar-btn ${activeTab === 'surveys' ? 'active' : ''}`} onClick={() => setActiveTab('surveys')}>
               ⭐ Encuestas ({orders.filter(o => o.survey).length})
@@ -827,7 +828,7 @@ export default function AdminPanel({
           )}
           {isTabAllowed('settings') && (
             <button className={`sidebar-btn ${activeTab === 'settings' ? 'active' : ''}`} onClick={() => setActiveTab('settings')}>
-              ⚙️ Ajustes Tienda
+              ⚙️ Todos los ajustes
             </button>
           )}
           {isTabAllowed('locations') && (
@@ -1099,6 +1100,7 @@ export default function AdminPanel({
             onChangeMetaPixelId={onChangeMetaPixelId}
             googleAnalyticsId={googleAnalyticsId}
             onChangeGoogleAnalyticsId={onChangeGoogleAnalyticsId}
+            onOpenAnalytics={() => setActiveTab('analytics')}
           />
         )}
 

@@ -9,6 +9,7 @@ import { DEFAULT_PROMOTION, DEFAULT_POPUP_PROMOTION, DEFAULT_WEB_PROMOTION, norm
 import { sendDailySalesReportToTelegram } from '../../utils/telegramDailyReport';
 import { mergeOrders } from '../../utils/orderLifecycle';
 import { isGoogleMeasurementId } from '../../utils/commerceAnalytics';
+import SettingsOverview from './SettingsOverview';
 
 const sanitizeUrlToHTTPS = (url) => {
   if (typeof url !== 'string') return '';
@@ -61,7 +62,8 @@ export default function SettingsManager({
   testimonials, onUpdateTestimonials,
   storeHeroImage, onChangeStoreHeroImage,
   metaPixelId, onChangeMetaPixelId,
-  googleAnalyticsId, onChangeGoogleAnalyticsId
+  googleAnalyticsId, onChangeGoogleAnalyticsId,
+  onOpenAnalytics
 }) {
   // --- Estados Locales para Ajustes (Evita lags en el dashboard completo al escribir) ---
   const [localStoreName, setLocalStoreName] = useState(storeName);
@@ -762,8 +764,10 @@ export default function SettingsManager({
   };
 
   return (
-    <div style={{ maxWidth: '650px', display: 'flex', flexDirection: 'column', gap: '20px' }}>
-      <h3>Ajustes de la Heladería</h3>
+    <div className="settings-dashboard">
+      <SettingsOverview config={localShopConfig} onChangeChannel={(key, checked) => setLocalShopConfig(previous => ({ ...previous, [key]: checked }))} onSave={handleSaveSettings} onOpenAnalytics={onOpenAnalytics} />
+
+      <div id="settings-payments" className="settings-detail-section">
       <PaymentMethodsSettings
         value={localShopConfig.paymentMethods}
         onChange={paymentMethods => setLocalShopConfig(previous => ({ ...previous, paymentMethods }))}
@@ -774,6 +778,8 @@ export default function SettingsManager({
           addLog?.('Métodos de pago actualizados por ' + (currentUser?.name || 'Administrador'));
         }}
       />
+      </div>
+      <div id="settings-promotions" className="settings-detail-section">
       <PromotionEditor
         popupValue={localShopConfig.popupPromotion || (localShopConfig.promotion ? {
           ...localShopConfig.promotion,
@@ -854,8 +860,9 @@ export default function SettingsManager({
           addLog(`Promociones guardadas (Pop-up: ${popupPromotion.enabled ? 'Activado' : 'Desactivado'}, Web: ${webPromotion.enabled ? 'Activado' : 'Desactivado'}) por ${currentUser?.name || 'Administrador'}.`);
         }}
       />
+      </div>
       
-      <div className="glass" style={{ padding: '20px', display: 'flex', flexDirection: 'column', gap: '15px' }}>
+      <div className="glass settings-detail-section" style={{ padding: '20px', display: 'flex', flexDirection: 'column', gap: '15px' }}>
         
         {/* Nombre, Título, Logo y Favicon del Local */}
         <div style={{ display: 'grid', gridTemplateColumns: '1.2fr 0.8fr', gap: '15px', borderBottom: '1px solid var(--border-color)', paddingBottom: '15px' }}>
@@ -1431,7 +1438,7 @@ export default function SettingsManager({
         </div>
 
         {/* Estado de Heladería Manual */}
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderBottom: '1px solid var(--border-color)', paddingBottom: '12px' }}>
+        <div id="settings-operations" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderBottom: '1px solid var(--border-color)', paddingBottom: '12px' }}>
           <div>
             <label htmlFor="shop-open-manual-input" style={{ display: 'block', cursor: 'pointer', fontWeight: 'bold' }}>
               🟢 Estado Manual de la Heladería
@@ -1556,39 +1563,12 @@ export default function SettingsManager({
           )}
         </div>
 
-        {/* Pedidos en Mesa y Tomador de Pedidos */}
+        {/* Ajustes complementarios de la operación en tienda */}
         <div style={{ display: 'flex', flexDirection: 'column', gap: '12px', borderBottom: '1px solid var(--border-color)', paddingBottom: '15px' }}>
           <div>
-            <strong style={{ display: 'block' }}>Canales de venta activos</strong>
-            <span style={{ fontSize: '0.75rem', color: 'var(--text-light)' }}>Activa cualquier combinación, incluso solo mesas, solo barra o solo delivery.</span>
+            <strong style={{ display: 'block' }}>Operación en tienda</strong>
+            <span style={{ fontSize: '0.75rem', color: 'var(--text-light)' }}>Configura la capacidad del salón y el trabajo del personal.</span>
           </div>
-          {[{ key: 'barOrdersEnabled', label: '🛍️ Pedidos en barra / recojo', help: 'Permite pedidos para recoger en tienda y verlos en el monitor.' }, { key: 'deliveryOrdersEnabled', label: '🛵 Delivery', help: 'Permite pedidos con entrega a domicilio.' }].map(channel => (
-            <div key={channel.key} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: '16px' }}>
-              <div><strong style={{ display: 'block' }}>{channel.label}</strong><span style={{ fontSize: '0.75rem', color: 'var(--text-light)' }}>{channel.help}</span></div>
-              <label className="toggle-switch" htmlFor={`shop-${channel.key}`}>
-                <input id={`shop-${channel.key}`} type="checkbox" checked={localShopConfig[channel.key] !== false} onChange={e => setLocalShopConfig(prev => ({ ...prev, [channel.key]: e.target.checked }))} />
-                <span className="slider"></span>
-              </label>
-            </div>
-          ))}
-          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-            <div>
-              <strong style={{ display: 'block' }}>🍽️ Módulo de Pedidos en Mesa / Códigos QR</strong>
-              <span style={{ fontSize: '0.75rem', color: 'var(--text-light)', display: 'block', marginTop: '2px' }}>
-                Permite a los clientes enviar pedidos directamente desde su mesa escaneando un código QR.
-              </span>
-            </div>
-            <label className="toggle-switch" htmlFor="shop-table-orders-enabled-input">
-              <input 
-                id="shop-table-orders-enabled-input" 
-                type="checkbox" 
-                checked={localShopConfig.tableOrdersEnabled !== false} 
-                onChange={(e) => setLocalShopConfig(prev => ({ ...prev, tableOrdersEnabled: e.target.checked }))} 
-              />
-              <span className="slider"></span>
-            </label>
-          </div>
-
           {localShopConfig.tableOrdersEnabled !== false && (
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: '8px', paddingLeft: '15px', borderLeft: '3px solid var(--primary-color)' }}>
               <div>
@@ -2604,12 +2584,12 @@ alter table public.helados_sync enable row level security;`}
 
 
         {/* Métricas y Píxeles de Tracking */}
-        <div className="glass" style={{ padding: '15px', borderRadius: '8px', marginBottom: '15px' }}>
+        <div id="settings-tracking" className="glass" style={{ padding: '15px', borderRadius: '8px', marginBottom: '15px' }}>
           <strong style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '0.9rem', marginBottom: '8px' }}>
             📊 Métricas y Píxeles de Tracking (SEO/Marketing)
           </strong>
           <p style={{ fontSize: '0.75rem', color: 'var(--text-light)', marginBottom: '12px' }}>
-            Con un ID de GA4 se registran vistas de la carta, productos agregados, inicio del checkout, compras confirmadas y métricas LCP, INP y CLS. No se envían datos del cliente en estos eventos.
+            Con un ID de GA4 se registran vistas de productos, artículos agregados, inicio del checkout, compras confirmadas y métricas LCP, INP y CLS. No se envían datos del cliente en estos eventos.
           </p>
           <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
             <div className="form-group">
@@ -2638,6 +2618,7 @@ alter table public.helados_sync enable row level security;`}
               <small style={{ display: 'block', marginTop: '5px', color: 'var(--text-light)' }}>
                 {isGoogleMeasurementId(localGoogleAnalyticsId) ? 'Medición lista para activarse al guardar.' : 'Ingresa un ID G- válido para activar el embudo y las métricas web.'}
               </small>
+              <button type="button" className="settings-analytics-link" onClick={onOpenAnalytics}>Abrir panel de conversiones GA4 →</button>
             </div>
           </div>
         </div>

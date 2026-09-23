@@ -1973,26 +1973,8 @@ export default function App() {
           </a>
         </div>
         <div>&copy; {new Date().getFullYear()} {storeName} - Todos los derechos reservados.</div>
-        <div style={{ marginTop: '5px' }}>
-          Hecho con mucho amor por heladeros artesanales
-          <button
-            onClick={() => setView('admin')}
-            style={{
-              background: 'none',
-              border: 'none',
-              cursor: 'pointer',
-              color: 'var(--text-light)',
-              fontSize: '0.8rem',
-              marginLeft: '2px',
-              padding: 0,
-              display: 'inline',
-              opacity: 0.8
-            }}
-            title="Acceso administrativo"
-          >
-            .
-          </button>
-        </div>
+        <div style={{ marginTop: '5px' }}>Hecho con mucho amor por heladeros artesanales</div>
+        <button type="button" className="footer-admin-link" onClick={() => setView('admin')}>⚙️ Acceso al panel de gestión</button>
       </footer>
       )}
 
