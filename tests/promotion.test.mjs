@@ -52,9 +52,10 @@ test('popup and web promotions operate with independent defaults and settings', 
   const popup = normalizePromotion({ title: 'Bienvenido a Friozo' }, DEFAULT_POPUP_PROMOTION);
   const web = normalizePromotion({ title: 'Oferta en tienda', enabled: true, position: 'above-catalog' }, DEFAULT_WEB_PROMOTION);
 
-  assert.equal(popup.enabled, true);
+  assert.equal(popup.enabled, false);
   assert.equal(popup.title, 'Bienvenido a Friozo');
-  assert.equal(isPromotionVisible(popup), true);
+  assert.equal(isPromotionVisible(popup), false);
+  assert.equal(isPromotionVisible(normalizePromotion({ enabled: true }, DEFAULT_POPUP_PROMOTION)), true);
 
   assert.equal(web.enabled, true);
   assert.equal(web.title, 'Oferta en tienda');

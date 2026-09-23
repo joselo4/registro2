@@ -10,10 +10,11 @@ import PromotionEditor from '../src/components/admin/PromotionEditor.jsx';
 import WelcomePromotion from '../src/components/WelcomePromotion.jsx';
 
 test('welcome announcement respects activation, schedule and loading state', () => {
+  assert.equal(renderToStaticMarkup(<WelcomePromotion />), '');
   for (const props of [{promotion:{enabled:false}}, {promotion:{showWelcome:false}}, {ready:false}, {promotion:{endsAt:'2000-01-01T00:00:00Z'}}]) {
     assert.equal(renderToStaticMarkup(<WelcomePromotion {...props} />), '');
   }
-  const html = renderToStaticMarkup(<WelcomePromotion promotion={{offerLabel:'2×1', originalPrice:'S/ 20', salePrice:'S/ 10'}} />);
+  const html = renderToStaticMarkup(<WelcomePromotion promotion={{enabled:true, offerLabel:'2×1', originalPrice:'S/ 20', salePrice:'S/ 10'}} />);
   assert.ok(html.includes('<dialog'));
   assert.ok(html.includes('Cerrar promoción'));
   assert.ok(html.includes('2×1'));

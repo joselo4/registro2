@@ -117,6 +117,7 @@ export default function Cart({
 
   // Estados para Cupones de Descuento
   const [couponInput, setCouponInput] = useState('');
+  const [couponExpanded, setCouponExpanded] = useState(false);
   const [appliedCoupon, setAppliedCoupon] = useState(null);
   const [couponError, setCouponError] = useState('');
 
@@ -479,11 +480,11 @@ export default function Cart({
 
   return (
     <div className="cart-container">
-      <div style={{ marginBottom: '15px', display: 'flex', alignItems: 'center', gap: '10px' }}>
+      <div className="cart-page-heading">
         <button className="btn btn-secondary" style={{ padding: '6px 12px', fontSize: '0.85rem' }} onClick={() => setView('shop')}>
           ← Tienda
         </button>
-        <h2 style={{ fontSize: '1.5rem' }}>Mi Carrito</h2>
+        <div><span className="section-kicker">YA CASI ES TUYO</span><h2>Tu pedido</h2><p>Revisa tus favoritos y elige cómo recibirlos.</p></div>
       </div>
 
       {/* 💰 BARRA DE PROGRESO DE ENVÍO GRATIS DINÁMICA */}
@@ -666,26 +667,11 @@ export default function Cart({
 
         {/* Formulario Exprés */}
         <div className="glass checkout-section" style={{ padding: '15px', borderRadius: 'var(--radius-md)' }}>
-          <h3 style={{ fontSize: '1.1rem', marginBottom: '8px' }}>Checkout Exprés (Rápido)</h3>
+          <div className="checkout-heading"><span className="section-kicker">UN PASO MÁS</span><h3>Finaliza tu pedido</h3><p>Completa tus datos para confirmar la compra.</p></div>
           
           <button
             type="button"
-            className="btn btn-secondary"
-            style={{
-              backgroundColor: '#176b3d',
-              color: 'white',
-              borderColor: '#176b3d',
-              width: '100%',
-              fontSize: '0.8rem',
-              padding: '8px',
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center',
-              gap: '6px',
-              cursor: 'pointer',
-              marginBottom: '10px',
-              marginTop: '5px'
-            }}
+            className="checkout-help-link"
             onClick={() => {
               const waUrl = `https://wa.me/${String(storePhone || '51987654321').replace(/\D/g, '')}?text=${encodeURIComponent('¡Hola! Estoy revisando mi carrito de compras y tengo una consulta sobre mi pedido 🍦')}`;
               const waWindow = window.open(waUrl, '_blank', 'noopener,noreferrer');
@@ -997,11 +983,15 @@ export default function Cart({
             )}
 
             {/* Campo de Cupón de Descuento */}
-            <div className="form-group" style={{ borderTop: '1px solid var(--border-color)', paddingTop: '10px', marginTop: '10px' }}>
-              <label style={{ fontSize: '0.8rem', display: 'block', marginBottom: '4px', fontWeight: 600 }}>🎟️ ¿Tienes un Cupón de Descuento?</label>
+            <div className="form-group coupon-disclosure">
+              <button type="button" className="coupon-disclosure-toggle" aria-expanded={couponExpanded} aria-controls="coupon-disclosure-content" onClick={() => setCouponExpanded(value => !value)}>
+                🎟️ {appliedCoupon ? `Cupón ${appliedCoupon.code} aplicado` : '¿Tienes un cupón?'} <span aria-hidden="true">{couponExpanded ? '−' : '+'}</span>
+              </button>
+              <div id="coupon-disclosure-content" className="coupon-disclosure-content" hidden={!couponExpanded}>
               {!appliedCoupon ? (
                 <div style={{ display: 'flex', gap: '6px' }}>
                   <input
+                    aria-label="Código de cupón"
                     type="text"
                     className="form-control"
                     placeholder="Ej. VERANO10"
@@ -1040,16 +1030,17 @@ export default function Cart({
                   ⚠️ {couponError}
                 </span>
               )}
+              </div>
             </div>
 
             {/* WhatsApp redirect checkbox */}
             {!tableNumber && shopOpen && (
-              <div className="whatsapp-toggle-container" onClick={() => setSendToWhatsApp(!sendToWhatsApp)}>
+              <div className="whatsapp-toggle-container">
                 <input
                   type="checkbox"
                   id="whatsapp-redirect-checkbox"
                   checked={sendToWhatsApp}
-                  onChange={() => {}} /* Handled by container click */
+                  onChange={(event) => setSendToWhatsApp(event.target.checked)}
                   className="whatsapp-toggle-checkbox"
                 />
                 <label htmlFor="whatsapp-redirect-checkbox" className="whatsapp-toggle-label">

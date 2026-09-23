@@ -768,7 +768,7 @@ export default function SettingsManager({
       <PromotionEditor
         popupValue={localShopConfig.popupPromotion || (localShopConfig.promotion ? {
           ...localShopConfig.promotion,
-          enabled: localShopConfig.promotion.showWelcome ?? localShopConfig.promotion.enabled ?? true
+          enabled: localShopConfig.promotion.showWelcome ?? localShopConfig.promotion.enabled ?? false
         } : undefined)}
         webValue={localShopConfig.webPromotion || (localShopConfig.promotion ? {
           ...localShopConfig.promotion,
@@ -780,7 +780,7 @@ export default function SettingsManager({
             ...DEFAULT_POPUP_PROMOTION,
             ...(prev.popupPromotion || (prev.promotion ? {
               ...prev.promotion,
-              enabled: prev.promotion.showWelcome ?? prev.promotion.enabled ?? true
+              enabled: prev.promotion.showWelcome ?? prev.promotion.enabled ?? false
             } : {})),
             ...patch
           }
@@ -810,7 +810,7 @@ export default function SettingsManager({
             ...DEFAULT_POPUP_PROMOTION,
             ...(localShopConfig.popupPromotion || (localShopConfig.promotion ? {
               ...localShopConfig.promotion,
-              enabled: localShopConfig.promotion.showWelcome ?? localShopConfig.promotion.enabled ?? true
+              enabled: localShopConfig.promotion.showWelcome ?? localShopConfig.promotion.enabled ?? false
             } : {}))
           };
           const webDraft = {

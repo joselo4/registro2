@@ -8,6 +8,14 @@ import { normalizePromotion, DEFAULT_POPUP_PROMOTION, DEFAULT_WEB_PROMOTION } fr
 import { updateSyncedData } from '../utils/supabaseSync';
 import { sanitizeHTML } from '../utils/security';
 
+const isAvailableProduct = item => item && item.active !== false && Number.isFinite(Number(item.price)) && Number(item.price) >= 0;
+const normalizeSearchValue = value => String(value ?? '').normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLocaleLowerCase('es-PE');
+const matchesCatalogSearch = (item, term) => !term || normalizeSearchValue([
+  item?.name,
+  item?.description,
+  ...(Array.isArray(item?.items) ? item.items.map(part => typeof part === 'string' ? part : part?.name) : [item?.items])
+].join(' ')).includes(term);
+
 
 export default function CustomerShop({ 
   flavors = [],
@@ -62,11 +70,12 @@ export default function CustomerShop({
     }
     return 'all';
   });
+  const [catalogSearch, setCatalogSearch] = useState('');
 
   const popupPromotion = normalizePromotion(
     shopConfig.popupPromotion || (shopConfig.promotion ? {
       ...shopConfig.promotion,
-      enabled: shopConfig.promotion.showWelcome ?? shopConfig.promotion.enabled ?? true
+      enabled: shopConfig.promotion.showWelcome ?? shopConfig.promotion.enabled ?? false
     } : {}),
     DEFAULT_POPUP_PROMOTION
   );
@@ -86,12 +95,16 @@ export default function CustomerShop({
     document.getElementById('catalog')?.scrollIntoView({ behavior: 'smooth' });
   };
 
-  const available = item => item && item.active !== false && Number.isFinite(Number(item.price)) && Number(item.price) >= 0;
-  const activeFlavors = flavors.filter(available);
-  const activePacks = packs.filter(available);
-  const activePopsicles = popsicles.filter(available);
-  const visibleCategories = [...new Set((tableNumber ? tableCategories : catalogOrder).filter(category => ['popsicles', 'classic', 'liter', 'packs'].includes(category)))];
-  const categoryCounts = { classic: activeFlavors.length, packs: activePacks.length, popsicles: activePopsicles.length, liter: literConfig?.active !== false ? 1 : 0 };
+  const activeFlavors = useMemo(() => flavors.filter(isAvailableProduct), [flavors]);
+  const activePacks = useMemo(() => packs.filter(isAvailableProduct), [packs]);
+  const activePopsicles = useMemo(() => popsicles.filter(isAvailableProduct), [popsicles]);
+  const visibleCategories = useMemo(() => [...new Set((tableNumber ? tableCategories : catalogOrder).filter(category => ['popsicles', 'classic', 'liter', 'packs'].includes(category)))], [tableNumber, tableCategories, catalogOrder]);
+  const searchTerm = normalizeSearchValue(catalogSearch.trim());
+  const catalogFlavors = useMemo(() => activeFlavors.filter(item => matchesCatalogSearch(item, searchTerm)), [activeFlavors, searchTerm]);
+  const catalogPacks = useMemo(() => activePacks.filter(item => matchesCatalogSearch(item, searchTerm)), [activePacks, searchTerm]);
+  const catalogPopsicles = useMemo(() => activePopsicles.filter(item => matchesCatalogSearch(item, searchTerm)), [activePopsicles, searchTerm]);
+  const literMatches = !searchTerm || normalizeSearchValue('helado familiar de 1 litro pote para compartir').includes(searchTerm);
+  const categoryCounts = { classic: catalogFlavors.length, packs: catalogPacks.length, popsicles: catalogPopsicles.length, liter: literConfig?.active !== false && literMatches ? 1 : 0 };
   const visibleCount = visibleCategories.reduce((count, category) => count + (filter === 'all' || filter === category ? categoryCounts[category] : 0), 0);
   const activePrices = activeFlavors
     .map(flavor => Number(flavor.price) || 0)
@@ -99,6 +112,12 @@ export default function CustomerShop({
   const startingPrice = activePrices.length > 0
     ? Math.min(...activePrices).toFixed(2)
     : '1.00';
+  const featuredProducts = [
+    visibleCategories.includes('packs') && activePacks[0] && { kind: 'pack', item: activePacks[0], label: 'Para compartir', icon: '🎁' },
+    visibleCategories.includes('classic') && activeFlavors.length > 0 && { kind: 'classic', item: activeFlavors.find(item => item.isPopular) || activeFlavors[0], label: 'Tu favorito al instante', icon: '🍦' },
+    visibleCategories.includes('popsicles') && activePopsicles[0] && { kind: 'popsicle', item: activePopsicles[0], label: 'Algo fresco', icon: '🍭' },
+    visibleCategories.includes('liter') && literConfig?.active !== false && { kind: 'liter', item: literConfig || {}, label: 'Para llevar a casa', icon: '🏺' }
+  ].filter(Boolean).slice(0, 3);
 
   const isTableOccupiedByOther = tableOrdersEnabled && tableNumber && 
     occupiedTables.includes(String(tableNumber));
@@ -505,7 +524,7 @@ export default function CustomerShop({
           if (section === 'popsicles') {
             return (
               <React.Fragment key="popsicles">
-                {(filter === 'all' || filter === 'popsicles') && activePopsicles.map(popsicle => (
+                {(filter === 'all' || filter === 'popsicles') && catalogPopsicles.map(popsicle => (
                   <article key={popsicle.id} className="glass-card product-card popsicle-card">
                     <span className="product-badge popsicle-badge">
                       {popsicle.badge || '🍭 100% Natural'}
@@ -549,7 +568,7 @@ export default function CustomerShop({
             return (
               <React.Fragment key="liter">
                 {/* 🏺 Mostrar Helado de Litro */}
-                {(filter === 'all' || filter === 'liter') && literConfig?.active !== false && (
+                {(filter === 'all' || filter === 'liter') && literConfig?.active !== false && literMatches && (
                   <div className="glass-card product-card">
                     <span className="product-badge badge-familiar">🏺 Familiar 1L</span>
                     <div className="product-illustration" style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', minHeight: '120px' }}>
@@ -603,7 +622,7 @@ export default function CustomerShop({
             return (
               <React.Fragment key="classic">
                 {/* Mostrar Helados Clásicos */}
-                {(filter === 'all' || filter === 'classic') && activeFlavors.map(flavor => {
+                {(filter === 'all' || filter === 'classic') && catalogFlavors.map(flavor => {
                   const isPopular = flavor.isPopular === true;
                   return (
                     <div key={flavor.id} className="glass-card product-card">
@@ -645,7 +664,7 @@ export default function CustomerShop({
                           </div>
                           <button 
                             className="add-btn" 
-                            title="Añadir helado simple de 1 bola al carrito"
+                            aria-label={`Agregar helado de ${flavor.name} al carrito`}
                             onClick={() => handleAddClassicToCart(flavor)}
                           >
                             + Agregar
@@ -662,7 +681,7 @@ export default function CustomerShop({
             return (
               <React.Fragment key="packs">
                 {/* Mostrar Packs */}
-                {(filter === 'all' || filter === 'packs') && activePacks.map(pack => {
+                {(filter === 'all' || filter === 'packs') && catalogPacks.map(pack => {
                   const badgeClass = `badge-${String(pack.badge || '').toLowerCase().replace(/\s+/g, '-')}`;
                   return (
                     <div key={pack.id} className="glass-card product-card">
@@ -703,7 +722,7 @@ export default function CustomerShop({
                           <button 
                             className="add-btn" 
                             style={{ backgroundColor: 'var(--secondary-color)' }}
-                            title="Añadir pack al carrito"
+                            aria-label={`Agregar ${pack.name} al carrito`}
                             onClick={() => handleAddPackToCart(pack)}
                           >
                             + Agregar Pack
@@ -720,7 +739,7 @@ export default function CustomerShop({
         })}
       </div>
     );
-  }, [tableNumber, catalogOrder, filter, literConfig, activeFlavors, activePacks, activePopsicles, setView, handleAddClassicToCart, handleAddPackToCart, handleAddPopsicleToCart, shopConfig]);
+  }, [tableNumber, catalogOrder, filter, literConfig, literMatches, catalogFlavors, catalogPacks, catalogPopsicles, setView, handleAddClassicToCart, handleAddPackToCart, handleAddPopsicleToCart, shopConfig]);
 
   const resolvedHeroImage = storeHeroImage || '/hero-friozo-v2.webp';
 
@@ -854,7 +873,7 @@ export default function CustomerShop({
             Qué rico <span>caer en<br />la tentación.</span>
           </h1>
           <p className="hero-description">
-            Cremoso, frutal, con extra de chocolate. En <strong>{storeName || 'FRIOZO'}</strong> tu antojo manda. Elige tus sabores y ponle el toque que más te provoca.
+            En <strong>{storeName || 'FRIOZO'}</strong> eliges el sabor y nosotros lo hacemos al momento. Pide tu favorito o crea una mezcla solo tuya.
           </p>
           <div className="hero-cta">
             <button className="btn btn-primary hero-primary-cta" onClick={() => setView('customizer')}>
@@ -1009,6 +1028,43 @@ export default function CustomerShop({
         </div>
       </section>
 
+      {featuredProducts.length > 0 && (
+        <section className="featured-section" aria-labelledby="featured-title">
+          <div className="featured-heading">
+            <div>
+              <span className="section-kicker">ELIGE EN UN TOQUE</span>
+              <h2 id="featured-title">¿Empezamos por aquí?</h2>
+            </div>
+            <a href="#catalog" onClick={(event) => { event.preventDefault(); document.getElementById('catalog')?.scrollIntoView({ behavior: 'smooth' }); }}>Ver toda la carta <span aria-hidden="true">→</span></a>
+          </div>
+          <div className="featured-list">
+            {featuredProducts.map(({ kind, item, label, icon }) => {
+              const name = kind === 'liter' ? 'Helado familiar de 1 litro' : item.name;
+              const price = Number(item.price ?? (kind === 'liter' ? 15 : 0));
+              const image = item.image || (kind === 'liter' ? '/customizer/cup-eco.webp' : '');
+              return (
+                <article className={`featured-card featured-card-${kind}`} key={`${kind}-${item.id || 'featured'}`}>
+                  <div className="featured-card-copy">
+                    <span>{icon} {label}</span>
+                    <h3>{name}</h3>
+                    <strong>S/. {price.toFixed(2)}</strong>
+                    <button type="button" aria-label={kind === 'liter' ? 'Personalizar helado de 1 litro' : `Agregar ${name} al carrito`} onClick={() => {
+                      if (kind === 'pack') handleAddPackToCart(item);
+                      else if (kind === 'classic') handleAddClassicToCart(item);
+                      else if (kind === 'popsicle') handleAddPopsicleToCart(item);
+                      else setView('liter-customizer');
+                    }}>{kind === 'liter' ? 'Personalizar' : 'Agregar'} <span aria-hidden="true">↗</span></button>
+                  </div>
+                  <div className="featured-card-art" aria-hidden="true">
+                    {image ? <img src={image} alt="" loading="lazy" decoding="async" /> : kind === 'classic' ? <DessertPreview compact base={{ id: 'cono', name: 'Cono' }} scoops={[item]} /> : <PackIllustration pack={item} />}
+                  </div>
+                </article>
+              );
+            })}
+          </div>
+        </section>
+      )}
+
       <div className="crave-marquee" aria-label="Beneficios de Friozo">
         <div className="crave-marquee-track">
           <span>HECHO AL MOMENTO</span><b>✦</b>
@@ -1056,6 +1112,16 @@ export default function CustomerShop({
           <span className="catalog-count">
             {visibleCount} {visibleCount === 1 ? 'opción' : 'opciones'}
           </span>
+        </div>
+
+        <div className="catalog-search-row">
+          <label htmlFor="catalog-search">Busca tu sabor</label>
+          <div className="catalog-search-field">
+            <span aria-hidden="true">⌕</span>
+            <input id="catalog-search" type="search" value={catalogSearch} onChange={event => setCatalogSearch(event.target.value)} placeholder="Prueba con chocolate, fresa o un pack…" autoComplete="off" />
+            {catalogSearch && <button type="button" aria-label="Limpiar búsqueda" onClick={() => setCatalogSearch('')}>×</button>}
+          </div>
+          <span role="status">{visibleCount} {visibleCount === 1 ? 'opción' : 'opciones'}</span>
         </div>
 
         {/* Filtros */}
@@ -1110,7 +1176,7 @@ export default function CustomerShop({
         )}
 
         {/* Grid de Productos */}
-        {visibleCount > 0 ? renderedCatalog : <div className="catalog-empty" role="status"><h3>No hay productos disponibles en esta categoría</h3><p>Prueba otra categoría de la carta.</p>{filter !== 'all' && <button className="btn btn-secondary" onClick={() => setFilter('all')}>Ver toda la carta</button>}</div>}
+        {visibleCount > 0 ? renderedCatalog : <div className="catalog-empty" role="status"><h3>{catalogSearch ? 'No encontramos ese antojo' : 'No hay productos disponibles en esta categoría'}</h3><p>{catalogSearch ? 'Prueba otro sabor o explora todas las categorías.' : 'Explora otras categorías para encontrar tu próximo favorito.'}</p><button className="btn btn-secondary" onClick={() => { setFilter('all'); setCatalogSearch(''); }}>Ver toda la carta</button></div>}
       </section>
 
       <section className="order-paths" aria-label="Formas de elegir tu helado">
