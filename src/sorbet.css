@@ -459,3 +459,45 @@ textarea:focus-visible { outline: 3px solid var(--primary-color); outline-offset
   .customer-shop .catalog-grid { grid-template-columns: minmax(0, 1fr); }
 }
 
+/* A quick confirmation keeps the catalog usable after every add to cart. */
+.purchase-toast {
+  position: fixed;
+  top: calc(78px + env(safe-area-inset-top, 0px));
+  left: 50%;
+  z-index: 9999;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  width: min(480px, calc(100vw - 24px));
+  padding: 12px 14px;
+  border: 1px solid var(--border-color);
+  border-radius: 16px;
+  background: var(--bg-secondary);
+  box-shadow: 0 16px 40px rgba(35, 22, 21, .2);
+  transform: translateX(-50%);
+  animation: purchase-toast-in .22s ease-out;
+}
+.purchase-toast-icon {
+  display: grid;
+  flex: 0 0 34px;
+  height: 34px;
+  place-items: center;
+  border-radius: 50%;
+  background: #d8ef87;
+  color: #213c19;
+  font-weight: 900;
+}
+.purchase-toast-copy { display: grid; flex: 1; min-width: 0; line-height: 1.25; }
+.purchase-toast-copy strong { color: var(--heading-color); font-size: .9rem; }
+.purchase-toast-copy small { overflow: hidden; color: var(--text-light); font-size: .76rem; text-overflow: ellipsis; white-space: nowrap; }
+.purchase-toast-action, .purchase-toast-close { border: 0; background: none; cursor: pointer; }
+.purchase-toast-action { min-height: 40px; color: var(--primary-color); font-weight: 800; white-space: nowrap; }
+.purchase-toast-close { width: 32px; height: 40px; color: var(--text-light); font-size: 1.3rem; }
+.purchase-toast-action:focus-visible, .purchase-toast-close:focus-visible { outline: 3px solid var(--primary-color); outline-offset: 2px; }
+@keyframes purchase-toast-in { from { opacity: 0; transform: translate(-50%, -12px); } to { opacity: 1; transform: translate(-50%, 0); } }
+@media (max-width: 600px) {
+  .purchase-toast { top: calc(72px + env(safe-area-inset-top, 0px)); gap: 8px; padding: 9px 10px; }
+  .purchase-toast-copy small { max-width: 130px; }
+}
+@media (prefers-reduced-motion: reduce) { .purchase-toast { animation: none; } }
+

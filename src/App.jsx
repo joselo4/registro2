@@ -13,6 +13,7 @@ import { supabase } from './utils/supabaseClient';
 import { Capacitor } from '@capacitor/core';
 import { DEFAULT_SMS_TEMPLATES } from './utils/orderMessaging';
 import { createOrder, createOperatorOrder, updateOrder } from './utils/apiClient';
+import { addCartItem, checkoutStorage, readCartDraft, subtractOrderedItems } from './utils/checkout';
 
 import CustomerShop from './components/CustomerShop';
 import IceCreamCustomizer from './components/IceCreamCustomizer';
@@ -140,10 +141,21 @@ export default function App() {
   );
 
   const [customAlert, setCustomAlert] = useState(null); // { title: string, message: string, type: 'info' | 'warning' | 'error' | 'success', onClose?: () => void }
+  const [successToast, setSuccessToast] = useState(null);
 
   const showAlert = (title, message, type = 'info', onClose = null) => {
+    if (type === 'success' && !onClose) {
+      setSuccessToast({ title, message });
+      return;
+    }
     setCustomAlert({ title, message, type, onClose });
   };
+
+  useEffect(() => {
+    if (!successToast) return undefined;
+    const timer = window.setTimeout(() => setSuccessToast(null), 3600);
+    return () => window.clearTimeout(timer);
+  }, [successToast]);
 
   // Local alert override for App.jsx
   const alert = (msg) => {
@@ -196,11 +208,8 @@ export default function App() {
 
   const [testimonials, setTestimonials] = useState(() => {
     const saved = localStorage.getItem('helados_testimonials');
-    return saved ? JSON.parse(saved) : [
-      { id: 1, rating: 5, text: 'El helado de lúcuma con trozos de chocolate es una locura. El delivery llegó súper rápido y los potes vienen perfectamente congelados.', name: 'Andrea Mendoza', initials: 'AM', color: 'var(--primary-color)' },
-      { id: 2, rating: 5, text: 'Armé mi helado personalizado con la guía de sabores y me encantó la combinación. Excelente atención y empaque térmico impecable.', name: 'Juan Carlos', initials: 'JC', color: 'var(--secondary-color)' },
-      { id: 3, rating: 5, text: 'Compramos el Pack Dúo Familiar para el fin de semana. Helados cremosos, buen precio y la entrega a domicilio fue impecable.', name: 'Sofía Prado', initials: 'SP', color: '#2ecc71' }
-    ];
+    try { return saved ? JSON.parse(saved) : []; }
+    catch { return []; }
   });
 
   // --- NUEVO: Estado de Ordenamiento del Catálogo de la Carta (Sincronizado) ---
@@ -537,7 +546,10 @@ export default function App() {
     }
   }, [locationFeatureVisible, view, isVendorApp]);
 
-  const [cart, setCart] = useState([]);
+  const [cart, setCart] = useState(readCartDraft);
+  useEffect(() => {
+    checkoutStorage.setItem('helados_cart_draft', JSON.stringify(cart));
+  }, [cart]);
   const [activeOrderId, setActiveOrderId] = useState(() => {
     const saved = localStorage.getItem('helados_active_order_id');
     const savedTime = localStorage.getItem('helados_active_order_time');
@@ -1254,73 +1266,19 @@ export default function App() {
       alert(`Lo sentimos, ${storeName} se encuentra CERRADO temporalmente en este momento.`);
       return false;
     }
-
-    if (item.type === 'pack' || item.type === 'popsicle' || item.type === 'extra') {
-      const idx = cart.findIndex(i => i.type === item.type && i.id === item.id);
-      if (idx !== -1) {
-        const newCart = [...cart];
-        newCart[idx].quantity += 1;
-        setCart(newCart);
-        alert(`Se incrementó la cantidad del ${item.name} en el carrito.`);
-        return true;
-      }
-    } else if (item.type === 'custom') {
-      const idx = cart.findIndex(i => {
-        if (i.type !== 'custom') return false;
-        if (i.base.id !== item.base.id) return false;
-        if (i.scoops.length !== item.scoops.length) return false;
-        if (i.toppings.length !== item.toppings.length) return false;
-        if (i.syrup?.id !== item.syrup?.id) return false;
-
-        const sameScoops = i.scoops.every((s, sIdx) => s.id === item.scoops[sIdx].id);
-        const sameToppings = i.toppings.every((t, tIdx) => t.id === item.toppings[tIdx].id);
-
-        return sameScoops && sameToppings;
-      });
-
-      if (idx !== -1) {
-        const newCart = [...cart];
-        newCart[idx].quantity += 1;
-        setCart(newCart);
-        alert(`Se incrementó la cantidad de tu helado personalizado idéntico.`);
-        return true;
-      }
-    } else if (item.type === 'liter') {
-      const idx = cart.findIndex(i => {
-        if (i.type !== 'liter') return false;
-        if (i.scoops.length !== item.scoops.length) return false;
-        
-        // Compare scoops sorted or in the exact same order
-        return i.scoops.every((s, sIdx) => s.id === item.scoops[sIdx].id);
-      });
-
-      if (idx !== -1) {
-        const newCart = [...cart];
-        newCart[idx].quantity += 1;
-        setCart(newCart);
-        alert(`Se incrementó la cantidad de tu helado de 1 Litro idéntico.`);
-        return true;
-      }
-    }
-
-    setCart([...cart, item]);
-    alert("¡Helado añadido al carrito exitosamente!");
+    setCart(current => addCartItem(current, item));
+    showAlert('Producto agregado', `${item.name || 'Tu helado'} ya está en tu pedido.`, 'success');
     return true;
   };
 
   const handleUpdateCartQuantity = (index, newQty) => {
-    if (newQty <= 0) {
-      handleRemoveFromCart(index);
-      return;
-    }
-    const newCart = [...cart];
-    newCart[index].quantity = newQty;
-    setCart(newCart);
+    setCart(current => newQty <= 0
+      ? current.filter((_, idx) => idx !== index)
+      : current.map((entry, idx) => idx === index ? { ...entry, quantity: newQty } : entry));
   };
 
   const handleRemoveFromCart = (index) => {
-    const newCart = cart.filter((_, idx) => idx !== index);
-    setCart(newCart);
+    setCart(current => current.filter((_, idx) => idx !== index));
   };
 
   const sendTelegramNotification = async (order) => {
@@ -1428,7 +1386,7 @@ export default function App() {
     }
     setOrders(prev => [savedOrder, ...prev.filter(order => order.id !== savedOrder.id)]);
     if (!newOrder.isOperator) {
-      setCart([]);
+      setCart(current => subtractOrderedItems(current, newOrder.items || []));
       setActiveOrderId(savedOrder.id);
       setView('tracker');
       
@@ -2146,6 +2104,22 @@ export default function App() {
             }}
           >
             Ver carrito <span aria-hidden="true">→</span></button>
+        </div>
+      )}
+
+      {successToast && (
+        <div className="purchase-toast" role="status" aria-live="polite">
+          <span className="purchase-toast-icon" aria-hidden="true">✓</span>
+          <span className="purchase-toast-copy">
+            <strong>{successToast.title}</strong>
+            <small>{successToast.message}</small>
+          </span>
+          {cart.length > 0 && view !== 'cart' && view !== 'admin' && (
+            <button type="button" className="purchase-toast-action" onClick={() => { setSuccessToast(null); setView('cart'); }}>
+              Ver pedido
+            </button>
+          )}
+          <button type="button" className="purchase-toast-close" aria-label="Cerrar aviso" onClick={() => setSuccessToast(null)}>×</button>
         </div>
       )}
 
