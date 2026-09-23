@@ -43,8 +43,7 @@ function localPagesApiPlugin(env) {
         }
 
         if (pathname.startsWith('/api/')) {
-          const routePath = Object.keys(apiRoutes).find((path) => pathname.startsWith(path))
-          const handler = routePath ? apiRoutes[routePath]?.[req.method || 'GET'] : null
+          const handler = apiRoutes[pathname]?.[req.method || 'GET']
           if (!handler) {
             res.statusCode = 404
             res.setHeader('Content-Type', 'application/json')

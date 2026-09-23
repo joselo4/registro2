@@ -14,7 +14,9 @@ Para verificar cambios: `npm run lint`, `npm test`, `npm run test:views` y `npm 
 
 ## Canales de venta
 
-En la web pública, abre **Acceso al panel de gestión** desde el pie de página e inicia sesión como administrador. Los accesos **Canales y ajustes** y **Conversiones GA4** aparecen al inicio del menú lateral.
+El acceso administrativo no se muestra en la tienda pública. El personal puede abrir directamente `https://www.pideanda.com/?admin=1` e iniciar sesión. Esa URL es solo una entrada a la pantalla de acceso: la autorización real sigue dependiendo de Supabase y de las comprobaciones del servidor. Los accesos **Canales y ajustes** y **Conversiones GA4** aparecen al inicio del menú lateral después de iniciar sesión.
+
+La opción de recordar el inicio de sesión conserva únicamente el nombre de usuario. Al abrir la tienda se eliminan las contraseñas que versiones anteriores hayan guardado en el navegador.
 
 En **Canales y ajustes → Canales de venta** se pueden combinar mesas, barra y delivery, o dejar solo uno. Pulsa **Guardar canales** para aplicar el cambio. El checkout y el tomador muestran los canales permitidos. La API rechaza pedidos nuevos dirigidos a canales desactivados. Los pedidos ya existentes siguen visibles para poder terminarlos o cobrarlos.
 

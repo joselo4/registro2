@@ -18,6 +18,7 @@ const DriverDeliveryPanel = lazy(() => import('./admin/DriverDeliveryPanel'));
 const KitchenDisplaySystem = lazy(() => import('./admin/KitchenDisplaySystem'));
 import CartLocationsView from './CartLocationsView';
 import './admin/AdminGrowth.css';
+import { readRememberedOperator } from '../utils/rememberedOperator';
 import { sanitizeHTML } from '../utils/security';
 
 // eslint-disable-next-line no-unused-vars
@@ -185,30 +186,8 @@ export default function AdminPanel({
   const [rememberMe, setRememberMe] = useState(() => {
     return localStorage.getItem('friozo_operator_remember') === 'true';
   });
-  const [emailInput, setEmailInput] = useState(() => {
-    try {
-      const saved = localStorage.getItem('friozo_saved_operator_login');
-      if (saved) {
-        const parsed = JSON.parse(saved);
-        return parsed.user || '';
-      }
-    } catch {
-      /* ignore invalid saved login */
-    }
-    return '';
-  });
-  const [passwordInput, setPasswordInput] = useState(() => {
-    try {
-      const saved = localStorage.getItem('friozo_saved_operator_login');
-      if (saved) {
-        const parsed = JSON.parse(saved);
-        return parsed.pass || '';
-      }
-    } catch {
-      /* ignore invalid saved password */
-    }
-    return '';
-  });
+  const [emailInput, setEmailInput] = useState(() => readRememberedOperator(localStorage));
+  const [passwordInput, setPasswordInput] = useState('');
   const [showPassword, setShowPassword] = useState(false);
   const [authError, setAuthError] = useState('');
 
@@ -415,13 +394,14 @@ export default function AdminPanel({
       setLoginAttempts(0);
       setLockoutUntil(0);
       if (rememberMe) {
-        localStorage.setItem('friozo_saved_operator_login', JSON.stringify({ user: userInput, pass: passwordSanitized }));
+        localStorage.setItem('friozo_saved_operator_login', JSON.stringify({ user: userInput }));
         localStorage.setItem('friozo_operator_remember', 'true');
       } else {
         localStorage.removeItem('friozo_saved_operator_login');
         localStorage.setItem('friozo_operator_remember', 'false');
       }
       sessionStorage.setItem('helados_admin_login_timestamp', Date.now().toString());
+      setPasswordInput('');
       setIsLoggedIn(true);
       setCurrentUser(userObj);
       addLog(`Inicio de sesion ${isSupabase ? 'multidispositivo' : 'exitoso'} por ${userObj.name} (${userObj.role}).`);
@@ -612,6 +592,7 @@ export default function AdminPanel({
               type="text"
               className="form-control"
               placeholder="admin o admin@donhelado.com"
+              autoComplete="username"
               value={emailInput}
               onChange={(e) => setEmailInput(e.target.value)}
               required
@@ -625,6 +606,7 @@ export default function AdminPanel({
                 type={showPassword ? 'text' : 'password'}
                 className="form-control"
                 placeholder="Contraseña"
+                autoComplete="current-password"
                 value={passwordInput}
                 onChange={(e) => setPasswordInput(e.target.value)}
                 required
@@ -658,7 +640,7 @@ export default function AdminPanel({
               onChange={(e) => setRememberMe(e.target.checked)}
             />
             <label htmlFor="rememberMe" style={{ cursor: 'pointer', margin: 0 }}>
-              Recordar credenciales en este equipo
+              Recordar solo mi usuario en este equipo
             </label>
           </div>
 

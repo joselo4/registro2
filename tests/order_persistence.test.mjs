@@ -261,6 +261,7 @@ test('surveys cannot regress delivery state and are rejected before delivery', a
 test('Android HTTPS localhost is allowed while unrelated browser origins are rejected', () => {
   assert.equal(sameOriginRequest(new Request('https://www.pideanda.com/api/order', { headers: { Origin: 'https://localhost' } })), true);
   assert.equal(sameOriginRequest(new Request('https://www.pideanda.com/api/order', { headers: { Origin: 'https://other.test' } })), false);
+  assert.equal(sameOriginRequest(new Request('https://www.pideanda.com/api/order', { headers: { Origin: 'http://www.pideanda.com' } })), false);
 });
 
 for (const method of ['Yape', 'Plin', 'Efectivo', 'Transferencia', 'Tarjeta']) {

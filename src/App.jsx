@@ -16,13 +16,14 @@ import { createOrder, createOperatorOrder, updateOrder } from './utils/apiClient
 import { addCartItem, checkoutStorage, readCartDraft, subtractOrderedItems } from './utils/checkout';
 import { isGoogleMeasurementId, toGa4Event, toMetaPayload } from './utils/commerceAnalytics';
 import { configureWebVitalsMonitoring } from './utils/performanceMonitoring';
+import { readRememberedOperator } from './utils/rememberedOperator';
 
 import CustomerShop from './components/CustomerShop';
-import IceCreamCustomizer from './components/IceCreamCustomizer';
-import LiterCustomizer from './components/LiterCustomizer';
-import Cart from './components/Cart';
-import LiveChatTelegramBridge from './components/LiveChatTelegramBridge';
-import OrderTracker from './components/OrderTracker';
+const IceCreamCustomizer = React.lazy(() => import('./components/IceCreamCustomizer'));
+const LiterCustomizer = React.lazy(() => import('./components/LiterCustomizer'));
+const Cart = React.lazy(() => import('./components/Cart'));
+const LiveChatTelegramBridge = React.lazy(() => import('./components/LiveChatTelegramBridge'));
+const OrderTracker = React.lazy(() => import('./components/OrderTracker'));
 const AdminPanel = React.lazy(() => import('./components/AdminPanel'));
 const CartLocationsView = React.lazy(() => import('./components/CartLocationsView'));
 
@@ -129,6 +130,7 @@ const migrateLegacyBrandText = (value, fallback = '') => {
 };
 
 export default function App() {
+  useEffect(() => { readRememberedOperator(window.localStorage); }, []);
   const isRemoteUpdate = useRef({});
   const allowCloudWrite = useRef(false);
   const logoutInProgressRef = useRef(false);
@@ -137,8 +139,6 @@ export default function App() {
   const [realtimeStatus, setRealtimeStatus] = useState('connecting'); // 'connecting' | 'connected' | 'error'
   const isVendorApp = typeof window !== 'undefined' && (
     Capacitor.isNativePlatform?.() ||
-    window.matchMedia?.('(display-mode: standalone)').matches ||
-    window.navigator?.standalone ||
     new URLSearchParams(window.location.search).get('mode') === 'vendor'
   );
 
@@ -543,7 +543,11 @@ export default function App() {
     return { updatedAt: null, carts: [] };
   });
 
-  const [view, setView] = useState(() => (isVendorApp ? 'admin' : 'shop')); 
+  const [view, setView] = useState(() => (
+    isVendorApp || (typeof window !== 'undefined' && new URLSearchParams(window.location.search).get('admin') === '1')
+      ? 'admin'
+      : 'shop'
+  ));
   const trackedPageViewRef = useRef('');
   const trackedMetaPageViewRef = useRef('');
   const isCustomerView = !isVendorApp && !isLoggedIn && ['shop', 'customizer', 'liter-customizer', 'cart', 'tracker', 'locations'].includes(view);
@@ -1554,11 +1558,6 @@ export default function App() {
     setTheme(prev => prev === 'light' ? 'dark' : 'light');
   };
 
-  // Easter Egg: Doble clic en logotipo abre login administrativo
-  const handleLogoDoubleClick = () => {
-    setView('admin');
-  };
-
   return (
     <div style={{ display: 'flex', flexDirection: 'column', minHeight: '100vh' }}>
       
@@ -1569,8 +1568,6 @@ export default function App() {
             href="#" 
             className="logo" 
             onClick={(e) => { e.preventDefault(); setView(isVendorApp ? 'admin' : 'shop'); }}
-            onDoubleClick={handleLogoDoubleClick}
-            title="Doble clic para administrar"
             style={{ cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '8px' }}
           >
             {renderLogo(storeLogo)}
@@ -1720,7 +1717,7 @@ export default function App() {
           </div>
         )}
 
-        <React.Suspense fallback={<div className="glass" style={{ padding: '40px', textAlign: 'center', fontFamily: 'var(--font-title)', color: 'var(--primary-color)', fontSize: '1.2rem', fontWeight: 'bold' }}>Cargando...</div>}>
+        <React.Suspense fallback={<div className="glass route-loading" role="status" aria-live="polite"><span className="route-loading-spinner" aria-hidden="true" />Preparando tu experiencia...</div>}>
           {view === 'shop' && (
           <CustomerShop 
             flavors={flavors}
@@ -1948,7 +1945,7 @@ export default function App() {
         </React.Suspense>
       </main>
 
-      {/* 🔑 PIE DE PÁGINA (Footer) CON ACCESO DISCRETO */}
+      {/* Pie de página público */}
       {!isVendorApp && (
       <footer style={{
         textAlign: 'center',
@@ -1974,7 +1971,6 @@ export default function App() {
         </div>
         <div>&copy; {new Date().getFullYear()} {storeName} - Todos los derechos reservados.</div>
         <div style={{ marginTop: '5px' }}>Hecho con mucho amor por heladeros artesanales</div>
-        <button type="button" className="footer-admin-link" onClick={() => setView('admin')}>⚙️ Acceso al panel de gestión</button>
       </footer>
       )}
 
@@ -2049,14 +2045,16 @@ export default function App() {
 
       {/* 💬 Burbuja de Chat Puente a Telegram */}
       {!isVendorApp && (
-      <LiveChatTelegramBridge 
-        telegramToken={telegramToken}
-        telegramChatId={telegramChatId}
-        storePhone={storePhone}
-        storeName={storeName}
-        view={view}
-        hasFloatingCart={cart.length > 0 && view !== 'cart' && view !== 'admin'}
-      />
+        <React.Suspense fallback={null}>
+          <LiveChatTelegramBridge
+            telegramToken={telegramToken}
+            telegramChatId={telegramChatId}
+            storePhone={storePhone}
+            storeName={storeName}
+            view={view}
+            hasFloatingCart={cart.length > 0 && view !== 'cart' && view !== 'admin'}
+          />
+        </React.Suspense>
       )}
 
       {/* Floating Cart Toast/Window */}

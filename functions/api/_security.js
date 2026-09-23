@@ -26,7 +26,7 @@ export const sameOriginRequest = (request) => {
   try {
     const originUrl = new URL(origin);
     const requestUrl = new URL(request.url);
-    if (originUrl.host === requestUrl.host) return true;
+    if (originUrl.origin === requestUrl.origin) return true;
     if (['https://localhost', 'http://localhost', 'capacitor://localhost'].includes(origin)) return true;
 
     const isLocalRequest = ['localhost', '127.0.0.1', '::1'].includes(requestUrl.hostname);

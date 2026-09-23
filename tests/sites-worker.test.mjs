@@ -27,3 +27,12 @@ test('worker retains static assets and rejects unrecognized API routes', async (
   const denied = await worker.fetch(new Request('https://shop.test/api/telegram',{headers:{Origin:'https://other.test'}}),env,{});
   assert.equal(denied.status,403);
 });
+
+test('GA4 report reaches its protected handler and rejects a different origin protocol', async () => {
+  const env = { ASSETS: { fetch: () => { assert.fail('GA4 must not fall through to assets'); } } };
+  const url = 'https://shop.test/api/ga4-report?days=7';
+  const unauthenticated = await worker.fetch(new Request(url), env, {});
+  assert.equal(unauthenticated.status, 401);
+  const crossProtocol = await worker.fetch(new Request(url, { headers: { Origin: 'http://shop.test' } }), env, {});
+  assert.equal(crossProtocol.status, 403);
+});
