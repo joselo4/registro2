@@ -28,6 +28,7 @@ export default function CustomerShop({
   storeName,
   freeDeliveryThreshold = 15.0,
   freeDeliveryEnabled = true,
+  deliveryFee = 0,
   deliveryCampaignText = '¡Arma tu helado con toppings o elige un pack promocional para no pagar envío!',
   literConfig,
   catalogOrder = ['popsicles', 'classic', 'liter', 'packs'],
@@ -53,16 +54,8 @@ export default function CustomerShop({
 
   const handleAddToCartWrapped = useCallback((item) => {
     const added = onAddToCart(item);
-    try { if (added !== false && trackEvent) {
-      trackEvent('AddToCart', {
-        content_name: item.name || 'Helado',
-        value: item.price || 1.0,
-        currency: 'PEN',
-        quantity: item.quantity || 1
-      });
-    } } catch (error) { console.warn('No se pudo registrar la estadística del carrito:', error); }
     return added !== false;
-  }, [onAddToCart, trackEvent]);
+  }, [onAddToCart]);
 
   const [filter, setFilter] = useState(() => {
     if (tableNumber) {
@@ -106,18 +99,87 @@ export default function CustomerShop({
   const literMatches = !searchTerm || normalizeSearchValue('helado familiar de 1 litro pote para compartir').includes(searchTerm);
   const categoryCounts = { classic: catalogFlavors.length, packs: catalogPacks.length, popsicles: catalogPopsicles.length, liter: literConfig?.active !== false && literMatches ? 1 : 0 };
   const visibleCount = visibleCategories.reduce((count, category) => count + (filter === 'all' || filter === category ? categoryCounts[category] : 0), 0);
+  const deliveryPrice = Math.max(0, Number(deliveryFee) || 0);
+  const deliveryMessage = deliveryPrice === 0
+    ? 'Delivery gratis'
+    : freeDeliveryEnabled && Number(freeDeliveryThreshold) > 0
+      ? `Delivery S/. ${deliveryPrice.toFixed(2)} · Gratis desde S/. ${Number(freeDeliveryThreshold).toFixed(2)}`
+      : `Delivery S/. ${deliveryPrice.toFixed(2)}`;
+  const catalogRef = useRef(null);
+  const catalogViewedRef = useRef(false);
+  const catalogItems = useMemo(() => !trackEvent ? [] : visibleCategories
+    .filter(category => filter === 'all' || filter === category)
+    .flatMap(category => {
+      if (category === 'classic') return catalogFlavors.map(item => ({ ...item, type: 'classic' }));
+      if (category === 'packs') return catalogPacks.map(item => ({ ...item, type: 'pack' }));
+      if (category === 'popsicles') return catalogPopsicles.map(item => ({ ...item, type: 'popsicle' }));
+      if (category === 'liter' && literConfig?.active !== false && literMatches) return [{ ...literConfig, id: 'liter', name: 'Helado familiar de 1 litro', type: 'liter' }];
+      return [];
+    }), [trackEvent, visibleCategories, filter, catalogFlavors, catalogPacks, catalogPopsicles, literConfig, literMatches]);
+
+  useEffect(() => {
+    if (!trackEvent || !catalogItems.length || catalogViewedRef.current || !catalogRef.current) return;
+    const recordView = () => {
+      if (catalogViewedRef.current) return;
+      catalogViewedRef.current = true;
+      trackEvent('ViewCatalog', { item_list_id: `catalog_${filter}`, item_list_name: 'Carta de helados', items: catalogItems });
+    };
+    if (typeof IntersectionObserver === 'undefined') {
+      recordView();
+      return;
+    }
+    const observer = new IntersectionObserver(entries => {
+      if (entries.some(entry => entry.isIntersecting)) {
+        recordView();
+        observer.disconnect();
+      }
+    }, { threshold: 0 });
+    observer.observe(catalogRef.current);
+    return () => observer.disconnect();
+  }, [trackEvent, catalogItems, filter]);
   const activePrices = activeFlavors
     .map(flavor => Number(flavor.price) || 0)
     .filter(price => price > 0);
   const startingPrice = activePrices.length > 0
     ? Math.min(...activePrices).toFixed(2)
     : '1.00';
-  const featuredProducts = [
+  const featuredProducts = useMemo(() => [
     visibleCategories.includes('packs') && activePacks[0] && { kind: 'pack', item: activePacks[0], label: 'Para compartir', icon: '🎁' },
     visibleCategories.includes('classic') && activeFlavors.length > 0 && { kind: 'classic', item: activeFlavors.find(item => item.isPopular) || activeFlavors[0], label: 'Tu favorito al instante', icon: '🍦' },
     visibleCategories.includes('popsicles') && activePopsicles[0] && { kind: 'popsicle', item: activePopsicles[0], label: 'Algo fresco', icon: '🍭' },
     visibleCategories.includes('liter') && literConfig?.active !== false && { kind: 'liter', item: literConfig || {}, label: 'Para llevar a casa', icon: '🏺' }
-  ].filter(Boolean).slice(0, 3);
+  ].filter(Boolean).slice(0, 3), [visibleCategories, activePacks, activeFlavors, activePopsicles, literConfig]);
+  const featuredRef = useRef(null);
+  const featuredViewedRef = useRef(false);
+  useEffect(() => {
+    if (!trackEvent || !featuredProducts.length || featuredViewedRef.current || !featuredRef.current) return;
+    const recordView = () => {
+      if (featuredViewedRef.current) return;
+      featuredViewedRef.current = true;
+      trackEvent('ViewCatalog', {
+        item_list_id: 'featured',
+        item_list_name: 'Selección destacada',
+        items: featuredProducts.map(({ kind, item }) => ({
+          ...item,
+          id: kind === 'liter' ? 'liter' : item.id,
+          name: kind === 'liter' ? 'Helado familiar de 1 litro' : item.name,
+          type: kind
+        }))
+      });
+    };
+    if (typeof IntersectionObserver === 'undefined') {
+      recordView();
+      return;
+    }
+    const observer = new IntersectionObserver(entries => {
+      if (entries.some(entry => entry.isIntersecting)) {
+        recordView();
+        observer.disconnect();
+      }
+    }, { threshold: 0 });
+    observer.observe(featuredRef.current);
+    return () => observer.disconnect();
+  }, [featuredProducts, trackEvent]);
 
   const isTableOccupiedByOther = tableOrdersEnabled && tableNumber && 
     occupiedTables.includes(String(tableNumber));
@@ -1029,7 +1091,7 @@ export default function CustomerShop({
       </section>
 
       {featuredProducts.length > 0 && (
-        <section className="featured-section" aria-labelledby="featured-title">
+        <section ref={featuredRef} className="featured-section" aria-labelledby="featured-title">
           <div className="featured-heading">
             <div>
               <span className="section-kicker">ELIGE EN UN TOQUE</span>
@@ -1075,14 +1137,14 @@ export default function CustomerShop({
       </div>
 
       {/* BANNER DELIVERY GRATIS */}
-      {!tableNumber && freeDeliveryEnabled && parseFloat(freeDeliveryThreshold || 0) > 0 && (
+      {!tableNumber && (
         <div className="delivery-banner">
           <span className="delivery-banner-icon" aria-hidden="true">🚚</span>
           <div className="delivery-banner-copy">
-            <strong>Delivery gratis desde S/. {parseFloat(freeDeliveryThreshold).toFixed(2)}</strong>
-          {deliveryCampaignText && (
+            <strong>{deliveryMessage}</strong>
+            {deliveryPrice > 0 && freeDeliveryEnabled && Number(freeDeliveryThreshold) > 0 && deliveryCampaignText && (
               <p>{deliveryCampaignText}</p>
-          )}
+            )}
           </div>
           <a 
             href="#catalog"
@@ -1102,12 +1164,13 @@ export default function CustomerShop({
       {webPromotion.enabled && webPromotion.position === 'above-catalog' && (
         <PromotionBanner promotion={webPromotion} tableNumber={tableNumber} onAction={handlePromotionAction} />
       )}
-      <section id="catalog" className="catalog-section">
+      <section id="catalog" ref={catalogRef} className="catalog-section">
         <div className="catalog-heading">
           <div>
             <span className="section-kicker">TU PRÓXIMO ANTOJO</span>
             <h2 className="section-title">La carta de {storeName || 'Friozo'}</h2>
-            <p className="section-subtitle">Elige tus favoritos. Los detalles de entrega y pago van después.</p>
+            <p className="section-subtitle">Elige tus favoritos y arma tu pedido en minutos.</p>
+            {!tableNumber && <p className="catalog-delivery-note">🛵 {`${deliveryMessage}. El total exacto aparece antes de confirmar.`}</p>}
           </div>
           <span className="catalog-count">
             {visibleCount} {visibleCount === 1 ? 'opción' : 'opciones'}

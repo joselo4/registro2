@@ -14,6 +14,13 @@ test('storefront uses the requested pink hero, ice cream image and purchase acti
   assert.ok(html.includes('hero-proof'));
   assert.ok(html.includes('crave-marquee'));
 });
+test('storefront shows the real delivery fee before checkout and hides it for tables', () => {
+  const deliveryShop = renderToStaticMarkup(<CustomerShop {...shop} deliveryFee={4} freeDeliveryThreshold={10} freeDeliveryEnabled />);
+  assert.ok(deliveryShop.includes('Delivery S/. 4.00 · Gratis desde S/. 10.00'));
+  assert.ok(deliveryShop.includes('El total exacto aparece antes de confirmar.'));
+  const tableShop = renderToStaticMarkup(<CustomerShop {...shop} deliveryFee={4} tableNumber="2" />);
+  assert.ok(!tableShop.includes('catalog-delivery-note'));
+});
 test('packs with missing badges and catalog prices stored as text render without crashing', () => {
   const html = renderToStaticMarkup(<CustomerShop {...shop} flavors={[{ id: 'fresa', name: 'Fresa', price: '2.50' }]} packs={[{ id: 'duo', name: 'Dúo', price: '12.50' }]} literConfig={{ price: '15.00' }} />);
   for (const price of ['2.50', '12.50', '15.00']) assert.ok(html.includes(price));

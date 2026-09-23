@@ -110,6 +110,9 @@ export default defineConfig(({ mode }) => {
         output: {
           manualChunks(id) {
             if (id.includes('node_modules')) {
+              if (id.includes('web-vitals')) {
+                return 'web-vitals';
+              }
               if (id.includes('leaflet')) {
                 return 'leaflet';
               }

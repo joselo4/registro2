@@ -14,6 +14,8 @@ import { Capacitor } from '@capacitor/core';
 import { DEFAULT_SMS_TEMPLATES } from './utils/orderMessaging';
 import { createOrder, createOperatorOrder, updateOrder } from './utils/apiClient';
 import { addCartItem, checkoutStorage, readCartDraft, subtractOrderedItems } from './utils/checkout';
+import { isGoogleMeasurementId, toGa4Event, toMetaPayload } from './utils/commerceAnalytics';
+import { configureWebVitalsMonitoring } from './utils/performanceMonitoring';
 
 import CustomerShop from './components/CustomerShop';
 import IceCreamCustomizer from './components/IceCreamCustomizer';
@@ -249,25 +251,25 @@ export default function App() {
     return localStorage.getItem('helados_google_analytics_id') || '';
   });
 
-  // Helper for professional non-obvious event tracking
+  const googleMeasurementId = isGoogleMeasurementId(googleAnalyticsId) ? googleAnalyticsId.trim().toUpperCase() : '';
+  const analyticsEnabled = Boolean(googleMeasurementId || String(metaPixelId || '').trim());
+
   const trackEvent = (eventName, eventData = {}) => {
-    // 1. Meta Pixel
     if (window.fbq && metaPixelId) {
       try {
-        window.fbq('track', eventName, eventData);
+        window.fbq(eventName === 'ViewCatalog' ? 'trackCustom' : 'track', eventName, toMetaPayload(eventName, eventData));
       } catch (err) {
         console.warn('Meta Pixel track failed:', err);
       }
     }
-    // 2. Google Analytics
-    if (window.gtag && googleAnalyticsId) {
+    const ga4Event = toGa4Event(eventName, eventData);
+    if (window.gtag && googleMeasurementId && ga4Event) {
       try {
-        window.gtag('event', eventName, eventData);
+        window.gtag('event', ga4Event.name, { ...ga4Event.params, send_to: googleMeasurementId });
       } catch (err) {
         console.warn('Google Analytics track failed:', err);
       }
     }
-    console.log(`📊 Tracking Event: ${eventName}`, eventData);
   };
 
   // Dynamic script injection for Meta Pixel
@@ -295,25 +297,30 @@ export default function App() {
          
         window.fbq('init', pixelId);
       }
-      window.fbq('track', 'PageView');
     }
   }, [metaPixelId]);
 
   // Dynamic script injection for Google Analytics
   useEffect(() => {
-    if (googleAnalyticsId && googleAnalyticsId.trim()) {
-      const gaId = googleAnalyticsId.trim();
-      const script = document.createElement('script');
-      script.async = true;
-      script.src = `https://www.googletagmanager.com/gtag/js?id=${gaId}`;
-      document.head.appendChild(script);
+    if (googleMeasurementId) {
+      const gaId = googleMeasurementId;
+      if (!document.querySelector(`script[data-friozo-ga4="${gaId}"]`)) {
+        const script = document.createElement('script');
+        script.async = true;
+        script.dataset.friozoGa4 = gaId;
+        script.src = `https://www.googletagmanager.com/gtag/js?id=${gaId}`;
+        document.head.appendChild(script);
+      }
 
       window.dataLayer = window.dataLayer || [];
-      window.gtag = function(){window.dataLayer.push(arguments);}
+      window.gtag = window.gtag || function(){window.dataLayer.push(arguments);};
       window.gtag('js', new Date());
-      window.gtag('config', gaId);
+      window.gtag('config', gaId, {
+        page_location: `${window.location.origin}${window.location.pathname}`,
+        send_page_view: false
+      });
     }
-  }, [googleAnalyticsId]);
+  }, [googleMeasurementId]);
 
   const [storeInstagram, setStoreInstagram] = useState(() => {
     return localStorage.getItem('helados_store_instagram') || 'https://www.instagram.com/';
@@ -535,6 +542,25 @@ export default function App() {
   });
 
   const [view, setView] = useState(() => (isVendorApp ? 'admin' : 'shop')); 
+  const trackedPageViewRef = useRef('');
+  const trackedMetaPageViewRef = useRef('');
+  const isCustomerView = !isVendorApp && !isLoggedIn && ['shop', 'customizer', 'liter-customizer', 'cart', 'tracker', 'locations'].includes(view);
+
+  useEffect(() => {
+    configureWebVitalsMonitoring(isCustomerView ? googleMeasurementId : '');
+    if (isCustomerView && metaPixelId && window.fbq && trackedMetaPageViewRef.current !== metaPixelId) {
+      trackedMetaPageViewRef.current = metaPixelId;
+      window.fbq('track', 'PageView');
+    }
+    if (isCustomerView && googleMeasurementId && window.gtag && trackedPageViewRef.current !== googleMeasurementId) {
+      trackedPageViewRef.current = googleMeasurementId;
+      window.gtag('event', 'page_view', {
+        page_location: `${window.location.origin}${window.location.pathname}`,
+        send_to: googleMeasurementId
+      });
+    }
+    return () => configureWebVitalsMonitoring('');
+  }, [isCustomerView, googleMeasurementId, metaPixelId]);
   
   useEffect(() => {
     window.scrollTo(0, 0);
@@ -1267,6 +1293,7 @@ export default function App() {
       return false;
     }
     setCart(current => addCartItem(current, item));
+    if (analyticsEnabled) trackEvent('AddToCart', { value: Number(item.price) * (Number(item.quantity) || 1), items: [item] });
     showAlert('Producto agregado', `${item.name || 'Tu helado'} ya está en tu pedido.`, 'success');
     return true;
   };
@@ -1704,6 +1731,7 @@ export default function App() {
             storeName={storeName}
             freeDeliveryThreshold={freeDeliveryThreshold}
             freeDeliveryEnabled={shopConfig.freeDeliveryEnabled !== false}
+            deliveryFee={deliveryFee}
             deliveryCampaignText={deliveryCampaignText}
             literConfig={literConfig}
             catalogOrder={catalogOrder}
@@ -1722,7 +1750,7 @@ export default function App() {
             shopConfig={shopConfig}
             testimonials={testimonials}
             storeHeroImage={storeHeroImage}
-            trackEvent={trackEvent}
+            trackEvent={analyticsEnabled ? trackEvent : undefined}
           />
         )}
 
@@ -1779,7 +1807,7 @@ export default function App() {
             setTableNumber={setTableNumber}
             occupiedTables={shopConfig.occupiedTables || []}
             shopConfig={shopConfig}
-            trackEvent={trackEvent}
+            trackEvent={analyticsEnabled ? trackEvent : undefined}
           />
         )}
 

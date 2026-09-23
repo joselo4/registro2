@@ -22,7 +22,8 @@
     "leaflet": "^1.9.4",
     "pdfkit": "^0.19.1",
     "react": "^19.2.6",
-    "react-dom": "^19.2.6"
+    "react-dom": "^19.2.6",
+    "web-vitals": "^6.2.2"
   },
   "devDependencies": {
     "@capacitor/android": "^8.0.0",

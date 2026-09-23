@@ -61,6 +61,7 @@ body { background: #fffaf7; }
 .customer-shop .delivery-banner { border-radius: 16px; }
 .customer-shop .catalog-section { padding-top: 32px; }
 .customer-shop .catalog-heading .section-title { font-size: clamp(2rem, 3.5vw, 3rem); font-family: var(--font-title); font-weight: 800; letter-spacing: -.05em; }
+.catalog-delivery-note { display: inline-block; margin-top: 10px; padding: 8px 11px; border: 1px solid #e9d3d1; border-radius: 11px; background: #fff3e9; color: #68414b; font-size: .79rem; font-weight: 700; }
 .catalog-search-row { display: flex; align-items: center; gap: 14px; margin: 20px 0 9px; }
 .catalog-search-row label { font-size: .86rem; font-weight: 800; color: var(--store-ink); white-space: nowrap; }
 .catalog-search-field { display: flex; align-items: center; gap: 9px; max-width: 480px; flex: 1; border: 1px solid #ddbec6; border-radius: 14px; background: #fff; padding: 0 13px; box-shadow: 0 3px 12px rgba(79, 26, 45, .04); }
@@ -191,6 +192,7 @@ body { background: #fffaf7; }
 [data-theme="dark"] .featured-card strong, [data-theme="dark"] .featured-heading a { color: #ffadc5; }
 [data-theme="dark"] .featured-card button { background: #653548; color: #fff4f2; border-color: #be748d; }
 [data-theme="dark"] .catalog-search-field { background: #2d1e28; border-color: #775366; }
+[data-theme="dark"] .catalog-delivery-note { background: #3d2934; border-color: #765162; color: #ffe3df; }
 [data-theme="dark"] .catalog-search-field input { color: #fff4f2; }
 [data-theme="dark"] .catalog-search-row > span { color: #d9b5c3; }
 [data-theme="dark"] .customer-shop .catalog-filters { background: rgba(31, 20, 29, .96); }

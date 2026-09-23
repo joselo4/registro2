@@ -4,6 +4,7 @@ import DessertPreview from './DessertPreview';
 import { generateOrderId } from '../utils/orderId';
 import { getEnabledPaymentMethods, selectPaymentMethod } from '../utils/paymentMethods';
 import { buildWhatsAppHref } from '../utils/orderMessaging';
+import { checkoutTotals } from '../utils/checkout';
 import { sanitizeHTML, sanitizeText, safeStorage } from '../utils/security';
 
 
@@ -123,25 +124,9 @@ export default function Cart({
 
 
 
-  const cartSubtotal = cart.reduce((sum, item) => sum + (item.price * item.quantity), 0);
-  
-  // Utilizar el umbral de Delivery Gratis dinámico y verificar si hay cupón de envío gratis o consumo en mesa/barra
-  const isFreeDelivery = 
-    orderType === 'Mesa' || 
-    orderType === 'Mesa_Llevar' || 
-    orderType === 'Barra' || 
-    orderType === 'Llevar' || 
-    (freeDeliveryEnabled && freeDeliveryThreshold > 0 && cartSubtotal >= freeDeliveryThreshold) || 
-    (appliedCoupon && appliedCoupon.type === 'free_delivery');
-  const activeDeliveryFee = isFreeDelivery ? 0 : deliveryFee;
-  
-  const discount = appliedCoupon 
-    ? (appliedCoupon.type === 'percentage' 
-        ? cartSubtotal * (appliedCoupon.value / 100) 
-        : (appliedCoupon.type === 'flat' ? appliedCoupon.value : 0)) 
-    : 0;
-
-  const total = Math.max(0, cartSubtotal + activeDeliveryFee - discount);
+  const { subtotal: cartSubtotal, shipping: activeDeliveryFee, discount, total, freeDelivery: isFreeDelivery } = checkoutTotals(cart, {
+    deliveryFee, freeDeliveryEnabled, freeDeliveryThreshold, orderType, coupon: appliedCoupon
+  });
 
   const missingForFreeDelivery = freeDeliveryThreshold - cartSubtotal;
 
@@ -189,9 +174,8 @@ export default function Cart({
     if (!initiatedRef.current && trackEvent && cart && cart.length > 0) {
       initiatedRef.current = true;
       trackEvent('InitiateCheckout', {
-        num_items: cart.reduce((sum, item) => sum + item.quantity, 0),
         value: cartSubtotal,
-        currency: 'PEN'
+        items: cart
       });
     }
   }, [trackEvent, cart, cartSubtotal]);
@@ -343,10 +327,12 @@ export default function Cart({
        // Track purchase event
        if (trackEvent) {
          trackEvent('Purchase', {
-           value: total,
-           currency: 'PEN',
-           order_id: orderId,
-           num_items: cart.reduce((sum, item) => sum + item.quantity, 0)
+           value: Math.max(0, cartSubtotal - discount),
+           total,
+           shipping: activeDeliveryFee,
+           transaction_id: orderId,
+           coupon: appliedCoupon?.code,
+           items: cart
          });
        }
   
@@ -1064,7 +1050,7 @@ export default function Cart({
               {!tableNumber && (
                 <div className="cart-summary-row" style={{ marginTop: '4px' }}>
                   <span>Envío:</span>
-                  <span>{isFreeDelivery ? <strong style={{ color: 'var(--success)' }}>GRATIS</strong> : `S/. ${deliveryFee.toFixed(2)}`}</span>
+                  <span>{isFreeDelivery ? <strong style={{ color: 'var(--success)' }}>GRATIS</strong> : `S/. ${activeDeliveryFee.toFixed(2)}`}</span>
                 </div>
               )}
               <div className="cart-summary-total" style={{ fontSize: '1.05rem', marginTop: '6px', paddingTop: '6px' }}>

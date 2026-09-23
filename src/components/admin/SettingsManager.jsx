@@ -8,6 +8,7 @@ import PromotionEditor from './PromotionEditor';
 import { DEFAULT_PROMOTION, DEFAULT_POPUP_PROMOTION, DEFAULT_WEB_PROMOTION, normalizePromotion, validatePromotion } from '../../utils/promotion';
 import { sendDailySalesReportToTelegram } from '../../utils/telegramDailyReport';
 import { mergeOrders } from '../../utils/orderLifecycle';
+import { isGoogleMeasurementId } from '../../utils/commerceAnalytics';
 
 const sanitizeUrlToHTTPS = (url) => {
   if (typeof url !== 'string') return '';
@@ -198,6 +199,10 @@ export default function SettingsManager({
   }, [literConfig]);
 
   const handleSaveSettings = () => {
+    if (localGoogleAnalyticsId.trim() && !isGoogleMeasurementId(localGoogleAnalyticsId)) {
+      alert('El ID de Google Analytics debe tener el formato G- seguido de letras y números.');
+      return;
+    }
     const promotion = normalizePromotion(localShopConfig.promotion);
     const promotionError = validatePromotion({ ...DEFAULT_PROMOTION, ...localShopConfig.promotion });
     if (promotionError) { alert(promotionError); return; }
@@ -219,7 +224,7 @@ export default function SettingsManager({
     if (onChangeWhatsappContactMessage) onChangeWhatsappContactMessage(localWhatsappContactMessage);
     if (onChangeStoreHeroImage) onChangeStoreHeroImage(localStoreHeroImage);
     if (onChangeMetaPixelId) onChangeMetaPixelId(localMetaPixelId);
-    if (onChangeGoogleAnalyticsId) onChangeGoogleAnalyticsId(localGoogleAnalyticsId);
+    if (onChangeGoogleAnalyticsId) onChangeGoogleAnalyticsId(localGoogleAnalyticsId.trim().toUpperCase());
     onChangeSalesGoal(parseFloat(localSalesGoal) || 0);
     if (onChangeDeliveryFee) onChangeDeliveryFee(parseFloat(localDeliveryFee) || 0);
     onChangeFreeDeliveryThreshold(parseFloat(localFreeDeliveryThreshold) || 0);
@@ -2587,7 +2592,7 @@ alter table public.helados_sync enable row level security;`}
             📊 Métricas y Píxeles de Tracking (SEO/Marketing)
           </strong>
           <p style={{ fontSize: '0.75rem', color: 'var(--text-light)', marginBottom: '12px' }}>
-            Registra los IDs de seguimiento para habilitar la medición de eventos de ventas y visitas de forma silenciosa.
+            Con un ID de GA4 se registran vistas de la carta, productos agregados, inicio del checkout, compras confirmadas y métricas LCP, INP y CLS. No se envían datos del cliente en estos eventos.
           </p>
           <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
             <div className="form-group">
@@ -2613,6 +2618,9 @@ alter table public.helados_sync enable row level security;`}
                 value={localGoogleAnalyticsId}
                 onChange={(e) => setLocalGoogleAnalyticsId(e.target.value)}
               />
+              <small style={{ display: 'block', marginTop: '5px', color: 'var(--text-light)' }}>
+                {isGoogleMeasurementId(localGoogleAnalyticsId) ? 'Medición lista para activarse al guardar.' : 'Ingresa un ID G- válido para activar el embudo y las métricas web.'}
+              </small>
             </div>
           </div>
         </div>
