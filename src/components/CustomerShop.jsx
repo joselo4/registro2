@@ -895,7 +895,7 @@ export default function CustomerShop({
       ) : (
         <>
           {/* Pop-up Banner Emergente de Bienvenida al ingresar */}
-          <WelcomePromotion promotion={popupPromotion} tableNumber={tableNumber} onAction={handlePromotionAction} ready={promotionReady} />
+          <WelcomePromotion promotion={popupPromotion} tableNumber={tableNumber} onAction={handlePromotionAction} ready={promotionReady && (typeof window === 'undefined' || window.location.pathname === '/')} />
           {/* Banner Fijo en la Tienda Web (Solo si está activado) */}
           {webPromotion.enabled && webPromotion.position === 'above-hero' && (
             <PromotionBanner promotion={webPromotion} tableNumber={tableNumber} onAction={handlePromotionAction} />
