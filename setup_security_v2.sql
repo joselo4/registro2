@@ -7,6 +7,8 @@
 -- Despliega este SQL junto con el código actualizado; no expongas service_role.
 -- =====================================================================
 
+BEGIN;
+
 -- 1. Habilitar extensiones necesarias
 CREATE EXTENSION IF NOT EXISTS "uuid-ossp";
 CREATE EXTENSION IF NOT EXISTS "pgcrypto";
@@ -35,6 +37,20 @@ DROP POLICY IF EXISTS "Lectura por rol activo" ON public.helados_sync;
 DROP POLICY IF EXISTS "Escritura admin" ON public.helados_sync;
 DROP POLICY IF EXISTS "Escritura operativa limitada" ON public.helados_sync;
 DROP POLICY IF EXISTS "Insercion operativa limitada" ON public.helados_sync;
+
+-- También retirar políticas antiguas con nombres distintos. Las políticas
+-- PostgreSQL se combinan con OR; una sola lectura amplia anula este bloqueo.
+DO $$
+DECLARE existing_policy record;
+BEGIN
+  FOR existing_policy IN
+    SELECT policyname FROM pg_policies
+    WHERE schemaname = 'public' AND tablename = 'helados_sync'
+  LOOP
+    EXECUTE format('DROP POLICY IF EXISTS %I ON public.helados_sync', existing_policy.policyname);
+  END LOOP;
+END;
+$$;
 
 -- 5. LIMPIEZA DE DATOS Y CREDENCIALES COMPROMETIDAS
 DELETE FROM public.helados_sync WHERE key = 'r2_config';
@@ -106,7 +122,7 @@ AS $$
     ) AS item
     WHERE staff.key = 'staff_users'
       AND lower(item->>'email') = lower(auth.jwt()->>'email')
-      AND lower(coalesce(item->>'status', 'Activo')) NOT LIKE '%suspend%'
+      AND lower(coalesce(item->>'status', 'Activo')) = 'activo'
       AND (CASE WHEN lower(item->>'role') = 'admin' THEN 'administrador' ELSE lower(item->>'role') END)
         = (CASE WHEN lower(coalesce(auth.jwt()->'app_metadata'->>'role', '')) = 'admin'
             THEN 'administrador' ELSE lower(coalesce(auth.jwt()->'app_metadata'->>'role', '')) END)
@@ -269,3 +285,6 @@ BEGIN
   END IF;
 END;
 $$;
+
+NOTIFY pgrst, 'reload schema';
+COMMIT;
