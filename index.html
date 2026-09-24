@@ -42,7 +42,7 @@
       "priceRange": "PEN",
       "currenciesAccepted": "PEN",
       "servesCuisine": "Helados artesanales, Paletas, Postres",
-      "hasMenu": "https://www.pideanda.com/#catalog",
+      "hasMenu": "https://www.pideanda.com/helados/",
       "address": {
         "@type": "PostalAddress",
         "streetAddress": "Andahuaylas",
@@ -104,19 +104,15 @@
     <meta name="twitter:image" content="https://www.pideanda.com/friozo_og_image.png" />
   </head>
   <body>
-    <noscript>
-      <div style="padding: 2rem; text-align: center; font-family: sans-serif; background: #fff8f0; color: #333;">
-        <h1>¡Bienvenido a Friozo - Helados Artesanales en Andahuaylas!</h1>
-        <p>Para personalizar tus helados y realizar pedidos en línea, por favor activa JavaScript en tu navegador o contáctanos directamente por WhatsApp al <a href="https://wa.me/51989466466" style="color: #e55039; font-weight: bold;">+51 989 466 466</a>.</p>
-      </div>
-    </noscript>
-
     <div id="root">
       <main class="friozo-startup" aria-labelledby="startup-title">
-        <img src="/hero-friozo-v2.webp" alt="Helado artesanal Friozo" width="180" height="240" />
-        <h1 id="startup-title">FRIOZO</h1>
-        <p id="startup-status" role="status">Estamos preparando tu tienda…</p>
-        <button id="startup-retry" type="button" hidden>Volver a cargar la tienda</button>
+        <header class="static-header"><a href="/" aria-label="Friozo, inicio"><img src="/logo.webp" alt="" width="48" height="48" /><strong>FRIOZO</strong></a></header>
+        <section class="static-hero">
+          <h1 id="startup-title">Helados artesanales en Andahuaylas</h1>
+          <p>Explora nuestra carta y arma tu pedido de helados, paletas o packs.</p>
+          <div class="static-actions"><a class="static-primary" href="/helados/">Ver helados</a><a href="https://wa.me/51989466466">Pedir por WhatsApp</a></div>
+        </section>
+        <footer class="static-footer"><p id="startup-status" role="status">La compra interactiva se está activando.</p><button id="startup-retry" type="button" hidden>Volver a cargar la tienda</button></footer>
       </main>
     </div>
     <script src="/startup.js"></script>

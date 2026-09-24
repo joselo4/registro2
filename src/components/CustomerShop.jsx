@@ -7,6 +7,7 @@ import PackIllustration from './PackIllustration';
 import { normalizePromotion, DEFAULT_POPUP_PROMOTION, DEFAULT_WEB_PROMOTION } from '../utils/promotion';
 import { updateSyncedData } from '../utils/supabaseSync';
 import { sanitizeHTML } from '../utils/security';
+import { categoryForPath, productPath } from '../utils/catalogRoutes';
 import './ProductQuickView.css';
 
 const isAvailableProduct = item => item && item.active !== false && Number.isFinite(Number(item.price)) && Number(item.price) >= 0;
@@ -47,7 +48,8 @@ export default function CustomerShop({
   promotionReady = true,
   testimonials = [],
   storeHeroImage = '',
-  trackEvent
+  trackEvent,
+  catalogReady = true
 }) {
   const tableCategories = useMemo(() => {
     return shopConfig.tableCatalogCategories || ['popsicles', 'classic', 'liter', 'packs'];
@@ -62,7 +64,7 @@ export default function CustomerShop({
     if (tableNumber) {
       return tableCategories.length > 1 ? 'all' : (tableCategories[0] || 'classic');
     }
-    return 'all';
+    return categoryForPath(typeof window === 'undefined' ? '/' : window.location.pathname);
   });
   const [catalogSearch, setCatalogSearch] = useState('');
   const [quickView, setQuickView] = useState(null);
@@ -104,6 +106,21 @@ export default function CustomerShop({
   const activeFlavors = useMemo(() => flavors.filter(isAvailableProduct), [flavors]);
   const activePacks = useMemo(() => packs.filter(isAvailableProduct), [packs]);
   const activePopsicles = useMemo(() => popsicles.filter(isAvailableProduct), [popsicles]);
+  const openedProductPath = useRef('');
+  useEffect(() => {
+    if (!catalogReady || tableNumber) return;
+    const path = window.location.pathname.replace(/\/$/, '');
+    if (!path.startsWith('/producto/') || openedProductPath.current === path) return;
+    const match = [
+      ...activeFlavors.map(item => ({ kind: 'classic', item })),
+      ...activePopsicles.map(item => ({ kind: 'popsicle', item })),
+      ...activePacks.map(item => ({ kind: 'pack', item })),
+    ].find(({ kind, item }) => productPath(kind, item) === path);
+    if (match) {
+      openedProductPath.current = path;
+      openQuickView(match.kind, match.item);
+    }
+  }, [catalogReady, tableNumber, activeFlavors, activePopsicles, activePacks, openQuickView]);
   const visibleCategories = useMemo(() => [...new Set((tableNumber ? tableCategories : catalogOrder).filter(category => ['popsicles', 'classic', 'liter', 'packs'].includes(category)))], [tableNumber, tableCategories, catalogOrder]);
   const searchTerm = normalizeSearchValue(catalogSearch.trim());
   const catalogFlavors = useMemo(() => activeFlavors.filter(item => matchesCatalogSearch(item, searchTerm)), [activeFlavors, searchTerm]);

@@ -9,12 +9,12 @@ const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 const rootDir = path.resolve(__dirname, '..');
 
-test('index keeps SEO metadata and one application entry without an alternative storefront', () => {
+test('index keeps SEO metadata and one application entry for the prerendered storefront', () => {
   const content = fs.readFileSync(path.join(rootDir, 'index.html'), 'utf8');
   assert.match(content, /<title>.*Andahuaylas.*<\/title>/i);
   assert.match(content, /name="description"/);
   assert.match(content, /type="application\/ld\+json"/);
-  assert.match(content, /https:\/\/www.pideanda.com\/#catalog/);
+  assert.match(content, /https:\/\/www.pideanda.com\/helados\//);
   assert.equal((content.match(/id="root"/g) || []).length, 1);
   assert.ok(content.includes('src="/src/main.jsx"'));
   assert.ok(content.includes('id="startup-status"'));

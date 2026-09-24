@@ -17,6 +17,7 @@ import { addCartItem, checkoutStorage, readCartDraft, subtractOrderedItems } fro
 import { isGoogleMeasurementId, toGa4Event, toMetaPayload } from './utils/commerceAnalytics';
 import { configureWebVitalsMonitoring } from './utils/performanceMonitoring';
 import { readRememberedOperator } from './utils/rememberedOperator';
+import { readEmbeddedCatalog } from './utils/publicCatalogCache';
 
 import CustomerShop from './components/CustomerShop';
 const IceCreamCustomizer = React.lazy(() => import('./components/IceCreamCustomizer'));
@@ -54,6 +55,8 @@ const DEFAULT_RECOMMENDATIONS = [
     syrupId: null
   }
 ];
+
+const initialPublicCatalog = readEmbeddedCatalog();
 
 // Helper to render emoji or URL/image logo
 const renderLogo = (logo, size = '38px') => {
@@ -175,6 +178,7 @@ export default function App() {
   const [r2Config, setR2Config] = useState({});
 
   const [literConfig, setLiterConfig] = useState(() => {
+    if (initialPublicCatalog?.liter_config && typeof initialPublicCatalog.liter_config === 'object') return initialPublicCatalog.liter_config;
     const saved = localStorage.getItem('helados_liter_config');
     return saved ? JSON.parse(saved) : {
       active: true,
@@ -336,26 +340,31 @@ export default function App() {
 
   // --- Estados de Datos de Tienda ---
   const [flavors, setFlavors] = useState(() => {
+    if (Array.isArray(initialPublicCatalog?.flavors)) return initialPublicCatalog.flavors;
     const saved = localStorage.getItem('helados_flavors');
     return saved ? JSON.parse(saved) : INITIAL_FLAVORS;
   });
 
   const [toppings, setToppings] = useState(() => {
+    if (Array.isArray(initialPublicCatalog?.toppings)) return initialPublicCatalog.toppings;
     const saved = localStorage.getItem('helados_toppings');
     return saved ? JSON.parse(saved) : INITIAL_TOPPINGS;
   });
 
   const [bases, setBases] = useState(() => {
+    if (Array.isArray(initialPublicCatalog?.bases)) return initialPublicCatalog.bases;
     const saved = localStorage.getItem('helados_bases');
     return saved ? JSON.parse(saved) : INITIAL_BASES;
   });
 
   const [packs, setPacks] = useState(() => {
+    if (Array.isArray(initialPublicCatalog?.packs)) return initialPublicCatalog.packs;
     const saved = localStorage.getItem('helados_packs');
     return saved ? JSON.parse(saved) : INITIAL_PACKS;
   });
 
   const [popsicles, setPopsicles] = useState(() => {
+    if (Array.isArray(initialPublicCatalog?.popsicles)) return initialPublicCatalog.popsicles;
     const saved = localStorage.getItem('helados_popsicles');
     return saved ? JSON.parse(saved) : INITIAL_POPSICLES;
   });
@@ -375,6 +384,7 @@ export default function App() {
   }, [tableCalls]);
 
   const [deliveryFee, setDeliveryFee] = useState(() => {
+    if (Number.isFinite(Number(initialPublicCatalog?.delivery_fee))) return Number(initialPublicCatalog.delivery_fee);
     const saved = localStorage.getItem('helados_delivery_fee');
     return saved ? parseFloat(saved) : 2.0;
   });
@@ -445,6 +455,7 @@ export default function App() {
 
   // --- Configuración Dinámica y Gestión de Usuarios ---
   const [freeDeliveryThreshold, setFreeDeliveryThreshold] = useState(() => {
+    if (Number.isFinite(Number(initialPublicCatalog?.free_delivery_threshold))) return Number(initialPublicCatalog.free_delivery_threshold);
     const saved = localStorage.getItem('helados_free_delivery_threshold');
     return saved ? parseFloat(saved) : 15.0; 
   });
@@ -454,8 +465,9 @@ export default function App() {
   });
 
   const [storePhone, setStorePhone] = useState(() => {
+    if (typeof initialPublicCatalog?.store_phone === 'string') return initialPublicCatalog.store_phone;
     const saved = localStorage.getItem('helados_store_phone');
-    return saved || '51987654321'; 
+    return saved || '51989466466';
   });
 
   const [trendsInterval, setTrendsInterval] = useState(() => {
@@ -782,7 +794,7 @@ export default function App() {
       const serverData = await fetchSyncedData(hasActiveSession, activeSession);
       if (serverData) {
         console.log("🔌 Datos recuperados de Supabase:", Object.keys(serverData));
-        setIsCloudSynced(true);
+        setIsCloudSynced(serverData.__fromCache !== true);
         
         // Desactivamos temporalmente escrituras mientras cargamos
         Object.keys(serverData).forEach(k => {
@@ -793,7 +805,7 @@ export default function App() {
 
         // Habilitar escrituras después de que las actualizaciones del estado de React se procesen
         setTimeout(() => {
-          allowCloudWrite.current = true;
+          allowCloudWrite.current = serverData.__fromCache !== true;
           isRemoteUpdate.current = {}; // Limpiar flags residuales de la carga inicial
         }, 400);
       } else {
@@ -1637,6 +1649,7 @@ export default function App() {
           </div>
         )}
 
+        {view === 'shop' && isSyncLoaded && supabase && !isCloudSynced && <div className="glass" role="status" style={{ margin: '16px auto', padding: '14px 18px', maxWidth: '1200px' }}>La conexión está temporalmente interrumpida. Puedes explorar la carta; confirmaremos precio y disponibilidad antes de aceptar el pedido. También puedes pedir por WhatsApp.</div>}
         <React.Suspense fallback={<div className="glass route-loading" role="status" aria-live="polite"><span className="route-loading-spinner" aria-hidden="true" />Preparando tu experiencia...</div>}>
           {view === 'shop' && (
           <CustomerShop 
@@ -1670,6 +1683,7 @@ export default function App() {
             testimonials={testimonials}
             storeHeroImage={storeHeroImage}
             trackEvent={analyticsEnabled ? trackEvent : undefined}
+            catalogReady={isSyncLoaded}
           />
         )}
 

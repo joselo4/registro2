@@ -1,6 +1,7 @@
 import { supabase } from './supabaseClient';
 import { fetchAllSyncRows } from './orderRepository.js';
 import { apiUrl, fetchOperatorOrders } from './apiClient.js';
+import { PUBLIC_STORE_KEYS, readPublicCatalog, savePublicCatalog } from './publicCatalogCache.js';
 
 // ─── Caché en memoria para reducir egress de Supabase ───────────────────────
 // Solo almacena datos por 5 minutos. Si hay un cambio en tiempo real, se invalida.
@@ -72,45 +73,10 @@ export const fetchSyncedData = async (isAdmin = false, activeSession = null) => 
     } else {
       // Caso de uso público (Clientes): cargar únicamente la configuración general no sensible
       console.log("🔌 Cargando configuración pública de la tienda...");
-      const publicKeys = [
-        'store_name', 
-        'store_logo', 
-        'store_title',
-        'store_favicon',
-        'store_phone', 
-        'store_instagram',
-        'store_facebook',
-        'whatsapp_contact_message',
-        'shop_open',
-        'catalog_order', 
-        'flavors', 
-        'toppings', 
-        'bases', 
-        'packs', 
-        'popsicles',
-        'testimonials',
-        'coupons',
-        'delivery_fee', 
-        'free_delivery_threshold', 
-        'delivery_campaign_text',
-        'sound_enabled', 
-        'whatsapp_greeting', 
-        'whatsapp_footer', 
-        'qr_custom_url', 
-        'recommendations', 
-        'cart_recommended_pack', 
-        'liter_config', 
-        'ticket_custom_message',
-        'cart_locations',
-        'store_hero_image',
-        'meta_pixel_id',
-        'google_analytics_id'
-      ];
-
       const { data, error } = await supabase
         .from('helados_sync')
         .select('*')
-        .in('key', publicKeys);
+        .in('key', PUBLIC_STORE_KEYS);
 
       if (error) throw error;
 
@@ -119,6 +85,7 @@ export const fetchSyncedData = async (isAdmin = false, activeSession = null) => 
           syncData[row.key] = row.value;
         });
       }
+      savePublicCatalog(syncData);
     }
 
     // Guardar en caché antes de retornar para optimizar solicitudes concurrentes
@@ -133,6 +100,10 @@ export const fetchSyncedData = async (isAdmin = false, activeSession = null) => 
     return syncData;
   } catch (err) {
     console.warn("⚠️ Supabase Sync: Fetch fallido. Usando datos locales.", err.message);
+    if (!isAdmin) {
+      const cached = readPublicCatalog();
+      if (cached) return { ...cached, __fromCache: true };
+    }
     return null;
   }
 };
