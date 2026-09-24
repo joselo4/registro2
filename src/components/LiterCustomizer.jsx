@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import { useState } from 'react';
 
 const CHISPAS_OFFSETS = [
   { dx: -25, dy: 0, angle: 15, color: '#ff4757' },
@@ -126,13 +126,9 @@ export default function LiterCustomizer({ flavors, toppings = [], literConfig, o
     }
 
     // Estructurar el nombre según si es un solo sabor o varios
-    let name = "";
-    if (selectedFlavors.length === 1) {
-      name = `Helado de 1 Litro (Sabor Único: ${selectedFlavors[0].name})`;
-    } else {
-      const namesList = selectedFlavors.map(f => f.name).join(' - ');
-      name = `Helado de 1 Litro (${selectedFlavors.length} Sabores: ${namesList})`;
-    }
+    let name = selectedFlavors.length === 1
+      ? `Helado de 1 Litro (Sabor Único: ${selectedFlavors[0].name})`
+      : `Helado de 1 Litro (${selectedFlavors.length} Sabores: ${selectedFlavors.map(f => f.name).join(' - ')})`;
 
     // Append toppings & syrup to title if selected
     if (selectedToppings.length > 0 || selectedSyrup) {

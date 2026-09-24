@@ -1,5 +1,6 @@
-import React, { useState, useMemo } from 'react';
+import { useState, useMemo } from 'react';
 import { printThermalTicket } from '../../utils/escposTicket';
+import { isRecognizedSale, orderRecognizedAt, orderPaymentMethod } from '../../utils/orderLifecycle';
 
 export default function CashRegisterManager({
   orders = [],
@@ -7,6 +8,7 @@ export default function CashRegisterManager({
   onUpdateShifts,
   currentUser,
   storeName = 'Friozo',
+  printEnabled = true,
   addLog,
   showAlert
 }) {
@@ -38,8 +40,8 @@ export default function CashRegisterManager({
     const shiftStartTime = new Date(activeShift.openedAt).getTime();
 
     const ordersInShift = orders.filter(o => {
-      if (o.status === 'Cancelado') return false;
-      const orderTime = new Date(o.date).getTime();
+      if (!isRecognizedSale(o)) return false;
+      const orderTime = new Date(orderRecognizedAt(o)).getTime();
       return orderTime >= shiftStartTime;
     });
 
@@ -49,7 +51,7 @@ export default function CashRegisterManager({
 
     ordersInShift.forEach(o => {
       const amount = Number(o.grandTotal) || 0;
-      const method = String(o.paymentMethod || '').toLowerCase();
+      const method = orderPaymentMethod(o).toLowerCase();
       if (method.includes('efectivo')) {
         cash += amount;
       } else if (method.includes('yape') || method.includes('plin')) {
@@ -103,8 +105,12 @@ export default function CashRegisterManager({
   const difference = countedCash - expectedCash;
 
   // Acción: Abrir Turno de Caja
-  const handleOpenShift = (e) => {
+  const handleOpenShift = async (e) => {
     e.preventDefault();
+    if (activeShift) {
+      showAlert?.('Caja ya abierta', 'Cierra el turno activo antes de iniciar uno nuevo.', 'warning');
+      return;
+    }
     const newShift = {
       id: `Z-${Date.now().toString().slice(-6)}`,
       status: 'open',
@@ -118,13 +124,13 @@ export default function CashRegisterManager({
     };
 
     const nextShifts = [newShift, ...(shifts || [])];
-    onUpdateShifts(nextShifts);
+    if (!await onUpdateShifts(nextShifts)) return;
     addLog?.(`Caja Chica ABIERTA con S/ ${newShift.startingCash.toFixed(2)} por ${newShift.cashierName}.`);
     if (showAlert) showAlert('Caja Abierta', `Turno iniciado con fondo de S/ ${newShift.startingCash.toFixed(2)}.`, 'success');
   };
 
   // Acción: Registrar Movimiento (Ingreso o Retiro menor)
-  const handleAddMovement = (e) => {
+  const handleAddMovement = async (e) => {
     e.preventDefault();
     const amt = Number(movementAmount);
     if (!amt || amt <= 0) {
@@ -151,7 +157,7 @@ export default function CashRegisterManager({
     };
 
     const nextShifts = (shifts || []).map(s => s.id === activeShift.id ? updatedShift : s);
-    onUpdateShifts(nextShifts);
+    if (!await onUpdateShifts(nextShifts)) return;
     addLog?.(`Caja Chica: ${movementType === 'in' ? 'INGRESO' : 'RETIRO'} de S/ ${amt.toFixed(2)} (${movement.reason}).`);
     setMovementAmount('');
     setMovementReason('');
@@ -160,7 +166,8 @@ export default function CashRegisterManager({
   };
 
   // Acción: Cierre Z de Caja
-  const handleCloseShift = () => {
+  const handleCloseShift = async () => {
+    if (!activeShift) return;
     if (!window.confirm('¿Confirmas que deseas cerrar este turno de caja y generar el Cierre Z?')) return;
 
     const closedShift = {
@@ -182,17 +189,19 @@ export default function CashRegisterManager({
     };
 
     const nextShifts = (shifts || []).map(s => s.id === activeShift.id ? closedShift : s);
-    onUpdateShifts(nextShifts);
+    if (!await onUpdateShifts(nextShifts)) return;
     addLog?.(`Cierre Z completado por ${currentUser?.name || 'Caja'}. Diferencia: S/ ${difference.toFixed(2)}.`);
 
     // Imprimir ticket de Cierre Z automáticamente
-    printThermalTicket({
-      type: 'cierre_z',
-      shift: closedShift,
-      storeName
-    });
+    if (printEnabled) {
+      printThermalTicket({
+        type: 'cierre_z',
+        shift: closedShift,
+        storeName
+      });
+    }
 
-    if (showAlert) showAlert('Turno Cerrado', 'El Cierre Z se generó exitosamente y se envió a imprimir.', 'success');
+    if (showAlert) showAlert('Turno Cerrado', printEnabled ? 'El Cierre Z se generó y se envió a imprimir.' : 'El Cierre Z se guardó correctamente.', 'success');
   };
 
   return (
@@ -375,6 +384,19 @@ export default function CashRegisterManager({
               ))}
             </div>
 
+            <div style={{ marginBottom: '16px' }}>
+              <label style={{ fontSize: '0.78rem', fontWeight: 600, display: 'block', marginBottom: '4px' }}>
+                📝 Observaciones del Cierre (Opcional):
+              </label>
+              <textarea
+                className="form-control"
+                placeholder="Ej: Diferencia por redondeo en sencillo, rotura de cono, billete deteriorado..."
+                value={closingNotes}
+                onChange={(e) => setClosingNotes(e.target.value)}
+                style={{ fontSize: '0.8rem', padding: '8px', minHeight: '60px', width: '100%' }}
+              />
+            </div>
+
             {/* Resultado de la Comparación */}
             <div style={{ background: 'var(--bg-primary)', padding: '16px', borderRadius: '12px', border: '1px solid var(--border-color)', display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '12px' }}>
               <div>
@@ -444,14 +466,16 @@ export default function CashRegisterManager({
                       {(shift.difference || 0) >= 0 ? `+S/ ${(shift.difference || 0).toFixed(2)}` : `-S/ ${Math.abs(shift.difference || 0).toFixed(2)}`}
                     </td>
                     <td>
-                      <button
-                        type="button"
-                        className="btn btn-secondary"
-                        style={{ padding: '4px 8px', fontSize: '0.72rem' }}
-                        onClick={() => printThermalTicket({ type: 'cierre_z', shift, storeName })}
-                      >
-                        🖨️ Re-imprimir
-                      </button>
+                      {printEnabled && (
+                        <button
+                          type="button"
+                          className="btn btn-secondary"
+                          style={{ padding: '4px 8px', fontSize: '0.72rem' }}
+                          onClick={() => printThermalTicket({ type: 'cierre_z', shift, storeName })}
+                        >
+                          🖨️ Re-imprimir
+                        </button>
+                      )}
                     </td>
                   </tr>
                 ))}

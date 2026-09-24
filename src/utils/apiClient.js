@@ -37,12 +37,22 @@ export async function createOrder(order) {
   }
   return saved;
 }
-export const readOrder = id => requestOrder(`/api/order?id=${encodeURIComponent(id)}`);
+export const readOrder = (id, token = '') => requestOrder(`/api/order?id=${encodeURIComponent(id)}${token ? `&token=${encodeURIComponent(token)}` : ''}`);
 
 export async function updateOrder(client, previous, order) {
   const { data } = await client.auth.getSession();
   if (!data?.session?.access_token) throw new Error('Tu sesión venció. Inicia sesión nuevamente.');
   return requestOrder('/api/order', { method: 'POST', headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${data.session.access_token}` }, body: JSON.stringify({ action: 'update', previous, order }) });
+}
+
+export async function createOperatorOrder(client, order) {
+  const { data } = await client.auth.getSession();
+  if (!data?.session?.access_token) throw new Error('Tu sesión venció. Inicia sesión nuevamente.');
+  return requestOrder('/api/order', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${data.session.access_token}` },
+    body: JSON.stringify({ action: 'create_operator', order }),
+  });
 }
 
 export async function fetchOperatorOrders(session) {

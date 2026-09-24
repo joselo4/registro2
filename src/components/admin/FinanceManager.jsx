@@ -1,11 +1,8 @@
-import React, { useState } from 'react';
+import { useState, Fragment } from 'react';
 import { getEnabledPaymentMethods, selectPaymentMethod } from '../../utils/paymentMethods';
+import { sanitizeHTML } from '../../utils/security';
+import { isRecognizedSale, orderRecognizedAt } from '../../utils/orderLifecycle';
 
-// --- FUNCIONES DE SANITIZACIÓN ---
-const sanitizeHTML = (text) => {
-  if (typeof text !== 'string') return '';
-  return text.replace(/<[^>]*>/g, '').trim();
-};
 
 export default function FinanceManager({
   orders,
@@ -62,8 +59,8 @@ export default function FinanceManager({
     const startOfMonth = new Date(today.getFullYear(), today.getMonth(), 1);
 
     const filteredOrders = orders.filter(o => {
-      if (o.status === 'Cancelado') return false;
-      const oDate = new Date(o.date);
+      if (!isRecognizedSale(o)) return false;
+      const oDate = new Date(orderRecognizedAt(o));
       if (financeRange === 'today') {
         return oDate.toDateString() === todayStr;
       }
@@ -135,13 +132,16 @@ export default function FinanceManager({
 
     setQuickSaleSubmitting(true);
     const saleId = `FIS-${Math.floor(1000 + Math.random() * 9000)}`;
+    const now = new Date().toISOString();
     const newOrder = {
       id: saleId,
       customer: {
-        name: quickSaleName.trim() || 'Cliente de Tienda',
+        name: sanitizeHTML(quickSaleName) || 'Cliente de Tienda',
         phone: 'N/A',
         address: 'Consumo en Tienda / Venta Presencial',
-        paymentMethod: quickSalePaymentMethod
+        paymentMethod: quickSalePaymentMethod,
+        paymentTiming: 'Al llegar',
+        orderType: 'Barra'
       },
       items: [
         {
@@ -160,10 +160,13 @@ export default function FinanceManager({
       couponCode: null,
       grandTotal: amountVal,
       status: 'Entregado',
+      paymentVerified: true,
+      revision: 1,
+      date: now,
+      updatedAt: now,
       statusHistory: [
-        { status: 'Entregado', timestamp: new Date().toISOString() }
-      ],
-      date: new Date().toISOString()
+        { status: 'Entregado', timestamp: now }
+      ]
     };
 
     if (!await onUpdateOrders([newOrder, ...orders])) { setQuickSaleSubmitting(false); return; }
@@ -179,7 +182,8 @@ export default function FinanceManager({
     if (expenseSubmitting) return;
 
     const amountVal = parseFloat(expenseAmount) || 0;
-    if (!expenseConcept.trim()) {
+    const cleanConcept = sanitizeHTML(expenseConcept);
+    if (!cleanConcept) {
       alert("El concepto del gasto es obligatorio.");
       return;
     }
@@ -191,13 +195,16 @@ export default function FinanceManager({
     setExpenseSubmitting(true);
     const newExpense = {
       id: `EXP-${Date.now()}`,
-      concept: expenseConcept.trim(),
+      concept: cleanConcept,
       amount: amountVal,
       category: expenseCategory,
       date: expenseDate || new Date().toISOString().split('T')[0]
     };
 
-    onUpdateExpenses([newExpense, ...expenses]);
+    if (!await onUpdateExpenses([newExpense, ...expenses])) {
+      setExpenseSubmitting(false);
+      return;
+    }
     addLog(`Gasto registrado: ${newExpense.concept} (S/. ${amountVal.toFixed(2)}) por ${currentUser?.name}.`);
     setExpenseConcept('');
     setExpenseAmount('');
@@ -205,10 +212,10 @@ export default function FinanceManager({
     alert("¡Gasto registrado con éxito!");
   };
 
-  const handleDeleteExpense = (id) => {
+  const handleDeleteExpense = async (id) => {
     if (window.confirm("¿Seguro que deseas eliminar este gasto?")) {
       const exp = expenses.find(e => e.id === id);
-      onUpdateExpenses(expenses.filter(e => e.id !== id));
+      if (!await onUpdateExpenses(expenses.filter(e => e.id !== id))) return;
       addLog(`Gasto eliminado: ${exp?.concept || id} por ${currentUser?.name}.`);
     }
   };
@@ -497,7 +504,7 @@ export default function FinanceManager({
       {financeRange !== 'today' && (() => {
         const dayMap = {};
         filteredOrders.forEach(o => {
-          const d = new Date(o.date).toLocaleDateString('es-PE', { timeZone: 'America/Lima', year: 'numeric', month: '2-digit', day: '2-digit' });
+          const d = new Date(orderRecognizedAt(o)).toLocaleDateString('es-PE', { timeZone: 'America/Lima', year: 'numeric', month: '2-digit', day: '2-digit' });
           if (!dayMap[d]) dayMap[d] = { orders: [], expTotal: 0, sales: 0 };
           dayMap[d].orders.push(o);
           dayMap[d].sales += o.grandTotal;
@@ -536,7 +543,7 @@ export default function FinanceManager({
                     const bal = data.sales - data.expTotal;
                     const isExp = expandedDay === day;
                     return (
-                      <React.Fragment key={day}>
+                      <Fragment key={day}>
                         <tr
                           style={{ cursor: data.orders.length > 0 ? 'pointer' : 'default', background: isExp ? 'rgba(255,107,129,0.04)' : '' }}
                           onClick={() => setExpandedDay(isExp ? null : day)}
@@ -548,7 +555,7 @@ export default function FinanceManager({
                           <td style={{ color: bal >= 0 ? 'var(--success)' : 'var(--danger)', fontWeight: 'bold' }}>{bal.toFixed(2)}</td>
                         </tr>
                         {isExp && data.orders.map(o => {
-                          const hora = new Date(o.date).toLocaleTimeString('es-PE', { timeZone: 'America/Lima', hour: '2-digit', minute: '2-digit', hour12: true });
+                          const hora = new Date(orderRecognizedAt(o)).toLocaleTimeString('es-PE', { timeZone: 'America/Lima', hour: '2-digit', minute: '2-digit', hour12: true });
                           return (
                             <tr key={o.id} style={{ background: 'rgba(0,0,0,0.018)', fontSize: '0.75rem' }}>
                               <td style={{ paddingLeft: '22px' }}><span style={{ color: 'var(--text-light)', fontFamily: 'monospace' }}>{hora}</span> · <strong>{o.id}</strong></td>
@@ -559,7 +566,7 @@ export default function FinanceManager({
                             </tr>
                           );
                         })}
-                      </React.Fragment>
+                      </Fragment>
                     );
                   })}
                 </tbody>
@@ -587,7 +594,7 @@ export default function FinanceManager({
               </thead>
               <tbody>
                 {filteredOrders.map(o => {
-                  const hora = new Date(o.date).toLocaleTimeString('es-PE', { timeZone: 'America/Lima', hour: '2-digit', minute: '2-digit', hour12: true });
+                  const hora = new Date(orderRecognizedAt(o)).toLocaleTimeString('es-PE', { timeZone: 'America/Lima', hour: '2-digit', minute: '2-digit', hour12: true });
                   return (
                     <tr key={o.id}>
                       <td><strong>{o.id}</strong></td>

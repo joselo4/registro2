@@ -1,12 +1,8 @@
-import React, { useState } from 'react';
+import { useState } from 'react';
 import { supabase } from '../../utils/supabaseClient';
 import { updateSyncedData } from '../../utils/supabaseSync';
+import { sanitizeHTML } from '../../utils/security';
 
-// --- FUNCIONES DE SANITIZACIÓN ---
-const sanitizeHTML = (text) => {
-  if (typeof text !== 'string') return '';
-  return text.replace(/<[^>]*>/g, '').trim();
-};
 
 const isValidEmail = (email) => {
   const re = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
@@ -34,7 +30,7 @@ const getDefaultAllowedTabsForRole = (role) => {
     return ['orders', 'kds'];
   }
   if (normalizedRole.includes('repartidor') || normalizedRole.includes('delivery')) {
-    return ['orders', 'locations'];
+    return ['driver_panel', 'orders', 'locations'];
   }
   if (normalizedRole.includes('cajero')) {
     return ['orders', 'crm', 'ordertaker', 'finance', 'cash_register'];
@@ -77,7 +73,7 @@ export default function UserManager({
 
   // --- Estados Locales ---
   const [showAddUser, setShowAddUser] = useState(false);
-  const [newUser, setNewUser] = useState({ name: '', email: '', role: 'Vendedor', password: '' });
+  const [newUser, setNewUser] = useState({ name: '', email: '', role: 'Vendedor', password: '', phone: '' });
   const [editingUserPassword, setEditingUserPassword] = useState(null);
   const [newPasswordForUser, setNewPasswordForUser] = useState('');
   const [editingUser, setEditingUser] = useState(null);
@@ -188,10 +184,12 @@ export default function UserManager({
       return;
     }
 
+    const sanitizedPhone = sanitizeHTML(newUser.phone || '');
     const added = { 
       name: sanitizedName, 
       email: sanitizedEmail, 
       role: newUser.role, 
+      phone: sanitizedPhone,
       status: 'Activo' 
     };
 
@@ -203,7 +201,7 @@ export default function UserManager({
     onUpdateStaffPermissions(nextPermissions);
     setShowAddUser(false);
     addLog(`Personal registrado: ${sanitizedName} (${newUser.role}) por ${currentUser?.name}.`);
-    setNewUser({ name: '', email: '', role: 'Vendedor', password: '' });
+    setNewUser({ name: '', email: '', role: 'Vendedor', password: '', phone: '' });
 
     const [snapshotOk, authOk] = await Promise.all([
       persistStaffSnapshot(nextStaffUsers, nextPermissions),
@@ -323,13 +321,14 @@ export default function UserManager({
     if (!editingUser) return;
     
     const sanitizedName = sanitizeHTML(editingUser.name);
+    const sanitizedPhone = sanitizeHTML(editingUser.phone || '');
     if (!sanitizedName) {
       alert("El nombre no puede estar vacío.");
       return;
     }
 
     const safeAllowedTabs = Array.isArray(editingUser.allowedTabs) ? editingUser.allowedTabs : [];
-    const updatedStaff = staffUsers.map(u => u.email === editingUser.email ? { ...u, name: sanitizedName, role: editingUser.role } : u);
+    const updatedStaff = staffUsers.map(u => u.email === editingUser.email ? { ...u, name: sanitizedName, role: editingUser.role, phone: sanitizedPhone } : u);
     onUpdateStaffUsers(updatedStaff);
 
     const nextPermissions = { ...staffPermissions, [editingUser.email]: safeAllowedTabs };
@@ -404,6 +403,16 @@ export default function UserManager({
               <option value="Mozo">Mozo / Salón</option>
             </select>
           </div>
+          <div className="form-group">
+            <label>Teléfono / WhatsApp (Motorizado / Personal)</label>
+            <input 
+              type="tel" 
+              className="form-control" 
+              placeholder="Ej: 987654321" 
+              value={newUser.phone || ''} 
+              onChange={(e) => setNewUser({ ...newUser, phone: e.target.value })} 
+            />
+          </div>
           <div className="form-group"><label>Contraseña</label><input type="password" className="form-control" value={newUser.password} onChange={(e) => setNewUser({ ...newUser, password: e.target.value })} required /></div>
           <button type="submit" className="btn btn-primary" style={{ padding: '8px' }}>Guardar e Inscribir</button>
         </form>
@@ -453,6 +462,16 @@ export default function UserManager({
               <option value="Mozo">Mozo / Salón</option>
             </select>
           </div>
+          <div className="form-group">
+            <label>Teléfono / WhatsApp</label>
+            <input 
+              type="tel" 
+              className="form-control" 
+              placeholder="Ej: 987654321" 
+              value={editingUser.phone || ''} 
+              onChange={(e) => setEditingUser({ ...editingUser, phone: e.target.value })} 
+            />
+          </div>
           
           <div className="form-group">
             <label style={{ fontWeight: 'bold', fontSize: '0.8rem', display: 'block', marginBottom: '5px' }}>
@@ -461,6 +480,7 @@ export default function UserManager({
             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(130px, 1fr))', gap: '8px', fontSize: '0.78rem' }}>
               {[
                 { id: 'orders', label: '📦 Pedidos' },
+                { id: 'driver_panel', label: '🛵 Mis Repartos' },
                 { id: 'crm', label: '📇 CRM Clientes' },
                 { id: 'ordertaker', label: '🛒 Tomador de Pedidos' },
                 { id: 'kds', label: '👨‍🍳 KDS Cocina' },
@@ -524,6 +544,11 @@ export default function UserManager({
                   <td>
                     <strong>{user.name}</strong>
                     <div style={{ fontSize: '0.75rem', color: 'var(--text-light)' }}>{user.email}</div>
+                    {user.phone && (
+                      <div style={{ fontSize: '0.72rem', color: 'var(--delivery-color, #FF441F)', fontWeight: 600, marginTop: '2px' }}>
+                        📞 {user.phone}
+                      </div>
+                    )}
                   </td>
                   <td><span className="badge" style={{ backgroundColor: 'var(--bg-secondary)', border: '1px solid var(--border-color)', color: 'var(--text-dark)' }}>{user.role}</span></td>
                   <td>
@@ -543,6 +568,7 @@ export default function UserManager({
                           name: user.name,
                           email: user.email,
                           role: user.role,
+                          phone: user.phone || '',
                           allowedTabs: userPerms
                         });
                       }}>✏️ Permisos</button>

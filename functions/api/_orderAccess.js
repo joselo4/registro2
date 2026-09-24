@@ -1,10 +1,11 @@
-import { normalizeEmail, isTrustedAdmin } from './_security.js';
-import { isPaymentOnArrival, DELIVERY_PAYMENT_METHODS } from '../../src/utils/orderLifecycle.js';
+import { normalizeEmail, isTrustedAdmin, normalizeRole } from './_security.js';
+import { isPaymentOnArrival, orderPaymentTiming, DELIVERY_PAYMENT_METHODS } from '../../src/utils/orderLifecycle.js';
 
 export function orderStaffRole(user) {
+  if (String(user?.app_metadata?.status || '').toLowerCase().includes('suspend')) return '';
   if (isTrustedAdmin(user)) return 'admin';
-  const role = String(user?.app_metadata?.role || '').toLowerCase();
-  return ['vendedor', 'cocina', 'repartidor', 'cajero', 'mozo'].find(r => role.includes(r)) || '';
+  const role = normalizeRole(user?.app_metadata?.role, '').toLowerCase();
+  return ['vendedor', 'cocina', 'repartidor', 'cajero', 'mozo'].includes(role) ? role : '';
 }
 
 export function driverOwnsOrder(user, order) {
@@ -26,6 +27,7 @@ export function allowedOrderChange(user, previous, next) {
   if (role === 'repartidor' && JSON.stringify(previous.customer) !== JSON.stringify(next.customer)) {
     if (!collecting || !DELIVERY_PAYMENT_METHODS.includes(next.customer?.paymentMethod)) return false;
     const expectedCustomer = { ...previous.customer, paymentMethod: next.customer.paymentMethod };
+    if (!['Al llegar', 'Anticipado'].includes(previous.customer?.paymentTiming)) expectedCustomer.paymentTiming = orderPaymentTiming(previous);
     if (JSON.stringify(expectedCustomer) !== JSON.stringify(next.customer)) return false;
   }
   if (!['cocina', 'repartidor'].includes(role)) return false;

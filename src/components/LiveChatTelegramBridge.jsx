@@ -1,5 +1,6 @@
 import { useRef, useState } from 'react';
 import { sendSupportMessage } from '../utils/supportMessaging';
+import { sanitizeText, sanitizePhone } from '../utils/security';
 
 export default function LiveChatTelegramBridge({ 
   view, 
@@ -17,12 +18,10 @@ export default function LiveChatTelegramBridge({
 
   if (view === 'admin') return null;
 
-  const triggerAlert = (msg) => {
+  const triggerAlert = (msg, isError = true) => {
     if (showAlert) {
-      const isError = msg.toLowerCase().includes('error') || msg.toLowerCase().includes('falló') || msg.toLowerCase().includes('conexión') || msg.toLowerCase().includes('obligatorio') || msg.toLowerCase().includes('inválido');
-      const isSuccess = msg.toLowerCase().includes('enviado') || msg.toLowerCase().includes('éxito');
-      const type = isError ? 'error' : isSuccess ? 'success' : 'warning';
-      const title = isError ? 'Error de Envío' : isSuccess ? 'Mensaje Enviado' : 'Aviso';
+      const type = isError ? 'warning' : 'success';
+      const title = isError ? 'Error de Envío' : 'Mensaje Enviado';
       showAlert(title, msg, type);
     } else {
       window.alert(msg);
@@ -33,10 +32,10 @@ export default function LiveChatTelegramBridge({
     e.preventDefault();
     if (sendingRef.current) return;
 
-    // Sanitización básica de inputs (evitar inyección HTML/XSS)
-    const cleanName = name.replace(/<[^>]*>/g, '').trim();
-    const cleanPhone = phone.replace(/[^0-9+\s-]/g, '').trim();
-    const cleanMessage = message.replace(/<[^>]*>/g, '').trim();
+    // Sanitización defensiva de inputs (evitar inyección HTML/XSS)
+    const cleanName = sanitizeText(name, 100);
+    const cleanPhone = sanitizePhone(phone);
+    const cleanMessage = sanitizeText(message, 1000);
 
     if (cleanPhone.replace(/\D/g, '').length < 7) {
       triggerAlert("El número de teléfono es obligatorio y debe tener al menos 7 dígitos.");

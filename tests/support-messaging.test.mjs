@@ -65,9 +65,14 @@ test('Telegram diagnostics verify credentials without sending messages or return
     calls.push(url);
     return Response.json({ok:true,result:{id:12345,title:'Private chat'}});
   });
-  const response = await onRequestGet({request:new Request('https://shop.test/api/telegram?verify=1'),env});
+  const response = await onRequestGet({request:new Request('https://shop.test/api/telegram?verify=1'),env}, async () => ({ user: { app_metadata: { role: 'Administrador' } } }));
   assert.equal(response.status,200);
   assert.deepEqual(await response.json(), {ok:true,botValid:true,destinationAccessible:true});
   assert.equal(calls.length,2);
   assert.ok(calls.every(url => !url.includes('sendMessage')));
+});
+test('Telegram diagnostics reject anonymous callers before contacting the bot', async t => {
+  t.mock.method(globalThis, 'fetch', () => { assert.fail('must not contact Telegram'); });
+  const response = await onRequestGet({ request: new Request('https://shop.test/api/telegram?verify=1'), env });
+  assert.equal(response.status, 403);
 });

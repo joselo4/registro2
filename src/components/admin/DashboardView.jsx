@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { isRecognizedSale, orderRecognizedAt } from '../../utils/orderLifecycle';
 
 export default function DashboardView({
   orders,
@@ -39,9 +40,9 @@ export default function DashboardView({
     const now = new Date();
 
     return orders.filter(order => {
-      if (order.status === 'Cancelado') return false;
+      if (!isRecognizedSale(order)) return false;
       
-      const orderDate = new Date(order.date);
+      const orderDate = new Date(orderRecognizedAt(order));
       
       if (statsRange === 'today') {
         return orderDate.toDateString() === todayString;
@@ -81,7 +82,7 @@ export default function DashboardView({
   // Ventas de Hoy para KPI de meta
   const todayStrKey = new Date().toDateString();
   const salesToday = orders
-    .filter(o => o.status !== 'Cancelado' && new Date(o.date).toDateString() === todayStrKey)
+    .filter(o => isRecognizedSale(o) && new Date(orderRecognizedAt(o)).toDateString() === todayStrKey)
     .reduce((sum, o) => sum + o.grandTotal, 0);
 
   // Calcular estadísticas de productos más vendidos
@@ -214,8 +215,8 @@ export default function DashboardView({
       start = statsStartDate ? new Date(statsStartDate + 'T00:00:00') : new Date();
       end = statsEndDate ? new Date(statsEndDate + 'T23:59:59') : new Date();
     } else { // all
-      if (orders.length > 0) {
-        const dates = orders.map(o => new Date(o.date).getTime());
+      const dates = orders.filter(isRecognizedSale).map(o => new Date(orderRecognizedAt(o)).getTime());
+      if (dates.length > 0) {
         start = new Date(Math.min(...dates));
       } else {
         start.setDate(start.getDate() - 30);
@@ -240,9 +241,9 @@ export default function DashboardView({
     const dateKey = date.toDateString();
     const dateStr = date.toLocaleDateString('es-PE', { weekday: 'short', day: '2-digit', month: '2-digit' });
     
-    const dayOrders = orders.filter(o => new Date(o.date).toDateString() === dateKey);
-    const validDayOrders = dayOrders.filter(o => o.status !== 'Cancelado');
-    const canceledCount = dayOrders.filter(o => o.status === 'Cancelado').length;
+    const dayOrders = orders.filter(o => isRecognizedSale(o) && new Date(orderRecognizedAt(o)).toDateString() === dateKey);
+    const validDayOrders = dayOrders;
+    const canceledCount = orders.filter(o => o.status === 'Cancelado' && new Date(o.date).toDateString() === dateKey).length;
     
     const subtotal = validDayOrders.reduce((sum, o) => sum + o.total, 0);
     const deliveryFee = validDayOrders.reduce((sum, o) => sum + o.deliveryFee, 0);

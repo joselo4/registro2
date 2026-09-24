@@ -176,7 +176,7 @@ export default function CartLocationsView({
     } else {
       setIsSharing(false);
     }
-  }, [ownCart?.active, ownCart?.id, ownCart?.email, normalizedEmail]);
+  }, [ownCart, normalizedEmail]);
 
   const persistCart = (nextCart) => {
     if (!onUpdateCartLocations) return;
@@ -273,7 +273,7 @@ export default function CartLocationsView({
   const shareCurrentPositionRef = useRef(shareCurrentPosition);
   useEffect(() => {
     shareCurrentPositionRef.current = shareCurrentPosition;
-  }, [shareCurrentPosition]);
+  });
 
   useEffect(() => {
     if (!canManageLocation || !isSharing) return;

@@ -1,4 +1,5 @@
 import { json, sameOriginRequest, createAdminClient, getAuthenticatedUser, isTrustedAdmin } from './_security.js';
+import { orderStaffRole } from './_orderAccess.js';
 
 const allowedKinds = new Set(['order', 'table_call', 'survey', 'support', 'test', 'daily_report']);
 const allowedParseModes = new Set(['Markdown', 'MarkdownV2', 'HTML']);
@@ -43,12 +44,14 @@ const sendTelegramMessage = async ({ token, chatId, text, parseMode }) => {
   }
 };
 
-export async function onRequestGet({ request, env }) {
+export async function onRequestGet({ request, env }, authenticate = getAuthenticatedUser) {
   if (!sameOriginRequest(request)) {
     return json({ error: 'Origen no permitido.' }, 403);
   }
 
   if (new URL(request.url).searchParams.get('verify') === '1') {
+    const { user } = await authenticate(request, env);
+    if (!isTrustedAdmin(user)) return json({ error: 'Sesión de administrador requerida.' }, 403);
     const token = String(env.TELEGRAM_BOT_TOKEN || '').trim();
     const chatId = String(env.TELEGRAM_CHAT_ID || '').trim();
     if (!token || !chatId) return json({ ok: false, error: 'Telegram no está configurado.' }, 503);
@@ -80,7 +83,7 @@ export async function onRequestGet({ request, env }) {
   });
 }
 
-export async function onRequestPost({ request, env }) {
+export async function onRequestPost({ request, env }, makeClient = createAdminClient) {
   try {
     if (!sameOriginRequest(request)) {
       return json({ error: 'Origen no permitido.' }, 403);
@@ -92,6 +95,7 @@ export async function onRequestPost({ request, env }) {
       parse_mode = 'Markdown', 
       kind = 'support',
       orderId,
+      submissionKey,
       table,
       name,
       message
@@ -102,7 +106,7 @@ export async function onRequestPost({ request, env }) {
     }
 
     // 1. Validaciones de Autorización y Base de Datos por tipo
-    if (kind === 'test') {
+    if (kind === 'test' || kind === 'daily_report') {
       const { user, error } = await getAuthenticatedUser(request, env);
       if (error || !user) {
         return json({ error: error || 'Sesion requerida para pruebas.' }, 401);
@@ -116,36 +120,45 @@ export async function onRequestPost({ request, env }) {
       if (!cleanId || !ORDER_ID_RE.test(cleanId)) {
         return json({ error: 'Codigo de pedido invalido.' }, 400);
       }
-      const adminClient = await createAdminClient(env);
+      const adminClient = await makeClient(env);
       const { data, error } = await adminClient
         .from('helados_sync')
-        .select('key')
+        .select('value')
         .eq('key', `order_${cleanId}`)
         .maybeSingle();
       if (error || !data) {
         return json({ error: 'El pedido no existe en el sistema.' }, 404);
       }
+      let authorized = Boolean(submissionKey && data.value?.submissionKey === submissionKey);
+      if (!authorized && request.headers.get('Authorization')) {
+        const { user } = await getAuthenticatedUser(request, env);
+        authorized = Boolean(orderStaffRole(user));
+      }
+      if (!authorized) return json({ error: 'Enlace de pedido o sesión de operador requerido.' }, 403);
+      const order = data.value;
+      body.verifiedText = `Nuevo pedido ${order.id}\nCliente: ${order.customer?.name || 'Cliente'}\nTipo: ${order.customer?.orderType || 'Delivery'}\nDirección: ${order.customer?.address || ''}\nTeléfono: ${order.customer?.phone || ''}\nPago: ${order.customer?.paymentMethod || ''}\nProductos: ${(order.items || []).map(item => `${item.quantity}x ${item.name}`).join(', ')}\nTotal: S/. ${Number(order.grandTotal || 0).toFixed(2)}`;
     } else if (kind === 'table_call') {
       const cleanTable = String(table || '').trim().replace(/[^\dA-Za-z_-]/g, '').slice(0, 20);
       if (!cleanTable) {
         return json({ error: 'Falta el numero de mesa o es invalido.' }, 400);
       }
-      const adminClient = await createAdminClient(env);
+      const adminClient = await makeClient(env);
       const { data, error } = await adminClient
         .from('helados_sync')
-        .select('key')
+        .select('value')
         .eq('key', `order_call_Mesa_${cleanTable}`)
         .maybeSingle();
       if (error || !data) {
         return json({ error: 'El llamado de mesa no existe.' }, 404);
       }
+      body.verifiedText = `Llamado de mesa ${cleanTable}: ${String(data.value?.request || '').slice(0, 1000)}`;
     } else if (kind === 'survey') {
       const cleanId = String(orderId || '').trim().toUpperCase();
       const ORDER_ID_RE = /^PED-[A-Z0-9-]{4,40}$/;
       if (!cleanId || !ORDER_ID_RE.test(cleanId)) {
         return json({ error: 'Codigo de pedido invalido.' }, 400);
       }
-      const adminClient = await createAdminClient(env);
+      const adminClient = await makeClient(env);
       const { data, error } = await adminClient
         .from('helados_sync')
         .select('value')
@@ -154,10 +167,12 @@ export async function onRequestPost({ request, env }) {
       if (error || !data || !data.value?.survey) {
         return json({ error: 'Pedido o encuesta no encontrados.' }, 404);
       }
+      if (!submissionKey || data.value.submissionKey !== submissionKey) return json({ error: 'Enlace privado del pedido requerido.' }, 403);
+      body.verifiedText = `Encuesta ${cleanId}: ${data.value.survey.rating}/5 · ${String(data.value.survey.comment || '').slice(0, 500)}`;
     }
 
     // 2. Construcción de mensaje para 'support' o validación de mensaje de texto
-    let finalText = text;
+    let finalText = body.verifiedText || text;
     if (kind === 'support') {
       const { phone } = body;
       const cleanName = String(name || 'Anónimo').replace(/<[^>]*>/g, '').trim().slice(0, 80);
@@ -187,7 +202,7 @@ export async function onRequestPost({ request, env }) {
       return json({ error: 'El mensaje es demasiado largo.' }, 413);
     }
 
-    const safeParseMode = kind === 'support' ? null : (allowedParseModes.has(parse_mode) ? parse_mode : 'Markdown');
+    const safeParseMode = ['support', 'order', 'table_call', 'survey'].includes(kind) ? null : (allowedParseModes.has(parse_mode) ? parse_mode : 'Markdown');
 
     const token = String(env.TELEGRAM_BOT_TOKEN || '').trim();
     const chatId = String(env.TELEGRAM_CHAT_ID || '').trim();

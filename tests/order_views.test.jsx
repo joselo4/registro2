@@ -1,6 +1,5 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import React from 'react';
 import { renderToStaticMarkup } from 'react-dom/server';
 import OrderManager from '../src/components/admin/OrderManager.jsx';
 import KitchenDisplaySystem from '../src/components/admin/KitchenDisplaySystem.jsx';
@@ -55,7 +54,76 @@ test('management accepts payment on arrival without requesting an advance vouche
   const pending = order('Por Corroborar');
   pending.customer = { ...pending.customer, paymentMethod: 'Yape', paymentTiming: 'Al llegar' };
   const html = renderToStaticMarkup(<OrderManager {...props} orders={[pending]} />);
+  assert.ok(html.includes('PAGO AL LLEGAR'));
+  assert.ok(html.includes('Informa al repartidor'));
+  assert.ok(html.includes('Aceptar · cobra reparto'));
   assert.ok(html.includes('Pago al llegar'));
   assert.ok(html.includes('Pendiente de cobro'));
+  assert.ok(!html.includes('Validar Abono'));
   assert.ok(!html.includes('para iniciar la preparaci'));
+});
+
+test('delivered and cancelled orders no longer expose assignment or dispatch controls', () => {
+  const delivered = { ...order('Entregado'), paymentVerified: true };
+  const deliveredHtml = renderToStaticMarkup(<OrderManager {...props} orders={[delivered]} />);
+  assert.ok(deliveredHtml.includes('Entregado por'));
+  assert.ok(!deliveredHtml.includes('aria-label="Asignar repartidor"'));
+  assert.ok(!deliveredHtml.includes('title="Enviar hoja de ruta'));
+
+  const cancelled = order('Cancelado');
+  const cancelledHtml = renderToStaticMarkup(<OrderManager {...props} orders={[cancelled]} />);
+  assert.ok(cancelledHtml.includes('Pedido cancelado · sin despacho'));
+  assert.ok(cancelledHtml.includes('Pedido cancelado · sin cobro'));
+  assert.ok(!cancelledHtml.includes('aria-label="Asignar repartidor"'));
+});
+
+test('legacy unpaid digital delivery remains collectible and visible to driver and operator', () => {
+  const legacy = order('En camino');
+  legacy.customer = { ...legacy.customer, paymentMethod: 'Yape' };
+  delete legacy.customer.paymentTiming;
+  legacy.paymentVerified = false;
+
+  const driverHtml = renderToStaticMarkup(<DriverDeliveryPanel {...props} currentUser={{ id: 'driver' }} orders={[legacy]} />);
+  assert.ok(driverHtml.includes('El cliente eligió PAGAR AL LLEGAR por Yape'));
+  assert.ok(driverHtml.includes('Confirmar cobro y entrega'));
+  assert.ok(!driverHtml.includes('Pago anticipado pendiente'));
+
+  const operatorHtml = renderToStaticMarkup(<OrderManager {...props} orders={[legacy]} />);
+  assert.ok(operatorHtml.includes('COBRO PENDIENTE EN REPARTO'));
+  assert.ok(operatorHtml.includes('Cobro a cargo del repartidor'));
+  assert.ok(!operatorHtml.includes('Validar Abono'));
+});
+
+test('OrderManager renders staff drivers in the assignment select and includes quick register option', () => {
+  const staff = [
+    { id: 'drv1', name: 'Carlos Motorizado', email: 'carlos@donhelado.com', role: 'Repartidor', phone: '987654321' },
+    { id: 'col1', name: 'Maria Staff', email: 'maria@donhelado.com', role: 'Vendedor' }
+  ];
+  const deliveryOrder = order('Listo');
+  deliveryOrder.customer.orderType = 'delivery';
+  const html = renderToStaticMarkup(<OrderManager {...props} staffUsers={staff} orders={[deliveryOrder]} />);
+  assert.ok(html.includes('Carlos Motorizado'));
+  assert.ok(html.includes('Registrar nuevo repartidor'));
+  assert.ok(html.includes('Asignar repartidor...'));
+});
+
+test('DriverDeliveryPanel in admin mode renders driver filter selector and shows deliveries across drivers', () => {
+  const staff = [
+    { id: 'drv1', name: 'Carlos Motorizado', email: 'carlos@donhelado.com', role: 'Repartidor' }
+  ];
+  const orderForDriver = order('Listo');
+  orderForDriver.assignedDriver = { id: 'drv1', name: 'Carlos Motorizado', email: 'carlos@donhelado.com' };
+  
+  const html = renderToStaticMarkup(
+    <DriverDeliveryPanel
+      {...props}
+      currentUser={{ id: 'admin1', email: 'admin@donhelado.com', role: 'Administrador' }}
+      staffUsers={staff}
+      orders={[orderForDriver]}
+    />
+  );
+  assert.ok(html.includes('Despacho y Repartos'));
+  assert.ok(html.includes('Filtrar Repartidor:'));
+  assert.ok(html.includes('Todos los Repartidores'));
+  assert.ok(html.includes('Carlos Motorizado'));
 });

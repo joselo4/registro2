@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import PromotionBanner from '../PromotionBanner';
-import { DEFAULT_PROMOTION, DEFAULT_POPUP_PROMOTION, DEFAULT_WEB_PROMOTION, validatePromotion } from '../../utils/promotion';
+import { DEFAULT_POPUP_PROMOTION, DEFAULT_WEB_PROMOTION, validatePromotion } from '../../utils/promotion';
 
 const dateInput = value => {
   if (!value) return '';

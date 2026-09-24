@@ -60,17 +60,6 @@ const validateAccessToken = async (adminClient, env, accessToken) => {
   return { user: payload, error: null };
 };
 
-const isStaffAdmin = (staffUsers, email) => {
-  const normalizedEmail = normalizeEmail(email);
-  return staffUsers.some((item) => {
-    const role = normalizeRole(item?.role, '').toLowerCase();
-    const status = String(item?.status || 'Activo').trim().toLowerCase();
-    return normalizeEmail(item?.email) === normalizedEmail
-      && role.includes('admin')
-      && !status.includes('suspend');
-  });
-};
-
 export async function onRequestPost({ request, env }) {
   try {
     if (!sameOriginRequest(request)) return fail(403, 'origin', 'Origen no permitido.');
@@ -114,8 +103,9 @@ export async function onRequestPost({ request, env }) {
     }
 
     const currentStaff = Array.isArray(staffRow?.value) ? staffRow.value : [];
+    const callerRecord = currentStaff.find(item => normalizeEmail(item?.email) === normalizeEmail(caller.email));
 
-    if (!isTrustedAdmin(caller) && !isStaffAdmin(currentStaff, caller.email)) {
+    if (!isTrustedAdmin(caller) || !callerRecord || normalizeRole(callerRecord.role, '') !== 'Administrador' || String(callerRecord.status || 'Activo').toLowerCase() !== 'activo') {
       return fail(403, 'authz', 'Solo un administrador puede cambiar usuarios de Auth.');
     }
 
@@ -125,6 +115,10 @@ export async function onRequestPost({ request, env }) {
     const name = String(body.name || '').trim();
     const role = normalizeRole(body.role);
     const status = normalizeStatus(body.status);
+
+    if (action !== 'delete' && role === 'Vendedor' && String(body.role || '').trim().toLowerCase() !== 'vendedor') {
+      return fail(400, 'input', 'Rol no válido.');
+    }
 
     if (!email) {
       return fail(400, 'input', 'Falta el correo del usuario.');
@@ -187,6 +181,7 @@ export async function onRequestPost({ request, env }) {
       },
       app_metadata: {
         role,
+        status,
       },
     };
 

@@ -12,6 +12,8 @@ import { fetchSyncedData, updateSyncedData, subscribeToSync, invalidateSyncCache
 import { supabase } from './utils/supabaseClient';
 import { Capacitor } from '@capacitor/core';
 import { DEFAULT_SMS_TEMPLATES } from './utils/orderMessaging';
+import { createOrder, createOperatorOrder, updateOrder } from './utils/apiClient';
+import { addCartItem, checkoutStorage, readCartDraft, subtractOrderedItems } from './utils/checkout';
 
 import CustomerShop from './components/CustomerShop';
 import IceCreamCustomizer from './components/IceCreamCustomizer';
@@ -99,7 +101,8 @@ const renderLogo = (logo, size = '38px') => {
 // Usuarios de personal por defecto para la administración
 const DEFAULT_STAFF_USERS = [
   { email: 'vendedor@donhelado.com', name: 'Vendedor de Turno', role: 'Vendedor', status: 'Activo' },
-  { email: 'cocina@donhelado.com', name: 'Preparador de Cocina', role: 'Cocina', status: 'Activo' }
+  { email: 'cocina@donhelado.com', name: 'Preparador de Cocina', role: 'Cocina', status: 'Activo' },
+  { email: 'delivery@donhelado.com', name: 'Repartidor de Turno', role: 'Repartidor', status: 'Activo', phone: '987654321' }
 ];
 
 const normalizeRoleLabel = (role, email = '') => {
@@ -138,10 +141,21 @@ export default function App() {
   );
 
   const [customAlert, setCustomAlert] = useState(null); // { title: string, message: string, type: 'info' | 'warning' | 'error' | 'success', onClose?: () => void }
+  const [successToast, setSuccessToast] = useState(null);
 
   const showAlert = (title, message, type = 'info', onClose = null) => {
+    if (type === 'success' && !onClose) {
+      setSuccessToast({ title, message });
+      return;
+    }
     setCustomAlert({ title, message, type, onClose });
   };
+
+  useEffect(() => {
+    if (!successToast) return undefined;
+    const timer = window.setTimeout(() => setSuccessToast(null), 3600);
+    return () => window.clearTimeout(timer);
+  }, [successToast]);
 
   // Local alert override for App.jsx
   const alert = (msg) => {
@@ -194,11 +208,8 @@ export default function App() {
 
   const [testimonials, setTestimonials] = useState(() => {
     const saved = localStorage.getItem('helados_testimonials');
-    return saved ? JSON.parse(saved) : [
-      { id: 1, rating: 5, text: 'El helado de lúcuma con trozos de chocolate es una locura. El delivery llegó súper rápido y los potes vienen perfectamente congelados.', name: 'Andrea Mendoza', initials: 'AM', color: 'var(--primary-color)' },
-      { id: 2, rating: 5, text: 'Armé mi helado personalizado con la guía de sabores y me encantó la combinación. Excelente atención y empaque térmico impecable.', name: 'Juan Carlos', initials: 'JC', color: 'var(--secondary-color)' },
-      { id: 3, rating: 5, text: 'Compramos el Pack Dúo Familiar para el fin de semana. Helados cremosos, buen precio y la entrega a domicilio fue impecable.', name: 'Sofía Prado', initials: 'SP', color: '#2ecc71' }
-    ];
+    try { return saved ? JSON.parse(saved) : []; }
+    catch { return []; }
   });
 
   // --- NUEVO: Estado de Ordenamiento del Catálogo de la Carta (Sincronizado) ---
@@ -450,7 +461,11 @@ export default function App() {
 
   const [staffUsers, setStaffUsers] = useState(() => {
     const saved = localStorage.getItem('helados_staff_users');
-    return saved ? JSON.parse(saved) : DEFAULT_STAFF_USERS;
+    let list = saved ? JSON.parse(saved) : DEFAULT_STAFF_USERS;
+    if (Array.isArray(list) && !list.some(u => String(u.role || '').toLowerCase().includes('repartidor'))) {
+      list = [...list, { email: 'delivery@donhelado.com', name: 'Repartidor de Turno', role: 'Repartidor', status: 'Activo', phone: '987654321' }];
+    }
+    return list;
   });
 
   const [staffPermissions, setStaffPermissions] = useState(() => {
@@ -500,6 +515,11 @@ export default function App() {
     return saved ? JSON.parse(saved) : [];
   });
 
+  const [cashShifts, setCashShifts] = useState(() => {
+    const saved = localStorage.getItem('helados_cash_shifts');
+    return saved ? JSON.parse(saved) : [];
+  });
+
   // --- Estados de Flujo de Cliente ---
   const [cartLocations, setCartLocations] = useState(() => {
     const saved = localStorage.getItem('helados_cart_locations');
@@ -526,7 +546,10 @@ export default function App() {
     }
   }, [locationFeatureVisible, view, isVendorApp]);
 
-  const [cart, setCart] = useState([]);
+  const [cart, setCart] = useState(readCartDraft);
+  useEffect(() => {
+    checkoutStorage.setItem('helados_cart_draft', JSON.stringify(cart));
+  }, [cart]);
   const [activeOrderId, setActiveOrderId] = useState(() => {
     const saved = localStorage.getItem('helados_active_order_id');
     const savedTime = localStorage.getItem('helados_active_order_time');
@@ -543,12 +566,20 @@ export default function App() {
     return saved || 'light';
   });
 
-  // --- NUEVO: Rastrear automáticamente desde la URL (?track=PED-XXXX) ---
+  // --- NUEVO: Rastrear automáticamente desde la URL (?track=PED-XXXX o ?track) ---
   useEffect(() => {
     const params = new URLSearchParams(window.location.search);
     const trackId = params.get('track') || params.get('orderId');
-    if (trackId) {
-      setActiveOrderId(trackId);
+    if (trackId && trackId.trim()) {
+      const cleanTrackId = trackId.replace(/\s+/g, '').toUpperCase();
+      setActiveOrderId(cleanTrackId);
+      localStorage.setItem('helados_active_order_id', cleanTrackId);
+      setView('tracker');
+    } else if (params.has('track') || params.has('rastreo')) {
+      const saved = localStorage.getItem('helados_active_order_id');
+      if (saved) {
+        setActiveOrderId(saved.replace(/\s+/g, '').toUpperCase());
+      }
       setView('tracker');
     }
 
@@ -637,6 +668,7 @@ export default function App() {
     if (serverData.recommendations !== undefined) setRecommendations(serverData.recommendations);
     if (serverData.cart_recommended_pack !== undefined) setCartRecommendedPack(serverData.cart_recommended_pack);
     if (serverData.expenses !== undefined) setExpenses(serverData.expenses);
+    if (serverData.cash_shifts !== undefined) setCashShifts(serverData.cash_shifts);
     if (serverData.staff_users !== undefined) setStaffUsers(serverData.staff_users);
     if (serverData.staff_permissions !== undefined) setStaffPermissions(serverData.staff_permissions);
     if (serverData.liter_config !== undefined) setLiterConfig(serverData.liter_config);
@@ -664,6 +696,11 @@ export default function App() {
     if (serverData.meta_pixel_id !== undefined) setMetaPixelId(serverData.meta_pixel_id);
     if (serverData.google_analytics_id !== undefined) setGoogleAnalyticsId(serverData.google_analytics_id);
   };
+
+  const applyLoadedDataRef = useRef(applyLoadedData);
+  useEffect(() => {
+    applyLoadedDataRef.current = applyLoadedData;
+  });
 
   // --- NUEVO: Efecto de Sincronización e Inicialización Supabase ---
   useEffect(() => {
@@ -720,7 +757,7 @@ export default function App() {
           isRemoteUpdate.current[k] = true;
         });
 
-        applyLoadedData(serverData);
+        applyLoadedDataRef.current(serverData);
 
         // Habilitar escrituras después de que las actualizaciones del estado de React se procesen
         setTimeout(() => {
@@ -733,14 +770,16 @@ export default function App() {
       }
 
       // 2. Recuperar la lista de personal desde Supabase de forma segura (multidispositivo)
-      try {
-        const { data: adminList, error: adminListError } = await supabase.rpc('get_all_admins');
-        if (!adminListError && Array.isArray(adminList) && adminList.length > 0) {
-          console.log("👥 Personal recuperado de Supabase:", adminList.length);
-          setStaffUsers(adminList);
+      if (hasActiveSession) {
+        try {
+          const { data: adminList, error: adminListError } = await supabase.rpc('get_all_admins');
+          if (!adminListError && Array.isArray(adminList) && adminList.length > 0) {
+            console.log("👥 Personal recuperado de Supabase:", adminList.length);
+            setStaffUsers(adminList);
+          }
+        } catch (err) {
+          console.warn("⚠️ No se pudo obtener la lista de personal de Supabase:", err.message);
         }
-      } catch (err) {
-        console.warn("⚠️ No se pudo obtener la lista de personal de Supabase:", err.message);
       }
 
       // La suscripción en tiempo real ahora se maneja de forma reactiva y separada
@@ -749,6 +788,9 @@ export default function App() {
       // 3. Suscribirse a cambios del estado de autenticación de Supabase
       const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event, session) => {
         console.log(`🔔 Supabase Auth Evento: ${event}`);
+        // getSession() ya realizó la carga inicial. Evita duplicar todas las
+        // lecturas de configuración y pedidos al abrir o recargar la app.
+        if (event === 'INITIAL_SESSION') return;
         if (session) {
           const userRole = normalizeRoleLabel(session.user.app_metadata?.role, session.user.email);
           const userName = session.user.user_metadata?.name || 'Administrador Supabase';
@@ -770,7 +812,7 @@ export default function App() {
             Object.keys(updatedServerData).forEach(k => {
               isRemoteUpdate.current[k] = true;
             });
-            applyLoadedData(updatedServerData);
+            applyLoadedDataRef.current(updatedServerData);
             if (updatedServerData.staff_users !== undefined) setStaffUsers(updatedServerData.staff_users);
             
             setTimeout(() => {
@@ -818,7 +860,7 @@ export default function App() {
   };
 
   // --- Hook de Sincronización Consolidado y Seguro ---
-  const useSyncEffect = (key, value, isJSON = false) => {
+  const useSyncEffect = (key, value, isJSON = false, syncCloud = true) => {
     const prevValueRef = useRef(value);
 
     useEffect(() => {
@@ -849,7 +891,7 @@ export default function App() {
       prevValueRef.current = value;
 
       // 5. Si está logueado, subir a la nube de forma segura
-      if (isLoggedIn) {
+      if (isLoggedIn && syncCloud) {
         const isConfigKey = ![
           'cart_locations',
           'flavors',
@@ -873,7 +915,7 @@ export default function App() {
 
         updateSyncedData(key, value);
       }
-    }, [value, isLoggedIn, isSyncLoaded, currentUser]);
+    }, [value, key, isJSON, syncCloud]);
   };
 
   // --- Invocaciones de Sincronización de Estados ---
@@ -888,7 +930,9 @@ export default function App() {
   useSyncEffect('bases', bases, true);
   useSyncEffect('packs', packs, true);
   useSyncEffect('popsicles', popsicles, true);
-  useSyncEffect('orders', orders, true);
+  // Los pedidos se guardan individualmente mediante /api/order. Mantener aquí
+  // solo la copia local evita reescribir y transferir todo el historial en cada cambio.
+  useSyncEffect('orders', orders, true, false);
   useSyncEffect('delivery_fee', deliveryFee, false);
   useSyncEffect('shop_open', shopConfig, true);
   useSyncEffect('free_delivery_threshold', freeDeliveryThreshold, false);
@@ -905,6 +949,7 @@ export default function App() {
   useSyncEffect('recommendations', recommendations, true);
   useSyncEffect('cart_recommended_pack', cartRecommendedPack, true);
   useSyncEffect('expenses', expenses, true);
+  useSyncEffect('cash_shifts', cashShifts, true);
   useSyncEffect('liter_config', literConfig, true);
   useSyncEffect('ticket_custom_message', ticketCustomMessage, false);
   useSyncEffect('store_instagram', storeInstagram, false);
@@ -1095,6 +1140,9 @@ export default function App() {
         case 'expenses':
           updateStateIfChanged(setExpenses, 'expenses', value);
           break;
+        case 'cash_shifts':
+          updateStateIfChanged(setCashShifts, 'cash_shifts', value);
+          break;
         case 'staff_permissions':
           updateStateIfChanged(setStaffPermissions, 'staff_permissions', value);
           break;
@@ -1148,7 +1196,7 @@ export default function App() {
         supabase.removeChannel(activeChannel);
       }
     };
-  }, [isLoggedIn, isSyncLoaded, tableNumber, view]);
+  }, [isLoggedIn, isSyncLoaded, tableNumber, view, isVendorApp]);
 
   // Calcular automáticamente la lista de mesas ocupadas a partir de pedidos activos
   useEffect(() => {
@@ -1167,6 +1215,11 @@ export default function App() {
     }
   }, [orders, isLoggedIn, shopConfig.occupiedTables]);
 
+  const handleLogoutRef = useRef(handleLogout);
+  useEffect(() => {
+    handleLogoutRef.current = handleLogout;
+  });
+
   // Control de Expiración de Sesión de Admin (10 Días)
   useEffect(() => {
     if (isLoggedIn) {
@@ -1176,8 +1229,8 @@ export default function App() {
         const elapsed = Date.now() - parseInt(loginAt, 10);
         if (elapsed > tenDaysMs) {
           console.log("🔒 Sesión caducada tras 10 días. Cerrando sesión automáticamente...");
-          alert("🔒 Por razones de seguridad, tu sesión administrativa ha expirado tras 10 días de uso continuo. Por favor, inicia sesión de nuevo.");
-          handleLogout();
+          window.alert("🔒 Por razones de seguridad, tu sesión administrativa ha expirado tras 10 días de uso continuo. Por favor, inicia sesión de nuevo.");
+          handleLogoutRef.current?.();
         }
       }
     }
@@ -1213,158 +1266,34 @@ export default function App() {
       alert(`Lo sentimos, ${storeName} se encuentra CERRADO temporalmente en este momento.`);
       return false;
     }
-
-    if (item.type === 'pack' || item.type === 'popsicle') {
-      const idx = cart.findIndex(i => i.type === item.type && i.id === item.id);
-      if (idx !== -1) {
-        const newCart = [...cart];
-        newCart[idx].quantity += 1;
-        setCart(newCart);
-        alert(`Se incrementó la cantidad del ${item.name} en el carrito.`);
-        return true;
-      }
-    } else if (item.type === 'custom') {
-      const idx = cart.findIndex(i => {
-        if (i.type !== 'custom') return false;
-        if (i.base.id !== item.base.id) return false;
-        if (i.scoops.length !== item.scoops.length) return false;
-        if (i.toppings.length !== item.toppings.length) return false;
-        if (i.syrup?.id !== item.syrup?.id) return false;
-
-        const sameScoops = i.scoops.every((s, sIdx) => s.id === item.scoops[sIdx].id);
-        const sameToppings = i.toppings.every((t, tIdx) => t.id === item.toppings[tIdx].id);
-
-        return sameScoops && sameToppings;
-      });
-
-      if (idx !== -1) {
-        const newCart = [...cart];
-        newCart[idx].quantity += 1;
-        setCart(newCart);
-        alert(`Se incrementó la cantidad de tu helado personalizado idéntico.`);
-        return true;
-      }
-    } else if (item.type === 'liter') {
-      const idx = cart.findIndex(i => {
-        if (i.type !== 'liter') return false;
-        if (i.scoops.length !== item.scoops.length) return false;
-        
-        // Compare scoops sorted or in the exact same order
-        return i.scoops.every((s, sIdx) => s.id === item.scoops[sIdx].id);
-      });
-
-      if (idx !== -1) {
-        const newCart = [...cart];
-        newCart[idx].quantity += 1;
-        setCart(newCart);
-        alert(`Se incrementó la cantidad de tu helado de 1 Litro idéntico.`);
-        return true;
-      }
-    }
-
-    setCart([...cart, item]);
-    alert("¡Helado añadido al carrito exitosamente!");
+    setCart(current => addCartItem(current, item));
+    showAlert('Producto agregado', `${item.name || 'Tu helado'} ya está en tu pedido.`, 'success');
     return true;
   };
 
   const handleUpdateCartQuantity = (index, newQty) => {
-    if (newQty <= 0) {
-      handleRemoveFromCart(index);
-      return;
-    }
-    const newCart = [...cart];
-    newCart[index].quantity = newQty;
-    setCart(newCart);
+    setCart(current => newQty <= 0
+      ? current.filter((_, idx) => idx !== index)
+      : current.map((entry, idx) => idx === index ? { ...entry, quantity: newQty } : entry));
   };
 
   const handleRemoveFromCart = (index) => {
-    const newCart = cart.filter((_, idx) => idx !== index);
-    setCart(newCart);
+    setCart(current => current.filter((_, idx) => idx !== index));
   };
 
   const sendTelegramNotification = async (order) => {
-    const trackerLink = `${window.location.origin}${window.location.pathname}?track=${order.id}`;
-    
-    // Formatear fecha legible en hora de Perú (PET)
-    let dateStr = '';
     try {
-      dateStr = new Date(order.date).toLocaleString('es-PE', {
-        timeZone: 'America/Lima',
-        day: '2-digit',
-        month: '2-digit',
-        year: 'numeric',
-        hour: '2-digit',
-        minute: '2-digit',
-        hour12: true
-      });
-    } catch {
-      dateStr = new Date(order.date || Date.now()).toLocaleString();
-    }
-
-    let destLine = order.customer?.address || 'Recojo en tienda';
-    let typeLabel = order.customer?.orderType || 'Delivery';
-    if (order.customer?.orderType === 'Mesa') {
-      typeLabel = `Consumo Local (Mesa ${order.customer?.tableNumber})`;
-      destLine = `Mesa ${order.customer?.tableNumber}`;
-    } else if (order.customer?.orderType === 'Mesa_Llevar') {
-      typeLabel = `Mesa ${order.customer?.tableNumber} (Para Llevar)`;
-      destLine = `Mesa ${order.customer?.tableNumber}`;
-    } else if (order.customer?.orderType === 'Barra') {
-      typeLabel = 'Directo en Barra';
-      destLine = 'Recojo en Barra';
-    } else if (order.customer?.orderType === 'Llevar') {
-      typeLabel = 'Recojo en Tienda / Llevar';
-      destLine = 'Recojo en Tienda';
-    } else {
-      typeLabel = 'Delivery a Domicilio';
-    }
-
-    const itemsText = order.items.map(item => {
-      let details = '';
-      if (item.type === 'custom') {
-        const baseName = item.base?.name || item.base || '';
-        const scoops = (item.scoops || []).map(s => s.name).join(', ');
-        const toppings = (item.toppings || []).map(t => t.name).join(', ');
-        const syrup = item.syrup ? (item.syrup.name || item.syrup) : '';
-        details = `\n   • Base: ${baseName}` +
-                  `\n   • Sabores: ${scoops}` + 
-                  (toppings ? `\n   • Toppings: ${toppings}` : '') +
-                  (syrup ? `\n   • Salsa: ${syrup}` : '');
-      } else if (item.type === 'liter') {
-        const scoops = (item.scoops || []).map(s => s.name).join(', ');
-        details = `\n   • Sabores: ${scoops}`;
-      } else if (item.type === 'pack') {
-        details = `\n   • Contenido: ${item.items || item.description || ''}`;
+      const headers = { 'Content-Type': 'application/json' };
+      if (order.isOperator && supabase) {
+        const { data } = await supabase.auth.getSession();
+        if (data?.session?.access_token) headers.Authorization = `Bearer ${data.session.access_token}`;
       }
-      return `• ${item.quantity}x *${item.name}*${details}`;
-    }).join('\n');
-
-    const message = `🚨 *¡NUEVO PEDIDO EN ${String(storeName || 'FRIOZO').toUpperCase()}!* 🚨\n\n` +
-      `*Código:* \`${order.id}\`\n` +
-      `*Fecha:* ${dateStr}\n` +
-      `*Tipo:* ${typeLabel}\n` +
-      `*Cliente:* ${order.customer?.name || 'Cliente'}\n` +
-      `*WhatsApp:* ${order.customer?.phone || ''}\n` +
-      `*Dirección/Mesa:* ${destLine}\n` +
-      `*Método de Pago:* ${order.customer?.paymentMethod || ''}\n\n` +
-      `*DETALLE DEL PEDIDO:*\n` +
-      `---------------------------\n` +
-      `${itemsText}\n` +
-      `---------------------------\n` +
-      `*Subtotal:* S/. ${(order.total || 0).toFixed(2)}\n` +
-      (order.couponCode ? `*Cupón:* ${order.couponCode} (-S/. ${(order.discount || 0).toFixed(2)})\n` : '') +
-      `*Delivery:* S/. ${(order.deliveryFee || 0).toFixed(2)}\n` +
-      `*TOTAL A PAGAR:* S/. ${(order.grandTotal || 0).toFixed(2)}\n\n` +
-      `📍 *Rastreo del pedido en tiempo real:*\n[Seguir Pedido en Vivo](${trackerLink})`;
-
-    try {
       const response = await fetch('/api/telegram', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers,
         body: JSON.stringify({
-          text: message,
           orderId: order.id,
-          parse_mode: 'Markdown',
+          submissionKey: order.submissionKey,
           kind: 'order'
         })
       });
@@ -1378,14 +1307,23 @@ export default function App() {
   };
 
   const handlePlaceOrder = async (newOrder) => {
-    setOrders(prev => [newOrder, ...prev]);
+    let savedOrder = newOrder;
+    if (newOrder.isOperator) {
+      if (!supabase) throw new Error('No hay conexión con la tienda. Reconecta antes de registrar el pedido.');
+      savedOrder = await createOperatorOrder(supabase, newOrder);
+    } else {
+      savedOrder = await createOrder(newOrder);
+    }
+    setOrders(prev => [savedOrder, ...prev.filter(order => order.id !== savedOrder.id)]);
     if (!newOrder.isOperator) {
-      setCart([]);
-      setActiveOrderId(newOrder.id);
+      if (savedOrder.submissionKey) checkoutStorage.setItem(`helados_order_token_${savedOrder.id}`, savedOrder.submissionKey);
+      setCart(current => subtractOrderedItems(current, newOrder.items || []));
+      setActiveOrderId(savedOrder.id);
       setView('tracker');
       
       // Guardar pedido activo en localStorage para rastreo y control de mesa ocupada
-      localStorage.setItem('helados_active_order_id', newOrder.id);
+      localStorage.setItem('helados_active_order_id', savedOrder.id);
+      localStorage.setItem('helados_active_order_time', String(Date.now()));
       if (newOrder.customer?.orderType === 'Mesa' || newOrder.customer?.orderType === 'Mesa_Llevar') {
         localStorage.setItem('helados_active_order_table', String(newOrder.customer?.tableNumber));
       } else {
@@ -1393,51 +1331,68 @@ export default function App() {
       }
     }
     
-    if (newOrder.couponCode) {
-      setCoupons(prevCoupons => {
-        const updated = prevCoupons.map(c => {
-          if (c.code === newOrder.couponCode) {
-            return { ...c, usedCount: (c.usedCount || 0) + 1 };
-          }
-          return c;
-        });
-        return updated;
-      });
-    }
-
-    // Subir el pedido individual bajo su propia clave para evitar descargar toda la lista de otros clientes
-    const dbSuccess = await updateSyncedData(`order_${newOrder.id}`, newOrder);
-
-    if (dbSuccess) {
-      // Enviar notificación a Telegram
-      await sendTelegramNotification(newOrder);
-    } else {
-      console.warn("⚠️ No se pudo guardar el pedido en base de datos. Se omitió la notificación a Telegram.");
-    }
+    await sendTelegramNotification(savedOrder);
+    return savedOrder;
   };
 
-  const handleUpdateOrderStatus = async (orderId, newStatus) => {
+  const handleUpdateOrderStatus = async (orderId, newStatus, patch = {}) => {
     const cleanOrderId = String(orderId || '').trim().toUpperCase();
-    const statusTimestamp = new Date().toISOString();
-    let updatedOrder = null;
-    const updated = orders.map(o => {
-      if (String(o.id || '').trim().toUpperCase() === cleanOrderId) {
-        const history = o.statusHistory || [{ status: 'Pendiente', timestamp: o.date || new Date().toISOString() }];
-        const lastStatus = history[history.length - 1]?.status;
-        const newHistory = lastStatus === newStatus ? history : [...history, { status: newStatus, timestamp: statusTimestamp }];
-        updatedOrder = { ...o, id: cleanOrderId, status: newStatus, statusHistory: newHistory, updatedAt: statusTimestamp };
-        return updatedOrder;
-      }
-      return o;
-    });
-    setOrders(updated);
-
-    // Actualizar el pedido individual en la nube para que el cliente reciba la actualización en tiempo real en su rastreador
-    if (updatedOrder) {
-      return await updateSyncedData(`order_${cleanOrderId}`, updatedOrder);
+    const previous = orders.find(o => String(o.id || '').trim().toUpperCase() === cleanOrderId);
+    if (!previous || !supabase) return false;
+    try {
+      const proposed = { ...previous, ...patch, id: cleanOrderId, status: newStatus };
+      const saved = await updateOrder(supabase, previous, proposed);
+      setOrders(current => current.map(order => order.id === previous.id ? saved : order));
+      return true;
+    } catch (error) {
+      console.warn('No se pudo actualizar el pedido:', error.message);
+      showAlert('No se confirmó el cambio', error.message || 'Actualiza la lista e intenta nuevamente.', 'warning');
+      return false;
     }
-    return false;
   };
+
+  // handleUpdateOrders: actualiza el estado local Y sincroniza cada pedido modificado en Supabase
+  const handleUpdateOrders = async (newOrders) => {
+    // Detectar órdenes que realmente cambiaron respecto al estado actual
+    const changedOrders = newOrders.filter(newO => {
+      const existing = orders.find(o => o.id === newO.id);
+      return !existing || JSON.stringify(existing) !== JSON.stringify(newO);
+    });
+    // Persistir cada pedido modificado individualmente en Supabase
+    if (changedOrders.length > 0) {
+      try {
+        const savedChanges = await Promise.all(changedOrders.map(async proposed => {
+          const previous = orders.find(order => order.id === proposed.id);
+          if (previous && supabase) return updateOrder(supabase, previous, proposed);
+          if (!supabase) throw new Error('No hay conexión con la tienda. Reconecta antes de registrar el pedido.');
+          return createOperatorOrder(supabase, proposed);
+        }));
+        const savedById = new Map(savedChanges.map(order => [order.id, order]));
+        setOrders(newOrders.map(order => savedById.get(order.id) || order));
+        return true;
+      } catch (err) {
+        console.warn('⚠️ No se pudieron sincronizar algunos pedidos en Supabase:', err);
+        showAlert('No se confirmó el cambio', err.message || 'Actualiza la lista e intenta nuevamente.', 'warning');
+        return false;
+      }
+    }
+    setOrders(newOrders);
+    return true;
+  };
+
+  const persistAdminCollection = async (key, value, setter) => {
+    const saved = await updateSyncedData(key, value);
+    if (!saved) {
+      showAlert('No se confirmó el guardado', 'Revisa la conexión e inténtalo nuevamente. Los datos visibles no fueron modificados.', 'warning');
+      return false;
+    }
+    isRemoteUpdate.current[key] = true;
+    setter(value);
+    return true;
+  };
+
+  const handleUpdateExpenses = value => persistAdminCollection('expenses', value, setExpenses);
+  const handleUpdateCashShifts = value => persistAdminCollection('cash_shifts', value, setCashShifts);
 
   async function handleLogout() {
     logoutInProgressRef.current = true;
@@ -1666,6 +1621,7 @@ export default function App() {
             onAddToCart={handleAddToCart}
             setView={setView}
             storeName={storeName}
+            deliveryFee={deliveryFee}
             freeDeliveryThreshold={freeDeliveryThreshold}
             freeDeliveryEnabled={shopConfig.freeDeliveryEnabled !== false}
             deliveryCampaignText={deliveryCampaignText}
@@ -1838,8 +1794,10 @@ export default function App() {
               recommendations={recommendations}
               onUpdateRecommendations={setRecommendations}
               expenses={expenses}
-              onUpdateExpenses={setExpenses}
-              onUpdateOrders={setOrders}
+              onUpdateExpenses={handleUpdateExpenses}
+              cashShifts={cashShifts}
+              onUpdateCashShifts={handleUpdateCashShifts}
+              onUpdateOrders={handleUpdateOrders}
               cartRecommendedPack={cartRecommendedPack}
               onUpdateCartRecommendedPack={setCartRecommendedPack}
               staffPermissions={staffPermissions}
@@ -2069,6 +2027,22 @@ export default function App() {
         </div>
       )}
 
+      {successToast && (
+        <div className="purchase-toast" role="status" aria-live="polite">
+          <span className="purchase-toast-icon" aria-hidden="true">✓</span>
+          <span className="purchase-toast-copy">
+            <strong>{successToast.title}</strong>
+            <small>{successToast.message}</small>
+          </span>
+          {cart.length > 0 && view !== 'cart' && view !== 'admin' && (
+            <button type="button" className="purchase-toast-action" onClick={() => { setSuccessToast(null); setView('cart'); }}>
+              Ver pedido
+            </button>
+          )}
+          <button type="button" className="purchase-toast-close" aria-label="Cerrar aviso" onClick={() => setSuccessToast(null)}>×</button>
+        </div>
+      )}
+
       {/* ⚠️ Ventana de Alerta / Aviso Personalizado */}
       {customAlert && (
         <div style={{
@@ -2099,12 +2073,12 @@ export default function App() {
               animation: scaleUp 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275);
             }
           ` }} />
-          <div className="glass alert-modal-content" style={{
+          <div className="alert-modal-content" style={{
             width: '90%',
             maxWidth: '400px',
-            background: 'var(--glass-bg, rgba(255, 255, 255, 0.95))',
+            background: 'var(--bg-primary, #ffffff)',
             border: '1px solid var(--border-color)',
-            boxShadow: 'var(--shadow-lg)',
+            boxShadow: '0 20px 45px rgba(0, 0, 0, 0.35)',
             borderRadius: '24px',
             padding: '24px',
             textAlign: 'center',

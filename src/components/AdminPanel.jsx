@@ -1,23 +1,22 @@
  
-import React, { useState, useEffect, useRef, Suspense } from 'react';
+import { useState, useEffect, useRef, useCallback, lazy, Suspense } from 'react';
 import { supabase } from '../utils/supabaseClient';
 import { updateSyncedData } from '../utils/supabaseSync';
-const SettingsManager = React.lazy(() => import('./admin/SettingsManager'));
-const InventoryManager = React.lazy(() => import('./admin/InventoryManager'));
-const FinanceManager = React.lazy(() => import('./admin/FinanceManager'));
-const OrderManager = React.lazy(() => import('./admin/OrderManager'));
-const DashboardView = React.lazy(() => import('./admin/DashboardView'));
-const OperationsCenter = React.lazy(() => import('./admin/OperationsCenter'));
-const UserManager = React.lazy(() => import('./admin/UserManager'));
-const TableOrderManager = React.lazy(() => import('./admin/TableOrderManager'));
-const OrderTaker = React.lazy(() => import('./admin/OrderTaker'));
+const SettingsManager = lazy(() => import('./admin/SettingsManager'));
+const InventoryManager = lazy(() => import('./admin/InventoryManager'));
+const FinanceManager = lazy(() => import('./admin/FinanceManager'));
+const CashRegisterManager = lazy(() => import('./admin/CashRegisterManager'));
+const OrderManager = lazy(() => import('./admin/OrderManager'));
+const DashboardView = lazy(() => import('./admin/DashboardView'));
+const OperationsCenter = lazy(() => import('./admin/OperationsCenter'));
+const UserManager = lazy(() => import('./admin/UserManager'));
+const TableOrderManager = lazy(() => import('./admin/TableOrderManager'));
+const OrderTaker = lazy(() => import('./admin/OrderTaker'));
+const CustomerCRM = lazy(() => import('./admin/CustomerCRM'));
+const DriverDeliveryPanel = lazy(() => import('./admin/DriverDeliveryPanel'));
+const KitchenDisplaySystem = lazy(() => import('./admin/KitchenDisplaySystem'));
 import CartLocationsView from './CartLocationsView';
-
-// --- FUNCIONES DE SANITIZACIÃ“N Y SEGURIDAD ---
-const sanitizeHTML = (text) => {
-  if (typeof text !== 'string') return '';
-  return text.replace(/<[^>]*>/g, '').trim();
-};
+import { sanitizeHTML } from '../utils/security';
 
 // eslint-disable-next-line no-unused-vars
 const isValidEmail = (email) => {
@@ -108,6 +107,8 @@ export default function AdminPanel({
   onUpdateRecommendations,
   expenses,
   onUpdateExpenses,
+  cashShifts = [],
+  onUpdateCashShifts,
   onUpdateOrders,
   cartRecommendedPack,
   onUpdateCartRecommendedPack,
@@ -184,7 +185,9 @@ export default function AdminPanel({
         const parsed = JSON.parse(saved);
         return parsed.user || '';
       }
-    } catch {}
+    } catch {
+      /* ignore invalid saved login */
+    }
     return '';
   });
   const [passwordInput, setPasswordInput] = useState(() => {
@@ -194,7 +197,9 @@ export default function AdminPanel({
         const parsed = JSON.parse(saved);
         return parsed.pass || '';
       }
-    } catch {}
+    } catch {
+      /* ignore invalid saved password */
+    }
     return '';
   });
   const [showPassword, setShowPassword] = useState(false);
@@ -235,10 +240,10 @@ export default function AdminPanel({
     setLogs(prev => [newLog, ...prev.slice(0, 499)]); // Mantener Ãºltimas 500 operaciones
   };
 
-  // --- Detector de Nuevos Pedidos (Alerta Sonora) ---
+   // --- Detector de Nuevos Pedidos (Alerta Sonora) ---
   const prevOrdersCount = useRef(orders.length);
 
-  const playNewOrderSound = () => {
+  const playNewOrderSound = useCallback(() => {
     if (!soundEnabled) return;
     try {
       const AudioContext = window.AudioContext || window.webkitAudioContext;
@@ -271,7 +276,7 @@ export default function AdminPanel({
     } catch {
       console.warn("Audio chime blocked by autoplay policies.");
     }
-  };
+  }, [soundEnabled]);
 
   useEffect(() => {
     if (orders.length > prevOrdersCount.current) {
@@ -287,12 +292,12 @@ export default function AdminPanel({
       }
     }
     prevOrdersCount.current = orders.length;
-  }, [orders, soundEnabled, canUseNotifications, storeName]);
+  }, [orders, soundEnabled, canUseNotifications, storeName, playNewOrderSound]);
 
   // --- Detector de Nuevos Llamados en Mesa (Alerta Sonora y Visual) ---
   const prevCallsCount = useRef(tableCalls.filter(c => !c.resolved).length);
 
-  const playCallWaiterSound = () => {
+  const playCallWaiterSound = useCallback(() => {
     if (!soundEnabled) return;
     try {
       const AudioContext = window.AudioContext || window.webkitAudioContext;
@@ -317,7 +322,7 @@ export default function AdminPanel({
     } catch {
       console.warn("Audio chime blocked by autoplay policies.");
     }
-  };
+  }, [soundEnabled]);
 
   useEffect(() => {
     const activeCalls = tableCalls.filter(c => !c.resolved);
@@ -325,7 +330,7 @@ export default function AdminPanel({
       playCallWaiterSound();
       const latestCall = activeCalls[activeCalls.length - 1];
       if (latestCall) {
-        addLog(`ðŸ›Žï¸ Mesa ${latestCall.table} solicita atenciÃ³n: ${latestCall.request}`);
+        addLog(`🛎️ Mesa ${latestCall.table} solicita atención: ${latestCall.request}`);
         if (canUseNotifications && window.Notification.permission === 'granted') {
           new window.Notification(`🛎️ ¡Mesa ${latestCall.table} solicita atención!`, {
             body: `Solicitud: ${latestCall.request}`
@@ -334,7 +339,7 @@ export default function AdminPanel({
       }
     }
     prevCallsCount.current = activeCalls.length;
-  }, [tableCalls, soundEnabled, canUseNotifications]);
+  }, [tableCalls, soundEnabled, canUseNotifications, playCallWaiterSound]);
 
   useEffect(() => {
     if (isLoggedIn && canUseNotifications && window.Notification.permission === 'default') {
@@ -342,8 +347,8 @@ export default function AdminPanel({
     }
   }, [isLoggedIn, canUseNotifications]);
 
-  // --- Control de Acceso por Ventanas/MÃ³dulos ---
-  const isTabAllowed = (tabId) => {
+  // --- Control de Acceso por Ventanas/Módulos ---
+  const isTabAllowed = useCallback((tabId) => {
     if (!currentUser) return false;
     if (isAdminUser(currentUser)) return true;
 
@@ -357,18 +362,25 @@ export default function AdminPanel({
     }
 
     const role = normalizeText(currentUser.role);
-    if (role.includes('vendedor')) return ['orders', 'inventory', 'surveys', 'table_orders', 'locations'].includes(tabId);
-    if (role.includes('cocina')) return ['orders'].includes(tabId);
+    if (role.includes('vendedor')) return ['orders', 'crm', 'ordertaker', 'inventory', 'surveys', 'table_orders', 'locations'].includes(tabId);
+    if (role.includes('cajero')) return ['orders', 'crm', 'ordertaker', 'finance'].includes(tabId);
+    if (role.includes('cocina')) return ['orders', 'kds'].includes(tabId);
+    if (role.includes('repartidor') || role.includes('delivery')) return ['driver_panel', 'orders', 'locations'].includes(tabId);
+    if (role.includes('mozo') || role.includes('salon')) return ['table_orders', 'ordertaker'].includes(tabId);
     return false;
-  };
+  }, [currentUser, staffPermissions]);
 
   useEffect(() => {
     if (currentUser && !isTabAllowed(activeTab)) {
-      const fallbackTab = ['orders', 'inventory', 'packs', 'users', 'finance', 'locations', 'settings', 'stats', 'surveys', 'table_orders']
-        .find((tabId) => isTabAllowed(tabId));
+      const role = normalizeText(currentUser.role);
+      const isDriver = role.includes('repartidor') || role.includes('delivery');
+      const fallbackTab = (isDriver && isTabAllowed('driver_panel'))
+        ? 'driver_panel'
+        : ['operations', 'driver_panel', 'orders', 'kds', 'crm', 'ordertaker', 'inventory', 'packs', 'users', 'finance', 'locations', 'settings', 'stats', 'surveys', 'table_orders']
+            .find((tabId) => isTabAllowed(tabId));
       if (fallbackTab) setActiveTab(fallbackTab);
     }
-  }, [currentUser, activeTab]);
+  }, [currentUser, activeTab, isTabAllowed]);
 
   // --- Manejo del Inicio de SesiÃ³n ---
   const handleLogin = async (e) => {
@@ -417,7 +429,7 @@ export default function AdminPanel({
         setAuthError('Has superado los 5 intentos de inicio de sesión fallidos. El panel administrativo fue bloqueado temporalmente por 15 minutos.');
         addLog(`BLOQUEO DE SEGURIDAD: 5 intentos fallidos en login para usuario: ${userInput}`);
       } else {
-        setAuthError(`Contraseña errada. Intentos restantes: ${5 - nextAttempts}`);
+        setAuthError(customMsg ? `${customMsg} Intentos restantes: ${5 - nextAttempts}` : `Contraseña errada. Intentos restantes: ${5 - nextAttempts}`);
       }
     };
 
@@ -600,15 +612,47 @@ export default function AdminPanel({
           </div>
 
           <div className="form-group">
-            <label>Contrasena de Acceso</label>
+            <label>Contraseña de Acceso</label>
+            <div style={{ position: 'relative' }}>
+              <input
+                type={showPassword ? 'text' : 'password'}
+                className="form-control"
+                placeholder="Contraseña"
+                value={passwordInput}
+                onChange={(e) => setPasswordInput(e.target.value)}
+                required
+              />
+              <button
+                type="button"
+                onClick={() => setShowPassword(!showPassword)}
+                style={{
+                  position: 'absolute',
+                  right: '10px',
+                  top: '50%',
+                  transform: 'translateY(-50%)',
+                  background: 'none',
+                  border: 'none',
+                  cursor: 'pointer',
+                  fontSize: '1rem',
+                  padding: '4px'
+                }}
+                title={showPassword ? 'Ocultar contraseña' : 'Ver contraseña'}
+              >
+                {showPassword ? '👁️' : '🔒'}
+              </button>
+            </div>
+          </div>
+
+          <div style={{ display: 'flex', alignItems: 'center', gap: '8px', fontSize: '0.85rem' }}>
             <input
-              type="password"
-              className="form-control"
-              placeholder="Contrasena"
-              value={passwordInput}
-              onChange={(e) => setPasswordInput(e.target.value)}
-              required
+              type="checkbox"
+              id="rememberMe"
+              checked={rememberMe}
+              onChange={(e) => setRememberMe(e.target.checked)}
             />
+            <label htmlFor="rememberMe" style={{ cursor: 'pointer', margin: 0 }}>
+              Recordar credenciales en este equipo
+            </label>
           </div>
 
           {authError && (
@@ -701,6 +745,23 @@ export default function AdminPanel({
         )}
         <div className="sidebar-menu">
           {isAdminUser(currentUser) && <button className={`sidebar-btn ${activeTab === 'operations' ? 'active' : ''}`} onClick={() => setActiveTab('operations')}>◉ Centro de operaciones</button>}
+          {isTabAllowed('driver_panel') && (
+            <button className={`sidebar-btn ${activeTab === 'driver_panel' ? 'active' : ''}`} onClick={() => setActiveTab('driver_panel')}>
+              🛵 Mis Repartos ({orders.filter(o => {
+                if (!o || o.status === 'Cancelado' || o.status === 'Entregado') return false;
+                const d = o.assignedDriver;
+                if (!d) return false;
+                if (isAdminUser(currentUser)) return true;
+                return String(d.email || '').toLowerCase().trim() === String(currentUser?.email || '').toLowerCase().trim() ||
+                       String(d.id || '').trim() === String(currentUser?.id || '').trim();
+              }).length})
+            </button>
+          )}
+          {isTabAllowed('kds') && (
+            <button className={`sidebar-btn ${activeTab === 'kds' ? 'active' : ''}`} onClick={() => setActiveTab('kds')}>
+              👨‍🍳 KDS Cocina ({orders.filter(o => o.status === 'Pendiente' || o.status === 'Preparando').length})
+            </button>
+          )}
           {isTabAllowed('orders') && (
             <>
               <button className={`sidebar-btn ${activeTab === 'orders' ? 'active' : ''}`} onClick={() => setActiveTab('orders')}>
@@ -777,6 +838,44 @@ export default function AdminPanel({
           {key:'packs',name:'Packs',items:packs,update:onUpdatePacks}
         ]} />}
         {activeTab === 'ordertaker' && <OrderTaker catalog={{ bases, flavors, toppings, packs, popsicles, literConfig }} onPlaceOrder={onPlaceOrder} showAlert={showAlert} />}
+        {activeTab === 'crm' && (
+          <CustomerCRM
+            orders={orders}
+            storeName={storeName}
+            showAlert={showAlert}
+            coupons={coupons}
+            onUpdateCoupons={onUpdateCoupons}
+            shopConfig={shopConfig}
+            onChangeShopConfig={onChangeShopConfig}
+            onNavigate={setActiveTab}
+            onPlaceOrder={onPlaceOrder}
+          />
+        )}
+
+        {activeTab === 'driver_panel' && isTabAllowed('driver_panel') && (
+          <DriverDeliveryPanel
+            orders={orders}
+            onUpdateOrderStatus={onUpdateOrderStatus}
+            currentUser={currentUser}
+            storeName={storeName}
+            shopConfig={shopConfig}
+            showAlert={showAlert}
+            staffUsers={staffUsers}
+          />
+        )}
+
+        {activeTab === 'kds' && isTabAllowed('kds') && (
+          <KitchenDisplaySystem
+            orders={orders}
+            onUpdateOrderStatus={onUpdateOrderStatus}
+            shopConfig={shopConfig}
+            storeName={storeName}
+            ticketCustomMessage={ticketCustomMessage}
+            addLog={addLog}
+            currentUser={currentUser}
+            showAlert={showAlert}
+          />
+        )}
 
         {(activeTab === 'orders' || activeTab === 'surveys') && (
           <OrderManager
@@ -794,6 +893,8 @@ export default function AdminPanel({
             showAlert={showAlert}
             shopConfig={shopConfig}
             activeSubTab={activeTab === 'orders' ? 'orders' : 'surveys'}
+            staffUsers={staffUsers}
+            onUpdateStaffUsers={onUpdateStaffUsers}
           />
         )}
         
@@ -833,16 +934,31 @@ export default function AdminPanel({
         )}
 
         {activeTab === 'finance' && (
-          <FinanceManager
-            orders={orders}
-            onUpdateOrders={onUpdateOrders}
-            expenses={expenses}
-            onUpdateExpenses={onUpdateExpenses}
-            packs={packs}
-            addLog={addLog}
-            currentUser={currentUser}
-            showAlert={showAlert}
-          />
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '24px' }}>
+            {shopConfig?.cashRegisterEnabled !== false && (
+              <CashRegisterManager
+                orders={orders}
+                shifts={cashShifts}
+                onUpdateShifts={onUpdateCashShifts}
+                currentUser={currentUser}
+                storeName={storeName}
+                printEnabled={shopConfig?.escposPrintEnabled !== false}
+                addLog={addLog}
+                showAlert={showAlert}
+              />
+            )}
+            <FinanceManager
+              orders={orders}
+              onUpdateOrders={onUpdateOrders}
+              expenses={expenses}
+              onUpdateExpenses={onUpdateExpenses}
+              packs={packs}
+              addLog={addLog}
+              currentUser={currentUser}
+              showAlert={showAlert}
+              shopConfig={shopConfig}
+            />
+          </div>
         )}
 
         {activeTab === 'locations' && (
@@ -950,6 +1066,8 @@ export default function AdminPanel({
             onUpdateOrders={onUpdateOrders}
             expenses={expenses}
             onUpdateExpenses={onUpdateExpenses}
+            cashShifts={cashShifts}
+            onUpdateCashShifts={onUpdateCashShifts}
             deliveryFee={deliveryFee}
             onChangeDeliveryFee={onChangeDeliveryFee}
             recommendations={recommendations}

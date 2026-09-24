@@ -1,3 +1,5 @@
+import { sanitizeHTML } from './security.js';
+
 /**
  * Validador integral del ingreso de pedidos (Delivery, Mesa, Barra, Llevar).
  * Asegura que todos los datos requeridos por canal estén presentes y sean válidos.
@@ -35,7 +37,7 @@ export const validateOrderInput = ({
   }
 
   // 3. Validación de Nombre (Obligatorio en Delivery, Barra y Llevar)
-  const cleanName = String(name || '').replace(/<[^>]*>/g, '').trim();
+  const cleanName = sanitizeHTML(name);
   if (!needsTable) {
     if (!cleanName || cleanName.length < 2) {
       errors.name = 'Por favor ingresa tu nombre completo (mínimo 2 letras).';
@@ -52,7 +54,7 @@ export const validateOrderInput = ({
 
   // 5. Validación de Dirección (Obligatoria para Delivery)
   if (orderType === 'Delivery') {
-    const cleanAddress = String(address || '').replace(/<[^>]*>/g, '').trim();
+    const cleanAddress = sanitizeHTML(address);
     if (!cleanAddress || cleanAddress.length < 5) {
       errors.address = 'Ingresa una dirección de entrega completa (calle, número y referencia).';
     }

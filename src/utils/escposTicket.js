@@ -3,6 +3,16 @@
  * Optimizado para impresoras térmicas de 58mm y 80mm (ESC/POS).
  */
 
+import { isPaymentOnArrival, orderPaymentMethod } from './orderLifecycle.js';
+
+const escapeTicketText = value => String(value ?? '')
+  .replace(/&/g, '&amp;')
+  .replace(/</g, '&lt;')
+  .replace(/>/g, '&gt;')
+  .replace(/"/g, '&quot;')
+  .replace(/'/g, '&#039;');
+const ticketMultiline = value => escapeTicketText(value).replace(/\r?\n/g, '<br>');
+
 export const printThermalTicket = ({
   type = 'comanda', // 'comanda' | 'delivery' | 'cierre_z'
   order = null,
@@ -29,27 +39,34 @@ export const printThermalTicket = ({
     if (!order) return;
     const isDelivery = order.customer?.orderType === 'Delivery' || (order.deliveryFee > 0);
     const isTable = order.customer?.orderType === 'Mesa' || order.customer?.tableNumber;
+    const paymentMethod = orderPaymentMethod(order);
+    const paymentNotice = order.paymentVerified
+      ? `COBRO CONFIRMADO · ${paymentMethod}`
+      : isPaymentOnArrival(order)
+        ? `COBRAR AL ENTREGAR · ${paymentMethod}`
+        : `PAGO ANTICIPADO PENDIENTE · ${paymentMethod}`;
 
     contentHtml = `
       <div class="ticket">
-        <div class="center bold title">${storeName.toUpperCase()}</div>
+        <div class="center bold title">${escapeTicketText(storeName.toUpperCase())}</div>
+        ${storePhone ? `<div class="center" style="font-size: 11px;">Tel: ${escapeTicketText(storePhone)}</div>` : ''}
         <div class="center subtitle">${type === 'comanda' ? '🍳 COMANDA DE COCINA' : '🛵 TICKET DE DESPACHO'}</div>
         <div class="divider"></div>
-        <div class="row"><span>ORDEN:</span> <b class="highlight">${order.id}</b></div>
+        <div class="row"><span>ORDEN:</span> <b class="highlight">${escapeTicketText(order.id)}</b></div>
         <div class="row"><span>FECHA:</span> <span>${nowStr}</span></div>
         <div class="row">
           <span>TIPO:</span> 
           <b class="type-badge ${isDelivery ? 'delivery' : isTable ? 'mesa' : 'llevar'}">
-            ${isDelivery ? '🛵 DELIVERY' : isTable ? `🍽️ MESA ${order.customer?.tableNumber || ''}` : '🥡 PARA LLEVAR'}
+            ${isDelivery ? '🛵 DELIVERY' : isTable ? `🍽️ MESA ${escapeTicketText(order.customer?.tableNumber || '')}` : '🥡 PARA LLEVAR'}
           </b>
         </div>
-        ${order.assignedDriver?.name ? `<div class="row"><span>REPARTIDOR:</span> <b>${order.assignedDriver.name}</b></div>` : ''}
+        ${order.assignedDriver?.name ? `<div class="row"><span>REPARTIDOR:</span> <b>${escapeTicketText(order.assignedDriver.name)}</b></div>` : ''}
         <div class="divider"></div>
         <div class="bold section-title">CLIENTE:</div>
-        <div><b>${order.customer?.name || 'Cliente'}</b></div>
-        ${order.customer?.phone ? `<div>Tel: ${order.customer.phone}</div>` : ''}
-        ${isDelivery && order.customer?.address ? `<div class="address"><b>Dirección:</b> ${order.customer.address}</div>` : ''}
-        ${order.customer?.reference ? `<div>Ref: ${order.customer.reference}</div>` : ''}
+        <div><b>${escapeTicketText(order.customer?.name || 'Cliente')}</b></div>
+        ${order.customer?.phone ? `<div>Tel: ${escapeTicketText(order.customer.phone)}</div>` : ''}
+        ${isDelivery && order.customer?.address ? `<div class="address"><b>Dirección:</b> ${escapeTicketText(order.customer.address)}</div>` : ''}
+        ${order.customer?.reference ? `<div>Ref: ${escapeTicketText(order.customer.reference)}</div>` : ''}
         <div class="divider"></div>
         <div class="bold section-title">PRODUCTOS:</div>
         ${(order.items || []).map((item) => {
@@ -67,21 +84,21 @@ export const printThermalTicket = ({
           return `
             <div class="item-row">
               <span class="qty">${item.quantity || 1}x</span>
-              <span class="item-name">${item.name || 'Helado'}</span>
+              <span class="item-name">${escapeTicketText(item.name || 'Helado')}</span>
               <span class="price">S/ ${((item.price || 0) * (item.quantity || 1)).toFixed(2)}</span>
             </div>
-            ${desc ? `<div class="item-desc">${desc}</div>` : ''}
+            ${desc ? `<div class="item-desc">${escapeTicketText(desc)}</div>` : ''}
           `;
         }).join('')}
         <div class="divider"></div>
-        <div class="row"><span>Subtotal:</span> <span>S/ ${(order.subtotal || 0).toFixed(2)}</span></div>
-        ${order.deliveryFee > 0 ? `<div class="row"><span>Delivery:</span> <span>S/ ${order.deliveryFee.toFixed(2)}</span></div>` : ''}
-        ${order.discount > 0 ? `<div class="row"><span>Descuento:</span> <span>-S/ ${order.discount.toFixed(2)}</span></div>` : ''}
-        <div class="row total"><span>TOTAL:</span> <span>S/ ${(order.grandTotal || 0).toFixed(2)}</span></div>
-        <div class="row"><span>PAGO:</span> <b>${order.paymentMethod || 'Efectivo'}</b></div>
+        <div class="row"><span>Subtotal:</span> <span>S/ ${Number(order.total ?? order.subtotal ?? 0).toFixed(2)}</span></div>
+        ${Number(order.deliveryFee) > 0 ? `<div class="row"><span>Delivery:</span> <span>S/ ${Number(order.deliveryFee).toFixed(2)}</span></div>` : ''}
+        ${Number(order.discount) > 0 ? `<div class="row"><span>Descuento:</span> <span>-S/ ${Number(order.discount).toFixed(2)}</span></div>` : ''}
+        <div class="row total"><span>TOTAL:</span> <span>S/ ${Number(order.grandTotal || 0).toFixed(2)}</span></div>
+        <div class="payment-alert center bold">${escapeTicketText(paymentNotice)}</div>
         ${order.customer?.paymentProof ? `<div class="center" style="margin-top:4px; font-size:10px;">(Pago verificado con captura)</div>` : ''}
-        ${order.notes ? `<div class="divider"></div><div class="notes"><b>Notas:</b> ${order.notes}</div>` : ''}
-        ${ticketCustomMessage ? `<div class="divider"></div><div class="center footer">${ticketCustomMessage}</div>` : ''}
+        ${order.notes ? `<div class="divider"></div><div class="notes"><b>Notas:</b> ${ticketMultiline(order.notes)}</div>` : ''}
+        ${ticketCustomMessage ? `<div class="divider"></div><div class="center footer custom-message">${ticketMultiline(ticketCustomMessage)}</div>` : ''}
         <div class="divider"></div>
         <div class="center footer">¡Gracias por tu preferencia! 🍦</div>
       </div>
@@ -214,6 +231,8 @@ export const printThermalTicket = ({
           .address { font-size: 11px; margin: 2px 0; word-break: break-word; }
           .notes { font-size: 11px; background: #eee; padding: 3px; margin: 3px 0; }
           .footer { font-size: 10px; margin-top: 6px; }
+          .payment-alert { border: 2px solid #000; padding: 5px 3px; margin: 6px 0; font-size: 11px; }
+          .custom-message { font-size: 11px; font-weight: bold; line-height: 1.4; overflow-wrap: anywhere; }
           .type-badge { padding: 1px 4px; border-radius: 3px; }
           .delivery { color: #d35400; }
           .mesa { color: #2980b9; }

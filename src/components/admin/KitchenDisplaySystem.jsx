@@ -1,6 +1,7 @@
-import React, { useState, useEffect, useMemo, useRef } from 'react';
+import { useState, useEffect, useMemo, useRef } from 'react';
 import { printThermalTicket } from '../../utils/escposTicket';
 import { triggerDeviceVibration } from '../../utils/appAudioNotifications';
+import { isDeliveryOrder, isTableOrder } from '../../utils/orderLifecycle';
 
 // Sonidos Web Audio API sintetizados (sin depender de archivos de audio externos)
 const playBeep = (type = 'delivery') => {
@@ -93,7 +94,7 @@ export default function KitchenDisplaySystem({
       if (!knownOrderIdsRef.current.has(o.id) && (o.status === 'Pendiente' || o.status === 'Preparando')) {
         knownOrderIdsRef.current.add(o.id);
         triggerDeviceVibration([250, 100, 250]);
-        const isDelivery = o.customer?.orderType === 'Delivery' || (o.deliveryFee > 0);
+        const isDelivery = isDeliveryOrder(o);
         if (isDelivery) {
           playBeep('delivery');
         } else {
@@ -123,13 +124,13 @@ export default function KitchenDisplaySystem({
       }
     }).filter(o => {
       if (filterType === 'delivery') {
-        return o.customer?.orderType === 'Delivery' || (o.deliveryFee > 0);
+        return isDeliveryOrder(o);
       }
       if (filterType === 'mesa') {
-        return o.customer?.orderType === 'Mesa' || Boolean(o.customer?.tableNumber);
+        return isTableOrder(o);
       }
       if (filterType === 'llevar') {
-        return o.customer?.orderType === 'Llevar' || (!o.deliveryFee && !o.customer?.tableNumber);
+        return !isDeliveryOrder(o) && !isTableOrder(o);
       }
       return true;
     }).sort((a, b) => new Date(a.date) - new Date(b.date)); // Las órdenes más antiguas primero
@@ -186,7 +187,7 @@ export default function KitchenDisplaySystem({
               style={{ padding: '6px 14px', fontSize: '0.78rem', borderRadius: '8px' }}
               onClick={() => setCurrentViewTab('active')}
             >
-              🔥 Por Preparar ({orders.filter(o => o.status === 'Pendiente' || o.status === 'Preparando' || o.status === 'Por Corroborar').length})
+              🔥 Por Preparar ({orders.filter(o => o.status === 'Pendiente' || o.status === 'Preparando').length})
             </button>
             <button
               className={`btn ${currentViewTab === 'ready' ? 'btn-primary' : 'btn-secondary'}`}
@@ -369,15 +370,17 @@ export default function KitchenDisplaySystem({
 
                 {/* Acciones de Cocina de 1 Toque */}
                 <div style={{ borderTop: '1px solid var(--border-color)', paddingTop: '10px', display: 'flex', gap: '8px' }}>
-                  <button
-                    type="button"
-                    className="btn btn-secondary"
-                    onClick={() => printThermalTicket({ type: 'comanda', order, storeName, ticketCustomMessage })}
-                    style={{ padding: '8px 10px', fontSize: '0.8rem' }}
-                    title="Imprimir comanda térmica para cocina"
-                  >
-                    🖨️
-                  </button>
+                  {shopConfig?.escposPrintEnabled !== false && (
+                    <button
+                      type="button"
+                      className="btn btn-secondary"
+                      onClick={() => printThermalTicket({ type: 'comanda', order, storeName, ticketCustomMessage })}
+                      style={{ padding: '8px 10px', fontSize: '0.8rem' }}
+                      title="Imprimir comanda térmica para cocina"
+                    >
+                      🖨️
+                    </button>
+                  )}
 
                   {order.status === 'Pendiente' ? (
                     <button

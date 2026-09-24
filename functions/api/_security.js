@@ -10,12 +10,8 @@ export const json = (body, status = 200) =>
 export const normalizeEmail = (value) => String(value || '').trim().toLowerCase();
 
 export const normalizeRole = (value, fallback = 'Vendedor') => {
-  const role = String(value || '').trim();
-  const lower = role.toLowerCase();
-  if (lower.includes('admin')) return 'Administrador';
-  if (lower.includes('vendedor')) return 'Vendedor';
-  if (lower.includes('cocina')) return 'Cocina';
-  return role || fallback;
+  const lower = String(value || '').trim().toLowerCase();
+  return ({ administrador: 'Administrador', admin: 'Administrador', vendedor: 'Vendedor', cocina: 'Cocina', repartidor: 'Repartidor', cajero: 'Cajero', mozo: 'Mozo' })[lower] || fallback;
 };
 
 export const fail = (status, step, error) => json({ ok: false, step, error }, status);
@@ -83,16 +79,31 @@ export const getAuthenticatedUser = async (request, env) => {
   if (error || !data?.user) {
     return { user: null, error: error?.message || 'No se pudo validar la sesion.' };
   }
+  if (!await hasActiveStaffRecord(adminClient, data.user)) {
+    return { user: null, error: 'La cuenta no tiene un rol activo.' };
+  }
   return { user: data.user, adminClient };
 };
 
 export const trustedRole = (user) => normalizeRole(user?.app_metadata?.role || '', '');
 
+export const hasActiveStaffRecord = async (client, user) => {
+  if (!user || !trustedRole(user) || String(user.app_metadata?.status || '').toLowerCase().includes('suspend')) return false;
+  const { data, error } = await client.from('helados_sync').select('value').eq('key', 'staff_users').maybeSingle();
+  if (error || !Array.isArray(data?.value)) return false;
+  const match = data.value.find(item =>
+    (user.id && String(item.id) === String(user.id)) ||
+    (user.email && normalizeEmail(item.email) === normalizeEmail(user.email))
+  );
+  return Boolean(match && String(match.status || 'Activo').trim().toLowerCase() === 'activo' && normalizeRole(match.role, '') === trustedRole(user));
+};
+
 export const isTrustedAdmin = (user) =>
-  normalizeEmail(user?.email) === 'admin@donhelado.com' ||
-  trustedRole(user).toLowerCase().includes('admin');
+  !String(user?.app_metadata?.status || '').toLowerCase().includes('suspend') &&
+  trustedRole(user) === 'Administrador';
 
 export const isTrustedStaff = (user) => {
   const role = trustedRole(user).toLowerCase();
-  return isTrustedAdmin(user) || role.includes('vendedor') || role.includes('cocina');
+  return !String(user?.app_metadata?.status || '').toLowerCase().includes('suspend') &&
+    (isTrustedAdmin(user) || role === 'vendedor');
 };

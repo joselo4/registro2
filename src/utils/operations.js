@@ -1,3 +1,5 @@
+import { isRecognizedSale, orderRecognizedAt } from './orderLifecycle.js';
+
 export const OPEN_STATUSES = ['Por Corroborar', 'Pendiente', 'Preparando', 'Listo', 'En camino'];
 export const NEXT_STATUS = { 'Por Corroborar': 'Pendiente', Pendiente: 'Preparando', Preparando: 'Listo', Listo: 'En camino', 'En camino': 'Entregado' };
 export function peruDay(date) {
@@ -8,10 +10,10 @@ export function peruDay(date) {
 export function operationsSummary(orders, now) {
   const today = peruDay(now);
   const previous = peruDay(now - 86400000);
-  const delivered = orders.filter(o => o.status === 'Entregado' && peruDay(o.date) === today);
+  const delivered = orders.filter(o => isRecognizedSale(o) && peruDay(orderRecognizedAt(o)) === today);
   const sum = rows => rows.reduce((n,o) => n + Math.max(0, Number(o.grandTotal)||0), 0);
   const revenue = sum(delivered);
-  const yesterday = sum(orders.filter(o => o.status === 'Entregado' && peruDay(o.date) === previous));
+  const yesterday = sum(orders.filter(o => isRecognizedSale(o) && peruDay(orderRecognizedAt(o)) === previous));
   const queue = orders.filter(o => OPEN_STATUSES.includes(o.status)).sort((a,b) => (Date.parse(a.date)||0)-(Date.parse(b.date)||0));
   const overdue = queue.filter(o => Number.isFinite(Date.parse(o.date)) && now-Date.parse(o.date) > 20*60000);
   const production = new Map();

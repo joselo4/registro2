@@ -6,6 +6,8 @@ import WelcomePromotion from './WelcomePromotion';
 import PackIllustration from './PackIllustration';
 import { normalizePromotion, DEFAULT_POPUP_PROMOTION, DEFAULT_WEB_PROMOTION } from '../utils/promotion';
 import { updateSyncedData } from '../utils/supabaseSync';
+import { sanitizeHTML } from '../utils/security';
+
 
 export default function CustomerShop({ 
   flavors = [],
@@ -16,6 +18,7 @@ export default function CustomerShop({
   onAddToCart, 
   setView, 
   storeName,
+  deliveryFee = 0,
   freeDeliveryThreshold = 15.0,
   freeDeliveryEnabled = true,
   deliveryCampaignText = '¡Arma tu helado con toppings o elige un pack promocional para no pagar envío!',
@@ -51,6 +54,7 @@ export default function CustomerShop({
         quantity: item.quantity || 1
       });
     } } catch (error) { console.warn('No se pudo registrar la estadística del carrito:', error); }
+    return added !== false;
   }, [onAddToCart, trackEvent]);
 
   const [filter, setFilter] = useState(() => {
@@ -143,9 +147,9 @@ export default function CustomerShop({
     if (!tableNumber) return;
     if (isCalling) return;
     setIsCalling(true);
-    const cleanType = String(type || '').replace(/<[^>]*>/g, '').trim();
+    const cleanType = sanitizeHTML(type);
     const cartSummary = getCartSummary();
-    const cleanCartSummary = cartSummary.replace(/<[^>]*>/g, '').trim();
+    const cleanCartSummary = sanitizeHTML(cartSummary);
     const fullRequest = `${cleanType} | Carrito: ${cleanCartSummary}`;
 
     const callData = {
@@ -161,8 +165,8 @@ export default function CustomerShop({
 
       try {
         const messageText = `🛎️ *Llamado de Mesa ${tableNumber}*\n\n` +
-                            `*Solicitud:* ${type}\n` +
-                            `*Detalles del Pedido en Carrito:*\n${cartSummary}`;
+                            `*Solicitud:* ${cleanType}\n` +
+                            `*Detalles del Pedido en Carrito:*\n${cleanCartSummary}`;
         await fetch('/api/telegram', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
@@ -217,13 +221,13 @@ export default function CustomerShop({
 
     setTimeout(() => {
       // 1. Base
-      const availableBases = bases.length > 0 ? bases.filter(b => b.active) : [];
+      const availableBases = bases.filter(b => b.active !== false);
       const selectedBase = availableBases.length > 0 
         ? availableBases[Math.floor(Math.random() * availableBases.length)]
         : { id: 'cono', name: 'Cono de Galleta Crujiente', price: 0.0 };
 
       // 2. Sabores
-      const availableFlavors = flavors.filter(f => f.active);
+      const availableFlavors = flavors.filter(f => f.active !== false && Number.isFinite(Number(f.price)));
       
       // Filtrar por Antojo
       const fruityKeys = ['fresa', 'mango', 'maracuya', 'coco'];
@@ -263,8 +267,14 @@ export default function CustomerShop({
         }
       }
 
+      if (selectedScoops.length === 0) {
+        setWizardResult(null);
+        setIsWizardLoading(false);
+        return;
+      }
+
       // 3. Toppings
-      const availableToppings = toppings.length > 0 ? toppings.filter(t => t.active) : [];
+      const availableToppings = toppings.filter(t => t.active !== false);
       let matchingToppings = availableToppings;
       
       if (answers.topping === 'sweet') {
@@ -288,9 +298,9 @@ export default function CustomerShop({
       }
 
       // Calcular precio total
-      const basePrice = selectedBase.price || 0.0;
-      const scoopsPrice = selectedScoops.reduce((sum, s) => sum + (s.price || 0.0), 0);
-      const toppingsPrice = selectedToppings.reduce((sum, t) => sum + (t.price || 0.0), 0);
+      const basePrice = Number(selectedBase.price) || 0;
+      const scoopsPrice = selectedScoops.reduce((sum, s) => sum + (Number(s.price) || 0), 0);
+      const toppingsPrice = selectedToppings.reduce((sum, t) => sum + (Number(t.price) || 0), 0);
       const totalPrice = basePrice + scoopsPrice + toppingsPrice;
 
       setWizardResult({
@@ -434,13 +444,7 @@ export default function CustomerShop({
   }, [dismissedTrend, trendsInterval, trendsDisplayTime, tableNumber]);
 
   const handleTryTrend = (item) => {
-    handleAddToCartWrapped(item);
-    if (showAlert) {
-      showAlert('¡Añadido al Carrito!', `Se agregó a tu carrito: ${item.name}`, 'success');
-    } else {
-      alert(`🛒 ¡Se añadió al carrito: ${item.name}!`);
-    }
-    handleDismissToast();
+    if (handleAddToCartWrapped(item)) handleDismissToast();
   };
 
   const handleDismissToast = () => {
@@ -663,11 +667,9 @@ export default function CustomerShop({
                   const badgeClass = `badge-${String(pack.badge || '').toLowerCase().replace(/\s+/g, '-')}`;
                   return (
                     <div key={pack.id} className="glass-card product-card">
-                      {pack.badge && (
-                        <span className={`product-badge ${badgeClass}`}>
-                          {pack.badge}
-                        </span>
-                      )}
+                      <span className={`product-badge ${pack.badge ? badgeClass : 'badge-popular'}`}>
+                        {pack.badge || '🎉 Pack Ahorro'}
+                      </span>
                       
                       <div className="product-illustration pack-illustration" style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', minHeight: '120px' }}>
                         {pack.image ? (
@@ -1017,12 +1019,12 @@ export default function CustomerShop({
         </div>
       </div>
 
-      {/* BANNER DELIVERY GRATIS */}
+      {/* One shipping message before the catalog. Checkout shows the live total. */}
       {!tableNumber && freeDeliveryEnabled && parseFloat(freeDeliveryThreshold || 0) > 0 && (
         <div className="delivery-banner">
           <span className="delivery-banner-icon" aria-hidden="true">🚚</span>
           <div className="delivery-banner-copy">
-            <strong>Delivery gratis desde S/. {parseFloat(freeDeliveryThreshold).toFixed(2)}</strong>
+            <strong>Envío S/. {Number(deliveryFee || 0).toFixed(2)} · Gratis desde S/. {parseFloat(freeDeliveryThreshold).toFixed(2)}</strong>
           {deliveryCampaignText && (
               <p>{deliveryCampaignText}</p>
           )}
@@ -1138,7 +1140,7 @@ export default function CustomerShop({
         </button>
       </section>
 
-      {/* Testimonios y Reseñas Verificadas */}
+      {/* Opiniones configuradas por la tienda */}
       {!tableNumber && testimonials && testimonials.length > 0 && (
         <section className="testimonials-section">
           <span className="section-kicker">AMOR A PRIMERA CUCHARADA</span>
@@ -1158,7 +1160,7 @@ export default function CustomerShop({
                     <div className="testimonial-avatar" style={{ backgroundColor: bgColor }}>{initials}</div>
                     <div>
                       <h4 className="testimonial-name">{item.name}</h4>
-                      <span className="testimonial-badge">✓ Compra Verificada</span>
+                      {item.verified === true && <span className="testimonial-badge">✓ Compra verificada</span>}
                     </div>
                   </div>
                 </div>
@@ -1317,8 +1319,7 @@ export default function CustomerShop({
                         Combinando bases, sabores y toppings seleccionados
                       </p>
                     </div>
-                  ) : (
-                    wizardResult && (
+                  ) : wizardResult ? (
                       <div className="sabor-omatic-result">
                         <div className="sabor-omatic-result-card">
                           <div className="sabor-omatic-result-title">✨ ¡Combinación Perfecta Lista! ✨</div>
@@ -1349,13 +1350,7 @@ export default function CustomerShop({
                                 quantity: 1,
                                 name: `Guía de sabores: ${wizardResult.scoops.map(s => s.name).join(' + ')}`
                               };
-                              handleAddToCartWrapped(customItem);
-                              setShowWizard(false);
-                              if (showAlert) {
-                                showAlert('¡Carrito Actualizado!', 'Tu helado personalizado sugerido por la guía de sabores ha sido añadido al carrito.', 'success');
-                              } else {
-                                alert('¡Añadido al carrito con éxito!');
-                              }
+                              if (handleAddToCartWrapped(customItem)) setShowWizard(false);
                             }}
                           >
                             🛒 Comprar Helado
@@ -1372,7 +1367,12 @@ export default function CustomerShop({
                           </button>
                         </div>
                       </div>
-                    )
+                  ) : (
+                    <div className="catalog-empty" role="status">
+                      <h4>No hay sabores disponibles para recomendar</h4>
+                      <p>Explora la carta para ver las opciones que tenemos ahora.</p>
+                      <button type="button" className="btn btn-secondary" onClick={() => { setShowWizard(false); document.getElementById('catalog')?.scrollIntoView({ behavior: 'smooth' }); }}>Ver la carta</button>
+                    </div>
                   )}
                 </>
               )}

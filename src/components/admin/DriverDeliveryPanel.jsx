@@ -1,6 +1,6 @@
 import { useState, useMemo, useEffect, useRef } from 'react';
 import { getCollectionPaymentMethods, selectPaymentMethod } from '../../utils/paymentMethods';
-import { isPaymentOnArrival } from '../../utils/orderLifecycle';
+import { isPaymentOnArrival, orderPaymentMethod, orderPaymentTiming, orderStatusTimestamp } from '../../utils/orderLifecycle';
 import { buildWhatsAppHref } from '../../utils/orderMessaging';
 import { notifyOperationalEvent, playCashReminderSound, triggerDeviceVibration } from '../../utils/appAudioNotifications';
 
@@ -10,45 +10,86 @@ export default function DriverDeliveryPanel({
   currentUser = {},
   storeName = 'Friozo',
   shopConfig,
-  showAlert
+  showAlert,
+  staffUsers = []
 }) {
   const [collectionMethods, setCollectionMethods] = useState({});
   const [savingOrderId, setSavingOrderId] = useState(null);
   const [activeSubTab, setActiveSubTab] = useState('active'); // 'active' | 'history'
+  const [selectedDriverFilter, setSelectedDriverFilter] = useState('all');
 
   const driverId = String(currentUser?.id || '').trim();
   const driverEmail = String(currentUser?.email || '').toLowerCase().trim();
+  const userRole = String(currentUser?.role || '').toLowerCase();
+  const isAdminOrSupervisor = driverEmail === 'admin@donhelado.com' || userRole.includes('admin') || userRole.includes('supervisor');
 
-  // Filtrar pedidos asignados a este repartidor
+  // Obtener lista de repartidores disponibles para el filtro (staffUsers + los asignados en pedidos)
+  const availableDrivers = useMemo(() => {
+    const map = new Map();
+    (staffUsers || []).forEach(u => {
+      const key = String(u.id || u.email || '').trim();
+      if (!key) return;
+      map.set(key, {
+        key,
+        name: u.name || u.email,
+        phone: u.phone || '',
+        role: u.role || 'Colaborador'
+      });
+    });
+    orders.forEach(o => {
+      if (o?.assignedDriver) {
+        const key = String(o.assignedDriver.id || o.assignedDriver.email || '').trim();
+        if (key && !map.has(key)) {
+          map.set(key, {
+            key,
+            name: o.assignedDriver.name || o.assignedDriver.email || 'Repartidor',
+            phone: o.assignedDriver.phone || '',
+            role: 'Repartidor'
+          });
+        }
+      }
+    });
+    return Array.from(map.values());
+  }, [staffUsers, orders]);
+
+  // Filtrar pedidos asignados a este repartidor (o todos si es admin y seleccionó 'all')
   const myAssignedOrders = useMemo(() => {
     return orders.filter(o => {
       if (!o || o.status === 'Cancelado') return false;
       const assigned = o.assignedDriver;
       if (!assigned) return false;
+      if (isAdminOrSupervisor) {
+        if (selectedDriverFilter === 'all') return true;
+        const assignedEmail = String(assigned.email || '').toLowerCase().trim();
+        const assignedId = String(assigned.id || '').trim();
+        const assignedName = String(assigned.name || '').toLowerCase().trim();
+        const filterLower = selectedDriverFilter.toLowerCase().trim();
+        return assignedEmail === filterLower || assignedId === selectedDriverFilter || assignedName === filterLower;
+      }
       const assignedEmail = String(assigned.email || '').toLowerCase().trim();
       const assignedId = String(assigned.id || '').trim();
       return (driverEmail && assignedEmail === driverEmail) || (driverId && assignedId === driverId);
     });
-  }, [orders, driverEmail, driverId]);
+  }, [orders, driverEmail, driverId, isAdminOrSupervisor, selectedDriverFilter]);
 
   const activeDeliveries = useMemo(() => {
     return myAssignedOrders.filter(o => o.status === 'Listo' || o.status === 'En camino');
   }, [myAssignedOrders]);
 
-  const todayIso = new Date().toDateString();
+  const todayIso = new Date().toLocaleDateString('en-CA', { timeZone: 'America/Lima' });
   const completedToday = useMemo(() => {
-    return myAssignedOrders.filter(o => o.status === 'Entregado' && new Date(o.date).toDateString() === todayIso);
+    return myAssignedOrders.filter(o => o.status === 'Entregado' && new Date(orderStatusTimestamp(o, 'Entregado')).toLocaleDateString('en-CA', { timeZone: 'America/Lima' }) === todayIso);
   }, [myAssignedOrders, todayIso]);
 
   const cashCollectedToday = useMemo(() => {
     return completedToday
-      .filter(o => String(o.customer?.paymentMethod || '').toLowerCase().includes('efectivo'))
+      .filter(o => orderPaymentMethod(o).toLowerCase().includes('efectivo'))
       .reduce((sum, o) => sum + Number(o.grandTotal || 0), 0);
   }, [completedToday]);
 
   const digitalCollectedToday = useMemo(() => {
     return completedToday
-      .filter(o => !String(o.customer?.paymentMethod || '').toLowerCase().includes('efectivo'))
+      .filter(o => !orderPaymentMethod(o).toLowerCase().includes('efectivo'))
       .reduce((sum, o) => sum + Number(o.grandTotal || 0), 0);
   }, [completedToday]);
 
@@ -106,7 +147,10 @@ export default function DriverDeliveryPanel({
 
     setSavingOrderId(order.id);
     try {
-      const patch = needsCollection ? { paymentVerified: true, customer: { ...order.customer, paymentMethod: method } } : {};
+      const patch = needsCollection ? {
+        paymentVerified: true,
+        customer: { ...order.customer, paymentMethod: method, paymentTiming: orderPaymentTiming(order) }
+      } : {};
       if (!await onUpdateOrderStatus(order.id, 'Entregado', patch)) return;
       showAlert?.('¡Entrega completada!', `Pedido #${order.id} entregado.${needsCollection ? ` Cobro registrado: S/. ${totalStr} por ${method}.` : ''}`, 'success');
     } catch {
@@ -133,9 +177,39 @@ export default function DriverDeliveryPanel({
               Panel de Despacho Móvil · {storeName}
             </div>
             <h1 style={{ margin: '4px 0 0 0', fontSize: '1.4rem', fontWeight: 800, color: '#fff' }}>
-              🛵 Hola, {currentUser?.name || 'Repartidor'}
+              🛵 {isAdminOrSupervisor ? 'Despacho y Repartos' : `Hola, ${currentUser?.name || 'Repartidor'}`}
             </h1>
           </div>
+          {isAdminOrSupervisor && (
+            <div style={{ display: 'flex', alignItems: 'center', gap: '8px', background: 'rgba(255,255,255,0.1)', padding: '6px 12px', borderRadius: '8px' }}>
+              <label htmlFor="driver-filter-select" style={{ fontSize: '0.8rem', fontWeight: 600, color: '#e2e8f0' }}>
+                Filtrar Repartidor:
+              </label>
+              <select
+                id="driver-filter-select"
+                aria-label="Filtrar pedidos por repartidor"
+                value={selectedDriverFilter}
+                onChange={(e) => setSelectedDriverFilter(e.target.value)}
+                style={{
+                  padding: '6px 10px',
+                  borderRadius: '6px',
+                  border: '1px solid #475569',
+                  background: '#0f172a',
+                  color: '#fff',
+                  fontSize: '0.85rem',
+                  fontWeight: 600,
+                  cursor: 'pointer'
+                }}
+              >
+                <option value="all">🛵 Todos los Repartidores</option>
+                {availableDrivers.map(d => (
+                  <option key={d.key} value={d.key}>
+                    🛵 {d.name} {d.phone ? `(${d.phone})` : ''}
+                  </option>
+                ))}
+              </select>
+            </div>
+          )}
         </div>
       </div>
 
@@ -248,9 +322,16 @@ export default function DriverDeliveryPanel({
                       </span>
                       <strong style={{ fontSize: '1rem', color: '#1e293b' }}>#{order.id}</strong>
                     </div>
-                    <span style={{ fontSize: '0.8rem', color: '#64748b' }}>
-                      {new Date(order.date).toLocaleTimeString('es-PE', { hour: '2-digit', minute: '2-digit' })}
-                    </span>
+                    <div style={{ textAlign: 'right' }}>
+                      {order.assignedDriver?.name && (
+                        <div style={{ fontSize: '0.78rem', fontWeight: 700, color: '#0284c7' }}>
+                          🛵 {order.assignedDriver.name}
+                        </div>
+                      )}
+                      <span style={{ fontSize: '0.8rem', color: '#64748b' }}>
+                        {new Date(order.date).toLocaleTimeString('es-PE', { hour: '2-digit', minute: '2-digit' })}
+                      </span>
+                    </div>
                   </div>
 
                   {/* Datos del Cliente */}
@@ -278,7 +359,7 @@ export default function DriverDeliveryPanel({
                     </strong>
                     <strong style={{ display: 'block', marginTop: '6px', fontSize: '1.25rem' }}>S/. {Number(order.grandTotal || 0).toFixed(2)}</strong>
                     <p style={{ fontSize: '0.875rem', margin: '8px 0' }}>
-                      {needsCollection ? (isPaymentOnArrival(order) ? 'Pago al llegar. Solicita el pago por uno de los medios disponibles y confirma que recibiste el total para dar como entregado.' : 'Pago anticipado pendiente de validación. Solicita a caja que lo verifique antes de completar la entrega.') : `Pagado por ${customer.paymentMethod}. No volver a cobrar al cliente.`}
+                      {needsCollection ? (isPaymentOnArrival(order) ? `El cliente eligió PAGAR AL LLEGAR por ${orderPaymentMethod(order)}. No entregues el pedido hasta recibir y verificar el total.` : 'Pago anticipado pendiente de validación. Solicita a caja que lo verifique antes de completar la entrega.') : `Pagado por ${customer.paymentMethod}. No volver a cobrar al cliente.`}
                     </p>
                     {needsCollection && isPaymentOnArrival(order) && (
                       <label style={{ display: 'block', fontSize: '0.875rem', fontWeight: 700 }}>
@@ -463,6 +544,11 @@ export default function DriverDeliveryPanel({
                     <div style={{ fontSize: '0.8rem', color: '#64748b' }}>
                       📍 {order.customer?.address}
                     </div>
+                    {order.assignedDriver?.name && (
+                      <div style={{ fontSize: '0.74rem', color: '#0369a1', fontWeight: 600, marginTop: '2px' }}>
+                        🛵 Entregado por: {order.assignedDriver.name}
+                      </div>
+                    )}
                   </div>
                   <div style={{ textAlign: 'right' }}>
                     <strong style={{ color: '#10b981', display: 'block' }}>

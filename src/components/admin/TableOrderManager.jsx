@@ -1,7 +1,7 @@
-import React, { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { updateSyncedData } from '../../utils/supabaseSync';
 import { getEnabledPaymentMethods, getCollectionPaymentMethods, selectPaymentMethod } from '../../utils/paymentMethods';
-import { nextOrderStatus, orderStatusLabel } from '../../utils/orderLifecycle';
+import { nextOrderStatus, orderStatusLabel, requiresAdvancePayment } from '../../utils/orderLifecycle';
 import { generateOrderId } from '../../utils/orderId';
 import { buildSmsHref, formatOrderStatusMessage, normalizeSmsTemplates } from '../../utils/orderMessaging';
 
@@ -32,6 +32,7 @@ export default function TableOrderManager({
   const [newOrderClient, setNewOrderClient] = useState('');
   const [newOrderPhone, setNewOrderPhone] = useState('');
   const [newOrderItems, setNewOrderItems] = useState([]);
+  const [isCreatingOrder, setIsCreatingOrder] = useState(false);
   
   // Elementos del catálogo para el mozo
   const [searchQuery, setSearchQuery] = useState('');
@@ -123,7 +124,10 @@ export default function TableOrderManager({
       ...call,
       resolved: true
     };
-    await updateSyncedData(`order_call_Mesa_${call.table}`, updatedCall);
+    if (!await updateSyncedData(`order_call_Mesa_${call.table}`, updatedCall)) {
+      alert('No se pudo confirmar que el llamado fue atendido. Revisa la conexión.', 'error');
+      return;
+    }
     addLog(`Llamado de Mesa ${call.table} ("${call.request}") marcado como atendido por ${currentUser?.name || 'Personal'}.`);
   };
 
@@ -265,7 +269,7 @@ export default function TableOrderManager({
   };
 
   const handleCorroborarOrder = async (activeOrder) => {
-    const verifyPayment = /yape|plin/i.test(activeOrder.customer?.paymentMethod || '');
+    const verifyPayment = requiresAdvancePayment(activeOrder);
     if (verifyPayment && !activeOrder.paymentVerified && !window.confirm('¿Verificaste el abono de S/ ' + Number(activeOrder.grandTotal || 0).toFixed(2) + '?')) return;
     const updatedOrders = orders.map(o => {
       if (o.id === activeOrder.id) {
@@ -289,6 +293,7 @@ export default function TableOrderManager({
   // Crear nuevo pedido de mesa
   const handleCreateOrderSubmit = async (e) => {
     e.preventDefault();
+    if (isCreatingOrder) return;
     if (!selectedTable) return;
     if (!enabledPaymentMethods.length) { alert('No hay métodos de pago activos. Activa uno en Ajustes.', 'error'); return; }
     if (newOrderItems.length === 0) {
@@ -320,6 +325,7 @@ export default function TableOrderManager({
         phone: newOrderPhone.trim() || 'Sin teléfono',
         address: finalAddress,
         paymentMethod: selectPaymentMethod('Efectivo', enabledPaymentMethods),
+        paymentTiming: 'Al llegar',
         orderType: finalOrderType,
         tableNumber: finalTableNumber
       },
@@ -330,35 +336,35 @@ export default function TableOrderManager({
       couponCode: null,
       grandTotal: subtotal,
       status: 'Pendiente',
+      paymentVerified: false,
+      tablePaid: false,
       statusHistory: [
         { status: 'Pendiente', timestamp: new Date().toISOString() }
       ],
       date: new Date().toISOString()
     };
 
-    if (!await onUpdateOrders([newOrder, ...orders])) return;
-    // Sincronizar de inmediato
-    if (isBarra) {
-      setSelectedBarraOrderId(newOrder.id);
-    }
+    setIsCreatingOrder(true);
+    try {
+      if (!await onUpdateOrders([newOrder, ...orders])) return;
+      // Sincronizar de inmediato
+      if (isBarra) {
+        setSelectedBarraOrderId(newOrder.id);
+      }
 
-    const logMsg = isBarra 
-      ? `Nuevo pedido de Barra registrado por ${currentUser?.name || ''}: Código ${orderId}.`
-      : `Nuevo pedido de mesa registrado por mozo ${currentUser?.name || ''}: Mesa ${selectedTable} (${newOrderType === 'Mesa_Llevar' ? 'Para Llevar' : 'Local'}) - Código ${orderId}.`;
-    
-    addLog(logMsg);
-    
-    const alertMsg = isBarra
-      ? `Pedido en Barra abierto correctamente.`
-      : `Mesa ${selectedTable} abierta correctamente con el pedido.`;
-      
-    alert(alertMsg);
-    
-    // Resetear formulario
-    setNewOrderClient('');
-    setNewOrderPhone('');
-    setNewOrderItems([]);
-    setShowNewOrderForm(false);
+      const logMsg = isBarra
+        ? `Nuevo pedido de Barra registrado por ${currentUser?.name || ''}: Código ${orderId}.`
+        : `Nuevo pedido de mesa registrado por mozo ${currentUser?.name || ''}: Mesa ${selectedTable} (${newOrderType === 'Mesa_Llevar' ? 'Para Llevar' : 'Local'}) - Código ${orderId}.`;
+      addLog(logMsg);
+      alert(isBarra ? 'Pedido en Barra abierto correctamente.' : `Mesa ${selectedTable} abierta correctamente con el pedido.`);
+
+      setNewOrderClient('');
+      setNewOrderPhone('');
+      setNewOrderItems([]);
+      setShowNewOrderForm(false);
+    } finally {
+      setIsCreatingOrder(false);
+    }
   };
 
   // Cambiar tipo de pedido a Para Llevar / Delivery
@@ -404,9 +410,18 @@ export default function TableOrderManager({
 
   // Cierre y Cobro de Mesa
   const handleCheckoutTable = async (activeOrder) => {
-    if (!checkoutPaymentMethod) { alert('No hay métodos de pago activos. Activa uno en Ajustes.', 'error'); return; }
     if (activeOrder.status !== 'Entregado') { alert('Primero completa la preparación y entrega del pedido. Después podrás cobrar y liberar la mesa.', 'error'); return; }
-    if (!window.confirm('¿Confirmas el cobro de S/ ' + Number(activeOrder.grandTotal || 0).toFixed(2) + ' vía ' + checkoutPaymentMethod + '?')) return;
+    const total = Number(activeOrder.grandTotal || 0);
+    const alreadyPaid = activeOrder.paymentVerified === true || total <= 0;
+    const methods = alreadyPaid ? [] : getCollectionPaymentMethods(shopConfig, activeOrder);
+    const methodToUse = alreadyPaid
+      ? (activeOrder.customer?.paymentMethod || (total <= 0 ? 'Cortesía/Gratis' : 'Pago confirmado'))
+      : selectPaymentMethod(selectedPaymentMethod, methods);
+    if (!methodToUse) { alert('No hay métodos de pago activos. Activa uno en Ajustes.', 'error'); return; }
+    const confirmation = alreadyPaid
+      ? 'Este pedido ya figura pagado. ¿Confirmas cerrar la cuenta y liberar la mesa?'
+      : '¿Confirmas el cobro de S/ ' + total.toFixed(2) + ' vía ' + methodToUse + '?';
+    if (!window.confirm(confirmation)) return;
     let orderVal = null;
     const statusTimestamp = new Date().toISOString();
     const updatedOrders = orders.map(o => {
@@ -421,7 +436,7 @@ export default function TableOrderManager({
           updatedAt: statusTimestamp,
           customer: {
             ...o.customer,
-            paymentMethod: checkoutPaymentMethod
+            paymentMethod: methodToUse
           }
         };
         return orderVal;
@@ -430,7 +445,9 @@ export default function TableOrderManager({
     });
 
     if (!await onUpdateOrders(updatedOrders)) return;
-    addLog(`Mesa ${selectedTable} pagada y cerrada vía ${checkoutPaymentMethod}. Pedido ${activeOrder.id} cobrado.`);
+    addLog(alreadyPaid
+      ? `Mesa ${selectedTable} cerrada sin un segundo cobro. Pedido ${activeOrder.id} ya estaba pagado vía ${methodToUse}.`
+      : `Mesa ${selectedTable} pagada y cerrada vía ${methodToUse}. Pedido ${activeOrder.id} cobrado.`);
 
     alert(`Mesa ${selectedTable} cerrada y liberada exitosamente.`);
     
@@ -1406,8 +1423,8 @@ export default function TableOrderManager({
                     </div>
 
                     <div className="table-actions-row" style={{ borderBottom: '1px solid var(--border-color)', paddingBottom: '12px' }}>
-                      <button type="submit" className="btn btn-primary" style={{ flex: 1, padding: '8px', fontSize: '0.75rem', background: 'var(--success)', border: 'none' }}>
-                        🚀 Confirmar y Abrir Mesa (S/. {newOrderItems.reduce((sum, i) => sum + (i.price * i.quantity), 0).toFixed(2)})
+                      <button type="submit" disabled={isCreatingOrder} className="btn btn-primary" style={{ flex: 1, padding: '8px', fontSize: '0.75rem', background: 'var(--success)', border: 'none' }}>
+                        {isCreatingOrder ? 'Guardando pedido…' : `🚀 Confirmar y Abrir Mesa (S/. ${newOrderItems.reduce((sum, i) => sum + (i.price * i.quantity), 0).toFixed(2)})`}
                       </button>
                       <button type="button" className="btn btn-secondary" style={{ padding: '8px 12px', fontSize: '0.75rem' }} onClick={() => { setShowNewOrderForm(false); setNewOrderItems([]); }}>
                         Cancelar

@@ -1,6 +1,5 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import React from 'react';
 import { renderToStaticMarkup } from 'react-dom/server';
 import Cart from '../src/components/Cart.jsx';
 import PaymentMethodsSettings from '../src/components/admin/PaymentMethodsSettings.jsx';
@@ -29,5 +28,17 @@ test('checkout offers only active methods, selects card fallback and blocks when
     const empty = renderToStaticMarkup(<Cart {...props} shopConfig={{ paymentMethods: { ...cardOnly, Tarjeta: false } }} />);
     assert.ok(empty.includes('No hay métodos de pago disponibles'));
     assert.match(empty, /<button[^>]*type="submit"[^>]*disabled=""[^>]*>Confirmar pedido/);
+  } finally { globalThis.localStorage = previousStorage; }
+});
+
+test('digital checkout makes payment timing explicit and defaults to collection on arrival', () => {
+  const previousStorage = globalThis.localStorage;
+  globalThis.localStorage = { getItem: () => '', setItem: () => {}, removeItem: () => {} };
+  try {
+    const html = renderToStaticMarkup(<Cart cart={[{ id: 'pack', type: 'pack', name: 'Helado', price: 10, quantity: 1 }]} shopConfig={{}} />);
+    assert.ok(html.includes('Pagar al llegar'));
+    assert.ok(html.includes('Pagar ahora'));
+    assert.match(html, /aria-pressed="true"[^>]*>🛵 Pagar al llegar/);
+    assert.ok(!html.includes('Paga con Yape a:'));
   } finally { globalThis.localStorage = previousStorage; }
 });

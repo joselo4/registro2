@@ -1,7 +1,7 @@
-import React, { useState, useEffect } from 'react';
+import { useState, useEffect } from 'react';
 import { buildSmsHref, formatOrderStatusMessage, normalizeSmsTemplates, formatDriverDispatchMessage, buildWhatsAppHref } from '../../utils/orderMessaging';
 import { getCollectionPaymentMethods } from '../../utils/paymentMethods';
-import { isDigitalPayment, isPaymentOnArrival, requiresAdvancePayment } from '../../utils/orderLifecycle';
+import { isPaymentOnArrival, orderPaymentTiming, requiresAdvancePayment, isRecognizedSale, orderRecognizedAt } from '../../utils/orderLifecycle';
 import { getOrderStageInfo } from '../../utils/orderValidation';
 import { printThermalTicket } from '../../utils/escposTicket';
 import {
@@ -9,19 +9,14 @@ import {
   playKitchenSound,
   triggerDeviceVibration
 } from '../../utils/appAudioNotifications';
+import { sanitizeHTML } from '../../utils/security';
 
-// --- FUNCIONES DE SANITIZACIÓN ---
-const sanitizeHTML = (text) => {
-  if (typeof text !== 'string') return '';
-  return text.replace(/<[^>]*>/g, '').trim();
-};
 
 export default function OrderManager({
   orders,
   onUpdateOrders,
   onUpdateOrderStatus,
   flavors,
-  toppings,
   bases,
   packs,
   storeName,
@@ -32,7 +27,8 @@ export default function OrderManager({
   showAlert,
   shopConfig,
   activeSubTab: activeSubTabProp,
-  staffUsers = []
+  staffUsers = [],
+  onUpdateStaffUsers
 }) {
   const alert = (msg) => {
     if (showAlert) {
@@ -64,6 +60,9 @@ export default function OrderManager({
   const [ratingFilter, setRatingFilter] = useState('all'); // all, low, high
   const [ordersLimit, setOrdersLimit] = useState(20); // 20, 40, 60, all
   const [driverFilter, setDriverFilter] = useState('all'); // all, unassigned, driverIdentifier
+  const [quickDriverModal, setQuickDriverModal] = useState(null); // { order }
+  const [quickDriverName, setQuickDriverName] = useState('');
+  const [quickDriverPhone, setQuickDriverPhone] = useState('');
 
   const openStatusSms = (order, newStatus) => {
     if (shopConfig?.smsNotificationsEnabled !== true) return;
@@ -83,14 +82,18 @@ export default function OrderManager({
     window.location.assign(href);
   };
 
-  const handleStatusChange = async (order, newStatus, logText) => {
-    if (!await onUpdateOrderStatus(order.id, newStatus)) return false;
+  const handleStatusChange = async (order, newStatus, logText, patch = {}) => {
+    if (!await onUpdateOrderStatus(order.id, newStatus, patch)) return false;
     addLog(logText);
     openStatusSms(order, newStatus);
     return true;
   };
 
   const handleTogglePaymentVerified = async (order) => {
+    if (order.paymentVerified) {
+      alert('El cobro ya fue confirmado y no puede volver a marcarse como pendiente. Registra una devolución por separado si corresponde.');
+      return;
+    }
     const nextVerified = !order.paymentVerified;
     if (nextVerified && !window.confirm(`¿Confirmas que recibiste S/. ${Number(order.grandTotal || 0).toFixed(2)} por ${order.customer?.paymentMethod}? Verifica el abono real antes de registrar el cobro.`)) return;
     const updated = {
@@ -148,26 +151,103 @@ export default function OrderManager({
 
   };
 
-  const handleCompleteOrder = order => handleStatusChange(order, 'Entregado', `Pedido ${order.id} entregado por ${currentUser?.name}`);
+  const handleCompleteOrder = async order => {
+    if (order.paymentVerified) return handleStatusChange(order, 'Entregado', `Pedido ${order.id} entregado por ${currentUser?.name}`);
+    if (!isPaymentOnArrival(order)) {
+      alert('El pago anticipado sigue pendiente. Verifica primero que el abono ingresó a la cuenta de la tienda.');
+      return false;
+    }
+    const total = Number(order.grandTotal || 0).toFixed(2);
+    const method = order.customer?.paymentMethod || 'el medio acordado';
+    if (!window.confirm(`¿Confirmas que recibiste S/. ${total} por ${method} y entregaste el pedido #${order.id}?`)) return false;
+    return handleStatusChange(
+      order,
+      'Entregado',
+      `Pedido ${order.id} entregado y cobrado por ${currentUser?.name}`,
+      { paymentVerified: true }
+    );
+  };
 
   const handleAssignDriver = async (order, driverIdentifier) => {
+    if (driverIdentifier === '__NEW_DRIVER__') {
+      setQuickDriverModal({ order });
+      return;
+    }
+    let assignedDriver = null;
     const selectedUser = (staffUsers || []).find(u => String(u.id || u.email) === String(driverIdentifier));
-    const assignedDriver = selectedUser ? {
-      id: selectedUser.id || selectedUser.email,
-      name: selectedUser.name || selectedUser.email,
-      email: selectedUser.email,
-      phone: selectedUser.phone || ''
-    } : null;
+    if (selectedUser) {
+      assignedDriver = {
+        id: selectedUser.id || selectedUser.email,
+        name: selectedUser.name || selectedUser.email,
+        email: selectedUser.email,
+        phone: selectedUser.phone || ''
+      };
+    } else if (order.assignedDriver && String(order.assignedDriver.id || order.assignedDriver.email) === String(driverIdentifier)) {
+      assignedDriver = order.assignedDriver;
+    }
 
     const updated = {
       ...order,
       assignedDriver,
       updatedAt: new Date().toISOString()
     };
-    if (!await onUpdateOrders(orders.map(o => o.id === order.id ? updated : o))) return;
-    if (addLog) {
-      addLog(`Repartidor ${assignedDriver ? assignedDriver.name : 'desasignado'} para pedido ${order.id}`);
+    const success = await onUpdateOrders(orders.map(o => o.id === order.id ? updated : o));
+    if (success !== false) {
+      if (addLog) {
+        addLog(`Repartidor ${assignedDriver ? assignedDriver.name : 'desasignado'} para pedido ${order.id}`);
+      }
+      if (assignedDriver) {
+        alert(`🛵 Repartidor ${assignedDriver.name} asignado al pedido ${order.id}.`);
+      }
+    } else {
+      alert("No se pudo asignar el repartidor. Por favor verifica tu conexión.");
     }
+  };
+
+  const handleSaveQuickDriver = async (e) => {
+    e.preventDefault();
+    if (!quickDriverModal?.order) return;
+    const cleanName = sanitizeHTML(quickDriverName).trim();
+    const cleanPhone = sanitizeHTML(quickDriverPhone).trim();
+    if (!cleanName) {
+      alert("Por favor ingresa el nombre del repartidor.");
+      return;
+    }
+    const slug = cleanName.toLowerCase().replace(/[^a-z0-9]/g, '');
+    const newDriverUser = {
+      id: `driver_${Date.now()}`,
+      name: cleanName,
+      email: `${slug || 'repartidor'}@donhelado.com`,
+      phone: cleanPhone,
+      role: 'Repartidor',
+      status: 'Activo'
+    };
+
+    const assignedDriver = {
+      id: newDriverUser.id,
+      name: newDriverUser.name,
+      email: newDriverUser.email,
+      phone: newDriverUser.phone
+    };
+
+    const targetOrder = quickDriverModal.order;
+    const updated = {
+      ...targetOrder,
+      assignedDriver,
+      updatedAt: new Date().toISOString()
+    };
+
+    const saved = await onUpdateOrders(orders.map(o => o.id === targetOrder.id ? updated : o));
+    if (!saved) return;
+    setQuickDriverModal(null);
+    setQuickDriverName('');
+    setQuickDriverPhone('');
+    const nextStaff = [...(staffUsers || []), newDriverUser];
+    if (onUpdateStaffUsers) onUpdateStaffUsers(nextStaff);
+    if (addLog) {
+      addLog(`Repartidor ${assignedDriver.name} registrado y asignado al pedido ${targetOrder.id}`);
+    }
+    alert(`¡Repartidor ${assignedDriver.name} registrado y asignado con éxito!`);
   };
 
   const handleDispatchToDriverWhatsApp = (order) => {
@@ -180,6 +260,10 @@ export default function OrderManager({
     let targetPhone = driverUser?.phone || assigned.phone || '';
     if (!targetPhone) {
       targetPhone = window.prompt(`Ingresa el número de WhatsApp del repartidor (${assigned.name || 'Repartidor'}):`, '987654321');
+      if (targetPhone && driverUser && onUpdateStaffUsers) {
+        const updatedStaff = (staffUsers || []).map(u => String(u.id || u.email) === String(driverUser.id || driverUser.email) ? { ...u, phone: targetPhone.trim() } : u);
+        onUpdateStaffUsers(updatedStaff);
+      }
     }
     if (!targetPhone) return;
 
@@ -242,7 +326,7 @@ export default function OrderManager({
 
   // --- Reporte de WhatsApp ---
   const todayString = new Date().toDateString();
-  const ordersToday = orders.filter(o => o.status !== 'Cancelado' && new Date(o.date).toDateString() === todayString);
+  const ordersToday = orders.filter(o => isRecognizedSale(o) && new Date(orderRecognizedAt(o)).toDateString() === todayString);
   const salesToday = ordersToday.reduce((sum, o) => sum + o.grandTotal, 0);
   const avgTicket = ordersToday.length > 0 ? (salesToday / ordersToday.length) : 0;
 
@@ -415,7 +499,7 @@ export default function OrderManager({
             {editingOrder.customer.orderType === 'Delivery' && !['Efectivo', 'Tarjeta'].includes(editingOrder.customer.paymentMethod) && (
               <div className="form-group">
                 <label htmlFor="order-payment-timing">Modalidad de pago</label>
-                <select id="order-payment-timing" className="form-control" value={editingOrder.customer.paymentTiming || 'Anticipado'}
+                <select id="order-payment-timing" className="form-control" value={orderPaymentTiming(editingOrder)}
                   onChange={event => setEditingOrder({ ...editingOrder, customer: { ...editingOrder.customer, paymentTiming: event.target.value } })}>
                   <option value="Al llegar">Pago al llegar</option>
                   <option value="Anticipado">Pago anticipado</option>
@@ -575,11 +659,14 @@ export default function OrderManager({
   // --- FILTRAR PEDIDOS ---
   let filtered = orderFilter === 'all' ? orders : orders.filter(o => o.status === orderFilter);
   if (searchQuery.trim() !== '') {
-    const q = searchQuery.toLowerCase();
+    const q = searchQuery.toLowerCase().trim();
     filtered = filtered.filter(o => 
-      o.id.toLowerCase().includes(q) || 
-      o.customer.name.toLowerCase().includes(q) || 
-      o.customer.phone.includes(q)
+      (o?.id || '').toLowerCase().includes(q) || 
+      (o?.customer?.name || '').toLowerCase().includes(q) || 
+      (o?.customer?.phone || '').toLowerCase().includes(q) ||
+      (o?.customer?.address || '').toLowerCase().includes(q) ||
+      (o?.assignedDriver?.name || '').toLowerCase().includes(q) ||
+      (o?.assignedDriver?.phone || '').toLowerCase().includes(q)
     );
   }
 
@@ -887,20 +974,37 @@ export default function OrderManager({
           </div>
 
           <div style={{ display: 'flex', gap: '5px', overflowX: 'auto', paddingBottom: '6px', marginBottom: '15px' }}>
-            {['all', 'Por Corroborar', 'Pendiente', 'Preparando', 'Listo', 'En camino', 'Entregado', 'Cancelado'].map(f => (
+            {[
+              { id: 'all', label: 'Todos', count: orders.length },
+              { id: 'Por Corroborar', label: '⏳ Por Validar', count: kpis.toCorroborate, highlight: kpis.toCorroborate > 0 },
+              { id: 'Pendiente', label: '📋 Confirmados (Cocina)', count: kpis.pending },
+              { id: 'Preparando', label: '👨‍🍳 Preparando', count: kpis.preparing },
+              { id: 'Listo', label: '✅ Listos', count: kpis.ready },
+              { id: 'En camino', label: '🛵 En camino', count: kpis.delivery },
+              { id: 'Entregado', label: '🎉 Entregados', count: kpis.delivered },
+              { id: 'Cancelado', label: '🛑 Cancelados', count: orders.filter(o => o.status === 'Cancelado').length }
+            ].map(f => (
               <button
-                key={f}
-                className={`filter-btn ${orderFilter === f ? 'active' : ''}`}
-                onClick={() => setOrderFilter(f)}
-                style={{ fontSize: '0.75rem', padding: '5px 10px', whiteSpace: 'nowrap' }}
+                key={f.id}
+                className={`filter-btn ${orderFilter === f.id ? 'active' : ''}`}
+                onClick={() => setOrderFilter(f.id)}
+                style={{
+                  fontSize: '0.75rem',
+                  padding: '5px 11px',
+                  whiteSpace: 'nowrap',
+                  fontWeight: f.highlight ? 800 : 500,
+                  borderColor: f.highlight ? '#e67e22' : undefined,
+                  color: f.highlight && orderFilter !== f.id ? '#b45309' : undefined,
+                  background: f.highlight && orderFilter !== f.id ? '#fffbeb' : undefined
+                }}
               >
-                {f === 'all' ? 'Todos' : f}
+                {f.label} ({f.count})
               </button>
             ))}
           </div>
 
           <div className="glass admin-table-container">
-            <table className="admin-table">
+            <table className="admin-table order-management-table">
               <thead>
                 <tr>
                   <th>Pedido</th>
@@ -912,20 +1016,20 @@ export default function OrderManager({
               <tbody>
                 {filtered.length === 0 ? (
                   <tr>
-                    <td colSpan="4" style={{ textAlign: 'center', color: 'var(--text-light)', padding: '20px' }}>
+                    <td colSpan="4" className="order-empty-cell" style={{ textAlign: 'center', color: 'var(--text-light)', padding: '20px' }}>
                       No se encontraron pedidos.
                     </td>
                   </tr>
                 ) : (
                   displayedOrders.map(order => {
-                    const isDelivery = order.customer?.orderType === 'Delivery' || (order.deliveryFee > 0);
+                    const isDelivery = String(order.customer?.orderType || '').toLowerCase() === 'delivery' || (order.deliveryFee > 0);
                     const isMesa = order.customer?.orderType === 'Mesa' || Boolean(order.customer?.tableNumber);
 
                     const stage = getOrderStageInfo(order.status, isDelivery);
 
                     return (
                     <tr key={order.id} style={isDelivery ? { background: 'rgba(255, 68, 31, 0.02)' } : {}}>
-                      <td>
+                      <td data-label="Pedido">
                         <div style={{ display: 'flex', alignItems: 'center', gap: '6px', flexWrap: 'wrap' }}>
                           <strong>{order.id}</strong>
                           {isDelivery && (
@@ -985,30 +1089,115 @@ export default function OrderManager({
                             {new Date(order.date).toLocaleDateString('es-PE')} {new Date(order.date).toLocaleTimeString('es-PE', { hour: '2-digit', minute: '2-digit', hour12: true })}
                           </span>
                         </div>
+
+                        {/* Aviso específico para pedidos Por Validar */}
+                        {order.status === 'Por Corroborar' && (
+                          <div style={{
+                            marginTop: '6px',
+                            padding: '6px 9px',
+                            borderRadius: '6px',
+                            background: '#fffbeb',
+                            border: '1px solid #fcd34d',
+                            fontSize: '0.73rem',
+                            color: '#92400e',
+                            lineHeight: 1.35
+                          }}>
+                            <div style={{ fontWeight: 800, display: 'flex', alignItems: 'center', gap: '4px', color: '#b45309', marginBottom: '2px' }}>
+                              <span>⚠️</span>
+                              <span>{requiresAdvancePayment(order) ? 'VALIDACIÓN DE PAGO:' : 'CONFIRMACIÓN DEL PEDIDO:'}</span>
+                            </div>
+                            {requiresAdvancePayment(order) ? (
+                              <div>
+                                Verificar abono de <strong>S/. {Number(order.grandTotal || 0).toFixed(2)}</strong> por <strong>{order.customer?.paymentMethod || 'Pago digital'}</strong>.
+                                {order.customer?.operationCode ? (
+                                  <div style={{ marginTop: '2px', fontWeight: 700, color: '#6b21a8' }}>
+                                    N° Op: <span style={{ fontFamily: 'monospace', background: '#f3e8ff', padding: '1px 5px', borderRadius: '3px' }}>{order.customer.operationCode}</span>
+                                  </div>
+                                ) : (
+                                  <div style={{ marginTop: '2px', color: '#b91c1c' }}>
+                                    (Sin N° de operación · Pedir voucher o verificar en app bancaria)
+                                  </div>
+                                )}
+                              </div>
+                            ) : isDelivery && isPaymentOnArrival(order) && !order.paymentVerified ? (
+                              <div>
+                                <strong>PAGO AL LLEGAR:</strong> acepta el pedido sin validar un abono. Informa al repartidor que debe cobrar <strong>S/. {Number(order.grandTotal || 0).toFixed(2)}</strong> por <strong>{order.customer?.paymentMethod || 'el medio acordado'}</strong> antes de entregarlo.
+                              </div>
+                            ) : order.customer?.orderType === 'Mesa' ? (
+                              <div>
+                                Validar comanda de <strong>Mesa {order.customer?.tableNumber || ''}</strong> con el mozo antes de pasar a cocina.
+                              </div>
+                            ) : isDelivery ? (
+                              <div>
+                                Confirmar dirección de entrega y cambio para cobrar <strong>S/. {Number(order.grandTotal || 0).toFixed(2)}</strong> en efectivo.
+                              </div>
+                            ) : (
+                              <div>
+                                Confirmar recepción de comanda para iniciar preparación en barra.
+                              </div>
+                            )}
+                          </div>
+                        )}
+                        {isDelivery && order.status !== 'Por Corroborar' && !['Entregado', 'Cancelado'].includes(order.status) && isPaymentOnArrival(order) && !order.paymentVerified && (
+                          <div role="status" style={{
+                            marginTop: '6px',
+                            padding: '7px 9px',
+                            borderRadius: '6px',
+                            background: '#fff7ed',
+                            border: '1px solid #fb923c',
+                            color: '#9a3412',
+                            fontSize: '0.72rem',
+                            fontWeight: 700,
+                            lineHeight: 1.35
+                          }}>
+                            💰 COBRO PENDIENTE EN REPARTO: el cliente eligió pagar al llegar. El repartidor debe cobrar S/. {Number(order.grandTotal || 0).toFixed(2)} por {order.customer?.paymentMethod || 'el medio acordado'} antes de entregar.
+                          </div>
+                        )}
                         {isDelivery && (
                           <div style={{ marginTop: '5px', display: 'flex', alignItems: 'center', gap: '4px', flexWrap: 'wrap' }}>
-                            <select
-                              aria-label="Asignar repartidor"
-                              value={order.assignedDriver?.id || order.assignedDriver?.email || ''}
-                              onChange={(e) => handleAssignDriver(order, e.target.value)}
-                              style={{
-                                fontSize: '0.72rem',
-                                padding: '2px 4px',
-                                borderRadius: '4px',
-                                border: '1px solid var(--delivery-color, #FF441F)',
-                                background: 'var(--bg-secondary, #fff)',
-                                color: 'var(--text-dark)',
-                                maxWidth: '140px'
-                              }}
-                            >
-                              <option value="">🛵 Asignar repartidor...</option>
-                              {staffUsers.map(u => (
-                                <option key={u.id || u.email} value={u.id || u.email}>
-                                  {u.name || u.email} {u.role ? `(${u.role})` : ''}
-                                </option>
-                              ))}
-                            </select>
-                            {order.assignedDriver && (
+                            {!['En camino', 'Entregado', 'Cancelado'].includes(order.status) ? (
+                              <select
+                                aria-label="Asignar repartidor"
+                                value={order.assignedDriver?.id || order.assignedDriver?.email || ''}
+                                onChange={(e) => handleAssignDriver(order, e.target.value)}
+                                style={{
+                                  fontSize: '0.72rem',
+                                  padding: '4px 7px',
+                                  borderRadius: '6px',
+                                  border: '1px solid var(--delivery-color, #FF441F)',
+                                  background: 'var(--bg-secondary, #fff)',
+                                  color: 'var(--text-dark)',
+                                  maxWidth: '185px'
+                                }}
+                              >
+                                <option value="">🛵 Asignar repartidor...</option>
+                                {order.assignedDriver && !staffUsers.some(u => String(u.id || u.email) === String(order.assignedDriver.id || order.assignedDriver.email)) && (
+                                  <option value={order.assignedDriver.id || order.assignedDriver.email}>
+                                    🛵 {order.assignedDriver.name || order.assignedDriver.email} (Asignado)
+                                  </option>
+                                )}
+                                {staffUsers.map(u => (
+                                  <option key={u.id || u.email} value={u.id || u.email}>
+                                    {String(u.role || '').toLowerCase().includes('repartidor') ? '🛵 ' : '👤 '}
+                                    {u.name || u.email} {u.role ? `(${u.role})` : ''}
+                                  </option>
+                                ))}
+                                <option value="__NEW_DRIVER__">➕ Registrar nuevo repartidor...</option>
+                              </select>
+                            ) : (
+                              <span style={{
+                                padding: '4px 8px', borderRadius: '6px', fontSize: '0.7rem', fontWeight: 700,
+                                background: order.status === 'Cancelado' ? '#fee2e2' : '#e0f2fe',
+                                color: order.status === 'Cancelado' ? '#b91c1c' : '#075985'
+                              }}>
+                                {order.status === 'Cancelado'
+                                  ? '🚫 Pedido cancelado · sin despacho'
+                                  : order.status === 'Entregado'
+                                    ? `✅ Entregado por ${order.assignedDriver?.name || 'repartidor'}`
+                                    : `🛵 En ruta con ${order.assignedDriver?.name || 'repartidor'}`}
+                              </span>
+                            )}
+                            {order.assignedDriver && order.status === 'Listo' && (
                               <button
                                 type="button"
                                 className="admin-action-btn"
@@ -1034,11 +1223,11 @@ export default function OrderManager({
                           </div>
                         )}
                       </td>
-                      <td>
+                      <td data-label="Cliente">
                         <div style={{ fontWeight: 600, fontSize: '0.85rem' }}>{order.customer.name}</div>
                         <div style={{ fontSize: '0.75rem', color: 'var(--text-light)' }}>{order.customer.address}</div>
                       </td>
-                      <td>
+                      <td data-label="Monto y pago">
                         <strong style={{ color: 'var(--primary-color)', fontSize: '0.95rem', display: 'block' }}>
                           S/. {Number(order.grandTotal || 0).toFixed(2)}
                         </strong>
@@ -1092,33 +1281,49 @@ export default function OrderManager({
                               💵 Efectivo
                             </span>
                           )}
+                          {order.customer?.operationCode && (
+                            <span style={{
+                              fontSize: '0.66rem',
+                              fontFamily: 'monospace',
+                              fontWeight: 700,
+                              color: 'var(--primary-color)',
+                              background: 'rgba(255, 107, 129, 0.1)',
+                              padding: '1px 5px',
+                              borderRadius: '4px',
+                              width: 'fit-content'
+                            }} title={`Código de operación: ${order.customer.operationCode}`}>
+                              Op: {order.customer.operationCode}
+                            </span>
+                          )}
 
-                          {isPaymentOnArrival(order) && <span style={{ fontSize: '0.875rem', fontWeight: 700 }}>Pago al llegar · {order.paymentVerified ? 'Cobrado' : 'Pendiente de cobro'}</span>}
+                          {order.status === 'Cancelado' ? (
+                            <span style={{ fontSize: '0.75rem', fontWeight: 700, color: '#b91c1c' }}>Pedido cancelado · sin cobro</span>
+                          ) : Number(order.grandTotal || 0) <= 0 ? (
+                            <span style={{ fontSize: '0.75rem', fontWeight: 700, color: '#15803d' }}>Cortesía · sin importe pendiente</span>
+                          ) : isPaymentOnArrival(order) && (
+                            <span style={{ fontSize: '0.875rem', fontWeight: 700 }}>Pago al llegar · {order.paymentVerified ? 'Cobrado' : 'Pendiente de cobro'}</span>
+                          )}
                           {['Transferencia', 'Tarjeta'].includes(order.customer?.paymentMethod) && <span>{order.customer.paymentMethod}</span>}
-                          {isDigitalPayment(order) ? (
-                            order.paymentVerified ? (
-                              <button
-                                type="button"
-                                onClick={() => handleTogglePaymentVerified(order)}
-                                style={{
-                                  background: '#dcfce7',
-                                  color: '#15803d',
-                                  border: '1px solid #86efac',
-                                  borderRadius: '4px',
-                                  padding: '2px 6px',
-                                  fontSize: '0.64rem',
-                                  fontWeight: 700,
-                                  cursor: 'pointer',
-                                  display: 'inline-flex',
-                                  alignItems: 'center',
-                                  gap: '2px',
-                                  width: 'fit-content'
-                                }}
-                                title="Abono verificado. Clic para alternar"
-                              >
-                                ✓ Abono Verificado
-                              </button>
-                            ) : (
+                          {order.status === 'Cancelado' || Number(order.grandTotal || 0) <= 0 ? null : order.paymentVerified ? (
+                            <span
+                              style={{
+                                background: '#dcfce7',
+                                color: '#15803d',
+                                border: '1px solid #86efac',
+                                borderRadius: '4px',
+                                padding: '2px 6px',
+                                fontSize: '0.64rem',
+                                fontWeight: 700,
+                                display: 'inline-flex',
+                                alignItems: 'center',
+                                gap: '2px',
+                                width: 'fit-content'
+                              }}
+                              title="Cobro confirmado. Para mantener la trazabilidad no se puede revertir desde el pedido."
+                            >
+                              ✓ Cobro Verificado
+                            </span>
+                          ) : requiresAdvancePayment(order) ? (
                               <button
                                 type="button"
                                 onClick={() => handleTogglePaymentVerified(order)}
@@ -1140,15 +1345,18 @@ export default function OrderManager({
                               >
                                 ⚠️ Validar Abono
                               </button>
-                            )
-                          ) : (
-                            <span style={{ fontSize: '0.64rem', color: '#b45309', fontWeight: 600 }}>
-                              Cobrar en entrega
+                          ) : isPaymentOnArrival(order) && isDelivery ? (
+                            <span style={{ fontSize: '0.64rem', color: '#b45309', fontWeight: 700 }}>
+                              🚚 Cobro a cargo del repartidor
                             </span>
+                          ) : isPaymentOnArrival(order) ? (
+                            <span style={{ fontSize: '0.64rem', color: '#b45309', fontWeight: 700 }}>🏪 Cobro pendiente en tienda</span>
+                          ) : (
+                            <span style={{ fontSize: '0.64rem', color: '#b91c1c', fontWeight: 700 }}>Pago pendiente de validar</span>
                           )}
                         </div>
                       </td>
-                      <td>
+                      <td data-label="Acciones" className="order-actions-cell">
                         <div style={{ display: 'flex', gap: '5px', flexWrap: 'wrap', alignItems: 'center' }}>
                           {/* Acciones principales secuenciales adaptadas al canal */}
                           {order.status === 'Por Corroborar' && (
@@ -1166,9 +1374,9 @@ export default function OrderManager({
                                 cursor: 'pointer'
                               }}
                               onClick={() => handleValidateAndAcceptOrder(order)}
-                              title="Validar comprobante de pago y aceptar pedido a preparación"
+                              title={requiresAdvancePayment(order) ? 'Validar el abono y aceptar el pedido' : 'Aceptar el pedido sin validar pago; cobrará el repartidor al entregar'}
                             >
-                              ✅ Validar y Aceptar
+                              {requiresAdvancePayment(order) ? '✅ Validar pago y aceptar' : '✅ Aceptar · cobra reparto'}
                             </button>
                           )}
                           {order.status === 'Pendiente' && (
@@ -1206,7 +1414,14 @@ export default function OrderManager({
                                 boxShadow: '0 2px 6px rgba(255,68,31,0.3)',
                                 cursor: 'pointer'
                               }}
-                              onClick={() => handleStatusChange(order, 'En camino', `Pedido ${order.id} despachado a ruta por ${currentUser?.name}`)}
+                              onClick={() => {
+                                if (!order.assignedDriver) {
+                                  alert("⚠️ Para despachar a ruta, primero debes asignar un repartidor al pedido.");
+                                  setQuickDriverModal({ order });
+                                  return;
+                                }
+                                handleStatusChange(order, 'En camino', `Pedido ${order.id} despachado a ruta por ${currentUser?.name}`);
+                              }}
                               title="Despachar con repartidor a domicilio"
                             >
                               🛵 Despachar a Ruta
@@ -1331,23 +1546,25 @@ export default function OrderManager({
                           >
                             💬 Chat
                           </a>
-                          <button
-                            type="button"
-                            className="admin-action-btn"
-                            style={{ color: 'var(--delivery-color, #FF441F)', fontWeight: 600 }}
-                            title="Imprimir ticket térmico ESC/POS (58mm / 80mm)"
-                            onClick={() => {
-                              printThermalTicket({
-                                type: isDelivery ? 'delivery' : 'comanda',
-                                order,
-                                storeName: storeName || 'Friozo',
-                                storePhone: storePhone || '',
-                                ticketCustomMessage: ticketCustomMessage || ''
-                              });
-                            }}
-                          >
-                            🧾 Térmica ESC/POS
-                          </button>
+                          {shopConfig?.escposPrintEnabled !== false && (
+                            <button
+                              type="button"
+                              className="admin-action-btn"
+                              style={{ color: 'var(--delivery-color, #FF441F)', fontWeight: 600 }}
+                              title="Imprimir ticket térmico ESC/POS (58mm / 80mm)"
+                              onClick={() => {
+                                printThermalTicket({
+                                  type: isDelivery ? 'delivery' : 'comanda',
+                                  order,
+                                  storeName: storeName || 'Friozo',
+                                  storePhone: storePhone || '',
+                                  ticketCustomMessage: ticketCustomMessage || ''
+                                });
+                              }}
+                            >
+                              🧾 Térmica ESC/POS
+                            </button>
+                          )}
                           <button
                             type="button"
                             className="admin-action-btn"
@@ -1473,7 +1690,7 @@ export default function OrderManager({
                                     <div class="footer">
                                       <div style="font-weight: bold; font-size: 0.85rem; margin-bottom: 4px;">⚠️ ¡ATENCIÓN COCINA / REPARTO!</div>
                                       <div style="margin-bottom: 8px; font-size: 0.75rem;">Mantener cadena de frío. Entregar con máxima higiene.</div>
-                                      ${ticketCustomMessage ? `<div style="margin-top: 6px; font-size: 0.8rem; font-style: italic; font-weight: bold; border-top: 1px dashed #000; padding-top: 6px; color: #111;">${ticketCustomMessage}</div>` : ''}
+                                      ${ticketCustomMessage ? `<div style="margin-top: 6px; font-size: 0.8rem; font-style: italic; font-weight: bold; border-top: 1px dashed #000; padding-top: 6px; color: #111;">${sanitizeHTML(ticketCustomMessage)}</div>` : ''}
                                       <div style="margin-top: 8px; font-size: 0.7rem; color: #555;">Impreso desde el panel de Friozo.</div>
                                     </div>
                                   </body>
@@ -1535,8 +1752,7 @@ export default function OrderManager({
           ) : (
             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))', gap: '15px' }}>
               {filteredSurveys.map(order => {
-                const cleanPhone = String(order.customer.phone || '').replace(/\D/g, '');
-                const waUrl = cleanPhone ? `https://wa.me/${cleanPhone}?text=${encodeURIComponent(`Hola ${order.customer.name}, nos comunicamos de ${storeName} con relación a tu pedido ${order.id}...`)}` : null;
+                const waUrl = buildWhatsAppHref(order.customer?.phone, `Hola ${order.customer?.name || 'cliente'}, nos comunicamos de ${storeName} con relación a tu pedido ${order.id}...`);
                 
                 const surveyDateStr = order.survey.date 
                   ? new Date(order.survey.date).toLocaleString('es-PE', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' }) 
@@ -1620,6 +1836,144 @@ export default function OrderManager({
               })}
             </div>
           )}
+        </div>
+      )}
+
+      {/* Modal Rápido para Registrar y Asignar Repartidor */}
+      {quickDriverModal && (
+        <div style={{
+          position: 'fixed',
+          top: 0,
+          left: 0,
+          right: 0,
+          bottom: 0,
+          backgroundColor: 'rgba(0, 0, 0, 0.65)',
+          backdropFilter: 'blur(4px)',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          zIndex: 9999999,
+          padding: '16px'
+        }}>
+          <div style={{
+            background: 'var(--bg-secondary, #fff)',
+            borderRadius: '14px',
+            maxWidth: '460px',
+            width: '100%',
+            padding: '24px',
+            boxShadow: '0 20px 40px rgba(0,0,0,0.25)',
+            border: '1px solid var(--border-color)'
+          }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '14px' }}>
+              <h3 style={{ margin: 0, fontSize: '1.15rem', color: 'var(--text-dark)', display: 'flex', alignItems: 'center', gap: '8px' }}>
+                🛵 Asignar Repartidor a Pedido #{quickDriverModal.order?.id}
+              </h3>
+              <button
+                type="button"
+                onClick={() => { setQuickDriverModal(null); setQuickDriverName(''); setQuickDriverPhone(''); }}
+                style={{ background: 'transparent', border: 'none', fontSize: '1.2rem', cursor: 'pointer', color: 'var(--text-light)' }}
+              >
+                ✕
+              </button>
+            </div>
+
+            <div style={{ fontSize: '0.82rem', color: 'var(--text-light)', marginBottom: '16px' }}>
+              Cliente: <strong>{quickDriverModal.order?.customer?.name}</strong> · Dirección: {quickDriverModal.order?.customer?.address || 'Por coordinar'}
+            </div>
+
+            {/* Si ya hay personal registrado, permitir seleccionar uno rápidamente */}
+            {staffUsers.length > 0 && (
+              <div style={{ marginBottom: '16px', padding: '12px', background: 'rgba(0,0,0,0.02)', borderRadius: '8px', border: '1px solid var(--border-color)' }}>
+                <label style={{ display: 'block', fontSize: '0.8rem', fontWeight: 700, marginBottom: '6px' }}>
+                  Seleccionar colaborador existente:
+                </label>
+                <div style={{ display: 'flex', gap: '8px' }}>
+                  <select
+                    id="quick-select-existing-driver"
+                    defaultValue=""
+                    style={{ flex: 1, padding: '8px', borderRadius: '6px', border: '1px solid var(--border-color)', fontSize: '0.85rem' }}
+                  >
+                    <option value="">-- Seleccionar de la lista --</option>
+                    {staffUsers.map(u => (
+                      <option key={u.id || u.email} value={u.id || u.email}>
+                        {String(u.role || '').toLowerCase().includes('repartidor') ? '🛵 ' : '👤 '}
+                        {u.name || u.email} {u.role ? `(${u.role})` : ''} {u.phone ? `· 📞 ${u.phone}` : ''}
+                      </option>
+                    ))}
+                  </select>
+                  <button
+                    type="button"
+                    className="btn btn-primary"
+                    style={{ padding: '8px 14px', fontSize: '0.8rem', whiteSpace: 'nowrap' }}
+                    onClick={() => {
+                      const sel = document.getElementById('quick-select-existing-driver');
+                      if (sel && sel.value) {
+                        handleAssignDriver(quickDriverModal.order, sel.value);
+                        setQuickDriverModal(null);
+                      } else {
+                        alert("Selecciona un colaborador de la lista.");
+                      }
+                    }}
+                  >
+                    Asignar
+                  </button>
+                </div>
+              </div>
+            )}
+
+            {/* O registrar un nuevo repartidor en 1 paso */}
+            <form onSubmit={handleSaveQuickDriver} style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+              <div style={{ fontSize: '0.85rem', fontWeight: 700, color: 'var(--delivery-color, #FF441F)' }}>
+                O registrar nuevo repartidor / motorizado:
+              </div>
+              <div>
+                <label style={{ display: 'block', fontSize: '0.78rem', fontWeight: 600, marginBottom: '4px' }}>
+                  Nombre completo del motorizado:
+                </label>
+                <input
+                  type="text"
+                  placeholder="Ej: Carlos Mendoza"
+                  value={quickDriverName}
+                  onChange={(e) => setQuickDriverName(e.target.value)}
+                  style={{ width: '100%', padding: '8px 10px', borderRadius: '6px', border: '1px solid var(--border-color)', fontSize: '0.85rem' }}
+                  required
+                />
+              </div>
+              <div>
+                <label style={{ display: 'block', fontSize: '0.78rem', fontWeight: 600, marginBottom: '4px' }}>
+                  Celular / WhatsApp para despacho (9 dígitos):
+                </label>
+                <input
+                  type="tel"
+                  placeholder="Ej: 987654321"
+                  value={quickDriverPhone}
+                  onChange={(e) => setQuickDriverPhone(e.target.value)}
+                  style={{ width: '100%', padding: '8px 10px', borderRadius: '6px', border: '1px solid var(--border-color)', fontSize: '0.85rem' }}
+                />
+                <small style={{ color: 'var(--text-light)', fontSize: '0.7rem' }}>
+                  Permite despacharle la hoja de ruta con 1 toque al WhatsApp y que el cliente lo contacte.
+                </small>
+              </div>
+
+              <div style={{ display: 'flex', gap: '10px', marginTop: '10px' }}>
+                <button
+                  type="submit"
+                  className="btn btn-primary"
+                  style={{ flex: 1, padding: '10px', fontSize: '0.85rem', fontWeight: 700, background: 'var(--delivery-color, #FF441F)', borderColor: 'var(--delivery-color, #FF441F)' }}
+                >
+                  ✓ Guardar y Asignar
+                </button>
+                <button
+                  type="button"
+                  className="btn btn-secondary"
+                  style={{ padding: '10px 16px', fontSize: '0.85rem' }}
+                  onClick={() => { setQuickDriverModal(null); setQuickDriverName(''); setQuickDriverPhone(''); }}
+                >
+                  Cancelar
+                </button>
+              </div>
+            </form>
+          </div>
         </div>
       )}
     </div>

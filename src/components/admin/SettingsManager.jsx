@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import { useState, useEffect } from 'react';
 import { supabase } from '../../utils/supabaseClient';
 import { uploadToR2, compressToWebP } from '../../utils/r2Client';
 import { updateMultipleSyncedData } from '../../utils/supabaseSync';
@@ -7,12 +7,7 @@ import PaymentMethodsSettings from './PaymentMethodsSettings';
 import PromotionEditor from './PromotionEditor';
 import { DEFAULT_PROMOTION, DEFAULT_POPUP_PROMOTION, DEFAULT_WEB_PROMOTION, normalizePromotion, validatePromotion } from '../../utils/promotion';
 import { sendDailySalesReportToTelegram } from '../../utils/telegramDailyReport';
-
-// --- FUNCIONES DE SANITIZACIÓN ---
-const sanitizeHTML = (text) => {
-  if (typeof text !== 'string') return '';
-  return text.replace(/<[^>]*>/g, '').trim();
-};
+import { mergeOrders } from '../../utils/orderLifecycle';
 
 const sanitizeUrlToHTTPS = (url) => {
   if (typeof url !== 'string') return '';
@@ -30,8 +25,6 @@ export default function SettingsManager({
   salesGoal, onChangeSalesGoal,
   freeDeliveryThreshold, onChangeFreeDeliveryThreshold,
   deliveryCampaignText, onChangeDeliveryCampaignText,
-  telegramToken, onChangeTelegramToken,
-  telegramChatId, onChangeTelegramChatId,
   soundEnabled, onToggleSoundEnabled,
   shopOpen, onToggleShopOpen,
   isCloudSynced,
@@ -40,7 +33,6 @@ export default function SettingsManager({
   qrCustomUrl, onChangeQrCustomUrl,
   ticketCustomMessage, onUpdateTicketCustomMessage,
   catalogOrder, onUpdateCatalogOrder,
-  r2Config, onUpdateR2Config,
   literConfig, onUpdateLiterConfig,
   coupons, onUpdateCoupons,
   logs, addLog, currentUser, onLogout,
@@ -50,8 +42,8 @@ export default function SettingsManager({
   packs, onUpdatePacks,
   orders, onUpdateOrders,
   expenses, onUpdateExpenses,
+  cashShifts = [], onUpdateCashShifts,
   deliveryFee, onChangeDeliveryFee,
-  onToggleShopOpen: onToggleShopOpenProp,
   recommendations, onUpdateRecommendations,
   cartRecommendedPack, onUpdateCartRecommendedPack,
   staffUsers, onUpdateStaffUsers,
@@ -235,7 +227,7 @@ export default function SettingsManager({
     onChangeWhatsappGreeting(localWhatsappGreeting);
     onChangeWhatsappFooter(localWhatsappFooter);
     onChangeQrCustomUrl(sanitizedQrUrl);
-    onUpdateTicketCustomMessage(localTicketCustomMessage);
+    onUpdateTicketCustomMessage(localTicketCustomMessage.trim().slice(0, 240));
 
     onUpdateLiterConfig({
       active: !!localLiterActive,
@@ -571,6 +563,7 @@ export default function SettingsManager({
         packs,
         orders,
         expenses,
+        cashShifts,
         deliveryFee,
         shopOpen,
         freeDeliveryThreshold,
@@ -624,7 +617,24 @@ export default function SettingsManager({
           throw new Error("El archivo no contiene un formato de copia de seguridad válido.");
         }
 
-        if (window.confirm("⚠️ ¿Estás seguro de que deseas restaurar esta copia de seguridad? Se reemplazarán todos los datos actuales de la heladería por los de la copia.")) {
+        if (window.confirm("¿Deseas restaurar esta copia? Los registros del archivo se fusionarán con los actuales; no se eliminarán pedidos, gastos ni cierres posteriores.")) {
+          const mergeById = (current, restored) => {
+            const map = new Map((Array.isArray(current) ? current : []).map(item => [item?.id, item]));
+            (Array.isArray(restored) ? restored : []).forEach(item => { if (item?.id) map.set(item.id, item); });
+            return [...map.values()];
+          };
+
+          // Guardar primero los registros operativos. Si falla la nube, no se aplica una restauración parcial.
+          if (data.orders && onUpdateOrders && !await onUpdateOrders(mergeOrders(orders, data.orders))) {
+            throw new Error('No se pudieron restaurar todos los pedidos. Revisa el aviso antes de continuar.');
+          }
+          if (data.expenses && onUpdateExpenses && !await onUpdateExpenses(mergeById(expenses, data.expenses))) {
+            throw new Error('No se pudieron restaurar los gastos.');
+          }
+          if (data.cashShifts && onUpdateCashShifts && !await onUpdateCashShifts(mergeById(cashShifts, data.cashShifts))) {
+            throw new Error('No se pudieron restaurar los cierres de caja.');
+          }
+
           // 1. Actualizar los estados del padre mediante callbacks
           if (data.storeName && onChangeStoreName) onChangeStoreName(data.storeName);
           if (data.storeLogo && onChangeStoreLogo) onChangeStoreLogo(data.storeLogo);
@@ -636,10 +646,6 @@ export default function SettingsManager({
           if (data.toppings && onUpdateToppings) onUpdateToppings(data.toppings);
           if (data.bases && onUpdateBases) onUpdateBases(data.bases);
           if (data.packs && onUpdatePacks) onUpdatePacks(data.packs);
-          if (data.orders && onUpdateOrders && !await onUpdateOrders(data.orders)) {
-            throw new Error('No se pudieron restaurar todos los pedidos. Revisa el aviso antes de continuar.');
-          }
-          if (data.expenses && onUpdateExpenses) onUpdateExpenses(data.expenses);
           if (data.deliveryFee !== undefined && onChangeDeliveryFee) onChangeDeliveryFee(parseFloat(data.deliveryFee));
           if (data.shopOpen !== undefined && onToggleShopOpen) onToggleShopOpen(data.shopOpen);
           if (data.freeDeliveryThreshold !== undefined && onChangeFreeDeliveryThreshold) onChangeFreeDeliveryThreshold(parseFloat(data.freeDeliveryThreshold));
@@ -703,8 +709,7 @@ export default function SettingsManager({
             addKey('toppings', data.toppings);
             addKey('bases', data.bases);
             addKey('packs', data.packs);
-            addKey('orders', data.orders);
-            addKey('expenses', data.expenses);
+            // Pedidos, gastos y cierres ya se guardaron fusionados mediante sus callbacks.
             addKey('delivery_fee', data.deliveryFee);
             if (data.shopConfig) {
               addKey('shop_open', data.shopConfig);
@@ -731,17 +736,13 @@ export default function SettingsManager({
             addKey('trends_interval', data.trendsInterval);
             addKey('trends_display_time', data.trendsDisplayTime);
 
-            if (data.orders && Array.isArray(data.orders)) {
-              data.orders.forEach(o => {
-                addKey(`order_${o.id}`, o);
-              });
+            if (keysToSync.length && !await updateMultipleSyncedData(keysToSync)) {
+              throw new Error('No se pudieron sincronizar los ajustes de la copia con la nube.');
             }
-
-            await updateMultipleSyncedData(keysToSync);
           }
 
           addLog(`Base de datos restaurada desde copia de seguridad por ${currentUser?.name}.`);
-          alert("¡Copia de seguridad restaurada con éxito y sincronizada con la nube!");
+          alert("¡Copia de seguridad fusionada con éxito y sincronizada con la nube!");
         }
       } catch (err) {
         alert("Error al importar copia de seguridad: " + err.message);
@@ -1252,6 +1253,59 @@ export default function SettingsManager({
             <span className="slider"></span>
           </label>
         </div>
+
+        {/* Toggle: Enviar comanda a WhatsApp al confirmar pedido */}
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderBottom: '1px solid var(--border-color)', paddingBottom: '10px' }}>
+          <div>
+            <strong style={{ display: 'block' }}>📲 Enviar comanda a WhatsApp al confirmar pedido</strong>
+            <span style={{ fontSize: '0.75rem', color: 'var(--text-light)', display: 'block' }}>Al confirmar un pedido, abre automáticamente WhatsApp para notificar al equipo.</span>
+          </div>
+          <label className="toggle-switch" htmlFor="whatsapp-order-enabled-input">
+            <input
+              id="whatsapp-order-enabled-input"
+              type="checkbox"
+              checked={localShopConfig.whatsappEnabled !== false}
+              onChange={(e) => setLocalShopConfig(prev => ({ ...prev, whatsappEnabled: e.target.checked }))}
+            />
+            <span className="slider"></span>
+          </label>
+        </div>
+
+        {/* Toggle: Mostrar campo N° de Operación en pagos digitales */}
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderBottom: '1px solid var(--border-color)', paddingBottom: '10px' }}>
+          <div>
+            <strong style={{ display: 'block' }}>🔢 Solicitar N° de Operación en pagos digitales (Yape/Plin)</strong>
+            <span style={{ fontSize: '0.75rem', color: 'var(--text-light)', display: 'block' }}>Muestra el campo para ingresar el número de operación en pagos previos.</span>
+          </div>
+          <label className="toggle-switch" htmlFor="show-operation-code-field-input">
+            <input
+              id="show-operation-code-field-input"
+              type="checkbox"
+              checked={localShopConfig.showOperationCodeField !== false}
+              onChange={(e) => setLocalShopConfig(prev => ({ ...prev, showOperationCodeField: e.target.checked, requireOperationCode: e.target.checked ? (prev.requireOperationCode || false) : false }))}
+            />
+            <span className="slider"></span>
+          </label>
+        </div>
+
+        {/* Toggle: Hacer obligatorio N° de Operación (solo si showOperationCodeField es true) */}
+        {localShopConfig.showOperationCodeField !== false && (
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderBottom: '1px solid var(--border-color)', paddingBottom: '10px' }}>
+            <div>
+              <strong style={{ display: 'block' }}>⚠️ Hacer obligatorio el N° de Operación</strong>
+              <span style={{ fontSize: '0.75rem', color: 'var(--text-light)', display: 'block' }}>Si está activado, el cliente no podrá confirmar sin ingresar el código.</span>
+            </div>
+            <label className="toggle-switch" htmlFor="require-operation-code-input">
+              <input
+                id="require-operation-code-input"
+                type="checkbox"
+                checked={localShopConfig.requireOperationCode === true}
+                onChange={(e) => setLocalShopConfig(prev => ({ ...prev, requireOperationCode: e.target.checked }))}
+              />
+              <span className="slider"></span>
+            </label>
+          </div>
+        )}
 
         {/* Envío Gratis */}
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderBottom: '1px solid var(--border-color)', paddingBottom: '10px' }}>
@@ -1818,21 +1872,49 @@ export default function SettingsManager({
             </div>
 
             {/* Impresión Térmica ESC/POS */}
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderBottom: '1px solid rgba(0,0,0,0.05)', paddingBottom: '10px' }}>
-              <div>
-                <strong style={{ fontSize: '0.85rem', display: 'block' }}>🧾 Impresión Térmica ESC/POS (58mm / 80mm)</strong>
-                <span style={{ fontSize: '0.72rem', color: 'var(--text-light)' }}>
-                  Tickets compactos para cocina, despacho de delivery y tiras de Cierre Z.
-                </span>
+            <div style={{ borderBottom: '1px solid rgba(0,0,0,0.05)', paddingBottom: '12px', background: 'rgba(255,255,255,0.55)', borderRadius: '10px', padding: '12px' }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: '12px' }}>
+                <div>
+                  <strong style={{ fontSize: '0.85rem', display: 'block' }}>🧾 Impresión Térmica ESC/POS (58mm / 80mm)</strong>
+                  <span style={{ fontSize: '0.72rem', color: 'var(--text-light)' }}>
+                    Tickets compactos para cocina, despacho de delivery y tiras de Cierre Z.
+                  </span>
+                </div>
+                <label className="toggle-switch">
+                  <input
+                    type="checkbox"
+                    checked={localShopConfig.escposPrintEnabled !== false}
+                    onChange={(e) => setLocalShopConfig(prev => ({ ...prev, escposPrintEnabled: e.target.checked }))}
+                  />
+                  <span className="slider"></span>
+                </label>
               </div>
-              <label className="toggle-switch">
-                <input
-                  type="checkbox"
-                  checked={localShopConfig.escposPrintEnabled !== false}
-                  onChange={(e) => setLocalShopConfig(prev => ({ ...prev, escposPrintEnabled: e.target.checked }))}
-                />
-                <span className="slider"></span>
-              </label>
+              {localShopConfig.escposPrintEnabled !== false && (
+                <div style={{ marginTop: '12px', paddingTop: '10px', borderTop: '1px dashed rgba(0,0,0,0.12)' }}>
+                  <label htmlFor="escpos-store-message" style={{ display: 'block', fontSize: '0.75rem', fontWeight: 700, marginBottom: '5px' }}>
+                    Mensaje personalizado de la tienda
+                  </label>
+                  <textarea
+                    id="escpos-store-message"
+                    className="form-control"
+                    rows="3"
+                    maxLength="240"
+                    value={localTicketCustomMessage}
+                    onChange={(event) => setLocalTicketCustomMessage(event.target.value)}
+                    placeholder="Ej: ¡Gracias por tu compra! Síguenos en redes y vuelve pronto."
+                    style={{ width: '100%', resize: 'vertical', fontSize: '0.8rem' }}
+                  />
+                  <div style={{ display: 'flex', justifyContent: 'space-between', gap: '10px', marginTop: '5px', fontSize: '0.68rem', color: 'var(--text-light)' }}>
+                    <span>Se imprimirá al pie de la comanda y del ticket de delivery.</span>
+                    <span>{localTicketCustomMessage.length}/240</span>
+                  </div>
+                  {localTicketCustomMessage.trim() && (
+                    <div style={{ marginTop: '8px', padding: '8px', border: '1px dashed #64748b', background: '#fff', color: '#111', textAlign: 'center', fontFamily: 'monospace', fontSize: '0.72rem', whiteSpace: 'pre-wrap' }}>
+                      {localTicketCustomMessage.trim()}
+                    </div>
+                  )}
+                </div>
+              )}
             </div>
 
             {/* Bitácora de Auditoría */}
@@ -2301,27 +2383,6 @@ alter table public.helados_sync enable row level security;`}
                 onChange={(e) => setLocalWhatsappFooter(e.target.value)}
               />
             </div>
-          </div>
-        </div>
-
-        {/* Ticket Customization */}
-        <div className="glass" style={{ borderLeft: '4px solid var(--warning)', padding: '15px', background: 'rgba(229, 142, 38, 0.02)', borderRadius: '8px', marginBottom: '15px' }}>
-          <strong style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '0.9rem' }}>
-            🖨️ Personalización de Ticket de Entrega
-          </strong>
-          <p style={{ fontSize: '0.75rem', color: 'var(--text-light)', marginTop: '4px', marginBottom: '12px' }}>
-            Define un mensaje personalizado que aparecerá en el pie de página de los tickets físicos impresos para los clientes.
-          </p>
-          <div className="form-group">
-            <label style={{ fontSize: '0.75rem', fontWeight: 600 }}>Mensaje al Pie del Ticket:</label>
-            <textarea
-              className="form-control"
-              rows="2"
-              style={{ fontSize: '0.8rem', padding: '6px', resize: 'vertical', width: '100%', fontFamily: 'inherit' }}
-              value={localTicketCustomMessage}
-              onChange={(e) => setLocalTicketCustomMessage(e.target.value)}
-              placeholder="Ej: ¡Gracias por tu compra! Conserva tu helado en el congelador."
-            />
           </div>
         </div>
 

@@ -1,33 +1,39 @@
-import React, { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import CartItemPreview from './CartItemPreview';
 import DessertPreview from './DessertPreview';
 import { generateOrderId } from '../utils/orderId';
+import { getEnabledPaymentMethods, selectPaymentMethod } from '../utils/paymentMethods';
+import { buildWhatsAppHref } from '../utils/orderMessaging';
+import { sanitizeHTML, sanitizeText, safeStorage } from '../utils/security';
+import { checkoutStorage, checkoutTotals } from '../utils/checkout';
+
 
 export default function Cart({ 
   cart, 
   onUpdateQuantity, 
   onRemoveFromCart, 
   onPlaceOrder, 
-  deliveryFee, 
-  setView,
-  onAddToCart,
-  flavors,
-  freeDeliveryThreshold,
-  freeDeliveryEnabled = true,
-  storePhone,
-  coupons,
-  whatsappGreeting,
-  whatsappFooter,
-  cartRecommendedPack,
-  literConfig,
-  showAlert,
-  shopOpen = true,
-  tableOrdersEnabled = false,
-  tableNumber = null,
-  setTableNumber,
-  occupiedTables = [],
-  shopConfig,
-  trackEvent
+  deliveryFee = 0, 
+  setView, 
+  onAddToCart, 
+  flavors, 
+  freeDeliveryThreshold, 
+  freeDeliveryEnabled = true, 
+  storePhone, 
+  storeName, 
+  coupons, 
+  whatsappGreeting, 
+  whatsappFooter, 
+  cartRecommendedPack, 
+  literConfig, 
+  showAlert, 
+  shopOpen = true, 
+  tableOrdersEnabled = false, 
+  tableNumber = null, 
+  setTableNumber, 
+  occupiedTables = [], 
+  shopConfig, 
+  trackEvent 
 }) {
   const alert = (msg) => {
     if (showAlert) {
@@ -42,13 +48,67 @@ export default function Cart({
   };
 
   // Cargar datos autocompletados desde LocalStorage si existen
-  const [name, setName] = useState(() => localStorage.getItem('last_customer_name') || '');
-  const [phone, setPhone] = useState(() => localStorage.getItem('last_customer_phone') || '');
-  const [address, setAddress] = useState(() => localStorage.getItem('last_customer_address') || '');
-  const [paymentMethod, setPaymentMethod] = useState('Yape'); // Yape, Plin, Efectivo
+  const [name, setName] = useState(() => safeStorage.getItem('last_customer_name', ''));
+  const [phone, setPhone] = useState(() => safeStorage.getItem('last_customer_phone', ''));
+  const [address, setAddress] = useState(() => safeStorage.getItem('last_customer_address', ''));
+  const [selectedPaymentMethod, setPaymentMethod] = useState('Yape'); // Yape, Plin, Efectivo, Transferencia, Tarjeta
+  const [paymentTiming, setPaymentTiming] = useState('Al llegar');
+  const enabledPaymentMethods = getEnabledPaymentMethods(shopConfig);
+  const paymentMethod = selectPaymentMethod(selectedPaymentMethod, enabledPaymentMethods);
+  const [operationCode, setOperationCode] = useState('');
+  const [copiedPhone, setCopiedPhone] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const submittingRef = useRef(false);
   const [sendToWhatsApp, setSendToWhatsApp] = useState(shopConfig?.defaultWhatsAppEnabled ?? false);
   const [showValidationModal, setShowValidationModal] = useState(false);
+
+  // Determinar si el método de pago es digital/previo (requiere código de operación)
+  const DIGITAL_PAYMENT_METHODS = ['Yape', 'Plin', 'Transferencia', 'Transferencia Bancaria', 'BCP', 'Interbank', 'BBVA', 'Lukita'];
+  const isDigitalPayment = DIGITAL_PAYMENT_METHODS.some(m => paymentMethod.toLowerCase().includes(m.toLowerCase()));
+  // ¿Mostrar el campo de operación? Solo si el pago es digital y la config lo permite
+  const showOpCodeField = isDigitalPayment && paymentTiming === 'Anticipado' && shopConfig?.showOperationCodeField !== false;
+  const requireOpCode = showOpCodeField && shopConfig?.requireOperationCode === true;
+
+  const IMPULSE_ITEMS = [
+    { id: 'impulse_fudge', name: 'Salsa Fudge Artesanal', price: 1.5, icon: '🍫' },
+    { id: 'impulse_oreo', name: 'Topping Galleta Oreo', price: 1.5, icon: '🍪' },
+    { id: 'impulse_chispas', name: 'Lentejitas Chocolate', price: 1.0, icon: '🍬' },
+    { id: 'impulse_cono', name: 'Cono Artesanal Extra', price: 1.5, icon: '🧇' }
+  ];
+
+  const formatPhoneDisplay = (raw) => {
+    const digits = String(raw || '').replace(/\D/g, '');
+    const clean = digits.length === 11 && digits.startsWith('51') ? digits.slice(2) : digits;
+    if (clean.length === 9) {
+      return `${clean.slice(0, 3)} ${clean.slice(3, 6)} ${clean.slice(6)}`;
+    }
+    return clean || '987 654 321';
+  };
+
+  const handleCopyStorePhone = () => {
+    const raw = String(storePhone || '987654321').replace(/\D/g, '');
+    const numToCopy = raw.length === 11 && raw.startsWith('51') ? raw.slice(2) : raw;
+    if (navigator.clipboard && navigator.clipboard.writeText) {
+      navigator.clipboard.writeText(numToCopy);
+      setCopiedPhone(true);
+      setTimeout(() => setCopiedPhone(false), 2200);
+    } else {
+      alert(`Número para ${paymentMethod}: ${numToCopy}`);
+    }
+  };
+
+  const handleAddImpulseItem = (item) => {
+    if (!shopOpen) return;
+    onAddToCart({
+      type: 'extra',
+      id: item.id,
+      name: item.name,
+      price: item.price,
+      quantity: 1,
+      icon: item.icon,
+      image: ''
+    });
+  };
 
   // Módulo de Mesas
   const [orderType, setOrderType] = useState(() => {
@@ -64,27 +124,15 @@ export default function Cart({
 
 
 
-  const cartSubtotal = cart.reduce((sum, item) => sum + (item.price * item.quantity), 0);
-  
-  // Utilizar el umbral de Delivery Gratis dinámico y verificar si hay cupón de envío gratis o consumo en mesa/barra
-  const isFreeDelivery = 
-    orderType === 'Mesa' || 
-    orderType === 'Mesa_Llevar' || 
-    orderType === 'Barra' || 
-    orderType === 'Llevar' || 
-    (freeDeliveryEnabled && freeDeliveryThreshold > 0 && cartSubtotal >= freeDeliveryThreshold) || 
-    (appliedCoupon && appliedCoupon.type === 'free_delivery');
-  const activeDeliveryFee = isFreeDelivery ? 0 : deliveryFee;
-  
-  const discount = appliedCoupon 
-    ? (appliedCoupon.type === 'percentage' 
-        ? cartSubtotal * (appliedCoupon.value / 100) 
-        : (appliedCoupon.type === 'flat' ? appliedCoupon.value : 0)) 
-    : 0;
+  const { subtotal: cartSubtotal, freeDelivery: isFreeDelivery, shipping: activeDeliveryFee, discount, total } = checkoutTotals(cart, {
+    deliveryFee,
+    freeDeliveryEnabled,
+    freeDeliveryThreshold,
+    orderType,
+    coupon: appliedCoupon,
+  });
 
-  const total = Math.max(0, cartSubtotal + activeDeliveryFee - discount);
-
-  const missingForFreeDelivery = freeDeliveryThreshold - cartSubtotal;
+  const missingForFreeDelivery = Math.max(0, Number(freeDeliveryThreshold || 0) - cartSubtotal);
 
   const handleApplyCoupon = (e) => {
     e.preventDefault();
@@ -118,39 +166,39 @@ export default function Cart({
 
   // Guardar datos del cliente para futura compra
   useEffect(() => {
-    localStorage.setItem('last_customer_name', name);
-    localStorage.setItem('last_customer_phone', phone);
-    localStorage.setItem('last_customer_address', address);
+    safeStorage.setItem('last_customer_name', name);
+    safeStorage.setItem('last_customer_phone', phone);
+    safeStorage.setItem('last_customer_address', address);
   }, [name, phone, address]);
 
   // InitiateCheckout tracking
+  const initiatedRef = useRef(false);
+  const pendingSubmissionRef = useRef((() => {
+    try { return JSON.parse(checkoutStorage.getItem('pending_order_submission')); }
+    catch { return null; }
+  })());
   useEffect(() => {
-    if (trackEvent && cart && cart.length > 0) {
+    if (!initiatedRef.current && trackEvent && cart && cart.length > 0) {
+      initiatedRef.current = true;
       trackEvent('InitiateCheckout', {
         num_items: cart.reduce((sum, item) => sum + item.quantity, 0),
         value: cartSubtotal,
         currency: 'PEN'
       });
     }
-  }, [trackEvent]);
+  }, [trackEvent, cart, cartSubtotal]);
 
 
   const handleSubmit = async (e) => {
     if (e) e.preventDefault();
-    if (isSubmitting) return;
+    if (isSubmitting || submittingRef.current) return;
     
     if (cart.length === 0) {
       alert("El carrito está vacío.");
       return;
     }
 
-    const hasCustomItems = cart.some(item => item.type === 'custom');
-    if (hasCustomItems && !showValidationModal) {
-      setShowValidationModal(true);
-      return;
-    }
-
-    const cleanAddress = address.replace(/<[^>]*>/g, '').trim();
+    const cleanAddress = sanitizeHTML(address);
     let finalAddress = cleanAddress;
     if (orderType === 'Mesa') {
       finalAddress = `Mesa ${localTableNumber}`;
@@ -168,7 +216,7 @@ export default function Cart({
     const rawName = (needsTable && !name.trim()) ? `Cliente Mesa ${localTableNumber || tableNumber}` : name.trim();
     const rawPhone = (needsTable && !phone.trim()) ? `Mesa` : phone.trim();
 
-    const finalName = rawName.replace(/<[^>]*>/g, '').trim();
+    const finalName = sanitizeHTML(rawName);
     const finalPhone = rawPhone.replace(/[^0-9A-Za-z+\s-]/g, '').trim();
 
     // Validar según tipo de pedido
@@ -197,15 +245,41 @@ export default function Cart({
     }
 
     try {
+      submittingRef.current = true;
       setIsSubmitting(true);
-      const orderId = generateOrderId();
+      const sanitizedOpCode = sanitizeText(operationCode, 50);
+      const effectivePaymentTiming = (paymentMethod === 'Efectivo' || paymentMethod === 'Tarjeta') ? 'Al llegar' : paymentTiming;
+      const submissionFingerprint = JSON.stringify({
+        cart,
+        name: finalName,
+        phone: finalPhone,
+        address: finalAddress,
+        orderType,
+        tableNumber: activeMesaNumber,
+        paymentMethod,
+        paymentTiming: effectivePaymentTiming,
+        operationCode: sanitizedOpCode,
+        total,
+      });
+      if (!pendingSubmissionRef.current || pendingSubmissionRef.current.fingerprint !== submissionFingerprint || !/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(pendingSubmissionRef.current.key)) {
+        pendingSubmissionRef.current = {
+          id: generateOrderId(),
+          key: globalThis.crypto.randomUUID(),
+          fingerprint: submissionFingerprint,
+        };
+        checkoutStorage.setItem('pending_order_submission', JSON.stringify(pendingSubmissionRef.current));
+      }
+      const orderId = pendingSubmissionRef.current.id;
       const newOrder = {
         id: orderId,
+        submissionKey: pendingSubmissionRef.current.key,
         customer: { 
           name: finalName, 
           phone: finalPhone, 
           address: finalAddress, 
           paymentMethod,
+          paymentTiming: effectivePaymentTiming,
+          operationCode: sanitizedOpCode || undefined,
           orderType,
           tableNumber: activeMesaNumber
         },
@@ -238,7 +312,7 @@ export default function Cart({
       }).join('\n');
 
       const couponLine = appliedCoupon ? `\n*Cupón:* ${appliedCoupon.code} (-S/. ${discount.toFixed(2)})` : '';
-      let destLine = `*Dirección:* ${address}`;
+      let destLine = `*Dirección:* ${finalAddress}`;
       if (orderType === 'Mesa') {
         destLine = `*Mesa:* ${activeMesaNumber} (Consumo Local)`;
       } else if (orderType === 'Mesa_Llevar') {
@@ -248,15 +322,16 @@ export default function Cart({
       } else if (orderType === 'Llevar') {
         destLine = `*Pedido:* Recojo en Tienda / Llevar`;
       }
-      const trackerLink = `\n\n*Sigue tu pedido en vivo aquí:*\n${window.location.origin}${window.location.pathname}?track=${orderId}`;
-      const whatsappMessage = `${whatsappGreeting}\n\n*Código:* ${orderId}\n*Cliente:* ${finalName}\n${destLine}\n*WhatsApp:* ${finalPhone}\n*Pago:* ${paymentMethod}\n\n*Pedido:*\n${itemsText}\n\n*Subtotal:* S/. ${cartSubtotal.toFixed(2)}${couponLine}\n*Delivery:* S/. ${activeDeliveryFee.toFixed(2)}\n*Total:* S/. ${total.toFixed(2)}${trackerLink}\n\n${whatsappFooter}`;
+      const opCodeLine = sanitizedOpCode ? `\n*N° Operación (${paymentMethod}):* ${sanitizedOpCode}` : '';
+      const trackerLink = `\n\n*Sigue tu pedido en vivo aquí:*\n${window.location.origin}${window.location.pathname}?track=${encodeURIComponent(orderId)}&token=${encodeURIComponent(newOrder.submissionKey)}`;
+      const whatsappMessage = `${whatsappGreeting}\n\n*Código:* ${orderId}\n*Cliente:* ${finalName}\n${destLine}\n*WhatsApp:* ${finalPhone}\n*Pago:* ${paymentMethod} · ${effectivePaymentTiming}${opCodeLine}\n\n*Pedido:*\n${itemsText}\n\n*Subtotal:* S/. ${cartSubtotal.toFixed(2)}${couponLine}\n*Delivery:* S/. ${activeDeliveryFee.toFixed(2)}\n*Total:* S/. ${total.toFixed(2)}${trackerLink}\n\n${whatsappFooter}`;
       
-      const encodedText = encodeURIComponent(whatsappMessage);
-      const cleanPhone = String(storePhone || '').replace(/\D/g, ''); // Limpiar caracteres no numéricos
-      const whatsappUrl = `https://wa.me/${cleanPhone}?text=${encodedText}`;
+      const whatsappUrl = buildWhatsAppHref(storePhone, whatsappMessage);
 
       // Registrar pedido en la base de datos (y esperar a que finalice la sincronización en Supabase)
       await onPlaceOrder(newOrder);
+      pendingSubmissionRef.current = null;
+      checkoutStorage.removeItem('pending_order_submission');
 
        // Track purchase event
        if (trackEvent) {
@@ -268,19 +343,36 @@ export default function Cart({
          });
        }
   
-       // Redirigir a WhatsApp del local si el cliente lo prefiere
-       if (sendToWhatsApp) {
+       // Redirigir a WhatsApp del local si el cliente lo prefiere y la config lo permite
+       const whatsappGlobalEnabled = shopConfig?.whatsappEnabled !== false;
+       if (sendToWhatsApp && whatsappGlobalEnabled && whatsappUrl) {
          const waWindow = window.open(whatsappUrl, '_blank', 'noopener,noreferrer');
          if (waWindow) waWindow.opener = null;
        }
+
+       if (setView) {
+         setView('tracker');
+       }
         
         // Permitimos volver a enviar después de abrir WhatsApp por si acaso
-        setTimeout(() => setIsSubmitting(false), 2000);
+        setTimeout(() => { submittingRef.current = false; setIsSubmitting(false); }, 2000);
     } catch (err) {
       console.error("Fallo al enviar pedido:", err);
-      alert("⚠️ Lo sentimos, ocurrió un error al estructurar el pedido. Vuelve a intentarlo.");
+      alert(`⚠️ ${err?.message || 'No se pudo confirmar el pedido. Conservamos tu carrito para que vuelvas a intentarlo.'}`);
       setIsSubmitting(false);
+      submittingRef.current = false;
     }
+  };
+
+  const handleProceedToSubmit = (e) => {
+    e.preventDefault();
+    if (isSubmitting || !shopOpen) return;
+    const hasCustomItems = cart.some(item => item.type === 'custom');
+    if (hasCustomItems && !showValidationModal) {
+      setShowValidationModal(true);
+      return;
+    }
+    handleSubmit(e);
   };
 
   const handleAddRandomScoop = () => {
@@ -322,29 +414,63 @@ export default function Cart({
 
   const renderItemDetails = (item) => {
     if (item.type === 'custom') {
-      const scoopsText = item.scoops.map(s => typeof s === 'string' ? s : s.name).join(', ');
-      const toppingsText = item.toppings.map(t => typeof t === 'string' ? t : t.name).join(', ');
-      const syrupText = item.syrup ? item.syrup.name : '';
+      const scoopsText = (item.scoops || []).map(s => typeof s === 'string' ? s : s?.name).filter(Boolean).join(', ');
+      const toppingsText = (item.toppings || []).map(t => typeof t === 'string' ? t : t?.name).filter(Boolean).join(', ');
+      const syrupText = item.syrup ? (typeof item.syrup === 'string' ? item.syrup : item.syrup?.name) : '';
       
       return (
         <span style={{ fontSize: '0.8rem', color: 'var(--text-light)', display: 'block', marginTop: '4px' }}>
-          Base: {item.base.name} <br />
-          Sabores: {scoopsText}
+          {item.base?.name && <>Base: {item.base.name} <br /></>}
+          {scoopsText && <>Sabores: {scoopsText}</>}
           {toppingsText && <><br />Toppings: {toppingsText}</>}
           {syrupText && <><br />Salsa: {syrupText}</>}
         </span>
       );
     } else if (item.type === 'liter') {
-      const scoopsText = item.scoops.map(s => typeof s === 'string' ? s : s.name).join(', ');
+      const scoopsText = (item.scoops || []).map(s => typeof s === 'string' ? s : s?.name).filter(Boolean).join(', ');
       return (
         <span style={{ fontSize: '0.8rem', color: 'var(--text-light)', display: 'block', marginTop: '4px' }}>
           🏺 Pote de 1 Litro <br />
           Sabores: {scoopsText}
         </span>
       );
+    } else if (item.type === 'extra') {
+      return (
+        <span style={{ fontSize: '0.8rem', color: 'var(--text-light)', display: 'block', marginTop: '4px' }}>
+          Topping / Agregado especial 🍨
+        </span>
+      );
     }
     return null;
   };
+
+  if (!cart || cart.length === 0) {
+    return (
+      <div className="cart-container">
+        <div style={{ marginBottom: '15px', display: 'flex', alignItems: 'center', gap: '10px' }}>
+          <button className="btn btn-secondary" style={{ padding: '6px 12px', fontSize: '0.85rem' }} onClick={() => setView('shop')}>
+            ← Tienda
+          </button>
+          <h2 style={{ fontSize: '1.5rem' }}>Mi Carrito</h2>
+        </div>
+        <div className="cart-empty" style={{ textAlign: 'center', padding: '50px 20px', background: 'var(--bg-secondary)', borderRadius: '16px', border: '1px dashed var(--border-color)' }}>
+          <div style={{ fontSize: '3rem', marginBottom: '12px' }}>🛒</div>
+          <h3 style={{ fontSize: '1.25rem', marginBottom: '8px' }}>Tu carrito está vacío</h3>
+          <p style={{ color: 'var(--text-light)', fontSize: '0.9rem', marginBottom: '20px' }}>
+            Aún no has agregado ningún helado o producto a tu pedido.
+          </p>
+          <button
+            type="button"
+            className="btn btn-primary"
+            style={{ padding: '12px 24px', fontSize: '1rem', fontWeight: 700 }}
+            onClick={() => setView('shop')}
+          >
+            Ver la carta
+          </button>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="cart-container">
@@ -357,35 +483,71 @@ export default function Cart({
 
       {/* 💰 BARRA DE PROGRESO DE ENVÍO GRATIS DINÁMICA */}
       {freeDeliveryEnabled && freeDeliveryThreshold > 0 && !tableNumber && (
-        <div className="glass" style={{ padding: '12px', marginBottom: '15px', borderLeft: `5px solid ${isFreeDelivery ? 'var(--success)' : 'var(--warning)'}` }}>
+        <div className="glass free-delivery-card" style={{
+          padding: '14px',
+          marginBottom: '16px',
+          borderRadius: '14px',
+          border: isFreeDelivery ? '2px solid var(--success)' : '1px solid var(--border-color)',
+          background: isFreeDelivery 
+            ? 'linear-gradient(135deg, rgba(46, 204, 113, 0.14) 0%, rgba(46, 204, 113, 0.04) 100%)' 
+            : 'linear-gradient(135deg, rgba(255, 107, 129, 0.08) 0%, rgba(255, 160, 0, 0.05) 100%)',
+          boxShadow: isFreeDelivery ? '0 4px 15px rgba(46, 204, 113, 0.15)' : 'none'
+        }}>
           {isFreeDelivery ? (
-            <div>
-              <span style={{ fontSize: '1rem' }}>🎉 <strong>¡Tienes Delivery Gratis!</strong></span>
-              <p style={{ fontSize: '0.8rem', color: 'var(--text-light)', marginTop: '2px' }}>Has superado el monto mínimo de S/. {freeDeliveryThreshold.toFixed(2)}.</p>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+              <span style={{ fontSize: '2.2rem' }}>🎉</span>
+              <div>
+                <strong style={{ fontSize: '1rem', color: 'var(--success)', display: 'block' }}>
+                  ¡Genial! Calificas para DELIVERY GRATIS
+                </strong>
+                <p style={{ fontSize: '0.8rem', color: 'var(--text-light)', marginTop: '2px', margin: 0 }}>
+                  Has superado los S/. {freeDeliveryThreshold.toFixed(2)}. ¡Tu envío corre por cuenta de la casa!
+                </p>
+              </div>
             </div>
           ) : (
             <div>
-              <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.8rem', fontWeight: 'bold' }}>
-                <span>🚚 Envío Gratis desde S/. {freeDeliveryThreshold.toFixed(2)}</span>
-                <span style={{ color: 'var(--primary-color)' }}>Falta S/. {missingForFreeDelivery.toFixed(2)}</span>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', fontSize: '0.85rem' }}>
+                <span style={{ fontWeight: 700, color: 'var(--text-dark)' }}>
+                  🛵 Delivery Gratis desde S/. {freeDeliveryThreshold.toFixed(2)}
+                </span>
+                <span style={{ color: 'var(--primary-color)', fontWeight: 800 }}>
+                  ¡Falta solo S/. {missingForFreeDelivery.toFixed(2)}!
+                </span>
               </div>
-              <div style={{ width: '100%', height: '6px', background: 'var(--border-color)', borderRadius: '3px', marginTop: '6px', overflow: 'hidden' }}>
-                <div style={{ width: `${Math.min(100, (cartSubtotal / freeDeliveryThreshold) * 100)}%`, height: '100%', background: 'var(--primary-color)', transition: 'width 0.4s ease' }}></div>
+
+              <div style={{
+                width: '100%',
+                height: '8px',
+                background: 'var(--border-color)',
+                borderRadius: '6px',
+                marginTop: '8px',
+                overflow: 'hidden'
+              }}>
+                <div style={{
+                  width: `${Math.min(100, (cartSubtotal / freeDeliveryThreshold) * 100)}%`,
+                  height: '100%',
+                  background: 'linear-gradient(90deg, var(--primary-color), #ffa502)',
+                  borderRadius: '6px',
+                  transition: 'width 0.4s ease'
+                }}></div>
               </div>
               
-              <div style={{ marginTop: '8px', display: 'flex', gap: '8px' }}>
+              <div style={{ marginTop: '10px', display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
                 <button 
+                  type="button"
                   onClick={handleAddRandomScoop}
                   className="btn btn-secondary" 
-                  style={{ padding: '6px 10px', fontSize: '0.75rem', flex: 1 }}
+                  style={{ padding: '6px 12px', fontSize: '0.75rem', flex: '1 1 120px' }}
                 >
-                  🎲 Sorpréndeme
+                  🎲 + Bola Sorpresa
                 </button>
                 {cartRecommendedPack && !cart.some(i => i.id === (cartRecommendedPack.id || 'pack_pareja')) && (
                   <button 
+                    type="button"
                     onClick={handleAddSuggestedPack}
                     className="btn btn-primary animate-pulse" 
-                    style={{ padding: '6px 10px', fontSize: '0.75rem', flex: 1 }}
+                    style={{ padding: '6px 12px', fontSize: '0.75rem', flex: '1 1 140px' }}
                   >
                     🎁 Añadir Combo Sugerido
                   </button>
@@ -412,13 +574,13 @@ export default function Cart({
 
               <div className="cart-item-actions" style={{ flexDirection: 'column', alignItems: 'flex-end', gap: '4px' }}>
                 <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-                  <button className="qty-btn" disabled={!shopOpen} onClick={() => shopOpen && onUpdateQuantity(index, item.quantity - 1)} style={{ width: '24px', height: '24px', fontSize: '0.8rem', opacity: !shopOpen ? 0.5 : 1, cursor: !shopOpen ? 'not-allowed' : 'pointer' }}>-</button>
+                  <button className="qty-btn" disabled={!shopOpen} onClick={() => shopOpen && onUpdateQuantity(index, item.quantity - 1)} style={{ width: '24px', height: '24px', fontSize: '0.8rem', opacity: !shopOpen ? 0.5 : 1, cursor: !shopOpen ? 'not-allowed' : 'pointer' }} aria-label={`Quitar una unidad de ${item.name}`}>-</button>
                   <span style={{ fontWeight: 700, minWidth: '15px', textAlign: 'center', fontSize: '0.85rem' }}>{item.quantity}</span>
-                  <button className="qty-btn" disabled={!shopOpen} onClick={() => shopOpen && onUpdateQuantity(index, item.quantity + 1)} style={{ width: '24px', height: '24px', fontSize: '0.8rem', opacity: !shopOpen ? 0.5 : 1, cursor: !shopOpen ? 'not-allowed' : 'pointer' }}>+</button>
+                  <button className="qty-btn" aria-label={`Agregar una unidad de ${item.name}`} disabled={!shopOpen || item.quantity >= 99} onClick={() => shopOpen && onUpdateQuantity(index, item.quantity + 1)} style={{ width: '24px', height: '24px', fontSize: '0.8rem', opacity: (!shopOpen || item.quantity >= 99) ? 0.5 : 1, cursor: (!shopOpen || item.quantity >= 99) ? 'not-allowed' : 'pointer' }}>+</button>
                 </div>
                 <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
                   <span style={{ fontWeight: 600, fontSize: '0.9rem' }}>S/. {(item.price * item.quantity).toFixed(2)}</span>
-                  <button className="remove-btn" disabled={!shopOpen} onClick={() => shopOpen && onRemoveFromCart(index)} style={{ padding: '2px', fontSize: '0.9rem', opacity: !shopOpen ? 0.5 : 1, cursor: !shopOpen ? 'not-allowed' : 'pointer' }}>🗑️</button>
+                  <button className="remove-btn" aria-label={`Eliminar ${item.name}`} title={`Eliminar ${item.name}`} disabled={!shopOpen} onClick={() => shopOpen && onRemoveFromCart(index)} style={{ padding: '2px', fontSize: '0.9rem', opacity: !shopOpen ? 0.5 : 1, cursor: !shopOpen ? 'not-allowed' : 'pointer' }}>🗑️</button>
                 </div>
               </div>
             </div>
@@ -442,6 +604,59 @@ export default function Cart({
               </button>
             </div>
           )}
+
+          {/* Venta Cruzada por Impulso (Toppings y Agregados Rápidos) */}
+          <div className="glass-card impulse-cross-sells" style={{
+            padding: '12px',
+            marginTop: '10px',
+            borderRadius: 'var(--radius-md)',
+            background: 'linear-gradient(135deg, rgba(255, 107, 129, 0.05) 0%, rgba(255, 160, 0, 0.03) 100%)',
+            border: '1px solid rgba(255, 107, 129, 0.2)'
+          }}>
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '8px' }}>
+              <span style={{ fontSize: '0.82rem', fontWeight: 700, color: 'var(--text-dark)', display: 'flex', alignItems: 'center', gap: '5px' }}>
+                <span>🧁</span> Añade un toque especial a tu helado
+              </span>
+              <span style={{ fontSize: '0.68rem', color: 'var(--text-light)' }}>1-toque</span>
+            </div>
+            <div style={{ display: 'flex', gap: '6px', overflowX: 'auto', paddingBottom: '4px', scrollbarWidth: 'none' }}>
+              {IMPULSE_ITEMS.map(imp => {
+                const inCart = cart.find(i => i.id === imp.id);
+                return (
+                  <button
+                    key={imp.id}
+                    type="button"
+                    disabled={!shopOpen}
+                    onClick={() => handleAddImpulseItem(imp)}
+                    className="impulse-chip"
+                    style={{
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: '5px',
+                      padding: '6px 10px',
+                      borderRadius: '20px',
+                      border: inCart ? '1.5px solid var(--success)' : '1px solid var(--border-color)',
+                      background: inCart ? 'rgba(46, 204, 113, 0.1)' : 'var(--bg-secondary)',
+                      cursor: shopOpen ? 'pointer' : 'not-allowed',
+                      whiteSpace: 'nowrap',
+                      fontSize: '0.74rem',
+                      color: 'var(--text-dark)',
+                      transition: 'all 0.2s ease',
+                      flexShrink: 0
+                    }}
+                    title={`Agregar ${imp.name}`}
+                  >
+                    <span>{imp.icon}</span>
+                    <span>{imp.name}</span>
+                    <strong style={{ color: 'var(--primary-color)', marginLeft: '2px' }}>
+                      +S/. {imp.price.toFixed(2)}
+                    </strong>
+                    {inCart && <span style={{ fontSize: '0.68rem', color: 'var(--success)', fontWeight: 700 }}>({inCart.quantity})</span>}
+                  </button>
+                );
+              })}
+            </div>
+          </div>
         </div>
 
         {/* Formulario Exprés */}
@@ -494,7 +709,7 @@ export default function Cart({
             </div>
           )}
           
-          <form className="checkout-form" onSubmit={handleSubmit} style={{ gap: '10px', marginTop: '10px' }}>
+          <form className="checkout-form" onSubmit={handleProceedToSubmit} style={{ gap: '10px', marginTop: '10px' }}>
             
             {tableOrdersEnabled && (
               <div className="form-group">
@@ -658,36 +873,123 @@ export default function Cart({
 
             <div className="form-group">
               <label style={{ fontSize: '0.8rem' }}>Forma de Pago</label>
-              <div className="payment-options" style={{ gap: '6px' }}>
-                <button
-                  type="button"
-                  className={`payment-btn ${paymentMethod === 'Yape' ? 'selected' : ''}`}
-                  onClick={() => shopOpen && setPaymentMethod('Yape')}
-                  style={{ fontSize: '0.75rem', padding: '6px', opacity: !shopOpen ? 0.5 : 1, cursor: !shopOpen ? 'not-allowed' : 'pointer' }}
-                  disabled={!shopOpen}
-                >
-                  📱 Yape
-                </button>
-                <button
-                  type="button"
-                  className={`payment-btn ${paymentMethod === 'Plin' ? 'selected' : ''}`}
-                  onClick={() => shopOpen && setPaymentMethod('Plin')}
-                  style={{ fontSize: '0.75rem', padding: '6px', opacity: !shopOpen ? 0.5 : 1, cursor: !shopOpen ? 'not-allowed' : 'pointer' }}
-                  disabled={!shopOpen}
-                >
-                  💸 Plin
-                </button>
-                <button
-                  type="button"
-                  className={`payment-btn ${paymentMethod === 'Efectivo' ? 'selected' : ''}`}
-                  onClick={() => shopOpen && setPaymentMethod('Efectivo')}
-                  style={{ fontSize: '0.75rem', padding: '6px', opacity: !shopOpen ? 0.5 : 1, cursor: !shopOpen ? 'not-allowed' : 'pointer' }}
-                  disabled={!shopOpen}
-                >
-                  💵 Efectivo
-                </button>
+              <div className="payment-options" style={{ gap: '6px', flexWrap: 'wrap' }}>
+                {enabledPaymentMethods.map(method => (
+                  <button
+                    key={method}
+                    type="button"
+                    className={`payment-btn ${paymentMethod === method ? 'selected' : ''}`}
+                    aria-pressed={paymentMethod === method}
+                    onClick={() => shopOpen && setPaymentMethod(method)}
+                    style={{ fontSize: '0.75rem', padding: '6px', opacity: !shopOpen ? 0.5 : 1, cursor: !shopOpen ? 'not-allowed' : 'pointer' }}
+                    disabled={!shopOpen}
+                  >
+                    {method === 'Yape' ? '📱 Yape' : method === 'Plin' ? '💸 Plin' : method === 'Efectivo' ? '💵 Efectivo' : method === 'Transferencia' ? '🏦 Transferencia' : '💳 Tarjeta'}
+                  </button>
+                ))}
               </div>
+              {!enabledPaymentMethods.length && <p role="alert" style={{ fontSize: '0.875rem', margin: '8px 0', color: 'var(--danger)' }}>No hay métodos de pago disponibles. Intenta más tarde.</p>}
+              {paymentMethod === 'Tarjeta' && <p style={{ fontSize: '0.875rem', margin: '8px 0', color: 'var(--text-light)' }}>Pago con tarjeta al recibir el pedido, mediante POS.</p>}
+              {isDigitalPayment && (
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '6px', marginTop: '10px' }}>
+                  <button type="button" className={`payment-btn ${paymentTiming === 'Al llegar' ? 'selected' : ''}`} aria-pressed={paymentTiming === 'Al llegar'} onClick={() => setPaymentTiming('Al llegar')}>
+                    🛵 Pagar al llegar
+                  </button>
+                  <button type="button" className={`payment-btn ${paymentTiming === 'Anticipado' ? 'selected' : ''}`} aria-pressed={paymentTiming === 'Anticipado'} onClick={() => setPaymentTiming('Anticipado')}>
+                    ✅ Pagar ahora
+                  </button>
+                </div>
+              )}
             </div>
+
+            {/* Cajón Interactivo para Pago Digital (Yape / Plin) */}
+            {(paymentMethod === 'Yape' || paymentMethod === 'Plin') && paymentTiming === 'Anticipado' && (
+              <div className="payment-drawer-card" style={{
+                marginTop: '10px',
+                padding: '12px 14px',
+                borderRadius: '12px',
+                background: paymentMethod === 'Yape'
+                  ? 'linear-gradient(135deg, rgba(116, 34, 132, 0.08) 0%, rgba(116, 34, 132, 0.02) 100%)'
+                  : 'linear-gradient(135deg, rgba(0, 168, 150, 0.08) 0%, rgba(0, 168, 150, 0.02) 100%)',
+                border: `1.5px solid ${paymentMethod === 'Yape' ? '#742284' : '#00a896'}`,
+              }}>
+                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '8px' }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                    <span style={{ fontSize: '1.2rem' }}>{paymentMethod === 'Yape' ? '📱' : '💸'}</span>
+                    <strong style={{ fontSize: '0.85rem', color: paymentMethod === 'Yape' ? '#742284' : '#00a896' }}>
+                      Paga con {paymentMethod} a:
+                    </strong>
+                  </div>
+                  <span style={{
+                    fontSize: '0.7rem',
+                    fontWeight: 'bold',
+                    padding: '2px 8px',
+                    borderRadius: '10px',
+                    background: paymentMethod === 'Yape' ? '#742284' : '#00a896',
+                    color: '#fff'
+                  }}>
+                    {storeName || 'Friozo Helados'}
+                  </span>
+                </div>
+
+                <div style={{
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'space-between',
+                  background: 'var(--bg-secondary)',
+                  padding: '8px 12px',
+                  borderRadius: '8px',
+                  border: '1px dashed var(--border-color)',
+                  marginBottom: '10px'
+                }}>
+                  <div>
+                    <span style={{ fontSize: '0.7rem', color: 'var(--text-light)', display: 'block' }}>Número oficial:</span>
+                    <strong style={{ fontSize: '1.05rem', letterSpacing: '0.5px' }}>
+                      {formatPhoneDisplay(storePhone || '987654321')}
+                    </strong>
+                  </div>
+                  <button
+                    type="button"
+                    className="btn btn-secondary"
+                    onClick={handleCopyStorePhone}
+                    style={{
+                      fontSize: '0.75rem',
+                      padding: '5px 10px',
+                      borderRadius: '6px',
+                      borderColor: paymentMethod === 'Yape' ? '#742284' : '#00a896',
+                      color: paymentMethod === 'Yape' ? '#742284' : '#00a896',
+                      cursor: 'pointer'
+                    }}
+                  >
+                    {copiedPhone ? '✅ ¡Copiado!' : '📋 Copiar'}
+                  </button>
+                </div>
+
+                {showOpCodeField && (
+                  <div>
+                    <label style={{ fontSize: '0.78rem', fontWeight: 600, display: 'block', marginBottom: '4px' }}>
+                      🔢 N° de Operación {paymentMethod}{requireOpCode ? ' *' : ' (Opcional - Acelera tu pedido)'}:
+                    </label>
+                    <input
+                      type="text"
+                      className="form-control"
+                      placeholder="Ej. 123456 (Últimos dígitos de tu comprobante)"
+                      value={operationCode}
+                      onChange={(e) => setOperationCode(e.target.value.replace(/[^0-9A-Za-z]/g, ''))}
+                      style={{ padding: '7px 10px', fontSize: '0.82rem', fontFamily: 'monospace' }}
+                      maxLength={12}
+                      disabled={!shopOpen}
+                      required={requireOpCode}
+                    />
+                    <span style={{ fontSize: '0.68rem', color: 'var(--text-light)', display: 'block', marginTop: '3px' }}>
+                      {requireOpCode
+                        ? '⚠️ Este campo es obligatorio para procesar tu pedido.'
+                        : '💡 Si aún no has pagado, puedes confirmarlo ahora y adjuntar la captura al WhatsApp.'}
+                    </span>
+                  </div>
+                )}
+              </div>
+            )}
 
             {/* Campo de Cupón de Descuento */}
             <div className="form-group" style={{ borderTop: '1px solid var(--border-color)', paddingTop: '10px', marginTop: '10px' }}>
@@ -778,10 +1080,33 @@ export default function Cart({
             <button 
               type="submit" 
               className="btn btn-primary" 
-              style={{ width: '100%', marginTop: '10px', padding: '10px', fontSize: '0.9rem', opacity: (isSubmitting || !shopOpen) ? 0.6 : 1, cursor: (isSubmitting || !shopOpen) ? 'not-allowed' : 'pointer' }}
-              disabled={isSubmitting || !shopOpen}
+              style={{ 
+                width: '100%', 
+                marginTop: '10px', 
+                padding: '12px', 
+                fontSize: '0.95rem', 
+                fontWeight: 700,
+                opacity: (isSubmitting || !shopOpen) ? 0.6 : 1, 
+                cursor: (isSubmitting || !shopOpen) ? 'not-allowed' : 'pointer',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                gap: '8px'
+              }}
+              disabled={isSubmitting || !shopOpen || !paymentMethod}
             >
-              {!shopOpen ? '🔒 Tienda Cerrada (Fuera de Horario)' : isSubmitting ? '⏳ Procesando Pedido...' : '🚀 Confirmar y Enviar Pedido'}
+              {!shopOpen ? (
+                '🔒 Tienda Cerrada (Fuera de Horario)'
+              ) : isSubmitting ? (
+                <>
+                  <span aria-hidden="true">⏳</span>
+                  <span>Asegurando tu pedido...</span>
+                </>
+              ) : !paymentMethod ? (
+                'Confirmar pedido'
+              ) : (
+                `Confirmar pedido · S/. ${total.toFixed(2)}`
+              )}
             </button>
           </form>
         </div>
@@ -791,25 +1116,43 @@ export default function Cart({
       {showValidationModal && (
         <div style={{
           position: 'fixed', top: 0, left: 0, right: 0, bottom: 0,
-          backgroundColor: 'rgba(0, 0, 0, 0.75)',
+          backgroundColor: 'rgba(0, 0, 0, 0.87)',
           display: 'flex', alignItems: 'center', justifyContent: 'center',
-          zIndex: 100000, padding: '20px', backdropFilter: 'blur(5px)'
+          zIndex: 100000, padding: '20px', backdropFilter: 'blur(8px)',
+          WebkitBackdropFilter: 'blur(8px)'
         }}>
-          <div className="glass" style={{
-            background: 'var(--bg-color)',
-            borderRadius: '24px', padding: '24px', width: '100%', maxWidth: '450px',
-            maxHeight: '90vh', overflowY: 'auto', textAlign: 'center'
+          <div style={{
+            background: 'var(--bg-primary, #ffffff)',
+            color: 'var(--text-dark, #1e293b)',
+            borderRadius: '24px', 
+            padding: '28px', 
+            width: '100%', 
+            maxWidth: '460px',
+            maxHeight: '90vh', 
+            overflowY: 'auto', 
+            textAlign: 'center',
+            boxShadow: '0 30px 80px -10px rgba(0, 0, 0, 0.75)',
+            border: '1.5px solid var(--border-color)'
           }}>
-            <h3 style={{ fontSize: '1.4rem', color: 'var(--primary-color)', marginBottom: '10px' }}>🔍 Verifica tu diseño</h3>
-            <p style={{ fontSize: '0.9rem', color: 'var(--text-light)', marginBottom: '15px' }}>
-              Asegúrate de haber elegido todos los sabores y toppings que deseas antes de enviarlo.
+            <div style={{ fontSize: '2.2rem', marginBottom: '8px' }}>🔍</div>
+            <h3 style={{ fontSize: '1.4rem', color: 'var(--primary-color)', margin: '0 0 8px 0', fontFamily: 'var(--font-title)', fontWeight: 800 }}>
+              Verifica tu diseño
+            </h3>
+            <p style={{ fontSize: '0.88rem', color: 'var(--text-dark)', opacity: 0.85, margin: '0 0 16px 0', lineHeight: 1.45 }}>
+              Asegúrate de haber elegido todos los sabores y toppings que deseas antes de confirmarlo.
             </p>
             
-            <div style={{ display: 'flex', flexDirection: 'column', gap: '15px', marginBottom: '20px' }}>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '14px', marginBottom: '20px' }}>
               {cart.filter(item => item.type === 'custom').map((item, idx) => (
-                <div key={idx} style={{ border: '1px solid var(--border-color)', borderRadius: '12px', padding: '10px' }}>
-                  <strong style={{ fontSize: '0.9rem', display: 'block', marginBottom: '8px' }}>{item.name}</strong>
-                  <div style={{ width: '120px', height: '160px', margin: '0 auto' }}>
+                <div key={idx} style={{ 
+                  background: 'var(--bg-secondary, #f8fafc)',
+                  border: '1px solid var(--border-color)', 
+                  borderRadius: '16px', 
+                  padding: '16px',
+                  boxShadow: '0 2px 8px rgba(0,0,0,0.05)'
+                }}>
+                  <strong style={{ fontSize: '0.95rem', display: 'block', marginBottom: '10px', color: 'var(--text-dark)' }}>{item.name}</strong>
+                  <div style={{ width: '130px', height: '170px', margin: '0 auto' }}>
                     <DessertPreview 
                       base={item.base}
                       scoops={item.scoops}
@@ -817,10 +1160,20 @@ export default function Cart({
                       syrup={item.syrup}
                     />
                   </div>
-                  <div style={{ fontSize: '0.8rem', color: 'var(--text-light)', marginTop: '8px' }}>
-                    Sabores: {item.scoops.map(s => typeof s === 'string' ? s : s.name).join(', ')}<br/>
-                    {item.toppings.length > 0 && <>Toppings: {item.toppings.map(t => typeof t === 'string' ? t : t.name).join(', ')}<br/></>}
-                    {item.syrup && <>Salsa: {item.syrup.name}</>}
+                  <div style={{ 
+                    fontSize: '0.82rem', 
+                    color: 'var(--text-dark)', 
+                    marginTop: '12px', 
+                    textAlign: 'left', 
+                    lineHeight: 1.5, 
+                    background: 'var(--bg-primary, #ffffff)', 
+                    padding: '10px 12px', 
+                    borderRadius: '10px', 
+                    border: '1px solid var(--border-color)' 
+                  }}>
+                    <div><strong>🍨 Sabores:</strong> {item.scoops.map(s => typeof s === 'string' ? s : s.name).join(', ')}</div>
+                    {item.toppings.length > 0 && <div style={{ marginTop: '3px' }}><strong>✨ Toppings:</strong> {item.toppings.map(t => typeof t === 'string' ? t : t.name).join(', ')}</div>}
+                    {item.syrup && <div style={{ marginTop: '3px' }}><strong>🍫 Salsa:</strong> {item.syrup.name}</div>}
                   </div>
                 </div>
               ))}
@@ -828,21 +1181,42 @@ export default function Cart({
 
             <div style={{ display: 'flex', gap: '10px', flexDirection: 'column' }}>
               <button 
+                type="button"
                 className="btn btn-primary"
                 onClick={(e) => {
                   setShowValidationModal(false);
                   handleSubmit(e);
                 }}
-                style={{ padding: '12px', fontSize: '1rem', width: '100%' }}
+                style={{ 
+                  padding: '14px', 
+                  fontSize: '1rem', 
+                  fontWeight: 700, 
+                  width: '100%',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  gap: '8px',
+                  boxShadow: '0 4px 12px rgba(255, 71, 87, 0.35)'
+                }}
+                disabled={isSubmitting}
               >
-                ✅ Sí, ¡es lo que quiero!
+                <span>✅ Sí, ¡es lo que quiero!</span>
+                <span style={{ opacity: 0.9 }}>• S/. {total.toFixed(2)}</span>
               </button>
               <button 
+                type="button"
                 className="btn btn-secondary"
                 onClick={() => setShowValidationModal(false)}
-                style={{ padding: '10px', fontSize: '0.9rem', width: '100%', backgroundColor: 'transparent', color: 'var(--text-light)' }}
+                style={{ 
+                  padding: '11px', 
+                  fontSize: '0.9rem', 
+                  width: '100%', 
+                  background: 'var(--bg-secondary, #f1f5f9)', 
+                  color: 'var(--text-dark, #334155)',
+                  border: '1px solid var(--border-color)' 
+                }}
               >
-                ✏️ Corregir / Volver
+                ✏️ Corregir / Volver al carrito
               </button>
             </div>
           </div>
