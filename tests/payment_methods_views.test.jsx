@@ -23,7 +23,8 @@ test('checkout offers only active methods, selects card fallback and blocks when
     const props = { cart: [{ id: 'pack', type: 'pack', name: 'Helado', price: 10, quantity: 1 }], deliveryFee: 0 };
     const html = renderToStaticMarkup(<Cart {...props} shopConfig={{ paymentMethods: cardOnly }} />);
     assert.ok(html.includes('Pago con tarjeta al recibir el pedido, mediante POS'));
-    assert.equal((html.match(/class="payment-btn/g) || []).length, 1);
+    const paymentOptions = html.match(/<div class="payment-options"[^>]*>(.*?)<\/div>/s)?.[1] || '';
+    assert.equal((paymentOptions.match(/class="payment-btn/g) || []).length, 1);
     assert.ok(html.includes('aria-pressed="true"'));
     const empty = renderToStaticMarkup(<Cart {...props} shopConfig={{ paymentMethods: { ...cardOnly, Tarjeta: false } }} />);
     assert.ok(empty.includes('No hay métodos de pago disponibles'));

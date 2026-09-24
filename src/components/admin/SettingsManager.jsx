@@ -8,6 +8,8 @@ import PromotionEditor from './PromotionEditor';
 import { DEFAULT_PROMOTION, DEFAULT_POPUP_PROMOTION, DEFAULT_WEB_PROMOTION, normalizePromotion, validatePromotion } from '../../utils/promotion';
 import { sendDailySalesReportToTelegram } from '../../utils/telegramDailyReport';
 import { mergeOrders } from '../../utils/orderLifecycle';
+import { isGoogleMeasurementId } from '../../utils/commerceAnalytics';
+import SettingsOverview from './SettingsOverview';
 
 const sanitizeUrlToHTTPS = (url) => {
   if (typeof url !== 'string') return '';
@@ -60,7 +62,8 @@ export default function SettingsManager({
   testimonials, onUpdateTestimonials,
   storeHeroImage, onChangeStoreHeroImage,
   metaPixelId, onChangeMetaPixelId,
-  googleAnalyticsId, onChangeGoogleAnalyticsId
+  googleAnalyticsId, onChangeGoogleAnalyticsId,
+  onOpenAnalytics
 }) {
   // --- Estados Locales para Ajustes (Evita lags en el dashboard completo al escribir) ---
   const [localStoreName, setLocalStoreName] = useState(storeName);
@@ -198,6 +201,14 @@ export default function SettingsManager({
   }, [literConfig]);
 
   const handleSaveSettings = () => {
+    if ([localShopConfig.tableOrdersEnabled, localShopConfig.barOrdersEnabled, localShopConfig.deliveryOrdersEnabled].every(value => value === false)) {
+      alert('Activa al menos un canal de venta: mesas, barra o delivery.');
+      return;
+    }
+    if (localGoogleAnalyticsId.trim() && !isGoogleMeasurementId(localGoogleAnalyticsId)) {
+      alert('El ID de Google Analytics debe tener el formato G- seguido de letras y números.');
+      return;
+    }
     const promotion = normalizePromotion(localShopConfig.promotion);
     const promotionError = validatePromotion({ ...DEFAULT_PROMOTION, ...localShopConfig.promotion });
     if (promotionError) { alert(promotionError); return; }
@@ -219,7 +230,7 @@ export default function SettingsManager({
     if (onChangeWhatsappContactMessage) onChangeWhatsappContactMessage(localWhatsappContactMessage);
     if (onChangeStoreHeroImage) onChangeStoreHeroImage(localStoreHeroImage);
     if (onChangeMetaPixelId) onChangeMetaPixelId(localMetaPixelId);
-    if (onChangeGoogleAnalyticsId) onChangeGoogleAnalyticsId(localGoogleAnalyticsId);
+    if (onChangeGoogleAnalyticsId) onChangeGoogleAnalyticsId(localGoogleAnalyticsId.trim().toUpperCase());
     onChangeSalesGoal(parseFloat(localSalesGoal) || 0);
     if (onChangeDeliveryFee) onChangeDeliveryFee(parseFloat(localDeliveryFee) || 0);
     onChangeFreeDeliveryThreshold(parseFloat(localFreeDeliveryThreshold) || 0);
@@ -753,8 +764,10 @@ export default function SettingsManager({
   };
 
   return (
-    <div style={{ maxWidth: '650px', display: 'flex', flexDirection: 'column', gap: '20px' }}>
-      <h3>Ajustes de la Heladería</h3>
+    <div className="settings-dashboard">
+      <SettingsOverview config={localShopConfig} onChangeChannel={(key, checked) => setLocalShopConfig(previous => ({ ...previous, [key]: checked }))} onSave={handleSaveSettings} onOpenAnalytics={onOpenAnalytics} />
+
+      <div id="settings-payments" className="settings-detail-section">
       <PaymentMethodsSettings
         value={localShopConfig.paymentMethods}
         onChange={paymentMethods => setLocalShopConfig(previous => ({ ...previous, paymentMethods }))}
@@ -765,10 +778,12 @@ export default function SettingsManager({
           addLog?.('Métodos de pago actualizados por ' + (currentUser?.name || 'Administrador'));
         }}
       />
+      </div>
+      <div id="settings-promotions" className="settings-detail-section">
       <PromotionEditor
         popupValue={localShopConfig.popupPromotion || (localShopConfig.promotion ? {
           ...localShopConfig.promotion,
-          enabled: localShopConfig.promotion.showWelcome ?? localShopConfig.promotion.enabled ?? true
+          enabled: localShopConfig.promotion.showWelcome ?? localShopConfig.promotion.enabled ?? false
         } : undefined)}
         webValue={localShopConfig.webPromotion || (localShopConfig.promotion ? {
           ...localShopConfig.promotion,
@@ -780,7 +795,7 @@ export default function SettingsManager({
             ...DEFAULT_POPUP_PROMOTION,
             ...(prev.popupPromotion || (prev.promotion ? {
               ...prev.promotion,
-              enabled: prev.promotion.showWelcome ?? prev.promotion.enabled ?? true
+              enabled: prev.promotion.showWelcome ?? prev.promotion.enabled ?? false
             } : {})),
             ...patch
           }
@@ -810,7 +825,7 @@ export default function SettingsManager({
             ...DEFAULT_POPUP_PROMOTION,
             ...(localShopConfig.popupPromotion || (localShopConfig.promotion ? {
               ...localShopConfig.promotion,
-              enabled: localShopConfig.promotion.showWelcome ?? localShopConfig.promotion.enabled ?? true
+              enabled: localShopConfig.promotion.showWelcome ?? localShopConfig.promotion.enabled ?? false
             } : {}))
           };
           const webDraft = {
@@ -845,8 +860,9 @@ export default function SettingsManager({
           addLog(`Promociones guardadas (Pop-up: ${popupPromotion.enabled ? 'Activado' : 'Desactivado'}, Web: ${webPromotion.enabled ? 'Activado' : 'Desactivado'}) por ${currentUser?.name || 'Administrador'}.`);
         }}
       />
+      </div>
       
-      <div className="glass" style={{ padding: '20px', display: 'flex', flexDirection: 'column', gap: '15px' }}>
+      <div className="glass settings-detail-section" style={{ padding: '20px', display: 'flex', flexDirection: 'column', gap: '15px' }}>
         
         {/* Nombre, Título, Logo y Favicon del Local */}
         <div style={{ display: 'grid', gridTemplateColumns: '1.2fr 0.8fr', gap: '15px', borderBottom: '1px solid var(--border-color)', paddingBottom: '15px' }}>
@@ -1422,7 +1438,7 @@ export default function SettingsManager({
         </div>
 
         {/* Estado de Heladería Manual */}
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderBottom: '1px solid var(--border-color)', paddingBottom: '12px' }}>
+        <div id="settings-operations" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderBottom: '1px solid var(--border-color)', paddingBottom: '12px' }}>
           <div>
             <label htmlFor="shop-open-manual-input" style={{ display: 'block', cursor: 'pointer', fontWeight: 'bold' }}>
               🟢 Estado Manual de la Heladería
@@ -1547,26 +1563,12 @@ export default function SettingsManager({
           )}
         </div>
 
-        {/* Pedidos en Mesa y Tomador de Pedidos */}
+        {/* Ajustes complementarios de la operación en tienda */}
         <div style={{ display: 'flex', flexDirection: 'column', gap: '12px', borderBottom: '1px solid var(--border-color)', paddingBottom: '15px' }}>
-          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-            <div>
-              <strong style={{ display: 'block' }}>🍽️ Módulo de Pedidos en Mesa / Códigos QR</strong>
-              <span style={{ fontSize: '0.75rem', color: 'var(--text-light)', display: 'block', marginTop: '2px' }}>
-                Permite a los clientes enviar pedidos directamente desde su mesa escaneando un código QR.
-              </span>
-            </div>
-            <label className="toggle-switch" htmlFor="shop-table-orders-enabled-input">
-              <input 
-                id="shop-table-orders-enabled-input" 
-                type="checkbox" 
-                checked={localShopConfig.tableOrdersEnabled !== false} 
-                onChange={(e) => setLocalShopConfig(prev => ({ ...prev, tableOrdersEnabled: e.target.checked }))} 
-              />
-              <span className="slider"></span>
-            </label>
+          <div>
+            <strong style={{ display: 'block' }}>Operación en tienda</strong>
+            <span style={{ fontSize: '0.75rem', color: 'var(--text-light)' }}>Configura la capacidad del salón y el trabajo del personal.</span>
           </div>
-
           {localShopConfig.tableOrdersEnabled !== false && (
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: '8px', paddingLeft: '15px', borderLeft: '3px solid var(--primary-color)' }}>
               <div>
@@ -1592,9 +1594,9 @@ export default function SettingsManager({
 
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
             <div>
-              <strong style={{ display: 'block' }}>🤵 Tomador de Pedidos de Mesa (Mozo)</strong>
+              <strong style={{ display: 'block' }}>🤵 Tomador de pedidos en tienda</strong>
               <span style={{ fontSize: '0.75rem', color: 'var(--text-light)', display: 'block', marginTop: '2px' }}>
-                Habilita una pestaña dedicada en el panel administrativo para que los mozos registren pedidos de mesa directamente.
+                Habilita al personal para abrir pedidos de mesa o barra desde el monitor y el punto de venta.
               </span>
             </div>
             <label className="toggle-switch" htmlFor="shop-waiter-taker-enabled-input">
@@ -2582,12 +2584,12 @@ alter table public.helados_sync enable row level security;`}
 
 
         {/* Métricas y Píxeles de Tracking */}
-        <div className="glass" style={{ padding: '15px', borderRadius: '8px', marginBottom: '15px' }}>
+        <div id="settings-tracking" className="glass" style={{ padding: '15px', borderRadius: '8px', marginBottom: '15px' }}>
           <strong style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '0.9rem', marginBottom: '8px' }}>
             📊 Métricas y Píxeles de Tracking (SEO/Marketing)
           </strong>
           <p style={{ fontSize: '0.75rem', color: 'var(--text-light)', marginBottom: '12px' }}>
-            Registra los IDs de seguimiento para habilitar la medición de eventos de ventas y visitas de forma silenciosa.
+            Con un ID de GA4 se registran vistas de productos, artículos agregados, inicio del checkout, compras confirmadas y métricas LCP, INP y CLS. No se envían datos del cliente en estos eventos.
           </p>
           <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
             <div className="form-group">
@@ -2613,6 +2615,10 @@ alter table public.helados_sync enable row level security;`}
                 value={localGoogleAnalyticsId}
                 onChange={(e) => setLocalGoogleAnalyticsId(e.target.value)}
               />
+              <small style={{ display: 'block', marginTop: '5px', color: 'var(--text-light)' }}>
+                {isGoogleMeasurementId(localGoogleAnalyticsId) ? 'Medición lista para activarse al guardar.' : 'Ingresa un ID G- válido para activar el embudo y las métricas web.'}
+              </small>
+              <button type="button" className="settings-analytics-link" onClick={onOpenAnalytics}>Abrir panel de conversiones GA4 →</button>
             </div>
           </div>
         </div>

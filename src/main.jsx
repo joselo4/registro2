@@ -4,6 +4,7 @@ import './index.css'
 import './artisan.css'
 import './sorbet.css'
 import App from './App.jsx'
+import './storefront-refresh.css'
 import ErrorBoundary from './components/ErrorBoundary.jsx'
 
 createRoot(document.getElementById('root')).render(

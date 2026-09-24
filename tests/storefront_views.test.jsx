@@ -14,10 +14,13 @@ test('storefront uses the requested pink hero, ice cream image and purchase acti
   assert.ok(html.includes('hero-proof'));
   assert.ok(html.includes('crave-marquee'));
 });
-test('storefront shows the configured shipping offer once before checkout', () => {
-  const html = renderToStaticMarkup(<CustomerShop {...shop} deliveryFee={4} freeDeliveryThreshold={10} />);
-  assert.equal((html.match(/class="delivery-banner"/g) || []).length, 1);
-  assert.equal((html.match(/Envío S\/. 4\.00 · Gratis desde S\/. 10\.00/g) || []).length, 1);
+test('storefront shows the delivery offer once and hides it for tables', () => {
+  const deliveryShop = renderToStaticMarkup(<CustomerShop {...shop} deliveryFee={4} freeDeliveryThreshold={10} freeDeliveryEnabled />);
+  assert.equal((deliveryShop.match(/class="delivery-banner"/g) || []).length, 1);
+  assert.equal((deliveryShop.match(/Delivery S\/. 4\.00 · Gratis desde S\/. 10\.00/g) || []).length, 1);
+  assert.ok(!deliveryShop.includes('catalog-delivery-note'));
+  const tableShop = renderToStaticMarkup(<CustomerShop {...shop} deliveryFee={4} tableNumber="2" />);
+  assert.ok(!tableShop.includes('delivery-banner'));
 });
 test('packs with missing badges and catalog prices stored as text render without crashing', () => {
   const html = renderToStaticMarkup(<CustomerShop {...shop} flavors={[{ id: 'fresa', name: 'Fresa', price: '2.50' }]} packs={[{ id: 'duo', name: 'Dúo', price: '12.50' }]} literConfig={{ price: '15.00' }} />);

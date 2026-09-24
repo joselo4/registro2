@@ -6,6 +6,7 @@ import { getEnabledPaymentMethods, selectPaymentMethod } from '../utils/paymentM
 import { buildWhatsAppHref } from '../utils/orderMessaging';
 import { sanitizeHTML, sanitizeText, safeStorage } from '../utils/security';
 import { checkoutStorage, checkoutTotals } from '../utils/checkout';
+import { enabledOrderChannels, isOrderTypeEnabled, preferredOrderType } from '../utils/orderChannels';
 
 
 export default function Cart({ 
@@ -30,7 +31,6 @@ export default function Cart({
   shopOpen = true, 
   tableOrdersEnabled = false, 
   tableNumber = null, 
-  setTableNumber, 
   occupiedTables = [], 
   shopConfig, 
   trackEvent 
@@ -111,14 +111,19 @@ export default function Cart({
   };
 
   // Módulo de Mesas
+  const channels = enabledOrderChannels(shopConfig);
   const [orderType, setOrderType] = useState(() => {
-    return tableNumber ? 'Mesa' : 'Delivery';
+    return preferredOrderType(shopConfig, tableNumber);
   });
   const [localTableNumber, setLocalTableNumber] = useState(tableNumber || '');
   const needsTable = orderType === 'Mesa' || orderType === 'Mesa_Llevar';
+  useEffect(() => {
+    if (!isOrderTypeEnabled(shopConfig, orderType)) setOrderType(preferredOrderType(shopConfig, tableNumber));
+  }, [shopConfig, orderType, tableNumber]);
 
   // Estados para Cupones de Descuento
   const [couponInput, setCouponInput] = useState('');
+  const [couponExpanded, setCouponExpanded] = useState(false);
   const [appliedCoupon, setAppliedCoupon] = useState(null);
   const [couponError, setCouponError] = useState('');
 
@@ -181,9 +186,8 @@ export default function Cart({
     if (!initiatedRef.current && trackEvent && cart && cart.length > 0) {
       initiatedRef.current = true;
       trackEvent('InitiateCheckout', {
-        num_items: cart.reduce((sum, item) => sum + item.quantity, 0),
         value: cartSubtotal,
-        currency: 'PEN'
+        items: cart
       });
     }
   }, [trackEvent, cart, cartSubtotal]);
@@ -192,6 +196,10 @@ export default function Cart({
   const handleSubmit = async (e) => {
     if (e) e.preventDefault();
     if (isSubmitting || submittingRef.current) return;
+    if (!isOrderTypeEnabled(shopConfig, orderType)) {
+      alert('Este canal de atención no está disponible. Elige otro antes de confirmar.');
+      return;
+    }
     
     if (cart.length === 0) {
       alert("El carrito está vacío.");
@@ -336,10 +344,12 @@ export default function Cart({
        // Track purchase event
        if (trackEvent) {
          trackEvent('Purchase', {
-           value: total,
-           currency: 'PEN',
-           order_id: orderId,
-           num_items: cart.reduce((sum, item) => sum + item.quantity, 0)
+           value: Math.max(0, cartSubtotal - discount),
+           total,
+           shipping: activeDeliveryFee,
+           transaction_id: orderId,
+           coupon: appliedCoupon?.code,
+           items: cart
          });
        }
   
@@ -474,15 +484,15 @@ export default function Cart({
 
   return (
     <div className="cart-container">
-      <div style={{ marginBottom: '15px', display: 'flex', alignItems: 'center', gap: '10px' }}>
+      <div className="cart-page-heading">
         <button className="btn btn-secondary" style={{ padding: '6px 12px', fontSize: '0.85rem' }} onClick={() => setView('shop')}>
           ← Tienda
         </button>
-        <h2 style={{ fontSize: '1.5rem' }}>Mi Carrito</h2>
+        <div><span className="section-kicker">YA CASI ES TUYO</span><h2>Tu pedido</h2><p>Revisa tus favoritos y elige cómo recibirlos.</p></div>
       </div>
 
       {/* 💰 BARRA DE PROGRESO DE ENVÍO GRATIS DINÁMICA */}
-      {freeDeliveryEnabled && freeDeliveryThreshold > 0 && !tableNumber && (
+      {orderType === 'Delivery' && freeDeliveryEnabled && freeDeliveryThreshold > 0 && (
         <div className="glass free-delivery-card" style={{
           padding: '14px',
           marginBottom: '16px',
@@ -661,26 +671,11 @@ export default function Cart({
 
         {/* Formulario Exprés */}
         <div className="glass checkout-section" style={{ padding: '15px', borderRadius: 'var(--radius-md)' }}>
-          <h3 style={{ fontSize: '1.1rem', marginBottom: '8px' }}>Checkout Exprés (Rápido)</h3>
+          <div className="checkout-heading"><span className="section-kicker">UN PASO MÁS</span><h3>Finaliza tu pedido</h3><p>Completa tus datos para confirmar la compra.</p></div>
           
           <button
             type="button"
-            className="btn btn-secondary"
-            style={{
-              backgroundColor: '#176b3d',
-              color: 'white',
-              borderColor: '#176b3d',
-              width: '100%',
-              fontSize: '0.8rem',
-              padding: '8px',
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center',
-              gap: '6px',
-              cursor: 'pointer',
-              marginBottom: '10px',
-              marginTop: '5px'
-            }}
+            className="checkout-help-link"
             onClick={() => {
               const waUrl = `https://wa.me/${String(storePhone || '51987654321').replace(/\D/g, '')}?text=${encodeURIComponent('¡Hola! Estoy revisando mi carrito de compras y tengo una consulta sobre mi pedido 🍦')}`;
               const waWindow = window.open(waUrl, '_blank', 'noopener,noreferrer');
@@ -711,10 +706,10 @@ export default function Cart({
           
           <form className="checkout-form" onSubmit={handleProceedToSubmit} style={{ gap: '10px', marginTop: '10px' }}>
             
-            {tableOrdersEnabled && (
+            {(channels.Mesa || channels.Barra || channels.Delivery) && (
               <div className="form-group">
                 <label style={{ fontSize: '0.8rem', fontWeight: 'bold' }}>Tipo de Servicio</label>
-                {tableNumber ? (
+                {tableNumber && channels.Mesa ? (
                   <div style={{ display: 'flex', gap: '8px', marginBottom: '4px' }}>
                     <button
                       type="button"
@@ -736,21 +731,10 @@ export default function Cart({
                     </button>
                   </div>
                 ) : (
-                  <div style={{ 
-                    background: 'rgba(255, 64, 129, 0.08)', 
-                    border: '1px solid rgba(255, 64, 129, 0.2)', 
-                    color: 'var(--primary-color)', 
-                    padding: '10px 14px', 
-                    borderRadius: '10px', 
-                    fontSize: '0.85rem', 
-                    fontWeight: 'bold',
-                    textAlign: 'center',
-                    display: 'flex',
-                    alignItems: 'center',
-                    justifyContent: 'center',
-                    gap: '6px'
-                  }}>
-                    🛵 Envío a Domicilio (Delivery)
+                  <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
+                    {channels.Mesa && tableOrdersEnabled && <button type="button" className={`payment-btn ${needsTable ? 'selected' : ''}`} onClick={() => setOrderType('Mesa')} disabled={!shopOpen}>🍽️ Mesa</button>}
+                    {channels.Barra && <button type="button" className={`payment-btn ${orderType === 'Barra' ? 'selected' : ''}`} onClick={() => setOrderType('Barra')} disabled={!shopOpen}>🛍️ Recojo en barra</button>}
+                    {channels.Delivery && <button type="button" className={`payment-btn ${orderType === 'Delivery' ? 'selected' : ''}`} onClick={() => setOrderType('Delivery')} disabled={!shopOpen}>🛵 Delivery</button>}
                   </div>
                 )}
               </div>
@@ -811,7 +795,6 @@ export default function Cart({
                     value={localTableNumber || ''}
                     onChange={(e) => {
                       setLocalTableNumber(e.target.value);
-                      if (setTableNumber) setTableNumber(e.target.value);
                     }}
                     style={{ 
                       padding: '8px 10px', 
@@ -992,11 +975,15 @@ export default function Cart({
             )}
 
             {/* Campo de Cupón de Descuento */}
-            <div className="form-group" style={{ borderTop: '1px solid var(--border-color)', paddingTop: '10px', marginTop: '10px' }}>
-              <label style={{ fontSize: '0.8rem', display: 'block', marginBottom: '4px', fontWeight: 600 }}>🎟️ ¿Tienes un Cupón de Descuento?</label>
+            <div className="form-group coupon-disclosure">
+              <button type="button" className="coupon-disclosure-toggle" aria-expanded={couponExpanded} aria-controls="coupon-disclosure-content" onClick={() => setCouponExpanded(value => !value)}>
+                🎟️ {appliedCoupon ? `Cupón ${appliedCoupon.code} aplicado` : '¿Tienes un cupón?'} <span aria-hidden="true">{couponExpanded ? '−' : '+'}</span>
+              </button>
+              <div id="coupon-disclosure-content" className="coupon-disclosure-content" hidden={!couponExpanded}>
               {!appliedCoupon ? (
                 <div style={{ display: 'flex', gap: '6px' }}>
                   <input
+                    aria-label="Código de cupón"
                     type="text"
                     className="form-control"
                     placeholder="Ej. VERANO10"
@@ -1035,16 +1022,17 @@ export default function Cart({
                   ⚠️ {couponError}
                 </span>
               )}
+              </div>
             </div>
 
             {/* WhatsApp redirect checkbox */}
             {!tableNumber && shopOpen && (
-              <div className="whatsapp-toggle-container" onClick={() => setSendToWhatsApp(!sendToWhatsApp)}>
+              <div className="whatsapp-toggle-container">
                 <input
                   type="checkbox"
                   id="whatsapp-redirect-checkbox"
                   checked={sendToWhatsApp}
-                  onChange={() => {}} /* Handled by container click */
+                  onChange={(event) => setSendToWhatsApp(event.target.checked)}
                   className="whatsapp-toggle-checkbox"
                 />
                 <label htmlFor="whatsapp-redirect-checkbox" className="whatsapp-toggle-label">
@@ -1068,7 +1056,7 @@ export default function Cart({
               {!tableNumber && (
                 <div className="cart-summary-row" style={{ marginTop: '4px' }}>
                   <span>Envío:</span>
-                  <span>{isFreeDelivery ? <strong style={{ color: 'var(--success)' }}>GRATIS</strong> : `S/. ${deliveryFee.toFixed(2)}`}</span>
+                  <span>{isFreeDelivery ? <strong style={{ color: 'var(--success)' }}>GRATIS</strong> : `S/. ${activeDeliveryFee.toFixed(2)}`}</span>
                 </div>
               )}
               <div className="cart-summary-total" style={{ fontSize: '1.05rem', marginTop: '6px', paddingTop: '6px' }}>

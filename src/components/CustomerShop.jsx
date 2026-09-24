@@ -7,6 +7,15 @@ import PackIllustration from './PackIllustration';
 import { normalizePromotion, DEFAULT_POPUP_PROMOTION, DEFAULT_WEB_PROMOTION } from '../utils/promotion';
 import { updateSyncedData } from '../utils/supabaseSync';
 import { sanitizeHTML } from '../utils/security';
+import './ProductQuickView.css';
+
+const isAvailableProduct = item => item && item.active !== false && Number.isFinite(Number(item.price)) && Number(item.price) >= 0;
+const normalizeSearchValue = value => String(value ?? '').normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLocaleLowerCase('es-PE');
+const matchesCatalogSearch = (item, term) => !term || normalizeSearchValue([
+  item?.name,
+  item?.description,
+  ...(Array.isArray(item?.items) ? item.items.map(part => typeof part === 'string' ? part : part?.name) : [item?.items])
+].join(' ')).includes(term);
 
 
 export default function CustomerShop({ 
@@ -46,16 +55,8 @@ export default function CustomerShop({
 
   const handleAddToCartWrapped = useCallback((item) => {
     const added = onAddToCart(item);
-    try { if (added !== false && trackEvent) {
-      trackEvent('AddToCart', {
-        content_name: item.name || 'Helado',
-        value: item.price || 1.0,
-        currency: 'PEN',
-        quantity: item.quantity || 1
-      });
-    } } catch (error) { console.warn('No se pudo registrar la estadística del carrito:', error); }
     return added !== false;
-  }, [onAddToCart, trackEvent]);
+  }, [onAddToCart]);
 
   const [filter, setFilter] = useState(() => {
     if (tableNumber) {
@@ -63,11 +64,24 @@ export default function CustomerShop({
     }
     return 'all';
   });
+  const [catalogSearch, setCatalogSearch] = useState('');
+  const [quickView, setQuickView] = useState(null);
+  const openQuickView = useCallback((kind, item) => {
+    const product = kind === 'liter' ? { ...item, id: 'liter', name: 'Helado familiar de 1 litro', type: 'liter' } : { ...item, type: kind };
+    setQuickView({ kind, product });
+    trackEvent?.('ViewProduct', { value: Number(product.price) || 0, items: [product] });
+  }, [trackEvent]);
+  useEffect(() => {
+    if (!quickView) return;
+    const closeOnEscape = event => { if (event.key === 'Escape') setQuickView(null); };
+    window.addEventListener('keydown', closeOnEscape);
+    return () => window.removeEventListener('keydown', closeOnEscape);
+  }, [quickView]);
 
   const popupPromotion = normalizePromotion(
     shopConfig.popupPromotion || (shopConfig.promotion ? {
       ...shopConfig.promotion,
-      enabled: shopConfig.promotion.showWelcome ?? shopConfig.promotion.enabled ?? true
+      enabled: shopConfig.promotion.showWelcome ?? shopConfig.promotion.enabled ?? false
     } : {}),
     DEFAULT_POPUP_PROMOTION
   );
@@ -87,19 +101,98 @@ export default function CustomerShop({
     document.getElementById('catalog')?.scrollIntoView({ behavior: 'smooth' });
   };
 
-  const available = item => item && item.active !== false && Number.isFinite(Number(item.price)) && Number(item.price) >= 0;
-  const activeFlavors = flavors.filter(available);
-  const activePacks = packs.filter(available);
-  const activePopsicles = popsicles.filter(available);
-  const visibleCategories = [...new Set((tableNumber ? tableCategories : catalogOrder).filter(category => ['popsicles', 'classic', 'liter', 'packs'].includes(category)))];
-  const categoryCounts = { classic: activeFlavors.length, packs: activePacks.length, popsicles: activePopsicles.length, liter: literConfig?.active !== false ? 1 : 0 };
+  const activeFlavors = useMemo(() => flavors.filter(isAvailableProduct), [flavors]);
+  const activePacks = useMemo(() => packs.filter(isAvailableProduct), [packs]);
+  const activePopsicles = useMemo(() => popsicles.filter(isAvailableProduct), [popsicles]);
+  const visibleCategories = useMemo(() => [...new Set((tableNumber ? tableCategories : catalogOrder).filter(category => ['popsicles', 'classic', 'liter', 'packs'].includes(category)))], [tableNumber, tableCategories, catalogOrder]);
+  const searchTerm = normalizeSearchValue(catalogSearch.trim());
+  const catalogFlavors = useMemo(() => activeFlavors.filter(item => matchesCatalogSearch(item, searchTerm)), [activeFlavors, searchTerm]);
+  const catalogPacks = useMemo(() => activePacks.filter(item => matchesCatalogSearch(item, searchTerm)), [activePacks, searchTerm]);
+  const catalogPopsicles = useMemo(() => activePopsicles.filter(item => matchesCatalogSearch(item, searchTerm)), [activePopsicles, searchTerm]);
+  const literMatches = !searchTerm || normalizeSearchValue('helado familiar de 1 litro pote para compartir').includes(searchTerm);
+  const categoryCounts = { classic: catalogFlavors.length, packs: catalogPacks.length, popsicles: catalogPopsicles.length, liter: literConfig?.active !== false && literMatches ? 1 : 0 };
   const visibleCount = visibleCategories.reduce((count, category) => count + (filter === 'all' || filter === category ? categoryCounts[category] : 0), 0);
+  const deliveryPrice = Math.max(0, Number(deliveryFee) || 0);
+  const deliveryMessage = deliveryPrice === 0
+    ? 'Delivery gratis'
+    : freeDeliveryEnabled && Number(freeDeliveryThreshold) > 0
+      ? `Delivery S/. ${deliveryPrice.toFixed(2)} · Gratis desde S/. ${Number(freeDeliveryThreshold).toFixed(2)}`
+      : `Delivery S/. ${deliveryPrice.toFixed(2)}`;
+  const catalogRef = useRef(null);
+  const catalogViewedRef = useRef(false);
+  const catalogItems = useMemo(() => !trackEvent ? [] : visibleCategories
+    .filter(category => filter === 'all' || filter === category)
+    .flatMap(category => {
+      if (category === 'classic') return catalogFlavors.map(item => ({ ...item, type: 'classic' }));
+      if (category === 'packs') return catalogPacks.map(item => ({ ...item, type: 'pack' }));
+      if (category === 'popsicles') return catalogPopsicles.map(item => ({ ...item, type: 'popsicle' }));
+      if (category === 'liter' && literConfig?.active !== false && literMatches) return [{ ...literConfig, id: 'liter', name: 'Helado familiar de 1 litro', type: 'liter' }];
+      return [];
+    }), [trackEvent, visibleCategories, filter, catalogFlavors, catalogPacks, catalogPopsicles, literConfig, literMatches]);
+
+  useEffect(() => {
+    if (!trackEvent || !catalogItems.length || catalogViewedRef.current || !catalogRef.current) return;
+    const recordView = () => {
+      if (catalogViewedRef.current) return;
+      catalogViewedRef.current = true;
+      trackEvent('ViewCatalog', { item_list_id: `catalog_${filter}`, item_list_name: 'Carta de helados', items: catalogItems });
+    };
+    if (typeof IntersectionObserver === 'undefined') {
+      recordView();
+      return;
+    }
+    const observer = new IntersectionObserver(entries => {
+      if (entries.some(entry => entry.isIntersecting)) {
+        recordView();
+        observer.disconnect();
+      }
+    }, { threshold: 0 });
+    observer.observe(catalogRef.current);
+    return () => observer.disconnect();
+  }, [trackEvent, catalogItems, filter]);
   const activePrices = activeFlavors
     .map(flavor => Number(flavor.price) || 0)
     .filter(price => price > 0);
   const startingPrice = activePrices.length > 0
     ? Math.min(...activePrices).toFixed(2)
     : '1.00';
+  const featuredProducts = useMemo(() => [
+    visibleCategories.includes('packs') && activePacks[0] && { kind: 'pack', item: activePacks[0], label: 'Para compartir', icon: '🎁' },
+    visibleCategories.includes('classic') && activeFlavors.length > 0 && { kind: 'classic', item: activeFlavors.find(item => item.isPopular) || activeFlavors[0], label: 'Tu favorito al instante', icon: '🍦' },
+    visibleCategories.includes('popsicles') && activePopsicles[0] && { kind: 'popsicle', item: activePopsicles[0], label: 'Algo fresco', icon: '🍭' },
+    visibleCategories.includes('liter') && literConfig?.active !== false && { kind: 'liter', item: literConfig || {}, label: 'Para llevar a casa', icon: '🏺' }
+  ].filter(Boolean).slice(0, 3), [visibleCategories, activePacks, activeFlavors, activePopsicles, literConfig]);
+  const featuredRef = useRef(null);
+  const featuredViewedRef = useRef(false);
+  useEffect(() => {
+    if (!trackEvent || !featuredProducts.length || featuredViewedRef.current || !featuredRef.current) return;
+    const recordView = () => {
+      if (featuredViewedRef.current) return;
+      featuredViewedRef.current = true;
+      trackEvent('ViewCatalog', {
+        item_list_id: 'featured',
+        item_list_name: 'Selección destacada',
+        items: featuredProducts.map(({ kind, item }) => ({
+          ...item,
+          id: kind === 'liter' ? 'liter' : item.id,
+          name: kind === 'liter' ? 'Helado familiar de 1 litro' : item.name,
+          type: kind
+        }))
+      });
+    };
+    if (typeof IntersectionObserver === 'undefined') {
+      recordView();
+      return;
+    }
+    const observer = new IntersectionObserver(entries => {
+      if (entries.some(entry => entry.isIntersecting)) {
+        recordView();
+        observer.disconnect();
+      }
+    }, { threshold: 0 });
+    observer.observe(featuredRef.current);
+    return () => observer.disconnect();
+  }, [featuredProducts, trackEvent]);
 
   const isTableOccupiedByOther = tableOrdersEnabled && tableNumber && 
     occupiedTables.includes(String(tableNumber));
@@ -506,7 +599,7 @@ export default function CustomerShop({
           if (section === 'popsicles') {
             return (
               <React.Fragment key="popsicles">
-                {(filter === 'all' || filter === 'popsicles') && activePopsicles.map(popsicle => (
+                {(filter === 'all' || filter === 'popsicles') && catalogPopsicles.map(popsicle => (
                   <article key={popsicle.id} className="glass-card product-card popsicle-card">
                     <span className="product-badge popsicle-badge">
                       {popsicle.badge || '🍭 100% Natural'}
@@ -528,6 +621,7 @@ export default function CustomerShop({
                         <span className="product-kind">PALETA ARTESANAL</span>
                         <h3>{popsicle.name}</h3>
                         <p className="product-desc">{popsicle.description}</p>
+                        <button type="button" className="product-quick-link" onClick={() => openQuickView('popsicle', popsicle)}>Ver detalles →</button>
                       </div>
                       <div className="product-price-action">
                         <div className="price-tag">S/. {Number(popsicle.price || 0).toFixed(2)}<span> / unidad</span></div>
@@ -550,7 +644,7 @@ export default function CustomerShop({
             return (
               <React.Fragment key="liter">
                 {/* 🏺 Mostrar Helado de Litro */}
-                {(filter === 'all' || filter === 'liter') && literConfig?.active !== false && (
+                {(filter === 'all' || filter === 'liter') && literConfig?.active !== false && literMatches && (
                   <div className="glass-card product-card">
                     <span className="product-badge badge-familiar">🏺 Familiar 1L</span>
                     <div className="product-illustration" style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', minHeight: '120px' }}>
@@ -580,6 +674,7 @@ export default function CustomerShop({
                       <div>
                         <h3>Helado Familiar de 1 Litro</h3>
                         <p className="product-desc">Lleva a casa el mejor helado artesanal. Combina tus sabores favoritos (hasta {literConfig?.maxFlavors || 3} sabores) en un pote de un litro para compartir.</p>
+                        <button type="button" className="product-quick-link" onClick={() => openQuickView('liter', literConfig || {})}>Ver detalles →</button>
                       </div>
                       <div className="product-price-action">
                         <div className="price-tag">
@@ -604,7 +699,7 @@ export default function CustomerShop({
             return (
               <React.Fragment key="classic">
                 {/* Mostrar Helados Clásicos */}
-                {(filter === 'all' || filter === 'classic') && activeFlavors.map(flavor => {
+                {(filter === 'all' || filter === 'classic') && catalogFlavors.map(flavor => {
                   const isPopular = flavor.isPopular === true;
                   return (
                     <div key={flavor.id} className="glass-card product-card">
@@ -638,6 +733,7 @@ export default function CustomerShop({
                         <div>
                           <h3>{flavor.name}</h3>
                           <p className="product-desc">{flavor.description}</p>
+                          <button type="button" className="product-quick-link" onClick={() => openQuickView('classic', flavor)}>Ver detalles →</button>
                         </div>
                         <div className="product-price-action">
                           <div className="price-tag">
@@ -646,7 +742,7 @@ export default function CustomerShop({
                           </div>
                           <button 
                             className="add-btn" 
-                            title="Añadir helado simple de 1 bola al carrito"
+                            aria-label={`Agregar helado de ${flavor.name} al carrito`}
                             onClick={() => handleAddClassicToCart(flavor)}
                           >
                             + Agregar
@@ -663,7 +759,7 @@ export default function CustomerShop({
             return (
               <React.Fragment key="packs">
                 {/* Mostrar Packs */}
-                {(filter === 'all' || filter === 'packs') && activePacks.map(pack => {
+                {(filter === 'all' || filter === 'packs') && catalogPacks.map(pack => {
                   const badgeClass = `badge-${String(pack.badge || '').toLowerCase().replace(/\s+/g, '-')}`;
                   return (
                     <div key={pack.id} className="glass-card product-card">
@@ -690,6 +786,7 @@ export default function CustomerShop({
                         <div>
                           <h3>{pack.name}</h3>
                           <p className="product-desc">{pack.description}</p>
+                          <button type="button" className="product-quick-link" onClick={() => openQuickView('pack', pack)}>Ver detalles →</button>
                           <p style={{ fontSize: '0.85rem', fontWeight: 600, color: 'var(--primary-color)', marginBottom: '15px' }}>
                             📦 Incluye: {pack.items}
                           </p>
@@ -704,7 +801,7 @@ export default function CustomerShop({
                           <button 
                             className="add-btn" 
                             style={{ backgroundColor: 'var(--secondary-color)' }}
-                            title="Añadir pack al carrito"
+                            aria-label={`Agregar ${pack.name} al carrito`}
                             onClick={() => handleAddPackToCart(pack)}
                           >
                             + Agregar Pack
@@ -721,7 +818,7 @@ export default function CustomerShop({
         })}
       </div>
     );
-  }, [tableNumber, catalogOrder, filter, literConfig, activeFlavors, activePacks, activePopsicles, setView, handleAddClassicToCart, handleAddPackToCart, handleAddPopsicleToCart, shopConfig]);
+  }, [tableNumber, catalogOrder, filter, literConfig, literMatches, catalogFlavors, catalogPacks, catalogPopsicles, setView, handleAddClassicToCart, handleAddPackToCart, handleAddPopsicleToCart, openQuickView, shopConfig]);
 
   const resolvedHeroImage = storeHeroImage || '/hero-friozo-v2.webp';
 
@@ -855,7 +952,7 @@ export default function CustomerShop({
             Qué rico <span>caer en<br />la tentación.</span>
           </h1>
           <p className="hero-description">
-            Cremoso, frutal, con extra de chocolate. En <strong>{storeName || 'FRIOZO'}</strong> tu antojo manda. Elige tus sabores y ponle el toque que más te provoca.
+            En <strong>{storeName || 'FRIOZO'}</strong> eliges el sabor y nosotros lo hacemos al momento. Pide tu favorito o crea una mezcla solo tuya.
           </p>
           <div className="hero-cta">
             <button className="btn btn-primary hero-primary-cta" onClick={() => setView('customizer')}>
@@ -1010,6 +1107,57 @@ export default function CustomerShop({
         </div>
       </section>
 
+      {quickView && <div className="product-quick-backdrop" onClick={() => setQuickView(null)}>
+        <div className="product-quick-dialog" role="dialog" aria-modal="true" aria-label={`Detalles de ${quickView.product.name}`} onClick={event => event.stopPropagation()}>
+          <button type="button" className="product-quick-close" aria-label="Cerrar detalles" onClick={() => setQuickView(null)}>×</button>
+          <div className="product-quick-art">{quickView.product.image ? <img src={quickView.product.image} alt={quickView.product.name} /> : <span aria-hidden="true">{quickView.kind === 'pack' ? '🎁' : quickView.kind === 'popsicle' ? '🍭' : quickView.kind === 'liter' ? '🏺' : '🍦'}</span>}</div>
+          <div className="product-quick-copy"><span className="product-quick-eyebrow">HECHO PARA TU ANTOJO</span><h2>{quickView.product.name}</h2><p>{quickView.product.description || (quickView.kind === 'liter' ? 'Combina tus sabores favoritos en un pote para compartir.' : 'Preparado con el sabor de nuestra carta artesanal.')}</p>{quickView.kind === 'pack' && quickView.product.items && <p><strong>Incluye:</strong> {quickView.product.items}</p>}<strong className="product-quick-price">S/. {Number(quickView.product.price || 0).toFixed(2)}</strong><button type="button" className="btn btn-primary" onClick={() => {
+            if (quickView.kind === 'liter') setView('liter-customizer');
+            else if (quickView.kind === 'pack') handleAddPackToCart(quickView.product);
+            else if (quickView.kind === 'popsicle') handleAddPopsicleToCart(quickView.product);
+            else handleAddClassicToCart(quickView.product);
+            setQuickView(null);
+          }}>{quickView.kind === 'liter' ? 'Personalizar mi litro' : 'Agregar al carrito'} →</button></div>
+        </div>
+      </div>}
+
+      {featuredProducts.length > 0 && (
+        <section ref={featuredRef} className="featured-section" aria-labelledby="featured-title">
+          <div className="featured-heading">
+            <div>
+              <span className="section-kicker">ELIGE EN UN TOQUE</span>
+              <h2 id="featured-title">¿Empezamos por aquí?</h2>
+            </div>
+            <a href="#catalog" onClick={(event) => { event.preventDefault(); document.getElementById('catalog')?.scrollIntoView({ behavior: 'smooth' }); }}>Ver toda la carta <span aria-hidden="true">→</span></a>
+          </div>
+          <div className="featured-list">
+            {featuredProducts.map(({ kind, item, label, icon }) => {
+              const name = kind === 'liter' ? 'Helado familiar de 1 litro' : item.name;
+              const price = Number(item.price ?? (kind === 'liter' ? 15 : 0));
+              const image = item.image || (kind === 'liter' ? '/customizer/cup-eco.webp' : '');
+              return (
+                <article className={`featured-card featured-card-${kind}`} key={`${kind}-${item.id || 'featured'}`}>
+                  <div className="featured-card-copy">
+                    <span>{icon} {label}</span>
+                    <h3>{name}</h3>
+                    <strong>S/. {price.toFixed(2)}</strong>
+                    <button type="button" aria-label={kind === 'liter' ? 'Personalizar helado de 1 litro' : `Agregar ${name} al carrito`} onClick={() => {
+                      if (kind === 'pack') handleAddPackToCart(item);
+                      else if (kind === 'classic') handleAddClassicToCart(item);
+                      else if (kind === 'popsicle') handleAddPopsicleToCart(item);
+                      else setView('liter-customizer');
+                    }}>{kind === 'liter' ? 'Personalizar' : 'Agregar'} <span aria-hidden="true">↗</span></button>
+                  </div>
+                  <div className="featured-card-art" aria-hidden="true">
+                    {image ? <img src={image} alt="" loading="lazy" decoding="async" /> : kind === 'classic' ? <DessertPreview compact base={{ id: 'cono', name: 'Cono' }} scoops={[item]} /> : <PackIllustration pack={item} />}
+                  </div>
+                </article>
+              );
+            })}
+          </div>
+        </section>
+      )}
+
       <div className="crave-marquee" aria-label="Beneficios de Friozo">
         <div className="crave-marquee-track">
           <span>HECHO AL MOMENTO</span><b>✦</b>
@@ -1019,15 +1167,15 @@ export default function CustomerShop({
         </div>
       </div>
 
-      {/* One shipping message before the catalog. Checkout shows the live total. */}
-      {!tableNumber && freeDeliveryEnabled && parseFloat(freeDeliveryThreshold || 0) > 0 && (
+      {/* BANNER DELIVERY GRATIS */}
+      {!tableNumber && (
         <div className="delivery-banner">
           <span className="delivery-banner-icon" aria-hidden="true">🚚</span>
           <div className="delivery-banner-copy">
-            <strong>Envío S/. {Number(deliveryFee || 0).toFixed(2)} · Gratis desde S/. {parseFloat(freeDeliveryThreshold).toFixed(2)}</strong>
-          {deliveryCampaignText && (
+            <strong>{deliveryMessage}</strong>
+            {deliveryPrice > 0 && freeDeliveryEnabled && Number(freeDeliveryThreshold) > 0 && deliveryCampaignText && (
               <p>{deliveryCampaignText}</p>
-          )}
+            )}
           </div>
           <a 
             href="#catalog"
@@ -1047,16 +1195,26 @@ export default function CustomerShop({
       {webPromotion.enabled && webPromotion.position === 'above-catalog' && (
         <PromotionBanner promotion={webPromotion} tableNumber={tableNumber} onAction={handlePromotionAction} />
       )}
-      <section id="catalog" className="catalog-section">
+      <section id="catalog" ref={catalogRef} className="catalog-section">
         <div className="catalog-heading">
           <div>
             <span className="section-kicker">TU PRÓXIMO ANTOJO</span>
             <h2 className="section-title">La carta de {storeName || 'Friozo'}</h2>
-            <p className="section-subtitle">Elige tus favoritos. Los detalles de entrega y pago van después.</p>
+            <p className="section-subtitle">Elige tus favoritos y arma tu pedido en minutos.</p>
           </div>
           <span className="catalog-count">
             {visibleCount} {visibleCount === 1 ? 'opción' : 'opciones'}
           </span>
+        </div>
+
+        <div className="catalog-search-row">
+          <label htmlFor="catalog-search">Busca tu sabor</label>
+          <div className="catalog-search-field">
+            <span aria-hidden="true">⌕</span>
+            <input id="catalog-search" type="search" value={catalogSearch} onChange={event => setCatalogSearch(event.target.value)} placeholder="Prueba con chocolate, fresa o un pack…" autoComplete="off" />
+            {catalogSearch && <button type="button" aria-label="Limpiar búsqueda" onClick={() => setCatalogSearch('')}>×</button>}
+          </div>
+          <span role="status">{visibleCount} {visibleCount === 1 ? 'opción' : 'opciones'}</span>
         </div>
 
         {/* Filtros */}
@@ -1111,7 +1269,7 @@ export default function CustomerShop({
         )}
 
         {/* Grid de Productos */}
-        {visibleCount > 0 ? renderedCatalog : <div className="catalog-empty" role="status"><h3>No hay productos disponibles en esta categoría</h3><p>Prueba otra categoría de la carta.</p>{filter !== 'all' && <button className="btn btn-secondary" onClick={() => setFilter('all')}>Ver toda la carta</button>}</div>}
+        {visibleCount > 0 ? renderedCatalog : <div className="catalog-empty" role="status"><h3>{catalogSearch ? 'No encontramos ese antojo' : 'No hay productos disponibles en esta categoría'}</h3><p>{catalogSearch ? 'Prueba otro sabor o explora todas las categorías.' : 'Explora otras categorías para encontrar tu próximo favorito.'}</p><button className="btn btn-secondary" onClick={() => { setFilter('all'); setCatalogSearch(''); }}>Ver toda la carta</button></div>}
       </section>
 
       <section className="order-paths" aria-label="Formas de elegir tu helado">

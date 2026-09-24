@@ -181,6 +181,43 @@ test('operator creations use authenticated server validation for queue orders an
   assert.equal((await post(driverDb, tableOrder, { action: 'create_operator' })).status, 403);
 });
 
+test('operator creations use authenticated server validation for queue orders and completed sales', async () => {
+  const mozo = { id: 'waiter-1', email: 'mozo@example.test', app_metadata: { role: 'Mozo' } };
+  const tableOrder = fixture({
+    id: 'ORD-MESA001',
+    status: 'Pendiente',
+    paymentVerified: false,
+    customer: { name: 'Mesa 4', phone: 'Sin teléfono', address: 'Mesa 4', orderType: 'Mesa', tableNumber: '4', paymentMethod: 'Efectivo', paymentTiming: 'Al llegar' },
+  });
+  const db = database([], { user: mozo });
+  const created = await post(db, tableOrder, { action: 'create_operator' });
+  assert.equal(created.status, 200);
+  const savedTable = (await created.json()).order;
+  assert.equal(savedTable.status, 'Pendiente');
+  assert.equal(savedTable.paymentVerified, false);
+  assert.equal(savedTable.tablePaid, false);
+  assert.equal(savedTable.isOperator, true);
+  assert.equal((await post(db, tableOrder, { action: 'create_operator' })).status, 409);
+
+  const sale = fixture({
+    id: 'FIS-1001',
+    status: 'Entregado',
+    paymentVerified: true,
+    customer: { name: 'Mostrador', phone: 'N/A', address: 'Barra', orderType: 'Barra', paymentMethod: 'Efectivo', paymentTiming: 'Al llegar' },
+  });
+  const saleResponse = await post(db, sale, { action: 'create_operator' });
+  assert.equal(saleResponse.status, 200);
+  const savedSale = (await saleResponse.json()).order;
+  assert.ok(savedSale.paymentVerifiedAt);
+  assert.ok(savedSale.deliveredAt);
+  assert.equal(savedSale.paymentVerifiedBy.role, 'mozo');
+
+  const unpaidSale = { ...sale, id: 'FIS-1002', paymentVerified: false };
+  assert.equal((await post(db, unpaidSale, { action: 'create_operator' })).status, 400);
+  const driverDb = database([], { user: { id: 'driver', app_metadata: { role: 'Repartidor' } } });
+  assert.equal((await post(driverDb, tableOrder, { action: 'create_operator' })).status, 403);
+});
+
 test('failed writes and a zero-row save never produce a success receipt', async () => {
   const response = await post(database([], { failWrite: true }), fixture());
   assert.equal(response.status, 502);
@@ -329,6 +366,7 @@ test('surveys cannot regress delivery state and are rejected before delivery', a
 test('Android HTTPS localhost is allowed while unrelated browser origins are rejected', () => {
   assert.equal(sameOriginRequest(new Request('https://www.pideanda.com/api/order', { headers: { Origin: 'https://localhost' } })), true);
   assert.equal(sameOriginRequest(new Request('https://www.pideanda.com/api/order', { headers: { Origin: 'https://other.test' } })), false);
+  assert.equal(sameOriginRequest(new Request('https://www.pideanda.com/api/order', { headers: { Origin: 'http://www.pideanda.com' } })), false);
 });
 
 for (const method of ['Yape', 'Plin', 'Efectivo', 'Transferencia', 'Tarjeta']) {

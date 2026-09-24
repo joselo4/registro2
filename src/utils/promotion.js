@@ -31,7 +31,7 @@ export const DEFAULT_PROMOTION = {
 
 export const DEFAULT_POPUP_PROMOTION = {
   ...DEFAULT_PROMOTION,
-  enabled: true,
+  enabled: false,
   eyebrow: '¡BIENVENIDO A FRIOZO!',
   title: '¡Pide online y disfruta lo artesanal!',
   description: 'Descubre nuestros helados hechos a mano, paletas frutales y combinaciones únicas.',

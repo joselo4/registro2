@@ -35,7 +35,8 @@ export async function onRequest(context) {
       '/api/r2-upload',
       '/api/r2',
       '/api/table-call',
-      '/api/telegram'
+      '/api/telegram',
+      '/api/ga4-report'
     ];
 
     if (!validApiRoutes.includes(path)) {
@@ -63,7 +64,7 @@ export async function onRequest(context) {
     if (origin) {
       try {
         const originUrl = new URL(origin);
-        isAllowedOrigin = allowedOrigins.includes(origin) || originUrl.host === url.host;
+        isAllowedOrigin = allowedOrigins.includes(origin) || originUrl.origin === url.origin;
       } catch {
         isAllowedOrigin = false;
       }

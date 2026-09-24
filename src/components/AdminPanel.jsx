@@ -12,10 +12,13 @@ const OperationsCenter = lazy(() => import('./admin/OperationsCenter'));
 const UserManager = lazy(() => import('./admin/UserManager'));
 const TableOrderManager = lazy(() => import('./admin/TableOrderManager'));
 const OrderTaker = lazy(() => import('./admin/OrderTaker'));
+const AnalyticsPanel = lazy(() => import('./admin/AnalyticsPanel'));
 const CustomerCRM = lazy(() => import('./admin/CustomerCRM'));
 const DriverDeliveryPanel = lazy(() => import('./admin/DriverDeliveryPanel'));
 const KitchenDisplaySystem = lazy(() => import('./admin/KitchenDisplaySystem'));
 import CartLocationsView from './CartLocationsView';
+import './admin/AdminGrowth.css';
+import { readRememberedOperator } from '../utils/rememberedOperator';
 import { sanitizeHTML } from '../utils/security';
 
 // eslint-disable-next-line no-unused-vars
@@ -169,6 +172,11 @@ export default function AdminPanel({
 
   // --- Estados de UI ---
   const [activeTab, setActiveTab] = useState('operations');
+  const [orderTakerContext, setOrderTakerContext] = useState(null);
+  const storeServiceEnabled = tableOrdersEnabled || shopConfig?.barOrdersEnabled !== false;
+  useEffect(() => {
+    if (!storeServiceEnabled && (activeTab === 'table_orders' || activeTab === 'ordertaker')) setActiveTab('orders');
+  }, [storeServiceEnabled, activeTab]);
 
   useEffect(() => {
     window.scrollTo(0, 0);
@@ -178,30 +186,8 @@ export default function AdminPanel({
   const [rememberMe, setRememberMe] = useState(() => {
     return localStorage.getItem('friozo_operator_remember') === 'true';
   });
-  const [emailInput, setEmailInput] = useState(() => {
-    try {
-      const saved = localStorage.getItem('friozo_saved_operator_login');
-      if (saved) {
-        const parsed = JSON.parse(saved);
-        return parsed.user || '';
-      }
-    } catch {
-      /* ignore invalid saved login */
-    }
-    return '';
-  });
-  const [passwordInput, setPasswordInput] = useState(() => {
-    try {
-      const saved = localStorage.getItem('friozo_saved_operator_login');
-      if (saved) {
-        const parsed = JSON.parse(saved);
-        return parsed.pass || '';
-      }
-    } catch {
-      /* ignore invalid saved password */
-    }
-    return '';
-  });
+  const [emailInput, setEmailInput] = useState(() => readRememberedOperator(localStorage));
+  const [passwordInput, setPasswordInput] = useState('');
   const [showPassword, setShowPassword] = useState(false);
   const [authError, setAuthError] = useState('');
 
@@ -408,13 +394,14 @@ export default function AdminPanel({
       setLoginAttempts(0);
       setLockoutUntil(0);
       if (rememberMe) {
-        localStorage.setItem('friozo_saved_operator_login', JSON.stringify({ user: userInput, pass: passwordSanitized }));
+        localStorage.setItem('friozo_saved_operator_login', JSON.stringify({ user: userInput }));
         localStorage.setItem('friozo_operator_remember', 'true');
       } else {
         localStorage.removeItem('friozo_saved_operator_login');
         localStorage.setItem('friozo_operator_remember', 'false');
       }
       sessionStorage.setItem('helados_admin_login_timestamp', Date.now().toString());
+      setPasswordInput('');
       setIsLoggedIn(true);
       setCurrentUser(userObj);
       addLog(`Inicio de sesion ${isSupabase ? 'multidispositivo' : 'exitoso'} por ${userObj.name} (${userObj.role}).`);
@@ -557,9 +544,9 @@ export default function AdminPanel({
       <div className="glass admin-login-container" style={{ maxWidth: '400px', width: '90%', margin: '40px auto', padding: '25px', borderRadius: 'var(--radius-lg)' }}>
         <div style={{ textAlign: 'center', marginBottom: '20px' }}>
           <span style={{ fontSize: '3rem' }}>🔒</span>
-          <h2 style={{ marginTop: '10px' }}>Acceso Administrativo</h2>
+          <h2 style={{ marginTop: '10px' }}>Panel de gestión</h2>
           <p style={{ fontSize: '0.85rem', color: 'var(--text-light)', marginTop: '4px', marginBottom: isVendorApp ? '15px' : '4px' }}>
-            {supabase ? "Conectado a la base de datos Supabase." : "Ingresa con tu usuario o clave maestra."}
+            {supabase ? 'Ingresa para gestionar pedidos, canales de venta y conversiones.' : 'Ingresa con tu usuario o clave maestra.'}
           </p>
           {isVendorApp && (
             <div style={{ display: 'flex', justifyContent: 'center', marginTop: '10px' }}>
@@ -605,6 +592,7 @@ export default function AdminPanel({
               type="text"
               className="form-control"
               placeholder="admin o admin@donhelado.com"
+              autoComplete="username"
               value={emailInput}
               onChange={(e) => setEmailInput(e.target.value)}
               required
@@ -618,6 +606,7 @@ export default function AdminPanel({
                 type={showPassword ? 'text' : 'password'}
                 className="form-control"
                 placeholder="Contraseña"
+                autoComplete="current-password"
                 value={passwordInput}
                 onChange={(e) => setPasswordInput(e.target.value)}
                 required
@@ -651,7 +640,7 @@ export default function AdminPanel({
               onChange={(e) => setRememberMe(e.target.checked)}
             />
             <label htmlFor="rememberMe" style={{ cursor: 'pointer', margin: 0 }}>
-              Recordar credenciales en este equipo
+              Recordar solo mi usuario en este equipo
             </label>
           </div>
 
@@ -744,6 +733,11 @@ export default function AdminPanel({
           </div>
         )}
         <div className="sidebar-menu">
+          {isAdminUser(currentUser) && <section className="admin-growth-nav" aria-label="Accesos de ventas">
+            <span>CONTROL DE VENTAS</span>
+            <button type="button" className={activeTab === 'settings' ? 'active' : ''} onClick={() => setActiveTab('settings')}><span aria-hidden="true">⚙️</span><span>Canales y ajustes<small>Mesas · barra · delivery</small></span><span aria-hidden="true">↗</span></button>
+            <button type="button" className={activeTab === 'analytics' ? 'active' : ''} onClick={() => setActiveTab('analytics')}><span aria-hidden="true">📊</span><span>Conversiones GA4<small>Del producto a la compra</small></span><span aria-hidden="true">↗</span></button>
+          </section>}
           {isAdminUser(currentUser) && <button className={`sidebar-btn ${activeTab === 'operations' ? 'active' : ''}`} onClick={() => setActiveTab('operations')}>◉ Centro de operaciones</button>}
           {isTabAllowed('driver_panel') && (
             <button className={`sidebar-btn ${activeTab === 'driver_panel' ? 'active' : ''}`} onClick={() => setActiveTab('driver_panel')}>
@@ -768,16 +762,16 @@ export default function AdminPanel({
                 📦 Pedidos ({orders.filter(o => o.status === 'Pendiente').length})
               </button>
               {isTabAllowed('crm') && (
-            <button className={`sidebar-btn ${activeTab === 'crm' ? 'active' : ''}`} onClick={() => setActiveTab('crm')}>
-              📇 CRM Clientes
-            </button>
-          )}
-          {isTabAllowed('ordertaker') && (
-                <button className={`sidebar-btn ${activeTab === 'ordertaker' ? 'active' : ''}`} onClick={() => setActiveTab('ordertaker')}>
-                  🛒 Tomador de Pedidos
+                <button className={`sidebar-btn ${activeTab === 'crm' ? 'active' : ''}`} onClick={() => setActiveTab('crm')}>
+                  📇 CRM Clientes
                 </button>
               )}
             </>
+          )}
+          {storeServiceEnabled && isTabAllowed('ordertaker') && (
+            <button className={`sidebar-btn ${activeTab === 'ordertaker' ? 'active' : ''}`} onClick={() => { setOrderTakerContext(null); setActiveTab('ordertaker'); }}>
+              🛒 Tomador de Pedidos
+            </button>
           )}
           {isTabAllowed('inventory') && (
             <button className={`sidebar-btn ${activeTab === 'inventory' ? 'active' : ''}`} onClick={() => setActiveTab('inventory')}>
@@ -809,14 +803,14 @@ export default function AdminPanel({
               ⭐ Encuestas ({orders.filter(o => o.survey).length})
             </button>
           )}
-          {(tableOrdersEnabled || isAdminUser(currentUser)) && isTabAllowed('table_orders') && (
+          {storeServiceEnabled && isTabAllowed('table_orders') && (
             <button className={`sidebar-btn ${activeTab === 'table_orders' ? 'active' : ''}`} onClick={() => setActiveTab('table_orders')}>
               🍽️ Pedidos en Mesa
             </button>
           )}
           {isTabAllowed('settings') && (
             <button className={`sidebar-btn ${activeTab === 'settings' ? 'active' : ''}`} onClick={() => setActiveTab('settings')}>
-              ⚙️ Ajustes Tienda
+              ⚙️ Todos los ajustes
             </button>
           )}
           {isTabAllowed('locations') && (
@@ -837,7 +831,8 @@ export default function AdminPanel({
           {key:'popsicles',name:'Paletas',items:popsicles,update:onUpdatePopsicles},
           {key:'packs',name:'Packs',items:packs,update:onUpdatePacks}
         ]} />}
-        {activeTab === 'ordertaker' && <OrderTaker catalog={{ bases, flavors, toppings, packs, popsicles, literConfig }} onPlaceOrder={onPlaceOrder} showAlert={showAlert} />}
+        {storeServiceEnabled && activeTab === 'ordertaker' && <OrderTaker catalog={{ bases, flavors, toppings, packs, popsicles, literConfig }} onPlaceOrder={onPlaceOrder} showAlert={showAlert} shopConfig={shopConfig} orders={orders} orderContext={orderTakerContext} onBack={() => { setOrderTakerContext(null); setActiveTab('table_orders'); }} onCreated={() => { if (orderTakerContext) { setOrderTakerContext(null); setActiveTab('table_orders'); } }} />}
+        {activeTab === 'analytics' && isAdminUser(currentUser) && <AnalyticsPanel googleAnalyticsId={googleAnalyticsId} />}
         {activeTab === 'crm' && (
           <CustomerCRM
             orders={orders}
@@ -974,7 +969,7 @@ export default function AdminPanel({
           />
         )}
 
-        {(tableOrdersEnabled || isAdminUser(currentUser)) && activeTab === 'table_orders' && (
+        {storeServiceEnabled && activeTab === 'table_orders' && (
           <TableOrderManager
             orders={orders}
             onUpdateOrders={onUpdateOrders}
@@ -992,6 +987,7 @@ export default function AdminPanel({
             tableCalls={tableCalls}
             onUpdateTableCalls={onUpdateTableCalls}
             shopConfig={shopConfig}
+            onOpenOrderTaker={(context) => { setOrderTakerContext({ ...context, key: Date.now() }); setActiveTab('ordertaker'); }}
           />
         )}
 
@@ -1086,6 +1082,7 @@ export default function AdminPanel({
             onChangeMetaPixelId={onChangeMetaPixelId}
             googleAnalyticsId={googleAnalyticsId}
             onChangeGoogleAnalyticsId={onChangeGoogleAnalyticsId}
+            onOpenAnalytics={() => setActiveTab('analytics')}
           />
         )}
 

@@ -14,13 +14,16 @@ import { Capacitor } from '@capacitor/core';
 import { DEFAULT_SMS_TEMPLATES } from './utils/orderMessaging';
 import { createOrder, createOperatorOrder, updateOrder } from './utils/apiClient';
 import { addCartItem, checkoutStorage, readCartDraft, subtractOrderedItems } from './utils/checkout';
+import { isGoogleMeasurementId, toGa4Event, toMetaPayload } from './utils/commerceAnalytics';
+import { configureWebVitalsMonitoring } from './utils/performanceMonitoring';
+import { readRememberedOperator } from './utils/rememberedOperator';
 
 import CustomerShop from './components/CustomerShop';
-import IceCreamCustomizer from './components/IceCreamCustomizer';
-import LiterCustomizer from './components/LiterCustomizer';
-import Cart from './components/Cart';
-import LiveChatTelegramBridge from './components/LiveChatTelegramBridge';
-import OrderTracker from './components/OrderTracker';
+const IceCreamCustomizer = React.lazy(() => import('./components/IceCreamCustomizer'));
+const LiterCustomizer = React.lazy(() => import('./components/LiterCustomizer'));
+const Cart = React.lazy(() => import('./components/Cart'));
+const LiveChatTelegramBridge = React.lazy(() => import('./components/LiveChatTelegramBridge'));
+const OrderTracker = React.lazy(() => import('./components/OrderTracker'));
 const AdminPanel = React.lazy(() => import('./components/AdminPanel'));
 const CartLocationsView = React.lazy(() => import('./components/CartLocationsView'));
 
@@ -127,6 +130,7 @@ const migrateLegacyBrandText = (value, fallback = '') => {
 };
 
 export default function App() {
+  useEffect(() => { readRememberedOperator(window.localStorage); }, []);
   const isRemoteUpdate = useRef({});
   const allowCloudWrite = useRef(false);
   const logoutInProgressRef = useRef(false);
@@ -135,8 +139,6 @@ export default function App() {
   const [realtimeStatus, setRealtimeStatus] = useState('connecting'); // 'connecting' | 'connected' | 'error'
   const isVendorApp = typeof window !== 'undefined' && (
     Capacitor.isNativePlatform?.() ||
-    window.matchMedia?.('(display-mode: standalone)').matches ||
-    window.navigator?.standalone ||
     new URLSearchParams(window.location.search).get('mode') === 'vendor'
   );
 
@@ -249,25 +251,25 @@ export default function App() {
     return localStorage.getItem('helados_google_analytics_id') || '';
   });
 
-  // Helper for professional non-obvious event tracking
+  const googleMeasurementId = isGoogleMeasurementId(googleAnalyticsId) ? googleAnalyticsId.trim().toUpperCase() : '';
+  const analyticsEnabled = Boolean(googleMeasurementId || String(metaPixelId || '').trim());
+
   const trackEvent = (eventName, eventData = {}) => {
-    // 1. Meta Pixel
     if (window.fbq && metaPixelId) {
       try {
-        window.fbq('track', eventName, eventData);
+        window.fbq(eventName === 'ViewCatalog' ? 'trackCustom' : 'track', eventName === 'ViewProduct' ? 'ViewContent' : eventName, toMetaPayload(eventName, eventData));
       } catch (err) {
         console.warn('Meta Pixel track failed:', err);
       }
     }
-    // 2. Google Analytics
-    if (window.gtag && googleAnalyticsId) {
+    const ga4Event = toGa4Event(eventName, eventData);
+    if (window.gtag && googleMeasurementId && ga4Event) {
       try {
-        window.gtag('event', eventName, eventData);
+        window.gtag('event', ga4Event.name, { ...ga4Event.params, send_to: googleMeasurementId });
       } catch (err) {
         console.warn('Google Analytics track failed:', err);
       }
     }
-    console.log(`📊 Tracking Event: ${eventName}`, eventData);
   };
 
   // Dynamic script injection for Meta Pixel
@@ -295,25 +297,30 @@ export default function App() {
          
         window.fbq('init', pixelId);
       }
-      window.fbq('track', 'PageView');
     }
   }, [metaPixelId]);
 
   // Dynamic script injection for Google Analytics
   useEffect(() => {
-    if (googleAnalyticsId && googleAnalyticsId.trim()) {
-      const gaId = googleAnalyticsId.trim();
-      const script = document.createElement('script');
-      script.async = true;
-      script.src = `https://www.googletagmanager.com/gtag/js?id=${gaId}`;
-      document.head.appendChild(script);
+    if (googleMeasurementId) {
+      const gaId = googleMeasurementId;
+      if (!document.querySelector(`script[data-friozo-ga4="${gaId}"]`)) {
+        const script = document.createElement('script');
+        script.async = true;
+        script.dataset.friozoGa4 = gaId;
+        script.src = `https://www.googletagmanager.com/gtag/js?id=${gaId}`;
+        document.head.appendChild(script);
+      }
 
       window.dataLayer = window.dataLayer || [];
-      window.gtag = function(){window.dataLayer.push(arguments);}
+      window.gtag = window.gtag || function(){window.dataLayer.push(arguments);};
       window.gtag('js', new Date());
-      window.gtag('config', gaId);
+      window.gtag('config', gaId, {
+        page_location: `${window.location.origin}${window.location.pathname}`,
+        send_page_view: false
+      });
     }
-  }, [googleAnalyticsId]);
+  }, [googleMeasurementId]);
 
   const [storeInstagram, setStoreInstagram] = useState(() => {
     return localStorage.getItem('helados_store_instagram') || 'https://www.instagram.com/';
@@ -391,6 +398,8 @@ export default function App() {
       sunday: { enabled: true, open: '09:00', close: '22:00' }
     },
     tableOrdersEnabled: true,
+    barOrdersEnabled: true,
+    deliveryOrdersEnabled: true,
     waiterTakerEnabled: true,
     defaultWhatsAppEnabled: false
   };
@@ -534,7 +543,30 @@ export default function App() {
     return { updatedAt: null, carts: [] };
   });
 
-  const [view, setView] = useState(() => (isVendorApp ? 'admin' : 'shop')); 
+  const [view, setView] = useState(() => (
+    isVendorApp || (typeof window !== 'undefined' && new URLSearchParams(window.location.search).get('admin') === '1')
+      ? 'admin'
+      : 'shop'
+  ));
+  const trackedPageViewRef = useRef('');
+  const trackedMetaPageViewRef = useRef('');
+  const isCustomerView = !isVendorApp && !isLoggedIn && ['shop', 'customizer', 'liter-customizer', 'cart', 'tracker', 'locations'].includes(view);
+
+  useEffect(() => {
+    configureWebVitalsMonitoring(isCustomerView ? googleMeasurementId : '');
+    if (isCustomerView && metaPixelId && window.fbq && trackedMetaPageViewRef.current !== metaPixelId) {
+      trackedMetaPageViewRef.current = metaPixelId;
+      window.fbq('track', 'PageView');
+    }
+    if (isCustomerView && googleMeasurementId && window.gtag && trackedPageViewRef.current !== googleMeasurementId) {
+      trackedPageViewRef.current = googleMeasurementId;
+      window.gtag('event', 'page_view', {
+        page_location: `${window.location.origin}${window.location.pathname}`,
+        send_to: googleMeasurementId
+      });
+    }
+    return () => configureWebVitalsMonitoring('');
+  }, [isCustomerView, googleMeasurementId, metaPixelId]);
   
   useEffect(() => {
     window.scrollTo(0, 0);
@@ -1267,6 +1299,7 @@ export default function App() {
       return false;
     }
     setCart(current => addCartItem(current, item));
+    if (analyticsEnabled) trackEvent('AddToCart', { value: Number(item.price) * (Number(item.quantity) || 1), items: [item] });
     showAlert('Producto agregado', `${item.name || 'Tu helado'} ya está en tu pedido.`, 'success');
     return true;
   };
@@ -1444,11 +1477,6 @@ export default function App() {
     setTheme(prev => prev === 'light' ? 'dark' : 'light');
   };
 
-  // Easter Egg: Doble clic en logotipo abre login administrativo
-  const handleLogoDoubleClick = () => {
-    setView('admin');
-  };
-
   return (
     <div style={{ display: 'flex', flexDirection: 'column', minHeight: '100vh' }}>
       
@@ -1459,8 +1487,7 @@ export default function App() {
             href="#" 
             className="logo" 
             onClick={(e) => { e.preventDefault(); setView(isVendorApp ? 'admin' : 'shop'); }}
-            onDoubleClick={handleLogoDoubleClick}
-            title="Doble clic para administrar"
+            onDoubleClick={(e) => { e.preventDefault(); setView('admin'); }}
             style={{ cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '8px' }}
           >
             {renderLogo(storeLogo)}
@@ -1610,7 +1637,7 @@ export default function App() {
           </div>
         )}
 
-        <React.Suspense fallback={<div className="glass" style={{ padding: '40px', textAlign: 'center', fontFamily: 'var(--font-title)', color: 'var(--primary-color)', fontSize: '1.2rem', fontWeight: 'bold' }}>Cargando...</div>}>
+        <React.Suspense fallback={<div className="glass route-loading" role="status" aria-live="polite"><span className="route-loading-spinner" aria-hidden="true" />Preparando tu experiencia...</div>}>
           {view === 'shop' && (
           <CustomerShop 
             flavors={flavors}
@@ -1642,7 +1669,7 @@ export default function App() {
             shopConfig={shopConfig}
             testimonials={testimonials}
             storeHeroImage={storeHeroImage}
-            trackEvent={trackEvent}
+            trackEvent={analyticsEnabled ? trackEvent : undefined}
           />
         )}
 
@@ -1696,10 +1723,9 @@ export default function App() {
             shopOpen={effectiveShopOpen}
             tableOrdersEnabled={shopConfig.tableOrdersEnabled !== false}
             tableNumber={tableNumber}
-            setTableNumber={setTableNumber}
             occupiedTables={shopConfig.occupiedTables || []}
             shopConfig={shopConfig}
-            trackEvent={trackEvent}
+            trackEvent={analyticsEnabled ? trackEvent : undefined}
           />
         )}
 
@@ -1839,7 +1865,7 @@ export default function App() {
         </React.Suspense>
       </main>
 
-      {/* 🔑 PIE DE PÁGINA (Footer) CON ACCESO DISCRETO */}
+      {/* Pie de página público */}
       {!isVendorApp && (
       <footer style={{
         textAlign: 'center',
@@ -1864,26 +1890,7 @@ export default function App() {
           </a>
         </div>
         <div>&copy; {new Date().getFullYear()} {storeName} - Todos los derechos reservados.</div>
-        <div style={{ marginTop: '5px' }}>
-          Hecho con mucho amor por heladeros artesanales
-          <button
-            onClick={() => setView('admin')}
-            style={{
-              background: 'none',
-              border: 'none',
-              cursor: 'pointer',
-              color: 'var(--text-light)',
-              fontSize: '0.8rem',
-              marginLeft: '2px',
-              padding: 0,
-              display: 'inline',
-              opacity: 0.8
-            }}
-            title="Acceso administrativo"
-          >
-            .
-          </button>
-        </div>
+        <div style={{ marginTop: '5px' }}>Hecho con mucho amor por heladeros artesanales</div>
       </footer>
       )}
 
@@ -1958,14 +1965,16 @@ export default function App() {
 
       {/* 💬 Burbuja de Chat Puente a Telegram */}
       {!isVendorApp && (
-      <LiveChatTelegramBridge 
-        telegramToken={telegramToken}
-        telegramChatId={telegramChatId}
-        storePhone={storePhone}
-        storeName={storeName}
-        view={view}
-        hasFloatingCart={cart.length > 0 && view !== 'cart' && view !== 'admin'}
-      />
+        <React.Suspense fallback={null}>
+          <LiveChatTelegramBridge
+            telegramToken={telegramToken}
+            telegramChatId={telegramChatId}
+            storePhone={storePhone}
+            storeName={storeName}
+            view={view}
+            hasFloatingCart={cart.length > 0 && view !== 'cart' && view !== 'admin'}
+          />
+        </React.Suspense>
       )}
 
       {/* Floating Cart Toast/Window */}
