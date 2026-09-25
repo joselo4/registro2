@@ -71,8 +71,8 @@ export async function fetchOperatorOrders(session) {
   const timer = setTimeout(() => controller.abort(), 15000);
   try {
     const response = await fetch(apiUrl('/api/order?scope=operations'), { headers: { Authorization: `Bearer ${session.access_token}` }, signal: controller.signal, cache: 'no-store' });
-    const payload = await response.json();
-    if (!response.ok || !payload.ok || !Array.isArray(payload.orders)) throw new Error(payload.error || 'No se pudieron cargar los pedidos.');
+    const payload = await response.json().catch(() => null);
+    if (!response.ok || !payload?.ok || !Array.isArray(payload.orders)) throw new Error(payload?.error || `El servidor de pedidos no respondió correctamente (código ${response.status}).`);
     return payload.orders;
   } finally { clearTimeout(timer); }
 }

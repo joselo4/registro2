@@ -228,3 +228,4 @@ body { background: #fffaf7; }
 .site-protected img, .friozo-shell img { -webkit-user-drag: none; }
 .site-protected input, .site-protected textarea, .site-protected select, .site-protected [contenteditable="true"] { -webkit-user-select: text; user-select: text; -webkit-touch-callout: default; }
 .site-protected .allow-select, .site-protected .allow-select * { -webkit-user-select: text; user-select: text; }
+.admin-sync-issue { margin: 8px 0 0; padding: 8px 10px; border-radius: 10px; background: #fff3cd; border: 1px solid #f5e0a0; color: #664d03; font-size: .74rem; line-height: 1.4; overflow-wrap: anywhere; }

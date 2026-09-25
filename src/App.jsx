@@ -8,7 +8,7 @@ import {
   INITIAL_POPSICLES,
   INITIAL_ORDERS 
 } from './utils/mockData';
-import { fetchSyncedData, updateSyncedData, subscribeToSync, invalidateSyncCache } from './utils/supabaseSync';
+import { fetchSyncedData, getLastSyncError, updateSyncedData, subscribeToSync, invalidateSyncCache } from './utils/supabaseSync';
 import { supabase } from './utils/supabaseClient';
 import { Capacitor } from '@capacitor/core';
 import { DEFAULT_SMS_TEMPLATES } from './utils/orderMessaging';
@@ -146,6 +146,7 @@ export default function App() {
   const allowCloudWrite = useRef(false);
   const logoutInProgressRef = useRef(false);
   const [isCloudSynced, setIsCloudSynced] = useState(false);
+  const [syncIssue, setSyncIssue] = useState(''); // why the panel is only partly synced
   const [isSyncLoaded, setIsSyncLoaded] = useState(false);
   const [realtimeStatus, setRealtimeStatus] = useState('connecting'); // 'connecting' | 'connected' | 'error'
   const isVendorApp = typeof window !== 'undefined' && (
@@ -689,6 +690,7 @@ export default function App() {
   // --- Función auxiliar para aplicar los datos sincronizados y combinar las órdenes ---
   const applyLoadedData = (serverData) => {
     setIsCloudSynced(true);
+    setSyncIssue(serverData.__syncIssue || '');
     if (serverData.store_name !== undefined) setStoreName(migrateLegacyBrandText(serverData.store_name, 'Friozo'));
     if (serverData.store_logo !== undefined) setStoreLogo(!serverData.store_logo || serverData.store_logo === '🍦' ? '/favicon.svg' : serverData.store_logo);
     if (serverData.store_title !== undefined) setStoreTitle(migrateLegacyBrandText(serverData.store_title, 'Friozo - Helados artesanales, paletas y delivery'));
@@ -854,6 +856,7 @@ export default function App() {
         }, 400);
       } else {
         console.warn("⚠️ No se pudieron obtener datos de Supabase. Escrituras remotas desactivadas para proteger la base de datos.");
+        if (hasActiveSession) setSyncIssue(getLastSyncError());
         allowCloudWrite.current = false;
       }
 
@@ -911,6 +914,7 @@ export default function App() {
             }, 400);
           } else {
             allowCloudWrite.current = false;
+            setSyncIssue(getLastSyncError());
           }
           setIsSyncLoaded(true);
         }
@@ -940,6 +944,55 @@ export default function App() {
       }
     };
   }, []);
+
+  // Staff always see new orders: besides realtime, poll the order API every
+  // 20 s while the panel is open, and reconnect by itself if it went offline.
+  useEffect(() => {
+    if (!supabase || !isLoggedIn || view !== 'admin') return undefined;
+    let cancelled = false;
+    let busy = false;
+    const refresh = async () => {
+      if (busy || cancelled || document.hidden) return;
+      busy = true;
+      try {
+        const session = await currentSession(supabase);
+        if (!session || cancelled) return;
+        if (!isCloudSynced) {
+          invalidateSyncCache();
+          const serverData = await fetchSyncedData(true, session);
+          if (!serverData && !cancelled) setSyncIssue(getLastSyncError());
+          if (serverData && !cancelled) {
+            Object.keys(serverData).forEach(key => { isRemoteUpdate.current[key] = true; });
+            applyLoadedDataRef.current(serverData);
+            setTimeout(() => {
+              allowCloudWrite.current = serverData.__fromCache !== true;
+              isRemoteUpdate.current = {};
+            }, 400);
+          }
+          return;
+        }
+        const fresh = await fetchOperatorOrders(session);
+        if (cancelled) return;
+        setOrders(current => {
+          const merged = mergeOrders(current, fresh);
+          return JSON.stringify(merged) === JSON.stringify(current) ? current : merged;
+        });
+        setSyncIssue(issue => issue.replace(/(^| · )Lista de pedidos:[^·]*/, '').replace(/^ · /, '').trim());
+      } catch (error) {
+        if (!cancelled) setSyncIssue(`Lista de pedidos: ${error.message || 'sin respuesta'}`);
+      } finally {
+        busy = false;
+      }
+    };
+    const timer = window.setInterval(refresh, 20000);
+    const onVisible = () => { if (!document.hidden) refresh(); };
+    document.addEventListener('visibilitychange', onVisible);
+    return () => {
+      cancelled = true;
+      window.clearInterval(timer);
+      document.removeEventListener('visibilitychange', onVisible);
+    };
+  }, [isLoggedIn, view, isCloudSynced]);
 
   const handleRefreshCarts = async () => {
     if (!supabase) return false;
@@ -1995,6 +2048,7 @@ export default function App() {
               salesGoal={salesGoal}
               onChangeSalesGoal={setSalesGoal}
               isCloudSynced={isCloudSynced}
+              syncIssue={syncIssue}
               whatsappGreeting={whatsappGreeting}
               onChangeWhatsappGreeting={setWhatsappGreeting}
               whatsappFooter={whatsappFooter}

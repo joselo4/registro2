@@ -25,6 +25,10 @@ const _writeQueues = {};
  * Si es administrador y tiene sesión activa, utiliza consultas directas protegidas por RLS.
  * Si es cliente, descarga únicamente las configuraciones públicas de la tienda.
  */
+// Why the last full sync failed, so the admin panel can say it.
+let lastSyncError = '';
+export const getLastSyncError = () => lastSyncError;
+
 export const fetchSyncedData = async (isAdmin = false, activeSession = null) => {
   if (!supabase) return null;
 
@@ -57,19 +61,41 @@ export const fetchSyncedData = async (isAdmin = false, activeSession = null) => 
 
     if (isAdmin && isSessionAdmin) {
       console.log("🔌 Solicitando datos administrativos seguros mediante consulta directa (Supabase Auth activa)...");
-      const data = await fetchAllSyncRows(supabase);
-      if (data && data.length > 0) {
-        data.forEach(row => {
+      // Two sources; one failing must not leave the whole panel offline.
+      let rowsError = null;
+      let ordersError = null;
+      try {
+        const data = await fetchAllSyncRows(supabase);
+        (data || []).forEach(row => {
           syncData[row.key] = row.value;
         });
+      } catch (error) {
+        rowsError = error;
       }
       // Server verifies every staff role, including drivers, cashiers and waiters
       // whose older RLS installation may only expose public configuration.
-      const operatorOrders = await fetchOperatorOrders(session);
-      Object.keys(syncData).filter(key => key.startsWith('order_') && !key.startsWith('order_call_')).forEach(key => { delete syncData[key]; });
-      syncData.orders = operatorOrders;
-      syncData.order_scope = /repartidor/i.test(session.user?.app_metadata?.role || '') ? 'assigned' : 'all';
-      operatorOrders.forEach(order => { syncData[`order_${order.id}`] = order; });
+      let operatorOrders = null;
+      try {
+        operatorOrders = await fetchOperatorOrders(session);
+      } catch (error) {
+        ordersError = error;
+      }
+      if (rowsError && ordersError) throw ordersError;
+      if (operatorOrders) {
+        Object.keys(syncData).filter(key => key.startsWith('order_') && !key.startsWith('order_call_')).forEach(key => { delete syncData[key]; });
+        syncData.orders = operatorOrders;
+        syncData.order_scope = /repartidor/i.test(session.user?.app_metadata?.role || '') ? 'assigned' : 'all';
+        operatorOrders.forEach(order => { syncData[`order_${order.id}`] = order; });
+      }
+      // Otherwise the order rows readable through the database policies are kept.
+      const issues = [
+        rowsError && `Datos de la tienda: ${rowsError.message || 'sin respuesta'}`,
+        ordersError && `Lista de pedidos: ${ordersError.message || 'sin respuesta'}`,
+      ].filter(Boolean);
+      if (issues.length) {
+        syncData.__syncIssue = issues.join(' · ');
+        console.warn('⚠️ Sincronización parcial del panel:', syncData.__syncIssue);
+      }
     } else {
       // Caso de uso público (Clientes): cargar únicamente la configuración general no sensible
       console.log("🔌 Cargando configuración pública de la tienda...");
@@ -100,6 +126,7 @@ export const fetchSyncedData = async (isAdmin = false, activeSession = null) => 
     return syncData;
   } catch (err) {
     console.warn("⚠️ Supabase Sync: Fetch fallido. Usando datos locales.", err.message);
+    lastSyncError = err?.message || 'Sin respuesta del servidor';
     if (!isAdmin) {
       const cached = readPublicCatalog();
       if (cached) return { ...cached, __fromCache: true };

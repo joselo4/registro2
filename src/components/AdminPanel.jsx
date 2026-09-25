@@ -100,6 +100,7 @@ export default function AdminPanel({
   salesGoal,
   onChangeSalesGoal,
   isCloudSynced,
+  syncIssue = '',
   whatsappGreeting,
   onChangeWhatsappGreeting,
   whatsappFooter,
@@ -693,8 +694,9 @@ export default function AdminPanel({
                      'Tiempo Real: Conectando...'}
             />
           )}
-          <span>{isCloudSynced ? 'Sincronizado (Supabase)' : 'Modo Local (Offline)'}</span>
+          <span>{isCloudSynced ? (syncIssue ? 'Conectado con avisos' : 'Sincronizado (Supabase)') : 'Sin conexión · reintentando'}</span>
         </div>
+        {syncIssue && <p className="admin-sync-issue" role="status">⚠️ {syncIssue}</p>}
 
 
         {currentUser && (
