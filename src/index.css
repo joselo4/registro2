@@ -78,6 +78,8 @@ body {
   color: var(--text-dark);
   min-height: 100vh;
   overflow-x: hidden;
+  /* clip hides sideways overflow without turning body into a scroll box, so position: sticky keeps working. */
+  overflow-x: clip;
   background-image:
     radial-gradient(circle at 4% 12%, rgba(244, 63, 104, 0.08) 0%, transparent 34%),
     radial-gradient(circle at 96% 62%, rgba(255, 107, 53, 0.08) 0%, transparent 34%);
@@ -1575,6 +1577,7 @@ input:checked + .slider:before {
   html, body {
     max-width: 100vw;
     overflow-x: hidden;
+    overflow-x: clip;
   }
 
   .container {

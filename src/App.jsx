@@ -234,11 +234,13 @@ export default function App() {
 
   // --- Estados de Marca de la Heladería (Sincronizado con LocalStorage) ---
   const [storeName, setStoreName] = useState(() => {
-    return migrateLegacyBrandText(safeStorage.getItem('helados_store_name'), 'Friozo');
+    // The prerendered page already shows the store's branding; start with it.
+    const embeddedName = typeof initialPublicCatalog?.store_name === 'string' ? initialPublicCatalog.store_name : '';
+    return migrateLegacyBrandText(safeStorage.getItem('helados_store_name') || embeddedName, 'Friozo');
   });
 
   const [storeLogo, setStoreLogo] = useState(() => {
-    const savedLogo = safeStorage.getItem('helados_store_logo');
+    const savedLogo = safeStorage.getItem('helados_store_logo') || (typeof initialPublicCatalog?.store_logo === 'string' ? initialPublicCatalog.store_logo : '');
     return !savedLogo || savedLogo === '🍦' ? '/favicon.svg' : savedLogo;
   });
 
@@ -1493,6 +1495,8 @@ export default function App() {
   }
 
   const totalCartItems = cart.reduce((sum, item) => sum + item.quantity, 0);
+  // The builders have their own purchase bar; a second floating bar would cover it.
+  const showFloatingCart = cart.length > 0 && !['cart', 'admin', 'customizer', 'liter-customizer'].includes(view);
   const cartSubtotal = cart.reduce((sum, item) => sum + (Number(item.price) || 0) * item.quantity, 0);
 
   const toggleTheme = () => {
@@ -1987,8 +1991,8 @@ export default function App() {
         </nav>
       )}
 
-      {/* 💬 Burbuja de Chat Puente a Telegram */}
-      {!isVendorApp && (
+      {/* 💬 Burbuja de Chat Puente a Telegram (oculta en los armadores, que tienen su propia barra de compra) */}
+      {!isVendorApp && view !== 'customizer' && view !== 'liter-customizer' && (
         <React.Suspense fallback={null}>
           <LiveChatTelegramBridge
             telegramToken={telegramToken}
@@ -1996,13 +2000,13 @@ export default function App() {
             storePhone={storePhone}
             storeName={storeName}
             view={view}
-            hasFloatingCart={cart.length > 0 && view !== 'cart' && view !== 'admin'}
+            hasFloatingCart={showFloatingCart}
           />
         </React.Suspense>
       )}
 
       {/* Floating Cart Toast/Window */}
-      {!isVendorApp && cart.length > 0 && view !== 'cart' && view !== 'admin' && (
+      {!isVendorApp && showFloatingCart && (
         <div className="floating-cart-toast glass animate-float-toast" style={{
           position: 'fixed',
           bottom: '80px',

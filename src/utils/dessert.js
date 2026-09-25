@@ -1,17 +1,28 @@
+// Bump when the photos in /customizer change: they are cached as immutable.
+export const customizerAsset = name => `/customizer/${name}.webp?v=2`;
 export const money = value => `S/ ${Math.max(0, Number(value) || 0).toFixed(2)}`;
 export const available = item => item && item.active !== false;
 export const cleanName = value => String(value || '').replace(/[\p{Extended_Pictographic}\uFE0F]/gu, '').trim();
+// Appetizing, saturated tones for the photographed neutral scoop.
 export function flavorColor(flavor) {
   const name = `${flavor?.id} ${flavor?.name}`.toLowerCase();
-  if (/chocolate|cacao/.test(name) && !/menta/.test(name)) return '#80503b';
-  if (/lucuma|lúcuma/.test(name)) return '#d8a053';
-  if (/fresa/.test(name)) return '#e7a0a5';
-  if (/menta/.test(name)) return '#afd1b6';
-  if (/maracu/.test(name)) return '#edcb72';
-  if (/mango/.test(name)) return '#efb765';
-  if (/coco/.test(name)) return '#f2eee5';
-  if (/vainilla/.test(name)) return '#efdfb6';
+  if (/chocolate|cacao/.test(name) && !/menta/.test(name)) return '#5f2f1a';
+  if (/lucuma|lúcuma/.test(name)) return '#e0a14e';
+  if (/manjar|dulce de leche|caramel/.test(name)) return '#d99a5b';
+  if (/fresa|frutilla/.test(name)) return '#f28ea0';
+  if (/menta/.test(name)) return '#8fd6b4';
+  if (/maracu/.test(name)) return '#f5c542';
+  if (/mango/.test(name)) return '#f7a93b';
+  if (/coco/.test(name)) return '#f7f1e6';
+  if (/vainilla/.test(name)) return '#f6e3b0';
   return /^#[\da-f]{6}$/i.test(flavor?.color) ? flavor.color : '#e6c8a4';
+}
+// SVG feFuncR/G/B tables: deep shadows and creamy highlights keep the
+// scoop's texture instead of the flat look of a plain multiply.
+export function flavorTone(flavor) {
+  const rgb = flavorColor(flavor).slice(1).match(/.{2}/g).map(v => parseInt(v, 16) / 255);
+  const lightness = 0.2126 * rgb[0] + 0.7152 * rgb[1] + 0.0722 * rgb[2];
+  return rgb.map(c => [c * .25, c * .52, c * .78, c * .97, Math.min(1, c + (1 - c) * (.12 + .36 * lightness))].map(v => v.toFixed(3)).join(' '));
 }
 export function baseVisual(base) {
   const name = `${base?.id} ${base?.name}`.toLowerCase();

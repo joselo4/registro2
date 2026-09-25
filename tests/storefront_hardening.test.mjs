@@ -88,3 +88,17 @@ test('malformed order requests are rejected as bad input', async () => {
   const response = await orderPost({ request: post('/api/order', 'not json'), env: {} }, async () => fakeDb());
   assert.equal(response.status, 400);
 });
+
+test('an old tab reloads once after a deploy instead of showing an error', async () => {
+  const { isStaleDeployError, reloadForNewDeploy } = await import('../src/utils/staleDeploy.js');
+  assert.equal(isStaleDeployError(new TypeError('Failed to fetch dynamically imported module: /assets/Cart-abc.js')), true);
+  assert.equal(isStaleDeployError(new Error('Cannot read properties of undefined')), false);
+  const values = new Map();
+  const storage = { getItem: key => values.get(key) ?? null, setItem: (key, value) => values.set(key, value) };
+  let reloads = 0;
+  const location = { reload: () => { reloads++; } };
+  assert.equal(reloadForNewDeploy(storage, location, 100000), true);
+  assert.equal(reloadForNewDeploy(storage, location, 120000), false); // no loop
+  assert.equal(reloadForNewDeploy(storage, location, 200000), true);
+  assert.equal(reloads, 2);
+});

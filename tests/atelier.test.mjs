@@ -40,7 +40,7 @@ test('presets preserve repeated scoops and resolve the old strawberry syrup alia
   assert.equal(resolveRecommendation(rec,bases,flavors,[]),null);
 });
 test('chocolate is brown even when the old catalog color was purple',()=>{
-  assert.equal(flavorColor({id:'chocolate',color:'#574b90'}),'#80503b');
+  assert.equal(flavorColor({id:'chocolate',color:'#574b90'}),'#5f2f1a');
 });
 test('today boundaries use Lima, independent of the server timezone',()=>{
   assert.equal(peruDay('2026-09-05T03:00:00Z'),'2026-09-04');

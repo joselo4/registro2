@@ -1,34 +1,42 @@
-.friozo-startup { box-sizing: border-box; min-height: 100vh; padding: 0 20px 48px; background: #fffaf7; color: #40271f; font-family: Manrope, system-ui, sans-serif; }
-.friozo-startup *, .friozo-startup *::before, .friozo-startup *::after { box-sizing: border-box; }
-.friozo-startup a { color: inherit; }
-.static-header { max-width: 1200px; margin: auto; min-height: 78px; display: flex; justify-content: space-between; align-items: center; gap: 18px; border-bottom: 1px solid #e8d8d2; }
-.static-header > a { display: inline-flex; align-items: center; gap: 10px; font-size: 1.5rem; font-weight: 800; text-decoration: none; }
-.static-header img { object-fit: contain; }
-.static-header nav { display: flex; flex-wrap: wrap; gap: 8px 24px; font-weight: 700; }
-.static-header nav a { text-decoration: none; }
-.static-header a:hover, .static-section h2 a:hover { color: #ae1641; }
-.static-hero, .static-section, .static-footer { max-width: 1200px; margin: auto; }
-.static-hero { padding: 56px 0 40px; }
-.static-hero > span { color: #ae1641; font-size: .85rem; font-weight: 800; letter-spacing: .14em; }
-.static-hero h1 { max-width: 16ch; font-family: 'Bricolage Grotesque', system-ui, sans-serif; font-size: clamp(2.6rem, 6vw, 4.8rem); line-height: 1.08; margin: 12px 0; }
-.static-hero p { max-width: 56ch; font-size: 1.1rem; line-height: 1.5; }
-.static-delivery { display: inline-block; background: #f0fac8; padding: 12px 18px; border-radius: 14px; font-weight: 700; }
-.static-actions { display: flex; align-items: center; flex-wrap: wrap; gap: 12px; margin-top: 18px; }
-.static-actions a, .static-product-action, #startup-retry { display: inline-flex; align-items: center; justify-content: center; min-height: 44px; padding: 10px 17px; border-radius: 12px; border: 1px solid #ae1641; color: #ae1641; text-decoration: none; font: inherit; font-weight: 800; cursor: pointer; }
-.static-actions .static-primary, #startup-retry { background: #ae1641; color: white; }
-.static-section { padding: 20px 0 36px; }
-.static-section h2 { font-family: 'Bricolage Grotesque', system-ui, sans-serif; font-size: clamp(1.7rem, 3vw, 2.4rem); margin: 0 0 5px; }
+/* First paint before JavaScript. The navbar and hero reuse the app's own
+   classes (styled by the app CSS in <head>); these rules only cover the
+   static catalogue below the hero and a fallback when the app CSS fails. */
+body { margin: 0; background: #fffaf7; color: #40271f; font-family: Manrope, system-ui, -apple-system, 'Segoe UI', sans-serif; }
+.friozo-shell { display: flex; flex-direction: column; min-height: 100vh; }
+.friozo-shell a { color: inherit; }
+
+.static-catalog { box-sizing: border-box; max-width: 1200px; margin: 32px auto 0; }
+.static-catalog *, .static-catalog *::before, .static-catalog *::after { box-sizing: border-box; }
+.static-delivery { display: inline-block; background: #f0fac8; padding: 10px 16px; border-radius: 14px; font-weight: 700; margin: 0 0 8px; }
+.static-actions { display: flex; align-items: center; flex-wrap: wrap; gap: 12px; margin-top: 12px; }
+.static-actions a, .static-product-action, #startup-retry { display: inline-flex; align-items: center; justify-content: center; min-height: 44px; padding: 10px 17px; border-radius: 12px; border: 1px solid #ae1641; color: #ae1641; text-decoration: none; font: inherit; font-weight: 800; cursor: pointer; background: #fff; }
+.static-actions .static-primary, #startup-retry { background: #ae1641; color: #fff; }
+.static-section { padding: 20px 0 32px; }
+.static-section h2 { font-family: 'Bricolage Grotesque', system-ui, sans-serif; font-size: clamp(1.6rem, 3vw, 2.3rem); margin: 0 0 5px; }
 .static-section h2 a { text-decoration: none; }
-.static-section > p { margin: 0 0 20px; }
+.static-section h2 a:hover { color: #ae1641; }
+.static-section > p { margin: 0 0 18px; }
 .static-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); gap: 16px; }
-.static-product { padding: 18px; border: 1px solid #f0d4d2; border-radius: 22px; background: white; box-shadow: 0 4px 16px #4823190a; }
+.static-product { padding: 16px; border: 1px solid #f0d4d2; border-radius: 22px; background: #fff; box-shadow: 0 4px 16px #4823190a; }
 .static-product > a:first-child { text-decoration: none; }
 .static-product img, .static-product-icon { display: block; width: 100%; height: 145px; object-fit: contain; background: #fff1dc; border-radius: 14px; }
 .static-product-icon { text-align: center; line-height: 145px; font-size: 3.5rem; }
-.static-product h3 { margin: 14px 0 6px; font-size: 1.1rem; }
+.static-product h3 { margin: 12px 0 6px; font-size: 1.05rem; }
 .static-product p { min-height: 3.6em; line-height: 1.45; }
 .static-product strong { display: block; font-size: 1.05rem; }
-.static-product-action { margin-top: 14px; width: 100%; }
-.static-footer { padding: 24px 0; border-top: 1px solid #e8d8d2; line-height: 1.5; }
-#startup-status { color: #6d5148; }
-@media (max-width: 600px) { .static-header { align-items: flex-start; flex-direction: column; padding: 14px 0; } .static-hero { padding: 36px 0 20px; } .static-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; } .static-product { padding: 10px; } .static-product img, .static-product-icon { height: 100px; line-height: 100px; } .static-product p { font-size: .85rem; } }
+.static-product-action { margin-top: 12px; width: 100%; }
+.static-footer { padding: 20px 0; border-top: 1px solid #e8d8d2; line-height: 1.5; }
+
+/* Loading problems surface as a small notice instead of changing the page. */
+#startup-status { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
+.startup-failed #startup-status { position: fixed; left: 16px; right: 16px; bottom: 84px; z-index: 10000; width: auto; height: auto; clip: auto; white-space: normal; margin: 0 auto; max-width: 420px; padding: 14px 16px 64px; border-radius: 18px; background: #2b1418; color: #fff; box-shadow: 0 14px 34px rgba(43, 20, 24, .32); }
+.startup-failed #startup-retry { position: fixed; left: 50%; bottom: 96px; transform: translateX(-50%); z-index: 10001; }
+
+@media (max-width: 600px) {
+  .static-catalog { margin-top: 20px; }
+  .static-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; }
+  .static-product { padding: 10px; }
+  .static-product img, .static-product-icon { height: 100px; line-height: 100px; }
+  .static-product p { font-size: .85rem; }
+}
+.static-catalog-title { font-family: 'Bricolage Grotesque', system-ui, sans-serif; font-size: clamp(1.7rem, 4vw, 2.4rem); letter-spacing: -.04em; line-height: 1.1; margin: 0 0 4px; }

@@ -8,6 +8,10 @@ import { sameOriginRequest } from '../functions/api/_security.js';
 
 const fixture = overrides => ({ id: 'PED-TEST0001', submissionKey: '95f62394-a72d-4db0-a92b-98db316c9dd6', date: '2026-09-06T10:00:00Z', status: 'Por Corroborar', items: [{ type: 'pack', id: 'pack_pareja', name: 'Pack Dúo Romántico', price: 10, quantity: 1 }], customer: { name: 'Prueba', phone: '999999999', address: 'Jr. Prueba 123', orderType: 'Delivery', paymentMethod: 'Yape' }, grandTotal: 10, ...overrides });
 
+// Resolves PostgREST JSON paths such as value->customer->>phone.
+const field = (row, key) => key.split(/->>?/).reduce((value, part) => value?.[part], row);
+const likePattern = pattern => new RegExp(`^${pattern.replace(/[.*+?^${}()|[\]\\]/g, '\\$&').replace(/%/g, '.*').replace(/_/g, '.')}$`);
+
 // Models PostgREST conditional updates and unique inserts, including races.
 function database(initial = [], options = {}) {
   const rows = new Map(initial.map(row => [row.key, structuredClone(row)]));
@@ -29,12 +33,14 @@ function database(initial = [], options = {}) {
       return { data: structuredClone(p_order) };
     },
     from() {
-      let mode = 'read', record, conditions = [], limit = Infinity;
+      let mode = 'read', record, conditions = [], limit = Infinity, countOnly = false;
       const query = {
-        select() { return query; },
+        select(_columns, config) { countOnly = Boolean(config?.head); return query; },
+        like(key, pattern) { conditions.push(row => likePattern(pattern).test(String(field(row, key) ?? ''))); return query; },
+        gte(key, value) { conditions.push(row => field(row, key) != null && String(field(row, key)) >= value); return query; },
         order() { return query; },
         limit(n) { limit = n; return query; },
-        eq(key, value) { conditions.push(row => key === 'value' ? JSON.stringify(row.value) === value : row[key] === value); return query; },
+        eq(key, value) { conditions.push(row => key === 'value' ? JSON.stringify(row.value) === value : field(row, key) === value); return query; },
         is(key, value) { return query.eq(key, value); },
         gt(key, value) { conditions.push(row => row[key] > value); return query; },
         insert(value) { mode = 'insert'; record = value; return query; },
@@ -48,6 +54,7 @@ function database(initial = [], options = {}) {
             return { data: single ? structuredClone(record) : [structuredClone(record)] };
           }
           let matches = [...rows.values()].sort((a,b) => a.key.localeCompare(b.key)).filter(row => conditions.every(condition => condition(row))).slice(0, limit);
+          if (countOnly) return { count: matches.length, data: null };
           if (mode === 'update') matches = matches.map(row => { const next = structuredClone({ ...row, ...record }); rows.set(row.key, next); return next; });
           return { data: structuredClone(single ? matches[0] || null : matches) };
         },
@@ -465,4 +472,37 @@ test('all disabled methods block new orders and disabled methods cannot replace 
   const next = { ...previous, paymentVerified: true, status: 'Entregado', customer: { ...previous.customer, paymentMethod: 'Tarjeta' } };
   assert.equal((await post(db, next, { action: 'update', previous })).status, 400);
   assert.equal((await post(db, { ...next, customer: previous.customer }, { action: 'update', previous })).status, 200);
+});
+
+test('one phone number can place at most 10 orders in 24 hours', async () => {
+  const db = database();
+  const order = (n, phone = '987654321') => fixture({ id: `PED-LIMIT${String(n).padStart(3, '0')}`, submissionKey: crypto.randomUUID(), customer: { ...fixture().customer, phone } });
+  for (let n = 1; n <= 10; n++) assert.equal((await post(db, order(n))).status, 200);
+  const blocked = await post(db, order(11, '+51 987 654 321'));
+  assert.equal(blocked.status, 429);
+  assert.match((await blocked.json()).error, /máximo de 10 pedidos/);
+  assert.ok(!db.rows.has('order_PED-LIMIT011'));
+  assert.equal((await post(db, order(12, '912345678'))).status, 200);
+  // Retrying an order that already exists returns its receipt instead of counting again.
+  const first = db.rows.get('order_PED-LIMIT001').value;
+  assert.equal((await post(db, { ...order(1), submissionKey: first.submissionKey })).status, 200);
+  // Orders older than 24 hours no longer count.
+  for (const row of db.rows.values()) if (row.key.startsWith('order_PED-LIMIT')) row.value.createdAt = '2020-01-01T00:00:00.000Z';
+  assert.equal((await post(db, order(13))).status, 200);
+});
+
+test('one connection is capped, except for table orders placed inside the shop', async () => {
+  const db = database();
+  const env = { SUPABASE_SERVICE_ROLE_KEY: 'secret' };
+  const send = (n, orderType = 'Delivery') => {
+    const customer = orderType === 'Delivery' ? { ...fixture().customer, phone: `9${String(10000000 + n)}` } : { name: 'Mesa', phone: 'Mesa', orderType, tableNumber: '3', paymentMethod: 'Yape' };
+    const order = fixture({ id: `PED-CONN${String(n).padStart(3, '0')}`, submissionKey: crypto.randomUUID(), customer });
+    return onRequestPost({ request: new Request('https://shop.test/api/order', { method: 'POST', headers: { 'Content-Type': 'application/json', 'CF-Connecting-IP': '203.0.113.7' }, body: JSON.stringify({ id: order.id, order }) }), env }, async () => db);
+  };
+  for (let n = 1; n <= 30; n++) assert.equal((await send(n)).status, 200);
+  assert.equal((await send(31)).status, 429);
+  assert.equal((await send(32, 'Mesa')).status, 200);
+  const stored = db.rows.get('order_PED-CONN001').value;
+  assert.match(stored.clientKey, /^[0-9a-f]{24}$/);
+  assert.ok(!JSON.stringify(stored).includes('203.0.113.7'));
 });

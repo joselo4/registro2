@@ -9,12 +9,17 @@
     });
   }
 
-  const showLoadError = () => {
+  // A missing product photo is not a broken store: only scripts, styles and
+  // runtime errors count as a failed start.
+  const isStartupFailure = event => !event || !event.target || event.target === window || ['SCRIPT', 'LINK'].includes(event.target.tagName);
+  const showLoadError = event => {
+    if (!isStartupFailure(event)) return;
     const status = document.getElementById('startup-status');
     if (!status) return; // React already replaced the loading state.
     status.textContent = 'No se pudo abrir la tienda. Revisa tu conexión y vuelve a cargar. Tu carrito no se borrará.';
     const retry = document.getElementById('startup-retry');
     if (retry) retry.hidden = false;
+    document.documentElement?.classList?.add('startup-failed');
   };
   const retry = document.getElementById('startup-retry');
   retry?.addEventListener('click', () => window.location.reload());

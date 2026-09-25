@@ -33,3 +33,9 @@ El ID de medición `G-…` se configura en **Ajustes Tienda** y permite enviar l
 5. Configura `SUPABASE_URL` y `SUPABASE_SERVICE_ROLE_KEY` en el servidor para validar el acceso de administradores.
 
 Para desarrollo local, estas variables pueden estar en `.env` (excluido de Git). El panel muestra un estado de configuración hasta que las credenciales estén disponibles. GA4 puede tardar en procesar eventos recientes. El panel muestra recuentos de eventos, no usuarios únicos.
+
+## Límite de pedidos
+
+La API acepta como máximo **10 pedidos en 24 horas por número de celular**. Además, una misma conexión puede enviar hasta 30 pedidos por hora. Los pedidos de mesa quedan exentos de este segundo tope porque en el local todos comparten el mismo wifi. Los pedidos registrados por el personal desde el panel no tienen límite.
+
+Para agrupar pedidos por conexión, la API guarda un hash HMAC de la IP y nunca la IP en sí. La clave es `ORDER_LIMIT_SECRET`; si no está configurada, se usa `SUPABASE_SERVICE_ROLE_KEY`.

@@ -57,7 +57,7 @@ test('cart renders the full saved creation, even when the base has its own uploa
   const item={type:'custom',base:{id:'waffle',name:'Copa waffle',image:'/old-container-only.png'},scoops:Array.from({length:5},(_,i)=>({id:`flavor-${i}`,name:`Sabor ${i+1}`})),toppings:[{id:'oreo',name:'Oreo'}],syrup:null};
   item.syrup={id:'fudge',name:'Fudge'};
   const html=renderToStaticMarkup(<CartItemPreview item={item}/>);
-  assert.equal([...html.matchAll(/href="\/customizer\/gelato-scoop-neutral.webp"/g)].length,5);
+  assert.equal([...html.matchAll(/href="\/customizer\/gelato-scoop-neutral.webp\?v=2"/g)].length,5);
   assert.ok(html.includes('Oreo'));assert.ok(html.includes('Fudge'));assert.ok(!html.includes('old-container-only'));
   const source=renderToStaticMarkup(<DessertPreview compact {...item}/>);
   assert.equal(html,`<div class="cart-product-preview">${source}</div>`);

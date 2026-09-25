@@ -106,14 +106,6 @@ body { background: #fffaf7; }
 .tracking-container button { min-height: 43px; }
 .order-tracker-eta-card { border-radius: 16px; }
 
-.atelier { padding-top: 18px; }
-.atelier-heading h1, .atelier-panel-heading h2, .atelier-receipt h2 { font-family: var(--font-title); font-weight: 800; letter-spacing: -.04em; }
-.atelier-heading h1 { font-size: clamp(2.3rem, 4.5vw, 4rem); line-height: 1.05; }
-.atelier-heading p, .atelier-panel-heading p { font-size: .9rem; }
-.atelier-controls { border-color: var(--store-line); box-shadow: 0 12px 34px rgba(75, 24, 42, .05); }
-.atelier-stage { background: radial-gradient(circle at 50% 32%, #fff8ef, #f5dce4); }
-.atelier-steps button { min-height: 50px; font-size: .78rem; }
-.atelier-base, .atelier button { touch-action: manipulation; }
 
 @media (max-width: 900px) {
   .featured-list { gap: 10px; }
@@ -168,15 +160,6 @@ body { background: #fffaf7; }
   .cart-page-heading p { font-size: .78rem; }
   .cart-container .cart-item { gap: 8px; }
   .cart-container .checkout-section { margin-top: 15px; }
-  .atelier-heading { margin-top: 12px; }
-  .atelier-heading h1 { font-size: 2.25rem; }
-  .atelier-stage .dessert-preview { height: 210px; }
-  .atelier-stage { padding: 13px 17px; }
-  .atelier-receipt { margin-top: 8px; padding-top: 10px; }
-  .atelier-receipt-heading { margin-bottom: 7px; }
-  .atelier-panel-heading h2 { font-size: 1.5rem; }
-  .atelier-controls { padding: 18px; }
-  .atelier-steps button { font-size: .72rem; }
 }
 [data-theme="dark"] { --store-ink: #fff4f2; --store-cream: #281b23; --store-line: #503540; }
 [data-theme="dark"] body { background: #190f15; }
@@ -197,7 +180,6 @@ body { background: #fffaf7; }
 [data-theme="dark"] .catalog-search-row > span { color: #d9b5c3; }
 [data-theme="dark"] .customer-shop .catalog-filters { background: rgba(31, 20, 29, .96); }
 [data-theme="dark"] .cart-container .cart-item, [data-theme="dark"] .cart-container .checkout-section, [data-theme="dark"] .tracking-container { border-color: #5b3a47; }
-[data-theme="dark"] .atelier-stage { background: radial-gradient(circle at 50% 32%, #66504a, #3e2a37); }
 .route-loading{min-height:220px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:16px;margin:20px auto;padding:32px;border-radius:24px;color:var(--primary-color);font-family:var(--font-title);font-weight:800;text-align:center}
 .route-loading-spinner{width:34px;height:34px;border:3px solid rgba(174,22,65,.18);border-top-color:var(--primary-color);border-radius:50%;animation:route-loading-spin .7s linear infinite}
 @keyframes route-loading-spin{to{transform:rotate(360deg)}}

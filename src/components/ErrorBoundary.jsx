@@ -1,4 +1,5 @@
 import React from 'react';
+import { isStaleDeployError, reloadForNewDeploy } from '../utils/staleDeploy';
 
 export default class ErrorBoundary extends React.Component {
   constructor(props) {
@@ -12,6 +13,7 @@ export default class ErrorBoundary extends React.Component {
 
   componentDidCatch(error, errorInfo) {
     console.error('[ErrorBoundary caught error]:', error, errorInfo);
+    if (isStaleDeployError(error) && reloadForNewDeploy()) return;
     this.setState({ error, errorInfo });
   }
 

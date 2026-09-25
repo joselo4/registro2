@@ -1151,7 +1151,7 @@ export default function CustomerShop({
             {featuredProducts.map(({ kind, item, label, icon }) => {
               const name = kind === 'liter' ? 'Helado familiar de 1 litro' : item.name;
               const price = Number(item.price ?? (kind === 'liter' ? 15 : 0));
-              const image = item.image || (kind === 'liter' ? '/customizer/cup-eco.webp' : '');
+              const image = item.image || (kind === 'liter' ? '/customizer/cup-eco.webp?v=2' : '');
               return (
                 <article className={`featured-card featured-card-${kind}`} key={`${kind}-${item.id || 'featured'}`}>
                   <div className="featured-card-copy">

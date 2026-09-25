@@ -8,6 +8,7 @@ import { isShopOpenCurrently } from '../../src/utils/storeHours.js';
 import { validateOrderInput } from '../../src/utils/orderValidation.js';
 import { validateCustomerPricing } from '../../src/utils/orderPricing.js';
 import { isOrderTypeEnabled } from '../../src/utils/orderChannels.js';
+import { clientKey, contactKey, orderLimitError } from './_orderLimits.js';
 
 async function checkCustomerPricing(client, order) {
   const keys = ['bases', 'flavors', 'toppings', 'packs', 'popsicles', 'liter_config', 'coupons', 'delivery_fee', 'free_delivery_threshold', 'shop_open'];
@@ -300,6 +301,11 @@ export async function onRequestPost({ request, env }, makeClient = createAdminCl
       const pricingError = await checkCustomerPricing(adminClient, order);
       if (pricingError) return fail(pricingError.startsWith('La configuración de envío') ? 503 : 400, 'pricing', pricingError);
       if (cleanOrderId(order.id) !== id) return fail(400, 'input', 'Los códigos del pedido no coinciden.');
+      const contact = contactKey(order.customer.phone);
+      const clientId = await clientKey(request, env.ORDER_LIMIT_SECRET || env.SUPABASE_SERVICE_ROLE_KEY);
+      const limitError = await orderLimitError(adminClient, { contact, clientId, isTableOrder: ['Mesa', 'Mesa_Llevar'].includes(order.customer.orderType) });
+      if (limitError) return fail(429, 'limit', limitError);
+      const limitFields = { createdAt: new Date().toISOString(), contactKey: contact, clientKey: clientId };
       const { data: legacy, error: legacyError } = await adminClient.from('helados_sync').select('value').eq('key', 'orders').maybeSingle();
       if (legacyError) return fail(502, 'read', 'No se pudo validar el historial.');
       if (Array.isArray(legacy?.value) && legacy.value.some(item => cleanOrderId(item?.id) === id)) return fail(409, 'conflict', 'Este código ya pertenece a un pedido registrado.');
@@ -322,6 +328,7 @@ export async function onRequestPost({ request, env }, makeClient = createAdminCl
           { status: 'Por Corroborar', timestamp: new Date().toISOString() },
         ],
         date: safeDate(order.date),
+        ...limitFields,
       };
     }
 
