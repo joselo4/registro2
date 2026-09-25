@@ -735,11 +735,6 @@ export default function AdminPanel({
           </div>
         )}
         <div className="sidebar-menu">
-          {isAdminUser(currentUser) && <section className="admin-growth-nav" aria-label="Accesos de ventas">
-            <span>CONTROL DE VENTAS</span>
-            <button type="button" className={activeTab === 'settings' ? 'active' : ''} onClick={() => setActiveTab('settings')}><span aria-hidden="true">⚙️</span><span>Canales y ajustes<small>Mesas · barra · delivery</small></span><span aria-hidden="true">↗</span></button>
-            <button type="button" className={activeTab === 'analytics' ? 'active' : ''} onClick={() => setActiveTab('analytics')}><span aria-hidden="true">📊</span><span>Conversiones GA4<small>Del producto a la compra</small></span><span aria-hidden="true">↗</span></button>
-          </section>}
           {isAdminUser(currentUser) && <button className={`sidebar-btn ${activeTab === 'operations' ? 'active' : ''}`} onClick={() => setActiveTab('operations')}>◉ Centro de operaciones</button>}
           {isTabAllowed('driver_panel') && (
             <button className={`sidebar-btn ${activeTab === 'driver_panel' ? 'active' : ''}`} onClick={() => setActiveTab('driver_panel')}>
@@ -808,6 +803,11 @@ export default function AdminPanel({
           {storeServiceEnabled && isTabAllowed('table_orders') && (
             <button className={`sidebar-btn ${activeTab === 'table_orders' ? 'active' : ''}`} onClick={() => setActiveTab('table_orders')}>
               🍽️ Pedidos en Mesa
+            </button>
+          )}
+          {isAdminUser(currentUser) && (
+            <button className={`sidebar-btn ${activeTab === 'analytics' ? 'active' : ''}`} onClick={() => setActiveTab('analytics')}>
+              📊 Embudo de ventas
             </button>
           )}
           {isTabAllowed('settings') && (

@@ -6,6 +6,8 @@ import { onRequestPost as adminPost } from '../functions/api/admin-auth-user.js'
 import { onRequestPost as uploadPost } from '../functions/api/r2-upload.js';
 import { onRequestPost as r2Post } from '../functions/api/r2.js';
 import { onRequestGet as ga4ReportGet } from '../functions/api/ga4-report.js';
+import { onRequestPost as trackPost } from '../functions/api/track.js';
+import { onRequestGet as storeReportGet } from '../functions/api/store-report.js';
 import { json } from '../functions/api/_security.js';
 
 const routes = {
@@ -16,6 +18,8 @@ const routes = {
   '/api/r2-upload': { POST: uploadPost },
   '/api/r2': { POST: r2Post },
   '/api/ga4-report': { GET: ga4ReportGet },
+  '/api/track': { POST: trackPost },
+  '/api/store-report': { GET: storeReportGet },
 };
 
 export default {

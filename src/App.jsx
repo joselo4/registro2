@@ -20,6 +20,7 @@ import { configureWebVitalsMonitoring } from './utils/performanceMonitoring';
 import { readRememberedOperator } from './utils/rememberedOperator';
 import { readEmbeddedCatalog } from './utils/publicCatalogCache';
 import { reconcileCart } from './utils/cartRepricing';
+import { recordFunnelEvent, recordVisit } from './utils/storeAnalytics';
 import { normalizeOrderCode } from './utils/orderId';
 import { safeStorage } from './utils/security';
 import { isShopOpenCurrently } from './utils/storeHours';
@@ -270,9 +271,10 @@ export default function App() {
   });
 
   const googleMeasurementId = isGoogleMeasurementId(googleAnalyticsId) ? googleAnalyticsId.trim().toUpperCase() : '';
-  const analyticsEnabled = Boolean(googleMeasurementId || String(metaPixelId || '').trim());
 
   const trackEvent = (eventName, eventData = {}) => {
+    // The store's own funnel works even without GA4 or Meta configured.
+    if (isCustomerView) recordFunnelEvent(eventName);
     if (window.fbq && metaPixelId) {
       try {
         window.fbq(eventName === 'ViewCatalog' ? 'trackCustom' : 'track', eventName === 'ViewProduct' ? 'ViewContent' : eventName, toMetaPayload(eventName, eventData));
@@ -551,6 +553,10 @@ export default function App() {
   const trackedPageViewRef = useRef('');
   const trackedMetaPageViewRef = useRef('');
   const isCustomerView = !isVendorApp && !isLoggedIn && ['shop', 'customizer', 'liter-customizer', 'cart', 'tracker', 'locations'].includes(view);
+
+  useEffect(() => {
+    if (isCustomerView) recordVisit();
+  }, [isCustomerView]);
 
   useEffect(() => {
     configureWebVitalsMonitoring(isCustomerView ? googleMeasurementId : '');
@@ -1424,7 +1430,7 @@ export default function App() {
       return false;
     }
     setCart(current => addCartItem(current, item));
-    if (analyticsEnabled) trackEvent('AddToCart', { value: Number(item.price) * (Number(item.quantity) || 1), items: [item] });
+    trackEvent('AddToCart', { value: Number(item.price) * (Number(item.quantity) || 1), items: [item] });
     showAlert('Producto agregado', `${item.name || 'Tu helado'} ya está en tu pedido.`, 'success');
     return true;
   };
@@ -1884,7 +1890,7 @@ export default function App() {
             shopConfig={shopConfig}
             testimonials={testimonials}
             storeHeroImage={storeHeroImage}
-            trackEvent={analyticsEnabled ? trackEvent : undefined}
+            trackEvent={trackEvent}
             catalogReady={isSyncLoaded}
           />
         )}
@@ -1953,7 +1959,7 @@ export default function App() {
             tableNumber={tableNumber}
             occupiedTables={shopConfig.occupiedTables || []}
             shopConfig={shopConfig}
-            trackEvent={analyticsEnabled ? trackEvent : undefined}
+            trackEvent={trackEvent}
           />
         )}
 

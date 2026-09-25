@@ -7,6 +7,8 @@ import { onRequestGet as handleOrderGet, onRequestPost as handleOrderPost } from
 import { onRequestPost as handleTableCallPost } from './functions/api/table-call.js'
 import { onRequestGet as handleTelegramGet, onRequestPost as handleTelegramPost } from './functions/api/telegram.js'
 import { onRequestGet as handleGa4ReportGet } from './functions/api/ga4-report.js'
+import { onRequestPost as handleTrackPost } from './functions/api/track.js'
+import { onRequestGet as handleStoreReportGet } from './functions/api/store-report.js'
 
 const apiRoutes = {
   '/api/admin-auth-user': { POST: handleAdminAuthUser },
@@ -16,6 +18,8 @@ const apiRoutes = {
   '/api/table-call': { POST: handleTableCallPost },
   '/api/telegram': { GET: handleTelegramGet, POST: handleTelegramPost },
   '/api/ga4-report': { GET: handleGa4ReportGet },
+  '/api/track': { POST: handleTrackPost },
+  '/api/store-report': { GET: handleStoreReportGet },
 }
 
 function localPagesApiPlugin(env) {

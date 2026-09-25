@@ -14,7 +14,7 @@ Para verificar cambios: `npm run lint`, `npm test`, `npm run test:views` y `npm 
 
 ## Canales de venta
 
-El acceso administrativo no se muestra como botón en la tienda pública. El personal puede hacer doble clic en el logo o abrir directamente `https://www.pideanda.com/?admin=1` e iniciar sesión. La URL y el gesto solo abren la pantalla de acceso: la autorización real sigue dependiendo de Supabase y de las comprobaciones del servidor. Los accesos **Canales y ajustes** y **Conversiones GA4** aparecen al inicio del menú lateral después de iniciar sesión.
+El acceso administrativo no se muestra como botón en la tienda pública. El personal puede hacer doble clic en el logo o abrir directamente `https://www.pideanda.com/?admin=1` e iniciar sesión. La URL y el gesto solo abren la pantalla de acceso: la autorización real sigue dependiendo de Supabase y de las comprobaciones del servidor. El acceso **📊 Embudo de ventas** está al final del menú lateral, junto a **Todos los ajustes**.
 
 La opción de recordar el inicio de sesión conserva únicamente el nombre de usuario. Al abrir la tienda se eliminan las contraseñas que versiones anteriores hayan guardado en el navegador.
 
@@ -22,7 +22,11 @@ En **Canales y ajustes → Canales de venta** se pueden combinar mesas, barra y 
 
 Desde **Pedidos en Mesa → Monitor de Mesas y Barra** se puede abrir el **Tomador de Pedidos** con la mesa o barra seleccionada. Al confirmar, el pedido aparece en el monitor. Una mesa con pedido activo no se puede abrir por segunda vez desde el tomador.
 
-## Panel de conversiones GA4
+## Embudo de ventas
+
+El panel **📊 Embudo de ventas** funciona sin configuración: la tienda cuenta de forma anónima (sin datos personales) las visitas, los productos vistos, los agregados al carrito y los inicios de checkout, y los guarda por día (hora de Lima) en `funnel_AAAA-MM-DD`. Los pedidos, las ventas, el ticket promedio, lo más pedido y los canales salen de los pedidos reales (sin cancelados ni ventas registradas por el personal). La pestaña **Google Analytics 4** es opcional.
+
+## Panel de conversiones GA4 (opcional)
 
 El ID de medición `G-…` se configura en **Ajustes Tienda** y permite enviar los eventos `view_item`, `add_to_cart`, `begin_checkout` y `purchase`. El panel **Conversiones GA4** consulta recuentos reales de esos eventos en la propiedad y requiere configuración adicional del servidor:
 
