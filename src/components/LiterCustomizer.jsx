@@ -163,8 +163,12 @@ export default function LiterCustomizer({ flavors, toppings = [], literConfig, o
     };
 
     setIsAdding(true);
-    onAddToCart(literItem);
-    setView('shop');
+    // A closed store rejects the item: stay here with the selection intact.
+    if (onAddToCart(literItem) === false) {
+      setIsAdding(false);
+      return;
+    }
+    setView('cart');
   };
 
   // Renderizar las capas de helado dentro del envase de 1 Litro SVG

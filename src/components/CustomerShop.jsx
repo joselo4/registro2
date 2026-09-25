@@ -8,6 +8,7 @@ import { normalizePromotion, DEFAULT_POPUP_PROMOTION, DEFAULT_WEB_PROMOTION } fr
 import { updateSyncedData } from '../utils/supabaseSync';
 import { sanitizeHTML } from '../utils/security';
 import { categoryForPath, productPath } from '../utils/catalogRoutes';
+import { quickScoopItem } from '../utils/dessert';
 import './ProductQuickView.css';
 
 const isAvailableProduct = item => item && item.active !== false && Number.isFinite(Number(item.price)) && Number(item.price) >= 0;
@@ -444,31 +445,12 @@ export default function CustomerShop({
         const flavor2 = activeFlavors[Math.floor(Math.random() * activeFlavors.length)];
         const hasDouble = Math.random() > 0.4;
         
-        let desc = `Prueba: Helado Simple de ${flavor1.name} 🍦`;
-        let itemToTry = {
-          type: 'custom',
-          base: { id: 'cono', name: 'Cono de Galleta Crujiente', price: 0.0 },
-          scoops: [{ id: flavor1.id, name: flavor1.name, price: flavor1.price, color: flavor1.color }],
-          toppings: [],
-          price: flavor1.price,
-          quantity: 1,
-          name: `Helado Simple de ${flavor1.name}`
-        };
+        let desc = `Prueba: Helado de ${flavor1.name} 🍦`;
+        let itemToTry = quickScoopItem(flavor1, bases);
 
         if (hasDouble && flavor1.id !== flavor2.id) {
           desc = `Prueba: Helado Doble de ${flavor1.name} y ${flavor2.name} 🍦`;
-          itemToTry = {
-            type: 'custom',
-            base: { id: 'cono', name: 'Cono de Galleta Crujiente', price: 0.0 },
-            scoops: [
-              { id: flavor1.id, name: flavor1.name, price: flavor1.price, color: flavor1.color },
-              { id: flavor2.id, name: flavor2.name, price: flavor2.price, color: flavor2.color }
-            ],
-            toppings: [],
-            price: flavor1.price + flavor2.price,
-            quantity: 1,
-            name: `Helado Doble de ${flavor1.name} y ${flavor2.name}`
-          };
+          itemToTry = quickScoopItem([flavor1, flavor2], bases);
         }
 
         return {
@@ -551,7 +533,7 @@ export default function CustomerShop({
       if (dismissTimer) clearTimeout(dismissTimer);
       if (transitionTimer) clearTimeout(transitionTimer);
     };
-  }, [dismissedTrend, trendsInterval, trendsDisplayTime, tableNumber]);
+  }, [dismissedTrend, trendsInterval, trendsDisplayTime, tableNumber, bases]);
 
   const handleTryTrend = (item) => {
     if (handleAddToCartWrapped(item)) handleDismissToast();
@@ -569,17 +551,8 @@ export default function CustomerShop({
   // Helper for dynamic premium toppings per flavor in the shop catalog
   // Un helado clásico rápido es un helado simple de 1 bola en Cono
   const handleAddClassicToCart = useCallback((flavor) => {
-    const customItem = {
-      type: 'custom',
-      base: { id: 'cono', name: 'Cono de Galleta Crujiente', price: 0.0 },
-      scoops: [{ id: flavor.id, name: flavor.name, price: flavor.price, color: flavor.color }],
-      toppings: [],
-      price: flavor.price,
-      quantity: 1,
-      name: `Helado Simple de ${flavor.name}`
-    };
-    handleAddToCartWrapped(customItem);
-  }, [handleAddToCartWrapped]);
+    handleAddToCartWrapped(quickScoopItem(flavor, bases));
+  }, [handleAddToCartWrapped, bases]);
 
   const handleAddPackToCart = useCallback((pack) => {
     const packItem = {
@@ -610,9 +583,11 @@ export default function CustomerShop({
       ? (shopConfig?.tableCatalogCategories || ['popsicles', 'classic', 'liter', 'packs'])
       : (catalogOrder || ['popsicles', 'classic', 'liter', 'packs']);
     const activeOrder = [...new Set(configuredOrder)];
-    return (
-      <div className="catalog-grid">
-        {activeOrder.map(section => {
+    // With "Todo" selected, a short title separates each category.
+    const groupCounts = { popsicles: catalogPopsicles.length, classic: catalogFlavors.length, liter: literConfig?.active !== false && literMatches ? 1 : 0, packs: catalogPacks.length };
+    const groupTitles = { popsicles: '🍭 Paletas artesanales', classic: '🍦 Helados de una bola', liter: '🏺 Para llevar a casa', packs: '🎁 Packs para compartir' };
+    const grouped = filter === 'all' && activeOrder.filter(key => groupCounts[key] > 0).length > 1;
+    const parts = activeOrder.map(section => ({ section, content: (() => {
           if (section === 'popsicles') {
             return (
               <React.Fragment key="popsicles">
@@ -754,7 +729,7 @@ export default function CustomerShop({
                         </div>
                         <div className="product-price-action">
                           <div className="price-tag">
-                            S/. {Number(flavor.price).toFixed(2)}
+                            S/. {quickScoopItem(flavor, bases).price.toFixed(2)}
                             <span> / bola</span>
                           </div>
                           <button 
@@ -832,10 +807,19 @@ export default function CustomerShop({
             );
           }
           return null;
-        })}
+        })() }));
+    if (!grouped) return <div className="catalog-grid">{parts.map(part => part.content)}</div>;
+    return (
+      <div className="catalog-groups">
+        {parts.filter(part => groupCounts[part.section] > 0).map(part => (
+          <section className="catalog-group" key={part.section} aria-label={groupTitles[part.section].replace(/^S+s/, '')}>
+            <h3 className="catalog-group-title">{groupTitles[part.section]} <span>{groupCounts[part.section]}</span></h3>
+            <div className="catalog-grid">{part.content}</div>
+          </section>
+        ))}
       </div>
     );
-  }, [tableNumber, catalogOrder, filter, literConfig, literMatches, catalogFlavors, catalogPacks, catalogPopsicles, setView, handleAddClassicToCart, handleAddPackToCart, handleAddPopsicleToCart, openQuickView, shopConfig]);
+  }, [tableNumber, catalogOrder, filter, literConfig, literMatches, catalogFlavors, catalogPacks, catalogPopsicles, setView, handleAddClassicToCart, handleAddPackToCart, handleAddPopsicleToCart, openQuickView, shopConfig, bases]);
 
   const resolvedHeroImage = storeHeroImage || '/hero-friozo-v2.webp';
 
@@ -1128,7 +1112,7 @@ export default function CustomerShop({
         <div className="product-quick-dialog" role="dialog" aria-modal="true" aria-label={`Detalles de ${quickView.product.name}`} onClick={event => event.stopPropagation()}>
           <button type="button" className="product-quick-close" aria-label="Cerrar detalles" onClick={() => setQuickView(null)}>×</button>
           <div className="product-quick-art">{quickView.product.image ? <img src={quickView.product.image} alt={quickView.product.name} /> : <span aria-hidden="true">{quickView.kind === 'pack' ? '🎁' : quickView.kind === 'popsicle' ? '🍭' : quickView.kind === 'liter' ? '🏺' : '🍦'}</span>}</div>
-          <div className="product-quick-copy"><span className="product-quick-eyebrow">HECHO PARA TU ANTOJO</span><h2>{quickView.product.name}</h2><p>{quickView.product.description || (quickView.kind === 'liter' ? 'Combina tus sabores favoritos en un pote para compartir.' : 'Preparado con el sabor de nuestra carta artesanal.')}</p>{quickView.kind === 'pack' && quickView.product.items && <p><strong>Incluye:</strong> {quickView.product.items}</p>}<strong className="product-quick-price">S/. {Number(quickView.product.price || 0).toFixed(2)}</strong><button type="button" className="btn btn-primary" onClick={() => {
+          <div className="product-quick-copy"><span className="product-quick-eyebrow">HECHO PARA TU ANTOJO</span><h2>{quickView.product.name}</h2><p>{quickView.product.description || (quickView.kind === 'liter' ? 'Combina tus sabores favoritos en un pote para compartir.' : 'Preparado con el sabor de nuestra carta artesanal.')}</p>{quickView.kind === 'pack' && quickView.product.items && <p><strong>Incluye:</strong> {quickView.product.items}</p>}<strong className="product-quick-price">S/. {(quickView.kind === 'classic' ? quickScoopItem(quickView.product, bases).price : Number(quickView.product.price || 0)).toFixed(2)}</strong><button type="button" className="btn btn-primary" onClick={() => {
             if (quickView.kind === 'liter') setView('liter-customizer');
             else if (quickView.kind === 'pack') handleAddPackToCart(quickView.product);
             else if (quickView.kind === 'popsicle') handleAddPopsicleToCart(quickView.product);
@@ -1150,7 +1134,7 @@ export default function CustomerShop({
           <div className="featured-list">
             {featuredProducts.map(({ kind, item, label, icon }) => {
               const name = kind === 'liter' ? 'Helado familiar de 1 litro' : item.name;
-              const price = Number(item.price ?? (kind === 'liter' ? 15 : 0));
+              const price = kind === 'classic' ? quickScoopItem(item, bases).price : Number(item.price ?? (kind === 'liter' ? 15 : 0));
               const image = item.image || (kind === 'liter' ? '/customizer/cup-eco.webp?v=2' : '');
               return (
                 <article className={`featured-card featured-card-${kind}`} key={`${kind}-${item.id || 'featured'}`}>
@@ -1163,7 +1147,7 @@ export default function CustomerShop({
                       else if (kind === 'classic') handleAddClassicToCart(item);
                       else if (kind === 'popsicle') handleAddPopsicleToCart(item);
                       else setView('liter-customizer');
-                    }}>{kind === 'liter' ? 'Personalizar' : 'Agregar'} <span aria-hidden="true">↗</span></button>
+                    }}>{kind === 'liter' ? 'Personalizar →' : '+ Agregar'}</button>
                   </div>
                   <div className="featured-card-art" aria-hidden="true">
                     {image ? <img src={image} alt="" loading="lazy" decoding="async" /> : kind === 'classic' ? <DessertPreview compact base={{ id: 'cono', name: 'Cono' }} scoops={[item]} /> : <PackIllustration pack={item} />}
@@ -1219,9 +1203,6 @@ export default function CustomerShop({
             <h2 className="section-title">La carta de {storeName || 'Friozo'}</h2>
             <p className="section-subtitle">Elige tus favoritos y arma tu pedido en minutos.</p>
           </div>
-          <span className="catalog-count">
-            {visibleCount} {visibleCount === 1 ? 'opción' : 'opciones'}
-          </span>
         </div>
 
         <div className="catalog-search-row">

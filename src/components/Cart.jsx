@@ -8,6 +8,7 @@ import { sanitizeHTML, sanitizeText, safeStorage } from '../utils/security';
 import { checkoutStorage, checkoutTotals } from '../utils/checkout';
 import { enabledOrderChannels, isOrderTypeEnabled, preferredOrderType } from '../utils/orderChannels';
 import { validateOrderInput } from '../utils/orderValidation';
+import { quickScoopItem } from '../utils/dessert';
 
 const FIELD_IDS = { name: 'checkout-name', phone: 'checkout-phone', address: 'checkout-address', table: 'checkout-table' };
 
@@ -21,6 +22,8 @@ export default function Cart({
   setView, 
   onAddToCart, 
   flavors, 
+  bases = [],
+  packs = [],
   freeDeliveryThreshold, 
   freeDeliveryEnabled = true, 
   storePhone, 
@@ -413,40 +416,33 @@ export default function Cart({
   };
 
   const handleAddRandomScoop = () => {
-    const activeFlavors = flavors.filter(f => f.active);
+    const activeFlavors = flavors.filter(f => f.active !== false);
     if (activeFlavors.length === 0) return;
     const randomFlavor = activeFlavors[Math.floor(Math.random() * activeFlavors.length)];
-    
-    const customItem = {
-      type: 'custom',
-      base: { id: 'cono', name: 'Cono de Galleta Crujiente', price: 0.0 },
-      scoops: [{ id: randomFlavor.id, name: randomFlavor.name, price: randomFlavor.price, color: randomFlavor.color }],
-      toppings: [],
-      price: randomFlavor.price,
-      quantity: 1,
-      name: `Helado Simple de ${randomFlavor.name}`
-    };
-    onAddToCart(customItem);
+    onAddToCart(quickScoopItem(randomFlavor, bases));
   };
 
+  // The suggestion only stores which pack to offer; name and price come from
+  // the live catalogue so the order API accepts it.
+  const recommendedPack = (() => {
+    if (!cartRecommendedPack || cartRecommendedPack.active === false) return null;
+    const id = cartRecommendedPack.id || cartRecommendedPack.packId || 'pack_pareja';
+    const live = packs.find(pack => String(pack.id) === String(id) && pack.active !== false && Number.isFinite(Number(pack.price)));
+    if (!live || cart.some(item => item.id === live.id)) return null;
+    return { ...live, description: live.items || live.description || cartRecommendedPack.description || '' };
+  })();
+
   const handleAddSuggestedPack = () => {
-    const pack = cartRecommendedPack || {
-      active: true,
-      name: 'Pack Dúo Romántico',
-      price: 10.0,
-      description: '2 Copas Waffle de 3 bolas + Fudge de chocolate gratis',
-      id: 'pack_pareja'
-    };
-    const packItem = {
+    if (!recommendedPack) return;
+    onAddToCart({
       type: 'pack',
-      id: pack.id || 'pack_pareja',
-      name: pack.name || 'Pack Dúo Romántico',
-      price: parseFloat(pack.price) || 10.0,
-      items: pack.description || '2 Copas Waffle de 3 bolas + Fudge de chocolate gratis',
-      image: pack.image || '',
+      id: recommendedPack.id,
+      name: recommendedPack.name,
+      price: Number(recommendedPack.price),
+      items: recommendedPack.items || recommendedPack.description,
+      image: recommendedPack.image || '',
       quantity: 1
-    };
-    onAddToCart(packItem);
+    });
   };
 
   const renderItemDetails = (item) => {
@@ -544,13 +540,9 @@ export default function Cart({
             </div>
           ) : (
             <div>
-              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', fontSize: '0.85rem' }}>
-                <span style={{ fontWeight: 700, color: 'var(--text-dark)' }}>
-                  🛵 Delivery Gratis desde S/. {freeDeliveryThreshold.toFixed(2)}
-                </span>
-                <span style={{ color: 'var(--primary-color)', fontWeight: 800 }}>
-                  ¡Falta solo S/. {missingForFreeDelivery.toFixed(2)}!
-                </span>
+              <div style={{ fontSize: '0.9rem', lineHeight: 1.4, color: 'var(--text-dark)' }}>
+                <span aria-hidden="true">🛵 </span>Te faltan <strong style={{ color: 'var(--primary-color)' }}>S/. {missingForFreeDelivery.toFixed(2)}</strong> para tu <strong>delivery gratis</strong>
+                <small style={{ display: 'block', color: 'var(--text-light)', fontSize: '0.75rem' }}>Gratis desde S/. {freeDeliveryThreshold.toFixed(2)}</small>
               </div>
 
               <div style={{
@@ -579,16 +571,6 @@ export default function Cart({
                 >
                   🎲 + Bola Sorpresa
                 </button>
-                {cartRecommendedPack && !cart.some(i => i.id === (cartRecommendedPack.id || 'pack_pareja')) && (
-                  <button 
-                    type="button"
-                    onClick={handleAddSuggestedPack}
-                    className="btn btn-primary animate-pulse" 
-                    style={{ padding: '6px 12px', fontSize: '0.75rem', flex: '1 1 140px' }}
-                  >
-                    🎁 Añadir Combo Sugerido
-                  </button>
-                )}
               </div>
             </div>
           )}
@@ -624,12 +606,12 @@ export default function Cart({
           ))}
 
           {/* Sugerencia de Venta Cruzada Dinámica */}
-          {cartRecommendedPack && cartRecommendedPack.active !== false && !cart.some(item => item.id === (cartRecommendedPack.id || 'pack_pareja')) && (
+          {recommendedPack && (
             <div className="glass-card" style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '10px 12px', background: 'linear-gradient(135deg, rgba(229, 142, 38, 0.04) 0%, rgba(255, 107, 129, 0.04) 100%)', border: '1px dashed var(--secondary-color)', borderRadius: 'var(--radius-md)' }}>
               <div style={{ maxWidth: '75%' }}>
                 <strong style={{ fontSize: '0.8rem', display: 'block' }}>🎁 Combo Recomendado</strong>
                 <span style={{ fontSize: '0.7rem', color: 'var(--text-light)', display: 'block', marginTop: '2px' }}>
-                  {cartRecommendedPack.name} por S/. {(parseFloat(cartRecommendedPack.price) || 0).toFixed(2)} ({cartRecommendedPack.description}).
+                  {recommendedPack.name} por S/. {Number(recommendedPack.price).toFixed(2)}{recommendedPack.description ? ` (${recommendedPack.description})` : ''}.
                 </span>
               </div>
               <button 

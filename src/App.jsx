@@ -1735,6 +1735,8 @@ export default function App() {
             setView={setView}
             onAddToCart={handleAddToCart}
             flavors={flavors}
+            bases={bases}
+            packs={packs}
             telegramToken={telegramToken}
             telegramChatId={telegramChatId}
             freeDeliveryThreshold={freeDeliveryThreshold}
@@ -1895,7 +1897,7 @@ export default function App() {
 
       {/* Pie de página público */}
       {!isVendorApp && (
-      <footer style={{
+      <footer className="site-footer" style={{
         textAlign: 'center',
         padding: '20px 15px',
         fontSize: '0.8rem',
@@ -1991,8 +1993,8 @@ export default function App() {
         </nav>
       )}
 
-      {/* 💬 Burbuja de Chat Puente a Telegram (oculta en los armadores, que tienen su propia barra de compra) */}
-      {!isVendorApp && view !== 'customizer' && view !== 'liter-customizer' && (
+      {/* 💬 Burbuja de Chat Puente a Telegram (oculta en los armadores y en el checkout, que tienen su propia acción principal) */}
+      {!isVendorApp && !['customizer', 'liter-customizer', 'cart'].includes(view) && (
         <React.Suspense fallback={null}>
           <LiveChatTelegramBridge
             telegramToken={telegramToken}

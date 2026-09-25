@@ -53,6 +53,26 @@ export function toppingCell(topping) {
 export function creationTotal(base, scoops = [], toppings = [], syrup) {
   return [base, ...scoops, ...toppings, syrup].reduce((total, item) => total + Math.max(0, Number(item?.price) || 0), 0);
 }
+// A quick helado from the menu ("+ Agregar", suggestions) uses the cheapest
+// active base and the same price the order API recomputes from the catalog.
+export function quickScoopItem(flavors, bases = []) {
+  const scoops = (Array.isArray(flavors) ? flavors : [flavors]).filter(Boolean).slice(0, 5)
+    .map(flavor => ({ id: flavor.id, name: flavor.name, price: flavor.price, color: flavor.color }));
+  const base = (Array.isArray(bases) ? bases : []).filter(available)
+    .reduce((best, candidate) => !best || (Number(candidate.price) || 0) < (Number(best.price) || 0) ? candidate : best, null)
+    || { id: 'cono', name: 'Cono de Galleta Crujiente', price: 0 };
+  const price = Math.round(creationTotal(base, scoops) * 100) / 100;
+  const names = scoops.map(scoop => scoop.name);
+  return {
+    type: 'custom',
+    base: { id: base.id, name: base.name, price: Number(base.price) || 0 },
+    scoops,
+    toppings: [],
+    price,
+    quantity: 1,
+    name: names.length > 1 ? `Helado doble de ${names.join(' y ')}` : `Helado de ${names[0] || 'la casa'}`,
+  };
+}
 export function resolveRecommendation(rec, bases, flavors, toppings) {
   const base = bases.find(b => b.id === rec.baseId && available(b));
   const scoops = (rec.flavorIds || []).map(id => flavors.find(f => f.id === id && available(f)));

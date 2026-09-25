@@ -76,7 +76,7 @@ export default function WelcomePromotion({ promotion, tableNumber, onAction, rea
   if (!visible) return null;
 
   return <>
-    {dismissed && <button className="promotion-reopen" onClick={() => { dismissedCampaigns.delete(campaignKey); setDismissed(false); }}>Ver promoción <span aria-hidden="true">↗</span></button>}
+    {dismissed && <button className="promotion-reopen" onClick={() => { dismissedCampaigns.delete(campaignKey); setDismissed(false); }}><span aria-hidden="true">🎁</span> Ver promoción</button>}
     <dialog ref={dialog} className="promotion-dialog" aria-label={p.title || 'Promoción de bienvenida'} onCancel={close} onClick={e => { if (e.target === e.currentTarget) close(); }}>
       <button className="promotion-dialog-close" autoFocus aria-label="Cerrar promoción y ver la tienda" onClick={close}>×</button>
       <PromotionBanner promotion={p} tableNumber={tableNumber} eager onAction={action => { close(); onAction?.(action); }} />

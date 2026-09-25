@@ -102,3 +102,20 @@ test('an old tab reloads once after a deploy instead of showing an error', async
   assert.equal(reloadForNewDeploy(storage, location, 200000), true);
   assert.equal(reloads, 2);
 });
+
+test('quick helados from the menu are priced exactly like the order API expects', async () => {
+  const { quickScoopItem } = await import('../src/utils/dessert.js');
+  const { catalogItemPrice } = await import('../src/utils/orderPricing.js');
+  const catalog = {
+    bases: [{ id: 'cono_de_galleta_normal', price: 0, active: true }, { id: 'cono', price: 1.5, active: true }, { id: 'vaso', price: 1, active: true }],
+    flavors: [{ id: 'fresa', name: 'Fresa', price: 1.5, active: true }, { id: 'coco', name: 'Coco', price: 2, active: true }],
+    toppings: [],
+  };
+  const single = quickScoopItem(catalog.flavors[0], catalog.bases);
+  assert.equal(single.base.id, 'cono_de_galleta_normal');
+  assert.equal(single.price, catalogItemPrice(single, catalog));
+  const double = quickScoopItem(catalog.flavors, catalog.bases.slice(1));
+  assert.equal(double.base.id, 'vaso');
+  assert.equal(double.price, 4.5);
+  assert.equal(double.price, catalogItemPrice(double, catalog));
+});
