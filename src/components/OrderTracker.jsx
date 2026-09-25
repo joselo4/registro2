@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef } from 'react';
-import { readOrder, requestOrder } from '../utils/apiClient';
+import { correctOrder, readOrder, requestOrder } from '../utils/apiClient';
 import { mergeOrders, isDeliveryOrder, orderStatusLabel, paymentDescription, requiresAdvancePayment, trackingExpired } from '../utils/orderLifecycle';
 import { sanitizeText, safeStorage } from '../utils/security';
 import { buildWhatsAppHref } from '../utils/orderMessaging';
@@ -9,7 +9,7 @@ import './tracker.css';
 
 
 
-export default function OrderTracker({ orderId, orders, setView, storePhone, onClearActiveOrder }) {
+export default function OrderTracker({ orderId, orders, setView, storePhone, onClearActiveOrder, onOrderCorrected }) {
   const [inputVal, setInputVal] = useState(orderId || '');
   const [activeSearchId, setActiveSearchId] = useState(orderId || '');
   const [searchNonce, setSearchNonce] = useState(0);
@@ -118,6 +118,19 @@ export default function OrderTracker({ orderId, orders, setView, storePhone, onC
 
   const [copiedTrackingLink, setCopiedTrackingLink] = useState(false);
   const [copiedField, setCopiedField] = useState('');
+  const [correction, setCorrection] = useState({ step: 'idle', error: '' }); // idle | confirm | sending
+  const handleCorrectOrder = async () => {
+    const token = receiptTokenFor(currentOrder?.id);
+    if (!currentOrder?.id || !token) return;
+    setCorrection({ step: 'sending', error: '' });
+    try {
+      const cancelled = await correctOrder(currentOrder.id, token);
+      setCorrection({ step: 'idle', error: '' });
+      onOrderCorrected?.(cancelled);
+    } catch (error) {
+      setCorrection({ step: 'idle', error: error.message || 'No se pudo corregir el pedido. Intenta nuevamente.' });
+    }
+  };
   // Page text cannot be selected, so important data gets a copy button.
   const copyText = async (value, field) => {
     const text = String(value || '');
@@ -555,6 +568,32 @@ export default function OrderTracker({ orderId, orders, setView, storePhone, onC
             );
           })}
         </ol>
+      )}
+
+      {status === 'Por Corroborar' && !currentOrder.limited && !currentOrder.paymentVerified && receiptTokenFor(currentOrder.id) && onOrderCorrected && (
+        <section className="tracker-card tracker-correct">
+          {correction.step === 'confirm' ? (
+            <>
+              <strong>¿Corregimos tu pedido?</strong>
+              <p>Anularemos este pedido y sus productos volverán a tu carrito para que cambies lo que necesites y lo confirmes de nuevo.</p>
+              <div className="tracker-correct-actions">
+                <button type="button" className="btn btn-primary" onClick={handleCorrectOrder}>Sí, corregir</button>
+                <button type="button" className="btn btn-secondary" onClick={() => setCorrection({ step: 'idle', error: '' })}>No, dejarlo así</button>
+              </div>
+            </>
+          ) : (
+            <>
+              <div>
+                <strong>¿Te equivocaste en algo?</strong>
+                <p>Puedes corregir tu pedido mientras la tienda lo confirma.</p>
+              </div>
+              <button type="button" className="btn btn-secondary" disabled={correction.step === 'sending'} onClick={() => setCorrection({ step: 'confirm', error: '' })}>
+                {correction.step === 'sending' ? 'Corrigiendo…' : '✏️ Corregir mi pedido'}
+              </button>
+            </>
+          )}
+          {correction.error && <p className="tracker-correct-error" role="alert">{correction.error}</p>}
+        </section>
       )}
 
       {currentOrder.assignedDriver && (

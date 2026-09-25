@@ -37,6 +37,8 @@ export async function createOrder(order) {
   }
   return saved;
 }
+// Cancels an unconfirmed order with its private receipt so it can be fixed and resent.
+export const correctOrder = (id, submissionKey) => requestOrder('/api/order', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ action: 'customer_correct', id, submissionKey }) });
 export const readOrder = (id, token = '') => requestOrder(`/api/order?id=${encodeURIComponent(id)}${token ? `&token=${encodeURIComponent(token)}` : ''}`);
 
 export async function updateOrder(client, previous, order) {

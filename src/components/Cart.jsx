@@ -19,6 +19,7 @@ export default function Cart({
   cart, 
   onUpdateQuantity, 
   onRemoveFromCart, 
+  onEditItem,
   onPlaceOrder, 
   deliveryFee = 0, 
   setView, 
@@ -622,6 +623,11 @@ export default function Cart({
                 <div className="cart-item-details">
                   <h4 style={{ fontSize: '0.95rem' }}>{item.name}</h4>
                   {renderItemDetails(item)}
+                  {onEditItem && (item.type === 'custom' || item.type === 'liter') && (
+                    <button type="button" className="cart-edit-btn" disabled={!shopOpen} onClick={() => onEditItem(index)} aria-label={`Editar ${item.name}`}>
+                      ✏️ Editar
+                    </button>
+                  )}
                 </div>
               </div>
 

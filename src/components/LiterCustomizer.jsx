@@ -50,16 +50,26 @@ function LiterTub({ flavors = [], toppings = [], syrup = null }) {
   );
 }
 
-export default function LiterCustomizer({ flavors, toppings = [], literConfig, onAddToCart, setView, showAlert }) {
+export default function LiterCustomizer({ flavors, toppings = [], literConfig, onAddToCart, setView, showAlert, editingItem = null, onSaveEdit, onCancelEdit }) {
+  const isEditing = Boolean(editingItem && onSaveEdit);
   const activeFlavors = (flavors || []).filter(f => f.active !== false);
   const solidToppings = toppings.filter(t => t.category === 'solido' && t.active !== false);
   const syrups = toppings.filter(t => t.category === 'liquido' && t.active !== false);
   const maxFlavors = parseInt(literConfig?.maxFlavors, 10) || 3;
   const basePrice = parseFloat(literConfig?.price) || 15.0;
 
-  const [selectedFlavors, setSelectedFlavors] = useState([]);
-  const [selectedToppings, setSelectedToppings] = useState([]);
-  const [selectedSyrup, setSelectedSyrup] = useState(null);
+  // Editing a litre from the cart starts from its saved flavours and extras.
+  const [selectedFlavors, setSelectedFlavors] = useState(() => {
+    if (!isEditing) return [];
+    const saved = Array.isArray(editingItem.scoops) && editingItem.scoops.length
+      ? editingItem.scoops.map(scoop => activeFlavors.find(f => f.id === (scoop?.id ?? scoop)))
+      : (editingItem.flavors || []).map(name => activeFlavors.find(f => f.name === name));
+    return saved.filter(Boolean).slice(0, maxFlavors);
+  });
+  const [selectedToppings, setSelectedToppings] = useState(() => isEditing
+    ? (editingItem.toppings || []).map(t => solidToppings.find(option => option.id === (t?.id ?? t))).filter(Boolean).slice(0, MAX_TOPPINGS)
+    : []);
+  const [selectedSyrup, setSelectedSyrup] = useState(() => (isEditing && syrups.find(option => option.id === editingItem.syrup?.id)) || null);
   const [step, setStep] = useState(0);
   const [notice, setNotice] = useState('');
   const [pulse, setPulse] = useState(0);
@@ -123,11 +133,11 @@ export default function LiterCustomizer({ flavors, toppings = [], literConfig, o
     };
     setIsAdding(true);
     // A closed store rejects the item: stay here with the selection intact.
-    if (onAddToCart(literItem) === false) {
+    if ((isEditing ? onSaveEdit(literItem) : onAddToCart(literItem)) === false) {
       setIsAdding(false);
       return;
     }
-    setView('cart');
+    if (!isEditing) setView('cart');
   };
 
   const summary = [`${selectedFlavors.length}/${maxFlavors} sabores`, selectedToppings.length + (selectedSyrup ? 1 : 0) ? `${selectedToppings.length + (selectedSyrup ? 1 : 0)} extra${selectedToppings.length + (selectedSyrup ? 1 : 0) === 1 ? '' : 's'}` : null].filter(Boolean).join(' · ');
@@ -135,9 +145,10 @@ export default function LiterCustomizer({ flavors, toppings = [], literConfig, o
   return (
     <section className="atelier liter-builder" aria-label="Arma tu litro">
       <header className="atelier-heading">
-        <button type="button" className="atelier-back" onClick={() => setView('shop')}>← Carta</button>
-        <div><span className="atelier-eyebrow">PARA LLEVAR A CASA</span><h1>Tu litro, <em>a tu gusto.</em></h1></div>
+        <button type="button" className="atelier-back" onClick={() => (isEditing ? onCancelEdit?.() : setView('shop'))}>{isEditing ? '← Mi pedido' : '← Carta'}</button>
+        <div><span className="atelier-eyebrow">{isEditing ? 'EDITANDO TU LITRO' : 'PARA LLEVAR A CASA'}</span><h1>Tu litro, <em>a tu gusto.</em></h1></div>
       </header>
+      {isEditing && <p className="atelier-editing-note" role="status">Cambia sabores o extras y toca <strong>Guardar cambios</strong>. La cantidad en tu pedido se mantiene.</p>}
 
       <div className="atelier-layout">
         <aside className="atelier-stage" aria-label="Tu pote de 1 litro">
@@ -211,7 +222,7 @@ export default function LiterCustomizer({ flavors, toppings = [], literConfig, o
 
       <div className="atelier-cartbar">
         <div className="atelier-cartbar-copy"><small>{summary}</small><strong>{money(totalPrice)}</strong></div>
-        <button type="button" disabled={isAdding || !selectedFlavors.length} onClick={handleAddLiterToCart}>{isAdding ? 'Añadiendo…' : 'Añadir al pedido'} <span aria-hidden="true">→</span></button>
+        <button type="button" disabled={isAdding || !selectedFlavors.length} onClick={handleAddLiterToCart}>{isAdding ? (isEditing ? 'Guardando…' : 'Añadiendo…') : (isEditing ? 'Guardar cambios' : 'Añadir al pedido')} <span aria-hidden="true">→</span></button>
       </div>
     </section>
   );

@@ -91,3 +91,10 @@
 }
 .tracker-copy { margin: 6px 8px 0 0; min-height: 34px; padding: 5px 12px; border: 1px dashed var(--tracker-accent); border-radius: 100px; background: color-mix(in srgb, var(--tracker-accent) 6%, var(--bg-secondary)); color: var(--tracker-accent); font-size: .78rem; font-weight: 800; cursor: pointer; }
 .tracker-details dd { display: flex; align-items: center; justify-content: flex-end; gap: 6px; flex-wrap: wrap; }
+.tracker-correct { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 10px 16px; border-style: dashed; border-color: #f0c77a; background: #fffaf0; }
+.tracker-correct strong { display: block; font-size: .98rem; }
+.tracker-correct p { margin: 2px 0 0; font-size: .86rem; color: var(--text-light); }
+.tracker-correct .btn { min-height: 44px; margin: 0; }
+.tracker-correct-actions { display: flex; flex-wrap: wrap; gap: 8px; width: 100%; }
+.tracker-correct-error { width: 100%; color: var(--danger); font-weight: 700; }
+[data-theme="dark"] .tracker-correct { background: #33291a; border-color: #6b5a2a; }

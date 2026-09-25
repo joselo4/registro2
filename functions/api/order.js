@@ -9,6 +9,7 @@ import { validateOrderInput } from '../../src/utils/orderValidation.js';
 import { validateCustomerPricing } from '../../src/utils/orderPricing.js';
 import { isOrderTypeEnabled } from '../../src/utils/orderChannels.js';
 import { clientKey, contactKey, orderLimitError } from './_orderLimits.js';
+import { sendTelegramMessage } from './telegram.js';
 
 async function checkCustomerPricing(client, order) {
   const keys = ['bases', 'flavors', 'toppings', 'packs', 'popsicles', 'liter_config', 'coupons', 'delivery_fee', 'free_delivery_threshold', 'shop_open'];
@@ -215,6 +216,47 @@ export async function onRequestPost({ request, env }, makeClient = createAdminCl
         const order = await saveOrderChange(client, body.previous, proposedOrder);
         return json({ ok: true, order });
       } catch (error) { return fail(409, 'update', error.message || 'No se pudo guardar el pedido.'); }
+    }
+    if (body?.action === 'customer_correct') {
+      // The customer spotted a mistake before the shop confirmed the order:
+      // cancel it (with their private receipt) so they can fix the cart and resend.
+      const correctId = cleanOrderId(body.id);
+      if (!ORDER_ID_RE.test(correctId)) return fail(400, 'input', 'Código de pedido inválido.');
+      const client = await makeClient(env);
+      const key = `order_${correctId}`;
+      const { data: row, error: readError } = await client.from('helados_sync').select('value,updated_at').eq('key', key).maybeSingle();
+      if (readError) return fail(502, 'read', 'No se pudo leer el pedido. Intenta nuevamente.');
+      if (!row?.value) return fail(404, 'not_found', 'Pedido no encontrado.');
+      if (!ownsReceipt(row.value, body.submissionKey)) return fail(403, 'auth', 'Abre el enlace privado de tu pedido para corregirlo.');
+      if (row.value.status !== 'Por Corroborar' || row.value.paymentVerified) {
+        return fail(409, 'locked', 'La tienda ya confirmó tu pedido y no se puede corregir desde aquí. Escríbenos por WhatsApp y te ayudamos.');
+      }
+      const now = new Date().toISOString();
+      const next = {
+        ...row.value,
+        status: 'Cancelado',
+        cancelledBy: 'cliente',
+        cancelReason: 'El cliente lo anuló para corregirlo.',
+        statusHistory: [...(Array.isArray(row.value.statusHistory) ? row.value.statusHistory : []), { status: 'Cancelado', timestamp: now, by: 'cliente' }],
+        updatedAt: now,
+        revision: (Number(row.value.revision) || 0) + 1,
+      };
+      const { data: saved, error: writeError } = await client.from('helados_sync')
+        .update({ key, value: next, updated_at: now })
+        .eq('key', key)
+        .eq('value', JSON.stringify(row.value))
+        .select('value')
+        .maybeSingle();
+      if (writeError) return fail(502, 'write', 'No se pudo corregir el pedido. Intenta nuevamente.');
+      if (!saved?.value) return fail(409, 'conflict', 'La tienda acaba de actualizar tu pedido. Revisa su estado antes de corregirlo.');
+      if (env.TELEGRAM_BOT_TOKEN && env.TELEGRAM_CHAT_ID) {
+        try {
+          await sendTelegramMessage({ token: env.TELEGRAM_BOT_TOKEN, chatId: env.TELEGRAM_CHAT_ID, text: `✏️ Pedido ${correctId} anulado por el cliente para corregirlo. No lo prepares: llegará un pedido nuevo con los cambios.` });
+        } catch {
+          // The order is already cancelled; the admin panel shows it either way.
+        }
+      }
+      return json({ ok: true, order: saved.value });
     }
     if (body?.action === 'create_operator') {
       const client = await makeClient(env);

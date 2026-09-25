@@ -12,8 +12,9 @@ import { fetchSyncedData, updateSyncedData, subscribeToSync, invalidateSyncCache
 import { supabase } from './utils/supabaseClient';
 import { Capacitor } from '@capacitor/core';
 import { DEFAULT_SMS_TEMPLATES } from './utils/orderMessaging';
-import { createOrder, createOperatorOrder, updateOrder } from './utils/apiClient';
-import { addCartItem, checkoutStorage, readCartDraft, subtractOrderedItems } from './utils/checkout';
+import { createOrder, createOperatorOrder, fetchOperatorOrders, updateOrder } from './utils/apiClient';
+import { mergeOrders } from './utils/orderLifecycle';
+import { addCartItem, cartItemKey, checkoutStorage, readCartDraft, subtractOrderedItems } from './utils/checkout';
 import { isGoogleMeasurementId, toGa4Event, toMetaPayload } from './utils/commerceAnalytics';
 import { configureWebVitalsMonitoring } from './utils/performanceMonitoring';
 import { readRememberedOperator } from './utils/rememberedOperator';
@@ -1166,7 +1167,14 @@ export default function App() {
           updateStateIfChanged(setPopsicles, 'popsicles', value);
           break;
         case 'orders':
-          updateStateIfChanged(setOrders, 'orders', value);
+          // The old aggregate list (written by outdated devices) must never
+          // replace newer individual orders: keep the highest revision.
+          setOrders(prev => {
+            const merged = mergeOrders(prev, Array.isArray(value) ? value : []);
+            if (JSON.stringify(merged) === JSON.stringify(prev)) return prev;
+            isRemoteUpdate.current['orders'] = true;
+            return merged;
+          });
           break;
         case 'delivery_fee':
           updateStateIfChanged(setDeliveryFee, 'delivery_fee', value);
@@ -1369,6 +1377,48 @@ export default function App() {
     setCart(current => current.filter((_, idx) => idx !== index));
   };
 
+  // --- Editar un producto del carrito en su armador ---
+  const [cartEdit, setCartEdit] = useState(null); // { key, index, item, view }
+  const handleEditCartItem = (index) => {
+    const item = cart[index];
+    if (!item || !['custom', 'liter'].includes(item.type)) return;
+    const builder = item.type === 'liter' ? 'liter-customizer' : 'customizer';
+    setCartEdit({ key: cartItemKey(item), index, item, view: builder });
+    setView(builder);
+  };
+  const handleSaveCartEdit = (updatedItem) => {
+    if (!cartEdit) return false;
+    if (!effectiveShopOpen) {
+      alert(`Lo sentimos, ${storeName} se encuentra CERRADO temporalmente en este momento.`);
+      return false;
+    }
+    const edit = cartEdit;
+    setCart(current => {
+      let index = current.findIndex(entry => cartItemKey(entry) === edit.key);
+      if (index < 0) index = Math.min(edit.index, current.length);
+      const quantity = current[index]?.quantity || edit.item.quantity || 1;
+      const rest = current.filter((_, idx) => idx !== index);
+      const next = { ...updatedItem, price: Number(updatedItem.price), quantity };
+      // The same creation already in the cart: add up instead of duplicating it.
+      const twin = rest.findIndex(entry => cartItemKey(entry) === cartItemKey(next));
+      if (twin >= 0) return rest.map((entry, idx) => idx === twin ? { ...entry, quantity: Math.min(99, entry.quantity + quantity) } : entry);
+      rest.splice(Math.min(index, rest.length), 0, next);
+      return rest;
+    });
+    setCartEdit(null);
+    setView('cart');
+    showAlert('Pedido actualizado', `Guardamos los cambios de ${updatedItem.name || 'tu producto'}.`, 'success');
+    return true;
+  };
+  const handleCancelCartEdit = () => {
+    setCartEdit(null);
+    setView('cart');
+  };
+  useEffect(() => {
+    // Leaving the builder without saving discards the edit, not the cart item.
+    if (cartEdit && view !== cartEdit.view) setCartEdit(null);
+  }, [view, cartEdit]);
+
   const sendTelegramNotification = async (order) => {
     try {
       const headers = { 'Content-Type': 'application/json' };
@@ -1425,12 +1475,35 @@ export default function App() {
 
   const handleUpdateOrderStatus = async (orderId, newStatus, patch = {}) => {
     const cleanOrderId = String(orderId || '').trim().toUpperCase();
-    const previous = orders.find(o => String(o.id || '').trim().toUpperCase() === cleanOrderId);
-    if (!previous || !supabase) return false;
+    const sameOrder = order => String(order?.id || '').trim().toUpperCase() === cleanOrderId;
+    const previous = orders.find(sameOrder);
+    if (!supabase) {
+      showAlert('Sin conexión con la tienda', 'Reconecta e intenta nuevamente.', 'warning');
+      return false;
+    }
+    if (!previous) {
+      showAlert('Pedido no encontrado', 'Actualiza la lista de pedidos e intenta nuevamente.', 'warning');
+      return false;
+    }
+    const save = base => updateOrder(supabase, base, { ...base, ...patch, id: cleanOrderId, status: newStatus });
     try {
-      const proposed = { ...previous, ...patch, id: cleanOrderId, status: newStatus };
-      const saved = await updateOrder(supabase, previous, proposed);
-      setOrders(current => current.map(order => order.id === previous.id ? saved : order));
+      let saved;
+      try {
+        saved = await save(previous);
+      } catch (error) {
+        if (error?.status !== 409) throw error;
+        // Our copy was outdated: reload this order and retry once if the step still applies.
+        const { data } = await supabase.auth.getSession();
+        const fresh = data?.session ? (await fetchOperatorOrders(data.session)).find(sameOrder) : null;
+        if (!fresh) throw error;
+        if (fresh.status === newStatus) saved = fresh;
+        else if (fresh.status === previous.status) saved = await save(fresh);
+        else {
+          setOrders(current => current.map(order => sameOrder(order) ? fresh : order));
+          throw new Error(`Este pedido ya está en "${fresh.status}". Actualizamos la lista.`, { cause: error });
+        }
+      }
+      setOrders(current => current.map(order => sameOrder(order) ? saved : order));
       return true;
     } catch (error) {
       console.warn('No se pudo actualizar el pedido:', error.message);
@@ -1460,6 +1533,20 @@ export default function App() {
         return true;
       } catch (err) {
         console.warn('⚠️ No se pudieron sincronizar algunos pedidos en Supabase:', err);
+        if (err?.status === 409 && supabase) {
+          // Someone else (or an outdated device) changed these orders: show the current state.
+          try {
+            const { data } = await supabase.auth.getSession();
+            if (data?.session) {
+              const fresh = await fetchOperatorOrders(data.session);
+              setOrders(current => mergeOrders(current, fresh));
+              showAlert('Actualizamos la lista', 'El pedido había cambiado. Revisa su estado actual e intenta de nuevo.', 'warning');
+              return false;
+            }
+          } catch {
+            /* fall through to the generic message */
+          }
+        }
         showAlert('No se confirmó el cambio', err.message || 'Actualiza la lista e intenta nuevamente.', 'warning');
         return false;
       }
@@ -1734,6 +1821,10 @@ export default function App() {
 
         {view === 'customizer' && (
           <IceCreamCustomizer 
+            key={cartEdit?.view === 'customizer' ? cartEdit.key : 'new'}
+            editingItem={cartEdit?.view === 'customizer' ? cartEdit.item : null}
+            onSaveEdit={handleSaveCartEdit}
+            onCancelEdit={handleCancelCartEdit}
             bases={bases}
             flavors={flavors}
             toppings={toppings}
@@ -1747,6 +1838,10 @@ export default function App() {
 
         {view === 'liter-customizer' && (
           <LiterCustomizer
+            key={cartEdit?.view === 'liter-customizer' ? cartEdit.key : 'new'}
+            editingItem={cartEdit?.view === 'liter-customizer' ? cartEdit.item : null}
+            onSaveEdit={handleSaveCartEdit}
+            onCancelEdit={handleCancelCartEdit}
             flavors={flavors}
             toppings={toppings}
             literConfig={literConfig}
@@ -1761,6 +1856,7 @@ export default function App() {
             cart={cart}
             onUpdateQuantity={handleUpdateCartQuantity}
             onRemoveFromCart={handleRemoveFromCart}
+            onEditItem={handleEditCartItem}
             onPlaceOrder={handlePlaceOrder}
             deliveryFee={deliveryFee}
             setView={setView}
@@ -1802,6 +1898,15 @@ export default function App() {
               onClearActiveOrder={() => {
                 setActiveOrderId(null);
                 safeStorage.removeItem('helados_active_order_id');
+              }}
+              onOrderCorrected={(cancelledOrder) => {
+                // The unconfirmed order was cancelled: its products return to the cart to be fixed.
+                setOrders(prev => prev.map(order => order.id === cancelledOrder.id ? cancelledOrder : order));
+                setCart(current => (cancelledOrder.items || []).reduce((next, item) => addCartItem(next, item), current));
+                setActiveOrderId(null);
+                safeStorage.removeItem('helados_active_order_id');
+                setView('cart');
+                showAlert('Corrige tu pedido', `Anulamos el pedido ${cancelledOrder.id} y sus productos volvieron a tu carrito. Cambia lo que necesites y confirma de nuevo.`, 'info');
               }}
           />
         )}

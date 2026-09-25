@@ -21,7 +21,7 @@ const readTelegramPayload = async (response) => {
   }
 };
 
-const sendTelegramMessage = async ({ token, chatId, text, parseMode }) => {
+export const sendTelegramMessage = async ({ token, chatId, text, parseMode }) => {
   const body = { chat_id: chatId, text };
   if (parseMode) body.parse_mode = parseMode;
 

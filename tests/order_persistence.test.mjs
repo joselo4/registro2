@@ -506,3 +506,40 @@ test('one connection is capped, except for table orders placed inside the shop',
   assert.match(stored.clientKey, /^[0-9a-f]{24}$/);
   assert.ok(!JSON.stringify(stored).includes('203.0.113.7'));
 });
+
+test('a customer can cancel an unconfirmed order to correct it, only with its receipt', async () => {
+  const db = database();
+  const order = fixture({ id: 'PED-FIX-101', submissionKey: crypto.randomUUID() });
+  assert.equal((await post(db, order)).status, 200);
+  const correct = key => onRequestPost({ request: new Request('https://shop.test/api/order', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ action: 'customer_correct', id: order.id, submissionKey: key }) }), env: {} }, async () => db);
+  assert.equal((await correct(crypto.randomUUID())).status, 403);
+  assert.equal(db.rows.get('order_PED-FIX-101').value.status, 'Por Corroborar');
+  const response = await correct(order.submissionKey);
+  assert.equal(response.status, 200);
+  const saved = db.rows.get('order_PED-FIX-101').value;
+  assert.equal(saved.status, 'Cancelado');
+  assert.equal(saved.cancelledBy, 'cliente');
+  assert.equal(saved.statusHistory.at(-1).status, 'Cancelado');
+  // Once the shop confirmed (or it is already cancelled) the customer cannot change it.
+  assert.equal((await correct(order.submissionKey)).status, 409);
+  const confirmed = fixture({ id: 'PED-FIX-102', submissionKey: crypto.randomUUID() });
+  assert.equal((await post(db, confirmed)).status, 200);
+  db.rows.get('order_PED-FIX-102').value.status = 'Pendiente';
+  const locked = await onRequestPost({ request: new Request('https://shop.test/api/order', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ action: 'customer_correct', id: confirmed.id, submissionKey: confirmed.submissionKey }) }), env: {} }, async () => db);
+  assert.equal(locked.status, 409);
+});
+
+test('staff can move a new customer order through accept, kitchen and ready', async () => {
+  const admin = { id: 'admin-1', email: 'admin@example.test', app_metadata: { role: 'Administrador' } };
+  const db = database([], { user: admin });
+  const order = fixture({ id: 'PED-KIT-500', submissionKey: crypto.randomUUID(), customer: { ...fixture().customer, paymentMethod: 'Efectivo' } });
+  assert.equal((await post(db, order)).status, 200);
+  let current = db.rows.get('order_PED-KIT-500').value;
+  for (const status of ['Pendiente', 'Preparando', 'Listo']) {
+    const response = await post(db, { ...current, status }, { action: 'update', previous: current });
+    const payload = await response.json();
+    assert.equal(response.status, 200, `${status}: ${payload.error}`);
+    current = payload.order;
+    assert.equal(current.status, status);
+  }
+});

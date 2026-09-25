@@ -67,3 +67,5 @@
 .cart-container .checkout-section .checkout-heading h3 { font-family: var(--font-title); font-size: clamp(1.5rem, 2.6vw, 2rem); letter-spacing: -.03em; line-height: 1.1; margin: 0; }
 .cart-container .checkout-section .checkout-heading p { font-size: .9rem; margin: 2px 0 0; }
 .cart-container .payment-options { grid-template-columns: repeat(auto-fit, minmax(92px, 1fr)); }
+.cart-edit-btn { display: inline-flex; align-items: center; gap: 4px; margin-top: 8px; min-height: 36px; padding: 6px 14px; border: 1px solid var(--primary-color); border-radius: 100px; background: color-mix(in srgb, var(--primary-color) 6%, var(--bg-secondary)); color: var(--primary-color); font-size: .82rem; font-weight: 800; cursor: pointer; }
+.cart-edit-btn:hover:not(:disabled) { background: var(--primary-color); color: #fff; }

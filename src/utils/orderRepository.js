@@ -36,7 +36,11 @@ export async function saveOrderChange(client, previous, proposed) {
   if (row) {
     query = client.from('helados_sync').update(record).eq('key', key);
     query = row.updated_at == null ? query.is('updated_at', null) : query.eq('updated_at', row.updated_at);
-    query = query.eq('value', JSON.stringify(row.value));
+    // The value is also compared, but it travels in the request URL: very large
+    // orders would exceed the URL limit, and for those updated_at (changed on
+    // every write) is the guard.
+    const snapshot = JSON.stringify(row.value);
+    if (row.updated_at == null || snapshot.length <= 2500) query = query.eq('value', snapshot);
   } else {
     // Supports legacy orders that only exist in the old aggregate. Insert never replaces a concurrent create.
     query = client.from('helados_sync').insert(record);

@@ -165,3 +165,5 @@
   .liter-builder .atelier-stage { grid-template-columns: 1fr; }
   .liter-builder .atelier-stage-art, .liter-builder .atelier-stage-art .liter-tub { height: 300px; }
 }
+.atelier-editing-note { margin: 0 0 14px; padding: 10px 14px; border-radius: 14px; background: #fff4d6; border: 1px solid #f3dc9a; color: #5a4210; font-size: .86rem; line-height: 1.45; }
+[data-theme="dark"] .atelier-editing-note { background: #3d331c; border-color: #6b5a2a; color: #f6e7bf; }

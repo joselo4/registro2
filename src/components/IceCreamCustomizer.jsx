@@ -12,17 +12,32 @@ const steps = [
 ];
 const isFruity = flavor => /fresa|mango|maracu|lim[oó]n|frut|coco|pi[ñn]a|aguaymanto/.test(`${flavor.name} ${flavor.id}`.toLowerCase());
 
-export default function IceCreamCustomizer({bases = [], flavors = [], toppings = [], recommendations = [], onAddToCart, setView, showAlert, shopConfig}) {
+export default function IceCreamCustomizer({bases = [], flavors = [], toppings = [], recommendations = [], onAddToCart, setView, showAlert, shopConfig, editingItem = null, onSaveEdit, onCancelEdit}) {
+  const isEditing = Boolean(editingItem && onSaveEdit);
   const defaults = shopConfig?.defaultCustomizer || {};
   const activeBases = bases.filter(available);
   const activeFlavors = flavors.filter(available);
   const activeToppings = toppings.filter(t => available(t) && t.category === 'solido');
   const activeSyrups = toppings.filter(t => available(t) && t.category === 'liquido');
-  const [baseId, setBaseId] = useState(() => activeBases.find(b => b.id === defaults.baseId)?.id || activeBases[0]?.id);
-  const [scoopIds, setScoopIds] = useState(() => { const f = activeFlavors.find(f => f.id === defaults.flavorId) || activeFlavors.find(f => f.id === 'lucuma') || activeFlavors[0]; return f ? [f.id] : []; });
-  const [toppingIds, setToppingIds] = useState(() => activeToppings.some(t => t.id === defaults.toppingId) ? [defaults.toppingId] : []);
-  const [syrupId, setSyrupId] = useState(() => activeSyrups.find(t => t.id === defaults.syrupId)?.id || null);
-  const [step, setStep] = useState(0);
+  // When editing a cart item, start from exactly what the customer built.
+  const editedIds = list => (Array.isArray(list) ? list : []).map(entry => (typeof entry === 'string' ? entry : entry?.id)).filter(Boolean);
+  const [baseId, setBaseId] = useState(() => (isEditing && activeBases.find(b => b.id === editingItem.base?.id)?.id) || activeBases.find(b => b.id === defaults.baseId)?.id || activeBases[0]?.id);
+  const [scoopIds, setScoopIds] = useState(() => {
+    if (isEditing) return editedIds(editingItem.scoops).filter(id => activeFlavors.some(f => f.id === id)).slice(0, MAX_SCOOPS);
+    const f = activeFlavors.find(f => f.id === defaults.flavorId) || activeFlavors.find(f => f.id === 'lucuma') || activeFlavors[0];
+    return f ? [f.id] : [];
+  });
+  const [toppingIds, setToppingIds] = useState(() => isEditing
+    ? editedIds(editingItem.toppings).filter(id => activeToppings.some(t => t.id === id))
+    : activeToppings.some(t => t.id === defaults.toppingId) ? [defaults.toppingId] : []);
+  const [syrupId, setSyrupId] = useState(() => {
+    if (isEditing) {
+      const candidates = [editingItem.syrup?.id, ...editedIds(editingItem.toppings)];
+      return activeSyrups.find(t => candidates.includes(t.id))?.id || null;
+    }
+    return activeSyrups.find(t => t.id === defaults.syrupId)?.id || null;
+  });
+  const [step, setStep] = useState(isEditing ? 1 : 0);
   const [query, setQuery] = useState('');
   const [family, setFamily] = useState('Todos');
   const [notice, setNotice] = useState('');
@@ -83,9 +98,10 @@ export default function IceCreamCustomizer({bases = [], flavors = [], toppings =
     if (!base || !scoops.length) { setNotice('Elige un envase y al menos un sabor para continuar.'); goToStep(base ? 1 : 0); return; }
     addingRef.current = true; setAdding(true);
     try {
-      const result = await onAddToCart({type:'custom', base, scoops, toppings:extras, syrup, price:total, quantity:1, name:`Helado en ${base.name} · ${scoops.length} bola${scoops.length === 1 ? '' : 's'}`});
+      const item = {type:'custom', base, scoops, toppings:extras, syrup, price:total, quantity:1, name:`Helado en ${base.name} · ${scoops.length} bola${scoops.length === 1 ? '' : 's'}`};
+      const result = isEditing ? await onSaveEdit(item) : await onAddToCart(item);
       if (result === false) { addingRef.current = false; setAdding(false); return; }
-      setView('cart');
+      if (!isEditing) setView('cart');
     } catch { addingRef.current = false; setAdding(false); if (showAlert) showAlert('No se pudo añadir', 'Intenta de nuevo. Tu combinación sigue aquí.', 'error'); else setNotice('No se pudo añadir. Intenta de nuevo.'); }
   }
   const tip = scoops.length === 1 && step === 1 && Number.isFinite(cheapestScoop)
@@ -94,11 +110,14 @@ export default function IceCreamCustomizer({bases = [], flavors = [], toppings =
 
   return <section className="atelier" aria-label="Crea tu helado">
     <header className="atelier-heading">
-      <button type="button" className="atelier-back" onClick={() => setView('shop')}>← Carta</button>
-      <div><span className="atelier-eyebrow">CREA TU HELADO</span><h1>Un helado muy <em>tuyo.</em></h1></div>
+      <button type="button" className="atelier-back" onClick={() => (isEditing ? onCancelEdit?.() : setView('shop'))}>{isEditing ? '← Mi pedido' : '← Carta'}</button>
+      <div>{isEditing
+        ? <><span className="atelier-eyebrow">EDITANDO TU HELADO</span><h1>Ajústalo a <em>tu gusto.</em></h1></>
+        : <><span className="atelier-eyebrow">CREA TU HELADO</span><h1>Un helado muy <em>tuyo.</em></h1></>}</div>
     </header>
 
-    {validPresets.length > 0 && <div className="atelier-quickstart">
+    {isEditing && <p className="atelier-editing-note" role="status">Cambia lo que necesites y toca <strong>Guardar cambios</strong>. La cantidad en tu pedido se mantiene.</p>}
+    {!isEditing && validPresets.length > 0 && <div className="atelier-quickstart">
       <p><strong>¿Sin ideas?</strong> Empieza con un favorito</p>
       <div className="atelier-preset-row">{validPresets.map(rec => <button type="button" key={rec.id} onClick={() => applyPreset(rec)}>
         <span className="atelier-preset-art" aria-hidden="true"><DessertPreview compact base={rec.resolved.base} scoops={rec.resolved.scoops} toppings={rec.resolved.toppings} syrup={rec.resolved.syrup} /></span>
@@ -182,7 +201,7 @@ export default function IceCreamCustomizer({bases = [], flavors = [], toppings =
 
     <div className="atelier-cartbar">
       <div className="atelier-cartbar-copy"><small>{summary || 'Tu creación'}</small><strong>{money(total)}</strong></div>
-      <button type="button" disabled={!base || !scoops.length || adding} onClick={addToCart}>{adding ? 'Añadiendo…' : 'Añadir al pedido'} <span aria-hidden="true">→</span></button>
+      <button type="button" disabled={!base || !scoops.length || adding} onClick={addToCart}>{adding ? (isEditing ? 'Guardando…' : 'Añadiendo…') : (isEditing ? 'Guardar cambios' : 'Añadir al pedido')} <span aria-hidden="true">→</span></button>
     </div>
   </section>;
 }
