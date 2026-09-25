@@ -138,8 +138,8 @@ export async function onRequestPost({ request, env }, makeClient = createAdminCl
       const order = data.value;
       body.verifiedText = `Nuevo pedido ${order.id}\nCliente: ${order.customer?.name || 'Cliente'}\nTipo: ${order.customer?.orderType || 'Delivery'}\nDirección: ${order.customer?.address || ''}\nTeléfono: ${order.customer?.phone || ''}\nPago: ${order.customer?.paymentMethod || ''}\nProductos: ${(order.items || []).map(item => `${item.quantity}x ${item.name}`).join(', ')}\nTotal: S/. ${Number(order.grandTotal || 0).toFixed(2)}`;
     } else if (kind === 'table_call') {
-      const cleanTable = String(table || '').trim().replace(/[^\dA-Za-z_-]/g, '').slice(0, 20);
-      if (!cleanTable) {
+      const cleanTable = String(table ?? '').trim();
+      if (!/^[1-9]\d{0,2}$/.test(cleanTable)) {
         return json({ error: 'Falta el numero de mesa o es invalido.' }, 400);
       }
       const adminClient = await makeClient(env);
@@ -150,6 +150,11 @@ export async function onRequestPost({ request, env }, makeClient = createAdminCl
         .maybeSingle();
       if (error || !data) {
         return json({ error: 'El llamado de mesa no existe.' }, 404);
+      }
+      // Only a fresh, open call may notify staff; replays cannot spam the chat.
+      const callAge = Date.now() - Date.parse(data.value?.timestamp || '');
+      if (data.value?.resolved || !(callAge >= -60000 && callAge <= 5 * 60 * 1000)) {
+        return json({ error: 'El llamado de mesa ya fue atendido o expiró.' }, 409);
       }
       body.verifiedText = `Llamado de mesa ${cleanTable}: ${String(data.value?.request || '').slice(0, 1000)}`;
     } else if (kind === 'survey') {

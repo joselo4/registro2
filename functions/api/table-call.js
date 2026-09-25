@@ -1,33 +1,51 @@
 import { createAdminClient, fail, json, sameOriginRequest } from './_security.js';
+import { isOrderTypeEnabled } from '../../src/utils/orderChannels.js';
 
-const cleanTable = (value) => String(value || '').trim().replace(/[^\dA-Za-z_-]/g, '').slice(0, 20);
+// Same table format the order API accepts (1-999).
+const cleanTable = (value) => {
+  const table = String(value ?? '').trim();
+  return /^[1-9]\d{0,2}$/.test(table) ? table : '';
+};
 const trimText = (value, max = 500) => String(value || '').trim().slice(0, max);
 const safeDate = (value) => {
   const date = new Date(value || '');
   return Number.isNaN(date.getTime()) ? new Date().toISOString() : date.toISOString();
 };
 
-export async function onRequestPost({ request, env }) {
+export async function onRequestPost({ request, env }, makeClient = createAdminClient) {
   try {
     if (!sameOriginRequest(request)) return fail(403, 'origin', 'Origen no permitido.');
 
-    const body = await request.json();
+    let body;
+    try {
+      body = await request.json();
+    } catch {
+      return fail(400, 'input', 'Solicitud inválida.');
+    }
+    if (JSON.stringify(body || {}).length > 5000) return fail(400, 'input', 'Solicitud demasiado grande.');
+
     const table = cleanTable(body?.table);
     const requestText = trimText(body?.request);
     const resolved = body?.resolved === true;
 
-    if (JSON.stringify(body || {}).length > 5000) return fail(400, 'input', 'Solicitud demasiado grande.');
-    if (!table) return fail(400, 'input', 'Falta el numero de mesa.');
+    if (!table) return fail(400, 'input', 'Número de mesa inválido.');
     if (!resolved && !requestText) return fail(400, 'input', 'Falta la solicitud.');
+
+    const adminClient = await makeClient(env);
+    if (!resolved) {
+      const { data: config, error: configError } = await adminClient.from('helados_sync').select('value').eq('key', 'shop_open').maybeSingle();
+      if (configError) return fail(502, 'read', 'No se pudo enviar el llamado. Intenta nuevamente.');
+      if (!isOrderTypeEnabled(config?.value, 'Mesa')) return fail(400, 'channel', 'La atención en mesa no está disponible en este momento.');
+    }
 
     const callData = {
       table,
       request: requestText,
-      timestamp: safeDate(body?.timestamp),
+      // New calls use the server clock; the Telegram notice only accepts fresh calls.
+      timestamp: resolved ? safeDate(body?.timestamp) : new Date().toISOString(),
       resolved,
     };
 
-    const adminClient = await createAdminClient(env);
     const { error } = await adminClient
       .from('helados_sync')
       .upsert(
@@ -39,9 +57,10 @@ export async function onRequestPost({ request, env }) {
         { onConflict: 'key' }
       );
 
-    if (error) return fail(502, 'write', error.message || 'No se pudo guardar el llamado.');
+    if (error) return fail(502, 'write', 'No se pudo guardar el llamado. Intenta nuevamente.');
     return json({ ok: true, call: callData });
   } catch (err) {
-    return json({ error: err.message || 'Error inesperado.' }, 500);
+    console.error('table-call failed:', err);
+    return fail(500, 'server', 'No se pudo enviar el llamado. Intenta nuevamente.');
   }
 }

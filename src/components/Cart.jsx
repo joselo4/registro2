@@ -7,6 +7,9 @@ import { buildWhatsAppHref } from '../utils/orderMessaging';
 import { sanitizeHTML, sanitizeText, safeStorage } from '../utils/security';
 import { checkoutStorage, checkoutTotals } from '../utils/checkout';
 import { enabledOrderChannels, isOrderTypeEnabled, preferredOrderType } from '../utils/orderChannels';
+import { validateOrderInput } from '../utils/orderValidation';
+
+const FIELD_IDS = { name: 'checkout-name', phone: 'checkout-phone', address: 'checkout-address', table: 'checkout-table' };
 
 
 export default function Cart({ 
@@ -61,6 +64,8 @@ export default function Cart({
   const submittingRef = useRef(false);
   const [sendToWhatsApp, setSendToWhatsApp] = useState(shopConfig?.defaultWhatsAppEnabled ?? false);
   const [showValidationModal, setShowValidationModal] = useState(false);
+  const [fieldErrors, setFieldErrors] = useState({});
+  const clearFieldError = field => setFieldErrors(current => (current[field] ? { ...current, [field]: undefined } : current));
 
   // Determinar si el método de pago es digital/previo (requiere código de operación)
   const DIGITAL_PAYMENT_METHODS = ['Yape', 'Plin', 'Transferencia', 'Transferencia Bancaria', 'BCP', 'Interbank', 'BBVA', 'Lukita'];
@@ -192,6 +197,55 @@ export default function Cart({
     }
   }, [trackEvent, cart, cartSubtotal]);
 
+  // Devuelve los datos listos para enviar, o marca el primer campo con error.
+  const prepareCheckout = () => {
+    const cleanAddress = sanitizeHTML(address);
+    let finalAddress = cleanAddress;
+    if (orderType === 'Mesa') {
+      finalAddress = `Mesa ${localTableNumber}`;
+    } else if (orderType === 'Mesa_Llevar') {
+      finalAddress = `Mesa ${localTableNumber} (Para Llevar)`;
+    } else if (orderType === 'Barra') {
+      finalAddress = `Recojo en Barra`;
+    } else if (orderType === 'Llevar') {
+      finalAddress = `Recojo en Tienda / Llevar`;
+    }
+
+    // Obtener valores finales con fallback si el cliente está en mesa y dejó los campos vacíos
+    const rawName = (needsTable && !name.trim()) ? `Cliente Mesa ${localTableNumber || tableNumber}` : name.trim();
+    const rawPhone = (needsTable && !phone.trim()) ? `Mesa` : phone.trim();
+
+    const finalName = sanitizeHTML(rawName);
+    const finalPhone = rawPhone.replace(/[^0-9A-Za-z+\s-]/g, '').trim();
+
+    // Mismas reglas que valida el servidor, con el mensaje junto al campo.
+    const activeMesaNumber = needsTable ? (localTableNumber || tableNumber) : null;
+    const validation = validateOrderInput({
+      name: finalName,
+      phone: finalPhone,
+      address: finalAddress,
+      orderType,
+      needsTable,
+      tableNumber: activeMesaNumber,
+      cart,
+      paymentMethod,
+      occupiedTables,
+    });
+    if (!validation.isValid) {
+      setFieldErrors(validation.errors);
+      const firstField = Object.keys(FIELD_IDS).find(field => validation.errors[field]);
+      const input = firstField && document.getElementById(FIELD_IDS[firstField]);
+      if (input) {
+        input.focus();
+        input.scrollIntoView?.({ block: 'center', behavior: 'smooth' });
+      } else {
+        alert(Object.values(validation.errors)[0]);
+      }
+      return null;
+    }
+    setFieldErrors({});
+    return { finalName, finalPhone, finalAddress, activeMesaNumber };
+  };
 
   const handleSubmit = async (e) => {
     if (e) e.preventDefault();
@@ -206,51 +260,9 @@ export default function Cart({
       return;
     }
 
-    const cleanAddress = sanitizeHTML(address);
-    let finalAddress = cleanAddress;
-    if (orderType === 'Mesa') {
-      finalAddress = `Mesa ${localTableNumber}`;
-    } else if (orderType === 'Mesa_Llevar') {
-      finalAddress = `Mesa ${localTableNumber} (Para Llevar)`;
-    } else if (orderType === 'Barra') {
-      finalAddress = `Recojo en Barra`;
-    } else if (orderType === 'Llevar') {
-      finalAddress = `Recojo en Tienda / Llevar`;
-    }
-
-    const needsTable = orderType === 'Mesa' || orderType === 'Mesa_Llevar';
-    
-    // Obtener valores finales con fallback si el cliente está en mesa y dejó los campos vacíos
-    const rawName = (needsTable && !name.trim()) ? `Cliente Mesa ${localTableNumber || tableNumber}` : name.trim();
-    const rawPhone = (needsTable && !phone.trim()) ? `Mesa` : phone.trim();
-
-    const finalName = sanitizeHTML(rawName);
-    const finalPhone = rawPhone.replace(/[^0-9A-Za-z+\s-]/g, '').trim();
-
-    // Validar según tipo de pedido
-    if (orderType === 'Delivery') {
-      if (!finalName || !finalPhone || !finalAddress.trim()) {
-        alert("Por favor, completa todos los campos requeridos.");
-        return;
-      }
-    } else if (needsTable) {
-      if (!localTableNumber && !tableNumber) {
-        alert("Por favor, selecciona o vincula un número de mesa.");
-        return;
-      }
-    } else {
-      // Retiro en Barra o Llevar
-      if (!finalName || !finalPhone) {
-        alert("Por favor, completa todos los campos requeridos.");
-        return;
-      }
-    }
-
-    const activeMesaNumber = needsTable ? (localTableNumber || tableNumber) : null;
-    if (needsTable && activeMesaNumber && occupiedTables.includes(String(activeMesaNumber))) {
-      alert(`La Mesa ${activeMesaNumber} ya cuenta con un pedido activo. Debe ser liberada por el personal antes de realizar un nuevo pedido.`);
-      return;
-    }
+    const prepared = prepareCheckout();
+    if (!prepared) return;
+    const { finalName, finalPhone, finalAddress, activeMesaNumber } = prepared;
 
     try {
       submittingRef.current = true;
@@ -356,8 +368,22 @@ export default function Cart({
        // Redirigir a WhatsApp del local si el cliente lo prefiere y la config lo permite
        const whatsappGlobalEnabled = shopConfig?.whatsappEnabled !== false;
        if (sendToWhatsApp && whatsappGlobalEnabled && whatsappUrl) {
-         const waWindow = window.open(whatsappUrl, '_blank', 'noopener,noreferrer');
-         if (waWindow) waWindow.opener = null;
+         const waWindow = window.open(whatsappUrl, '_blank');
+         if (waWindow) {
+           waWindow.opener = null;
+         } else if (showAlert) {
+           showAlert(
+             'Pedido registrado',
+             `Tu código es ${orderId}. Toca el botón para enviarlo también por WhatsApp.`,
+             'success',
+             () => {
+               const retryWindow = window.open(whatsappUrl, '_blank');
+               if (retryWindow) retryWindow.opener = null;
+               else window.location.assign(whatsappUrl);
+             },
+             'Enviar por WhatsApp'
+           );
+         }
        }
 
        if (setView) {
@@ -379,6 +405,7 @@ export default function Cart({
     if (isSubmitting || !shopOpen) return;
     const hasCustomItems = cart.some(item => item.type === 'custom');
     if (hasCustomItems && !showValidationModal) {
+      if (!prepareCheckout()) return;
       setShowValidationModal(true);
       return;
     }
@@ -704,7 +731,7 @@ export default function Cart({
             </div>
           )}
           
-          <form className="checkout-form" onSubmit={handleProceedToSubmit} style={{ gap: '10px', marginTop: '10px' }}>
+          <form className="checkout-form" onSubmit={handleProceedToSubmit} noValidate style={{ gap: '10px', marginTop: '10px' }}>
             
             {(channels.Mesa || channels.Barra || channels.Delivery) && (
               <div className="form-group">
@@ -713,7 +740,7 @@ export default function Cart({
                   <div style={{ display: 'flex', gap: '8px', marginBottom: '4px' }}>
                     <button
                       type="button"
-                      className={`payment-btn ${orderType === 'Mesa' ? 'selected' : ''}`}
+                      className={`payment-btn ${orderType === 'Mesa' ? 'selected' : ''}`} aria-pressed={orderType === 'Mesa'}
                       onClick={() => setOrderType('Mesa')}
                       style={{ flex: 1, padding: '8px', fontSize: '0.75rem', opacity: !shopOpen ? 0.5 : 1, cursor: !shopOpen ? 'not-allowed' : 'pointer' }}
                       disabled={!shopOpen}
@@ -722,7 +749,7 @@ export default function Cart({
                     </button>
                     <button
                       type="button"
-                      className={`payment-btn ${orderType === 'Mesa_Llevar' ? 'selected' : ''}`}
+                      className={`payment-btn ${orderType === 'Mesa_Llevar' ? 'selected' : ''}`} aria-pressed={orderType === 'Mesa_Llevar'}
                       onClick={() => setOrderType('Mesa_Llevar')}
                       style={{ flex: 1, padding: '8px', fontSize: '0.75rem', opacity: !shopOpen ? 0.5 : 1, cursor: !shopOpen ? 'not-allowed' : 'pointer' }}
                       disabled={!shopOpen}
@@ -732,9 +759,9 @@ export default function Cart({
                   </div>
                 ) : (
                   <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
-                    {channels.Mesa && tableOrdersEnabled && <button type="button" className={`payment-btn ${needsTable ? 'selected' : ''}`} onClick={() => setOrderType('Mesa')} disabled={!shopOpen}>🍽️ Mesa</button>}
-                    {channels.Barra && <button type="button" className={`payment-btn ${orderType === 'Barra' ? 'selected' : ''}`} onClick={() => setOrderType('Barra')} disabled={!shopOpen}>🛍️ Recojo en barra</button>}
-                    {channels.Delivery && <button type="button" className={`payment-btn ${orderType === 'Delivery' ? 'selected' : ''}`} onClick={() => setOrderType('Delivery')} disabled={!shopOpen}>🛵 Delivery</button>}
+                    {channels.Mesa && tableOrdersEnabled && <button type="button" className={`payment-btn ${needsTable ? 'selected' : ''}`} aria-pressed={needsTable} onClick={() => setOrderType('Mesa')} disabled={!shopOpen}>🍽️ Mesa</button>}
+                    {channels.Barra && <button type="button" className={`payment-btn ${orderType === 'Barra' ? 'selected' : ''}`} aria-pressed={orderType === 'Barra'} onClick={() => setOrderType('Barra')} disabled={!shopOpen}>🛍️ Recojo en barra</button>}
+                    {channels.Delivery && <button type="button" className={`payment-btn ${orderType === 'Delivery' ? 'selected' : ''}`} aria-pressed={orderType === 'Delivery'} onClick={() => setOrderType('Delivery')} disabled={!shopOpen}>🛵 Delivery</button>}
                   </div>
                 )}
               </div>
@@ -743,38 +770,56 @@ export default function Cart({
             {!needsTable && (
               <>
                 <div className="form-group">
-                  <label style={{ fontSize: '0.8rem' }}>¿Tu Nombre?</label>
+                  <label htmlFor={FIELD_IDS.name} style={{ fontSize: '0.8rem' }}>¿Tu Nombre?</label>
                   <input
+                    id={FIELD_IDS.name}
+                    name="name"
                     type="text"
                     className="form-control"
                     placeholder="Ej. Carlos Mendoza"
+                    autoComplete="name"
+                    autoCapitalize="words"
+                    enterKeyHint="next"
+                    maxLength={80}
                     value={name}
-                    onChange={(e) => setName(e.target.value)}
+                    onChange={(e) => { setName(e.target.value); clearFieldError('name'); }}
+                    aria-invalid={fieldErrors.name ? 'true' : undefined}
+                    aria-describedby={fieldErrors.name ? `${FIELD_IDS.name}-error` : undefined}
                     style={{ padding: '8px 10px', fontSize: '0.85rem' }}
                     required
                     disabled={!shopOpen}
                   />
+                  {fieldErrors.name && <small id={`${FIELD_IDS.name}-error`} className="checkout-field-error" role="alert">{fieldErrors.name}</small>}
                 </div>
 
                 <div className="form-group">
-                  <label style={{ fontSize: '0.8rem' }}>WhatsApp / Teléfono</label>
+                  <label htmlFor={FIELD_IDS.phone} style={{ fontSize: '0.8rem' }}>WhatsApp / Teléfono</label>
                   <input
+                    id={FIELD_IDS.phone}
+                    name="tel"
                     type="tel"
                     className="form-control"
                     placeholder="Ej. 987654321"
+                    autoComplete="tel"
+                    inputMode="numeric"
+                    enterKeyHint="next"
+                    maxLength={15}
                     value={phone}
-                    onChange={(e) => setPhone(e.target.value.replace(/\D/g, ''))}
+                    onChange={(e) => { setPhone(e.target.value.replace(/\D/g, '')); clearFieldError('phone'); }}
+                    aria-invalid={fieldErrors.phone ? 'true' : undefined}
+                    aria-describedby={fieldErrors.phone ? `${FIELD_IDS.phone}-error` : undefined}
                     style={{ padding: '8px 10px', fontSize: '0.85rem' }}
                     required
                     disabled={!shopOpen}
                   />
+                  {fieldErrors.phone && <small id={`${FIELD_IDS.phone}-error`} className="checkout-field-error" role="alert">{fieldErrors.phone}</small>}
                 </div>
               </>
             )}
 
             {needsTable && (
               <div className="form-group">
-                <label style={{ fontSize: '0.8rem', fontWeight: 'bold' }}>Número de Mesa</label>
+                <label htmlFor={tableNumber ? undefined : FIELD_IDS.table} style={{ fontSize: '0.8rem', fontWeight: 'bold' }}>Número de Mesa</label>
                 {tableNumber ? (
                   <div style={{
                     padding: '10px 14px',
@@ -791,10 +836,13 @@ export default function Cart({
                   </div>
                 ) : (
                   <select
+                    id={FIELD_IDS.table}
                     className="form-control"
                     value={localTableNumber || ''}
+                    aria-invalid={fieldErrors.table ? 'true' : undefined}
                     onChange={(e) => {
                       setLocalTableNumber(e.target.value);
+                      clearFieldError('table');
                     }}
                     style={{ 
                       padding: '8px 10px', 
@@ -825,17 +873,25 @@ export default function Cart({
 
             {orderType === 'Delivery' && (
               <div className="form-group">
-                <label style={{ fontSize: '0.8rem' }}>Dirección de Entrega</label>
+                <label htmlFor={FIELD_IDS.address} style={{ fontSize: '0.8rem' }}>Dirección de Entrega</label>
                 <input
+                  id={FIELD_IDS.address}
+                  name="street-address"
                   type="text"
                   className="form-control"
                   placeholder="Ej. Jr. Tarapacá 489, Magdalena"
+                  autoComplete="street-address"
+                  enterKeyHint="done"
+                  maxLength={300}
                   value={address}
-                  onChange={(e) => setAddress(e.target.value)}
+                  onChange={(e) => { setAddress(e.target.value); clearFieldError('address'); }}
+                  aria-invalid={fieldErrors.address ? 'true' : undefined}
+                  aria-describedby={fieldErrors.address ? `${FIELD_IDS.address}-error` : undefined}
                   style={{ padding: '8px 10px', fontSize: '0.85rem' }}
                   required
                   disabled={!shopOpen}
                 />
+                {fieldErrors.address && <small id={`${FIELD_IDS.address}-error`} className="checkout-field-error" role="alert">{fieldErrors.address}</small>}
               </div>
             )}
 

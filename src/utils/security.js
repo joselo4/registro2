@@ -68,6 +68,8 @@ export const sanitizeUrlToHTTPS = (url) => {
   return '';
 };
 
+const isPlainObject = value => value !== null && typeof value === 'object' && !Array.isArray(value);
+
 /**
  * Envoltorio defensivo para Web Storage (localStorage).
  * Protege contra errores de cuota, modo incógnito restringido o cookies bloqueadas.
@@ -105,7 +107,12 @@ export const safeStorage = {
       if (typeof window === 'undefined' || !window.localStorage) return fallback;
       const val = window.localStorage.getItem(key);
       if (!val) return fallback;
-      return JSON.parse(val);
+      const parsed = JSON.parse(val);
+      // A corrupted or legacy value must not replace a list or settings object.
+      if (Array.isArray(fallback) && !Array.isArray(parsed)) return fallback;
+      if (isPlainObject(fallback) && !isPlainObject(parsed)) return fallback;
+      if (typeof fallback === 'boolean' && typeof parsed !== 'boolean') return fallback;
+      return parsed ?? fallback;
     } catch {
       return fallback;
     }

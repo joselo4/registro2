@@ -119,6 +119,14 @@ export default defineConfig(({ mode }) => {
               if (id.includes('leaflet')) {
                 return 'leaflet';
               }
+              // Separate chunks download in parallel and stay cached across
+              // releases that only update one of the libraries.
+              if (id.includes('@supabase')) {
+                return 'supabase';
+              }
+              if (/[\\/]node_modules[\\/](react|react-dom|scheduler)[\\/]/.test(id)) {
+                return 'react';
+              }
               return 'vendor';
             }
           }

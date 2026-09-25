@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react';
 import { isPromotionVisible, normalizePromotion } from '../utils/promotion';
 import './promotion.css';
 
-export default function PromotionBanner({ promotion, tableNumber, onAction, preview = false }) {
+export default function PromotionBanner({ promotion, tableNumber, onAction, preview = false, eager = false }) {
   const [now, setNow] = useState(Date.now);
   const [failedImage, setFailedImage] = useState('');
   const p = normalizePromotion(promotion);
@@ -36,7 +36,7 @@ export default function PromotionBanner({ promotion, tableNumber, onAction, prev
         </div>
         {p.terms && <small className="promotion-terms">{p.terms}</small>}
       </div>
-      {hasImage && <div className="promotion-image"><img src={p.image} alt={p.imageAlt} loading="lazy" decoding="async" style={{ objectFit: p.imageFit }} onError={() => setFailedImage(p.image)} /></div>}
+      {hasImage && <div className="promotion-image"><img src={p.image} alt={p.imageAlt} loading={eager ? 'eager' : 'lazy'} decoding="async" style={{ objectFit: p.imageFit }} onError={() => setFailedImage(p.image)} /></div>}
     </section>
   );
 }

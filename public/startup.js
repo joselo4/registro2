@@ -1,4 +1,14 @@
 (() => {
+  // Apply preloaded stylesheets (web fonts) without blocking the first paint.
+  if (typeof document.querySelectorAll === 'function') {
+    document.querySelectorAll('link[data-deferred-style]').forEach(preload => {
+      const stylesheet = document.createElement('link');
+      stylesheet.rel = 'stylesheet';
+      stylesheet.href = preload.href;
+      document.head.appendChild(stylesheet);
+    });
+  }
+
   const showLoadError = () => {
     const status = document.getElementById('startup-status');
     if (!status) return; // React already replaced the loading state.

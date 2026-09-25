@@ -161,7 +161,7 @@ export async function onRequestGet({ request, env }, makeClient = createAdminCli
       .eq('key', `order_${id}`)
       .maybeSingle();
 
-    if (error) return fail(502, 'read', error.message || 'No se pudo leer el pedido.');
+    if (error) return fail(502, 'read', 'No se pudo leer el pedido. Intenta nuevamente.');
     if (!data?.value) {
       // Compatibility for confirmed orders saved by older operator versions.
       const { data: legacy, error: legacyError } = await adminClient.from('helados_sync').select('value').eq('key', 'orders').maybeSingle();
@@ -181,12 +181,17 @@ export async function onRequestPost({ request, env }, makeClient = createAdminCl
   try {
     if (!sameOriginRequest(request)) return fail(403, 'origin', 'Origen no permitido.');
 
-    const body = await request.json();
+    let body;
+    try {
+      body = await request.json();
+    } catch {
+      return fail(400, 'input', 'Solicitud inválida.');
+    }
     if (body?.action === 'update') {
       const client = await makeClient(env);
       const user = await staffSession(request, client);
       if (!user) return fail(403, 'auth', 'Inicia sesión con una cuenta de operador.');
-      if (!isPlainObject(body.order) || !/^(PED|FIS|ORD)-[A-Z0-9-]{3,40}$/.test(body.order.id) || JSON.stringify(body).length > 150000) return fail(400, 'input', 'Pedido inválido.');
+      if (!isPlainObject(body.order) || !isPlainObject(body.previous) || !/^(PED|FIS|ORD)-[A-Z0-9-]{3,40}$/.test(body.order.id) || JSON.stringify(body).length > 150000) return fail(400, 'input', 'Pedido inválido.');
       if (!allowedOrderChange(user, body.previous, body.order)) return fail(403, 'auth', 'Tu rol no permite este cambio de pedido.');
       try {
         let proposedOrder = body.order;
@@ -271,7 +276,7 @@ export async function onRequestPost({ request, env }, makeClient = createAdminCl
       .eq('key', `order_${id}`)
       .maybeSingle();
 
-    if (readError) return fail(502, 'read', readError.message || 'No se pudo validar el pedido.');
+    if (readError) return fail(502, 'read', 'No se pudo validar el pedido. Intenta nuevamente.');
 
     let nextOrder = null;
     if (existingRow?.value) {

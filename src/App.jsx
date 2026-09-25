@@ -18,6 +18,9 @@ import { isGoogleMeasurementId, toGa4Event, toMetaPayload } from './utils/commer
 import { configureWebVitalsMonitoring } from './utils/performanceMonitoring';
 import { readRememberedOperator } from './utils/rememberedOperator';
 import { readEmbeddedCatalog } from './utils/publicCatalogCache';
+import { safeStorage } from './utils/security';
+import { isShopOpenCurrently } from './utils/storeHours';
+import { cleanTableParam, isKnownView, urlForView, viewFromHash } from './utils/viewHistory';
 
 import CustomerShop from './components/CustomerShop';
 const IceCreamCustomizer = React.lazy(() => import('./components/IceCreamCustomizer'));
@@ -133,7 +136,9 @@ const migrateLegacyBrandText = (value, fallback = '') => {
 };
 
 export default function App() {
-  useEffect(() => { readRememberedOperator(window.localStorage); }, []);
+  useEffect(() => {
+    try { readRememberedOperator(window.localStorage); } catch { /* Storage can be blocked in private browsing. */ }
+  }, []);
   const isRemoteUpdate = useRef({});
   const allowCloudWrite = useRef(false);
   const logoutInProgressRef = useRef(false);
@@ -148,12 +153,18 @@ export default function App() {
   const [customAlert, setCustomAlert] = useState(null); // { title: string, message: string, type: 'info' | 'warning' | 'error' | 'success', onClose?: () => void }
   const [successToast, setSuccessToast] = useState(null);
 
-  const showAlert = (title, message, type = 'info', onClose = null) => {
+  const showAlert = (title, message, type = 'info', onClose = null, actionLabel = '') => {
     if (type === 'success' && !onClose) {
       setSuccessToast({ title, message });
       return;
     }
-    setCustomAlert({ title, message, type, onClose });
+    setCustomAlert({ title, message, type, onClose, actionLabel });
+  };
+
+  const closeCustomAlert = () => {
+    const callback = customAlert?.onClose;
+    setCustomAlert(null);
+    if (callback) callback();
   };
 
   useEffect(() => {
@@ -172,87 +183,84 @@ export default function App() {
   };
 
   const [qrCustomUrl, setQrCustomUrl] = useState(() => {
-    return localStorage.getItem('helados_qr_custom_url') || '';
+    return safeStorage.getItem('helados_qr_custom_url') || '';
   });
 
   const [r2Config, setR2Config] = useState({});
 
   const [literConfig, setLiterConfig] = useState(() => {
     if (initialPublicCatalog?.liter_config && typeof initialPublicCatalog.liter_config === 'object') return initialPublicCatalog.liter_config;
-    const saved = localStorage.getItem('helados_liter_config');
-    return saved ? JSON.parse(saved) : {
+    return safeStorage.getJSON('helados_liter_config', {
       active: true,
       price: 15.0,
       maxFlavors: 3,
       image: ''
-    };
+    });
   });
 
   const [recommendations, setRecommendations] = useState(() => {
-    const saved = localStorage.getItem('helados_recommendations');
-    return saved ? JSON.parse(saved) : DEFAULT_RECOMMENDATIONS;
+    return safeStorage.getJSON('helados_recommendations', DEFAULT_RECOMMENDATIONS);
   });
 
   // --- NUEVO: Estado de Meta de Ventas centralizado en App.jsx ---
   const [salesGoal, setSalesGoal] = useState(() => {
-    const saved = localStorage.getItem('helados_sales_goal');
+    const saved = safeStorage.getItem('helados_sales_goal');
     return saved ? parseFloat(saved) : 100.0;
   });
 
   const [whatsappGreeting, setWhatsappGreeting] = useState(() => {
-    return migrateLegacyBrandText(localStorage.getItem('helados_whatsapp_greeting'), '¡Hola Friozo! 🍦\nAcabo de realizar un pedido:');
+    return migrateLegacyBrandText(safeStorage.getItem('helados_whatsapp_greeting'), '¡Hola Friozo! 🍦\nAcabo de realizar un pedido:');
   });
 
   const [whatsappFooter, setWhatsappFooter] = useState(() => {
-    return localStorage.getItem('helados_whatsapp_footer') || 'Hecho desde la heladería interactiva.';
+    return safeStorage.getItem('helados_whatsapp_footer') || 'Hecho desde la heladería interactiva.';
   });
 
   // --- NUEVO: Estado del mensaje personalizado de comanda ---
   const [ticketCustomMessage, setTicketCustomMessage] = useState(() => {
-    return localStorage.getItem('helados_ticket_custom_message') || '¡Gracias por preferirnos! Conserva tu helado en el congelador para mantener su textura perfecta. 🍦';
+    return safeStorage.getItem('helados_ticket_custom_message') || '¡Gracias por preferirnos! Conserva tu helado en el congelador para mantener su textura perfecta. 🍦';
   });
 
   const [testimonials, setTestimonials] = useState(() => {
-    const saved = localStorage.getItem('helados_testimonials');
+    const saved = safeStorage.getItem('helados_testimonials');
     try { return saved ? JSON.parse(saved) : []; }
     catch { return []; }
   });
 
   // --- NUEVO: Estado de Ordenamiento del Catálogo de la Carta (Sincronizado) ---
   const [catalogOrder, setCatalogOrder] = useState(() => {
-    const saved = localStorage.getItem('helados_catalog_order');
-    return saved ? JSON.parse(saved) : ['popsicles', 'classic', 'liter', 'packs'];
+    return safeStorage.getJSON('helados_catalog_order', ['popsicles', 'classic', 'liter', 'packs']);
   });
 
   // --- Estados de Marca de la Heladería (Sincronizado con LocalStorage) ---
   const [storeName, setStoreName] = useState(() => {
-    return migrateLegacyBrandText(localStorage.getItem('helados_store_name'), 'Friozo');
+    return migrateLegacyBrandText(safeStorage.getItem('helados_store_name'), 'Friozo');
   });
 
   const [storeLogo, setStoreLogo] = useState(() => {
-    const savedLogo = localStorage.getItem('helados_store_logo');
+    const savedLogo = safeStorage.getItem('helados_store_logo');
     return !savedLogo || savedLogo === '🍦' ? '/favicon.svg' : savedLogo;
   });
 
   const [storeTitle, setStoreTitle] = useState(() => {
-    return migrateLegacyBrandText(localStorage.getItem('helados_store_title'), 'Friozo - Helados artesanales, paletas y delivery');
+    return migrateLegacyBrandText(safeStorage.getItem('helados_store_title'), 'Friozo - Helados artesanales, paletas y delivery');
   });
 
   const [storeFavicon, setStoreFavicon] = useState(() => {
-    const savedFavicon = localStorage.getItem('helados_store_favicon');
+    const savedFavicon = safeStorage.getItem('helados_store_favicon');
     return !savedFavicon || savedFavicon === '🍦' ? '/favicon.svg' : savedFavicon;
   });
 
   const [storeHeroImage, setStoreHeroImage] = useState(() => {
-    return localStorage.getItem('helados_store_hero_image') || '';
+    return safeStorage.getItem('helados_store_hero_image') || '';
   });
 
   const [metaPixelId, setMetaPixelId] = useState(() => {
-    return localStorage.getItem('helados_meta_pixel_id') || '';
+    return safeStorage.getItem('helados_meta_pixel_id') || '';
   });
 
   const [googleAnalyticsId, setGoogleAnalyticsId] = useState(() => {
-    return localStorage.getItem('helados_google_analytics_id') || '';
+    return safeStorage.getItem('helados_google_analytics_id') || '';
   });
 
   const googleMeasurementId = isGoogleMeasurementId(googleAnalyticsId) ? googleAnalyticsId.trim().toUpperCase() : '';
@@ -327,65 +335,58 @@ export default function App() {
   }, [googleMeasurementId]);
 
   const [storeInstagram, setStoreInstagram] = useState(() => {
-    return localStorage.getItem('helados_store_instagram') || 'https://www.instagram.com/';
+    return safeStorage.getItem('helados_store_instagram') || 'https://www.instagram.com/';
   });
 
   const [storeFacebook, setStoreFacebook] = useState(() => {
-    return localStorage.getItem('helados_store_facebook') || 'https://www.facebook.com/';
+    return safeStorage.getItem('helados_store_facebook') || 'https://www.facebook.com/';
   });
 
   const [whatsappContactMessage, setWhatsappContactMessage] = useState(() => {
-    return localStorage.getItem('helados_whatsapp_contact_message') || '¡Hola! Me gustaría hacer una consulta. 🍦';
+    return safeStorage.getItem('helados_whatsapp_contact_message') || '¡Hola! Me gustaría hacer una consulta. 🍦';
   });
 
   // --- Estados de Datos de Tienda ---
   const [flavors, setFlavors] = useState(() => {
     if (Array.isArray(initialPublicCatalog?.flavors)) return initialPublicCatalog.flavors;
-    const saved = localStorage.getItem('helados_flavors');
-    return saved ? JSON.parse(saved) : INITIAL_FLAVORS;
+    return safeStorage.getJSON('helados_flavors', INITIAL_FLAVORS);
   });
 
   const [toppings, setToppings] = useState(() => {
     if (Array.isArray(initialPublicCatalog?.toppings)) return initialPublicCatalog.toppings;
-    const saved = localStorage.getItem('helados_toppings');
-    return saved ? JSON.parse(saved) : INITIAL_TOPPINGS;
+    return safeStorage.getJSON('helados_toppings', INITIAL_TOPPINGS);
   });
 
   const [bases, setBases] = useState(() => {
     if (Array.isArray(initialPublicCatalog?.bases)) return initialPublicCatalog.bases;
-    const saved = localStorage.getItem('helados_bases');
-    return saved ? JSON.parse(saved) : INITIAL_BASES;
+    return safeStorage.getJSON('helados_bases', INITIAL_BASES);
   });
 
   const [packs, setPacks] = useState(() => {
     if (Array.isArray(initialPublicCatalog?.packs)) return initialPublicCatalog.packs;
-    const saved = localStorage.getItem('helados_packs');
-    return saved ? JSON.parse(saved) : INITIAL_PACKS;
+    return safeStorage.getJSON('helados_packs', INITIAL_PACKS);
   });
 
   const [popsicles, setPopsicles] = useState(() => {
     if (Array.isArray(initialPublicCatalog?.popsicles)) return initialPublicCatalog.popsicles;
-    const saved = localStorage.getItem('helados_popsicles');
-    return saved ? JSON.parse(saved) : INITIAL_POPSICLES;
+    return safeStorage.getJSON('helados_popsicles', INITIAL_POPSICLES);
   });
 
   const [orders, setOrders] = useState(() => {
-    const saved = localStorage.getItem('helados_orders');
-    return saved ? JSON.parse(saved) : INITIAL_ORDERS;
+    return safeStorage.getJSON('helados_orders', INITIAL_ORDERS);
   });
 
   const [tableCalls, setTableCalls] = useState(() => {
-    const saved = localStorage.getItem('helados_table_calls');
-    return saved ? JSON.parse(saved) : [];
+    return safeStorage.getJSON('helados_table_calls', []);
   });
 
   useEffect(() => {
-    localStorage.setItem('helados_table_calls', JSON.stringify(tableCalls));
+    safeStorage.setItem('helados_table_calls', JSON.stringify(tableCalls));
   }, [tableCalls]);
 
   const [deliveryFee, setDeliveryFee] = useState(() => {
     if (Number.isFinite(Number(initialPublicCatalog?.delivery_fee))) return Number(initialPublicCatalog.delivery_fee);
-    const saved = localStorage.getItem('helados_delivery_fee');
+    const saved = safeStorage.getItem('helados_delivery_fee');
     return saved ? parseFloat(saved) : 2.0;
   });
 
@@ -415,7 +416,7 @@ export default function App() {
   };
 
   const [shopConfig, setShopConfig] = useState(() => {
-    const saved = localStorage.getItem('helados_shop_open');
+    const saved = safeStorage.getItem('helados_shop_open');
     if (saved) {
       try {
         const parsed = JSON.parse(saved);
@@ -431,58 +432,46 @@ export default function App() {
     return DEFAULT_SHOP_CONFIG;
   });
 
-  const isShopOpenCurrently = (config) => {
-    if (!config) return false;
-    if (!config.open) return false;
-    if (!config.useHours) return true;
-
-    const now = new Date();
-    const dayNames = ['sunday', 'monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday'];
-    const currentDayName = dayNames[now.getDay()];
-    
-    const dayConfig = config.hours?.[currentDayName];
-    if (!dayConfig || !dayConfig.enabled) return false;
-
-    const currentHours = now.getHours().toString().padStart(2, '0');
-    const currentMinutes = now.getMinutes().toString().padStart(2, '0');
-    const currentTimeStr = `${currentHours}:${currentMinutes}`;
-
-    return currentTimeStr >= dayConfig.open && currentTimeStr <= dayConfig.close;
-  };
-
-  const effectiveShopOpen = isShopOpenCurrently(shopConfig);
+  // Same clock as the order API (Lima time, overnight shifts), re-checked every
+  // minute so an open page reflects opening and closing without a reload.
+  const [clockMinute, setClockMinute] = useState(() => Math.floor(Date.now() / 60000));
+  useEffect(() => {
+    if (!shopConfig.useHours) return undefined;
+    const timer = window.setInterval(() => setClockMinute(Math.floor(Date.now() / 60000)), 30000);
+    return () => window.clearInterval(timer);
+  }, [shopConfig.useHours]);
+  const effectiveShopOpen = isShopOpenCurrently(shopConfig, new Date(clockMinute * 60000));
   const locationFeatureVisible = shopConfig.locationTrackingEnabled !== false;
 
   // --- Configuración Dinámica y Gestión de Usuarios ---
   const [freeDeliveryThreshold, setFreeDeliveryThreshold] = useState(() => {
     if (Number.isFinite(Number(initialPublicCatalog?.free_delivery_threshold))) return Number(initialPublicCatalog.free_delivery_threshold);
-    const saved = localStorage.getItem('helados_free_delivery_threshold');
+    const saved = safeStorage.getItem('helados_free_delivery_threshold');
     return saved ? parseFloat(saved) : 15.0; 
   });
 
   const [deliveryCampaignText, setDeliveryCampaignText] = useState(() => {
-    return localStorage.getItem('helados_delivery_campaign_text') || '¡Arma tu helado con toppings o elige un pack promocional para no pagar envío!';
+    return safeStorage.getItem('helados_delivery_campaign_text') || '¡Arma tu helado con toppings o elige un pack promocional para no pagar envío!';
   });
 
   const [storePhone, setStorePhone] = useState(() => {
     if (typeof initialPublicCatalog?.store_phone === 'string') return initialPublicCatalog.store_phone;
-    const saved = localStorage.getItem('helados_store_phone');
+    const saved = safeStorage.getItem('helados_store_phone');
     return saved || '51989466466';
   });
 
   const [trendsInterval, setTrendsInterval] = useState(() => {
-    const saved = localStorage.getItem('helados_trends_interval');
+    const saved = safeStorage.getItem('helados_trends_interval');
     return saved ? parseInt(saved, 10) : 25;
   });
 
   const [trendsDisplayTime, setTrendsDisplayTime] = useState(() => {
-    const saved = localStorage.getItem('helados_trends_display_time');
+    const saved = safeStorage.getItem('helados_trends_display_time');
     return saved ? parseInt(saved, 10) : 6;
   });
 
   const [staffUsers, setStaffUsers] = useState(() => {
-    const saved = localStorage.getItem('helados_staff_users');
-    let list = saved ? JSON.parse(saved) : DEFAULT_STAFF_USERS;
+    let list = safeStorage.getJSON('helados_staff_users', DEFAULT_STAFF_USERS);
     if (Array.isArray(list) && !list.some(u => String(u.role || '').toLowerCase().includes('repartidor'))) {
       list = [...list, { email: 'delivery@donhelado.com', name: 'Repartidor de Turno', role: 'Repartidor', status: 'Activo', phone: '987654321' }];
     }
@@ -490,13 +479,11 @@ export default function App() {
   });
 
   const [staffPermissions, setStaffPermissions] = useState(() => {
-    const saved = localStorage.getItem('helados_staff_permissions');
-    return saved ? JSON.parse(saved) : {};
+    return safeStorage.getJSON('helados_staff_permissions', {});
   });
 
   const [soundEnabled, setSoundEnabled] = useState(() => {
-    const saved = localStorage.getItem('helados_sound_enabled');
-    return saved ? JSON.parse(saved) : true;
+    return safeStorage.getJSON('helados_sound_enabled', true);
   });
 
   // --- NUEVO: Estado de Seguridad Centralizado en App.jsx ---
@@ -511,39 +498,35 @@ export default function App() {
 
   // --- Estados de Cupones de Descuento (Manejado por Admin) ---
   const [coupons, setCoupons] = useState(() => {
-    const saved = localStorage.getItem('helados_coupons');
-    return saved ? JSON.parse(saved) : [
+    return safeStorage.getJSON('helados_coupons', [
       { code: 'HELADO10', type: 'percentage', value: 10, limit: 100, usedCount: 0, active: true, description: '10% de descuento' },
       { code: 'ENVIOFREE', type: 'free_delivery', value: 0, limit: 100, usedCount: 0, active: true, description: 'Envío gratis' },
       { code: 'AHORRO5', type: 'flat', value: 5, limit: 100, usedCount: 0, active: true, description: 'S/. 5.00 de descuento' }
-    ];
+    ]);
   });
 
-  const [tableNumber, setTableNumber] = useState(() => localStorage.getItem('helados_table_number') || null);
+  const [tableNumber, setTableNumber] = useState(() => safeStorage.getItem('helados_table_number') || null);
 
   // --- NUEVO: Estado del Combo Recomendado del Carrito (Sincronizado) ---
   const [cartRecommendedPack, setCartRecommendedPack] = useState(() => {
-    const saved = localStorage.getItem('helados_cart_recommended_pack');
-    return saved ? JSON.parse(saved) : {
+    return safeStorage.getJSON('helados_cart_recommended_pack', {
       packId: null,
       message: '¡Te recomendamos llevar nuestro Pack Familiar!'
-    };
+    });
   });
 
   // --- NUEVO: Estado de Gastos y Egresos (Sincronizado) ---
   const [expenses, setExpenses] = useState(() => {
-    const saved = localStorage.getItem('helados_expenses');
-    return saved ? JSON.parse(saved) : [];
+    return safeStorage.getJSON('helados_expenses', []);
   });
 
   const [cashShifts, setCashShifts] = useState(() => {
-    const saved = localStorage.getItem('helados_cash_shifts');
-    return saved ? JSON.parse(saved) : [];
+    return safeStorage.getJSON('helados_cash_shifts', []);
   });
 
   // --- Estados de Flujo de Cliente ---
   const [cartLocations, setCartLocations] = useState(() => {
-    const saved = localStorage.getItem('helados_cart_locations');
+    const saved = safeStorage.getItem('helados_cart_locations');
     if (saved) {
       try {
         const parsed = JSON.parse(saved);
@@ -555,11 +538,10 @@ export default function App() {
     return { updatedAt: null, carts: [] };
   });
 
-  const [view, setView] = useState(() => (
-    isVendorApp || (typeof window !== 'undefined' && new URLSearchParams(window.location.search).get('admin') === '1')
-      ? 'admin'
-      : 'shop'
-  ));
+  const [view, setView] = useState(() => {
+    if (isVendorApp || (typeof window !== 'undefined' && new URLSearchParams(window.location.search).get('admin') === '1')) return 'admin';
+    return (typeof window !== 'undefined' && viewFromHash(window.location.hash)) || 'shop';
+  });
   const trackedPageViewRef = useRef('');
   const trackedMetaPageViewRef = useRef('');
   const isCustomerView = !isVendorApp && !isLoggedIn && ['shop', 'customizer', 'liter-customizer', 'cart', 'tracker', 'locations'].includes(view);
@@ -584,6 +566,34 @@ export default function App() {
     window.scrollTo(0, 0);
   }, [view]);
 
+  // Keep screens in the browser history so "back" works like a normal site.
+  const historyViewRef = useRef(null);
+  useEffect(() => {
+    if (isVendorApp) return undefined;
+    const handlePopState = event => {
+      const saved = event.state?.friozoView;
+      const next = isKnownView(saved) ? saved : (viewFromHash(window.location.hash) || 'shop');
+      historyViewRef.current = next;
+      setView(next);
+    };
+    window.addEventListener('popstate', handlePopState);
+    return () => window.removeEventListener('popstate', handlePopState);
+  }, [isVendorApp]);
+
+  useEffect(() => {
+    if (isVendorApp || historyViewRef.current === view) return;
+    const isFirstEntry = historyViewRef.current === null;
+    historyViewRef.current = view;
+    try {
+      const state = { ...(window.history.state || {}), friozoView: view };
+      const url = urlForView(view, window.location);
+      if (isFirstEntry) window.history.replaceState(state, '', url);
+      else window.history.pushState(state, '', url);
+    } catch {
+      /* Some embedded browsers block history updates; navigation still works. */
+    }
+  }, [view, isVendorApp]);
+
   useEffect(() => {
     if (!locationFeatureVisible && view === 'locations' && !isVendorApp) {
       setView('shop');
@@ -595,18 +605,18 @@ export default function App() {
     checkoutStorage.setItem('helados_cart_draft', JSON.stringify(cart));
   }, [cart]);
   const [activeOrderId, setActiveOrderId] = useState(() => {
-    const saved = localStorage.getItem('helados_active_order_id');
-    const savedTime = localStorage.getItem('helados_active_order_time');
+    const saved = safeStorage.getItem('helados_active_order_id');
+    const savedTime = safeStorage.getItem('helados_active_order_time');
     if (savedTime && (Date.now() - Number(savedTime)) > 72 * 60 * 60 * 1000) {
-      localStorage.removeItem('helados_active_order_id');
-      localStorage.removeItem('helados_active_order_time');
+      safeStorage.removeItem('helados_active_order_id');
+      safeStorage.removeItem('helados_active_order_time');
       return null;
     }
     return saved || null;
   });
   
   const [theme, setTheme] = useState(() => {
-    const saved = localStorage.getItem('helados_theme');
+    const saved = safeStorage.getItem('helados_theme');
     return saved || 'light';
   });
 
@@ -617,10 +627,10 @@ export default function App() {
     if (trackId && trackId.trim()) {
       const cleanTrackId = trackId.replace(/\s+/g, '').toUpperCase();
       setActiveOrderId(cleanTrackId);
-      localStorage.setItem('helados_active_order_id', cleanTrackId);
+      safeStorage.setItem('helados_active_order_id', cleanTrackId);
       setView('tracker');
     } else if (params.has('track') || params.has('rastreo')) {
-      const saved = localStorage.getItem('helados_active_order_id');
+      const saved = safeStorage.getItem('helados_active_order_id');
       if (saved) {
         setActiveOrderId(saved.replace(/\s+/g, '').toUpperCase());
       }
@@ -628,17 +638,17 @@ export default function App() {
     }
 
     const viewParam = params.get('view');
-    if (viewParam) {
+    if (isKnownView(viewParam)) {
       setView(viewParam);
     }
 
-    const mesaParam = params.get('mesa') || params.get('table');
+    const mesaParam = cleanTableParam(params.get('mesa') || params.get('table'));
     if (mesaParam) {
       setTableNumber(mesaParam);
-      localStorage.setItem('helados_table_number', mesaParam);
+      safeStorage.setItem('helados_table_number', mesaParam);
     } else {
       setTableNumber(null);
-      localStorage.removeItem('helados_table_number');
+      safeStorage.removeItem('helados_table_number');
     }
   }, []);
 
@@ -910,7 +920,7 @@ export default function App() {
     useEffect(() => {
       // 1. Guardar en localStorage
       const valueStr = isJSON ? JSON.stringify(value) : String(value);
-      localStorage.setItem(`helados_${key}`, valueStr);
+      safeStorage.setItem(`helados_${key}`, valueStr);
 
       // 2. Si los datos no se han cargado de la nube o no está permitido escribir, salir
       if (!isSyncLoaded || !allowCloudWrite.current) {
@@ -1031,7 +1041,7 @@ export default function App() {
   }, [storeFavicon]);
 
   useEffect(() => {
-    localStorage.setItem('helados_staff_users', JSON.stringify(staffUsers));
+    safeStorage.setItem('helados_staff_users', JSON.stringify(staffUsers));
   }, [staffUsers]);
 
   // --- Suscripción Reactiva en Tiempo Real (Supabase Realtime) ---
@@ -1281,27 +1291,27 @@ export default function App() {
   }, [isLoggedIn]);
 
   useEffect(() => {
-    localStorage.removeItem('helados_admin_logged_in');
-    localStorage.removeItem('helados_admin_current_user');
-    localStorage.removeItem('helados_admin_password');
-    localStorage.removeItem('helados_admin_login_timestamp');
+    safeStorage.removeItem('helados_admin_logged_in');
+    safeStorage.removeItem('helados_admin_current_user');
+    safeStorage.removeItem('helados_admin_password');
+    safeStorage.removeItem('helados_admin_login_timestamp');
   }, []);
 
   useEffect(() => {
     if (activeOrderId) {
-      localStorage.setItem('helados_active_order_id', activeOrderId);
-      if (!localStorage.getItem('helados_active_order_time')) {
-        localStorage.setItem('helados_active_order_time', String(Date.now()));
+      safeStorage.setItem('helados_active_order_id', activeOrderId);
+      if (!safeStorage.getItem('helados_active_order_time')) {
+        safeStorage.setItem('helados_active_order_time', String(Date.now()));
       }
     } else {
-      localStorage.removeItem('helados_active_order_id');
-      localStorage.removeItem('helados_active_order_time');
+      safeStorage.removeItem('helados_active_order_id');
+      safeStorage.removeItem('helados_active_order_time');
     }
   }, [activeOrderId]);
 
   useEffect(() => {
     document.documentElement.setAttribute('data-theme', theme);
-    localStorage.setItem('helados_theme', theme);
+    safeStorage.setItem('helados_theme', theme);
   }, [theme]);
 
   // --- Funciones del Carrito ---
@@ -1367,12 +1377,12 @@ export default function App() {
       setView('tracker');
       
       // Guardar pedido activo en localStorage para rastreo y control de mesa ocupada
-      localStorage.setItem('helados_active_order_id', savedOrder.id);
-      localStorage.setItem('helados_active_order_time', String(Date.now()));
+      safeStorage.setItem('helados_active_order_id', savedOrder.id);
+      safeStorage.setItem('helados_active_order_time', String(Date.now()));
       if (newOrder.customer?.orderType === 'Mesa' || newOrder.customer?.orderType === 'Mesa_Llevar') {
-        localStorage.setItem('helados_active_order_table', String(newOrder.customer?.tableNumber));
+        safeStorage.setItem('helados_active_order_table', String(newOrder.customer?.tableNumber));
       } else {
-        localStorage.removeItem('helados_active_order_table');
+        safeStorage.removeItem('helados_active_order_table');
       }
     }
     
@@ -1462,7 +1472,7 @@ export default function App() {
             keysToRemove.push(key);
           }
         }
-        keysToRemove.forEach(k => localStorage.removeItem(k));
+        keysToRemove.forEach(k => safeStorage.removeItem(k));
 
         const sessionKeysToRemove = [];
         for (let i = 0; i < sessionStorage.length; i++) {
@@ -1753,7 +1763,7 @@ export default function App() {
               telegramChatId={telegramChatId}
               onClearActiveOrder={() => {
                 setActiveOrderId(null);
-                localStorage.removeItem('helados_active_order_id');
+                safeStorage.removeItem('helados_active_order_id');
               }}
           />
         )}
@@ -2096,7 +2106,7 @@ export default function App() {
               animation: scaleUp 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275);
             }
           ` }} />
-          <div className="alert-modal-content" style={{
+          <div className="alert-modal-content" role="alertdialog" aria-modal="true" aria-labelledby="app-alert-title" aria-describedby="app-alert-message" style={{
             width: '90%',
             maxWidth: '400px',
             background: 'var(--bg-primary, #ffffff)',
@@ -2133,7 +2143,7 @@ export default function App() {
                'ℹ️'}
             </div>
             
-            <h3 style={{
+            <h3 id="app-alert-title" style={{
               margin: 0,
               fontSize: '1.4rem',
               color: 'var(--text-dark)',
@@ -2142,22 +2152,22 @@ export default function App() {
               {customAlert.title}
             </h3>
             
-            <p style={{
+            <p id="app-alert-message" style={{
               margin: 0,
               fontSize: '0.9rem',
               color: 'var(--text-light)',
-              lineHeight: '1.5'
+              lineHeight: '1.5',
+              whiteSpace: 'pre-line'
             }}>
               {customAlert.message}
             </p>
-            
-            <button 
+
+            <button
+              type="button"
               className="btn btn-primary"
-              onClick={() => {
-                const cb = customAlert.onClose;
-                setCustomAlert(null);
-                if (cb) cb();
-              }}
+              autoFocus
+              onClick={closeCustomAlert}
+              onKeyDown={event => { if (event.key === 'Escape') closeCustomAlert(); }}
               style={{
                 width: '100%',
                 padding: '10px',
@@ -2166,7 +2176,7 @@ export default function App() {
                 marginTop: '5px'
               }}
             >
-              Aceptar
+              {customAlert.actionLabel || 'Aceptar'}
             </button>
           </div>
         </div>

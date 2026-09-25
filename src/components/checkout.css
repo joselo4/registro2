@@ -14,7 +14,8 @@
 .cart-container .form-group > label { display: block; color: var(--text-dark); font-size: .875rem !important; font-weight: 700; margin-bottom: 8px; }
 .cart-container .form-control { width: 100%; min-width: 0; min-height: 48px; font-size: 1rem !important; padding: 12px 14px !important; border-radius: 12px; background: var(--bg-secondary); color: var(--text-dark); }
 .cart-container .form-control:focus-visible { outline: 3px solid var(--primary-color); outline-offset: 2px; }
-.cart-container .form-control[aria-invalid="true"] { border-color: var(--danger); }
+.cart-container .form-control[aria-invalid="true"] { border-color: var(--danger); box-shadow: 0 0 0 3px color-mix(in srgb, var(--danger) 18%, transparent); }
+.cart-container .checkout-field-error { display: block; margin-top: 6px; color: var(--danger); font-size: .82rem; font-weight: 700; line-height: 1.4; }
 .cart-container .form-group > span { font-size: .875rem !important; line-height: 1.5; }
 .cart-container .payment-options { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px !important; }
 .cart-container .payment-btn { min-height: 48px; min-width: 0; border-radius: 12px; font-size: .9375rem !important; font-weight: 600; color: var(--text-dark); background: var(--bg-secondary); }
