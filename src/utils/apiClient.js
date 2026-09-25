@@ -41,18 +41,27 @@ export async function createOrder(order) {
 export const correctOrder = (id, submissionKey) => requestOrder('/api/order', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ action: 'customer_correct', id, submissionKey }) });
 export const readOrder = (id, token = '') => requestOrder(`/api/order?id=${encodeURIComponent(id)}${token ? `&token=${encodeURIComponent(token)}` : ''}`);
 
+// A stuck auth client must surface as an error, never as a button that does nothing.
+export async function currentSession(client, timeoutMs = 8000) {
+  const result = await Promise.race([
+    client.auth.getSession(),
+    new Promise((_, reject) => setTimeout(() => reject(new Error('La sesión no respondió. Recarga la página e inténtalo de nuevo.')), timeoutMs)),
+  ]);
+  return result?.data?.session || null;
+}
+
 export async function updateOrder(client, previous, order) {
-  const { data } = await client.auth.getSession();
-  if (!data?.session?.access_token) throw new Error('Tu sesión venció. Inicia sesión nuevamente.');
-  return requestOrder('/api/order', { method: 'POST', headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${data.session.access_token}` }, body: JSON.stringify({ action: 'update', previous, order }) });
+  const session = await currentSession(client);
+  if (!session?.access_token) throw new Error('Tu sesión venció. Inicia sesión nuevamente.');
+  return requestOrder('/api/order', { method: 'POST', headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${session.access_token}` }, body: JSON.stringify({ action: 'update', previous, order }) });
 }
 
 export async function createOperatorOrder(client, order) {
-  const { data } = await client.auth.getSession();
-  if (!data?.session?.access_token) throw new Error('Tu sesión venció. Inicia sesión nuevamente.');
+  const session = await currentSession(client);
+  if (!session?.access_token) throw new Error('Tu sesión venció. Inicia sesión nuevamente.');
   return requestOrder('/api/order', {
     method: 'POST',
-    headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${data.session.access_token}` },
+    headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${session.access_token}` },
     body: JSON.stringify({ action: 'create_operator', order }),
   });
 }

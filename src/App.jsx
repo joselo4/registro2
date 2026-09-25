@@ -12,7 +12,7 @@ import { fetchSyncedData, updateSyncedData, subscribeToSync, invalidateSyncCache
 import { supabase } from './utils/supabaseClient';
 import { Capacitor } from '@capacitor/core';
 import { DEFAULT_SMS_TEMPLATES } from './utils/orderMessaging';
-import { createOrder, createOperatorOrder, fetchOperatorOrders, updateOrder } from './utils/apiClient';
+import { createOrder, createOperatorOrder, currentSession, fetchOperatorOrders, updateOrder } from './utils/apiClient';
 import { mergeOrders } from './utils/orderLifecycle';
 import { addCartItem, cartItemKey, checkoutStorage, readCartDraft, subtractOrderedItems } from './utils/checkout';
 import { isGoogleMeasurementId, toGa4Event, toMetaPayload } from './utils/commerceAnalytics';
@@ -874,11 +874,11 @@ export default function App() {
       // en un useEffect independiente para evitar condiciones de carrera.
 
       // 3. Suscribirse a cambios del estado de autenticación de Supabase
-      const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event, session) => {
-        console.log(`🔔 Supabase Auth Evento: ${event}`);
-        // getSession() ya realizó la carga inicial. Evita duplicar todas las
-        // lecturas de configuración y pedidos al abrir o recargar la app.
-        if (event === 'INITIAL_SESSION') return;
+      // supabase-js runs this callback while holding its auth lock. Awaiting any
+      // Supabase call here (queries, getSession) deadlocks the client: every
+      // later action that needs the session (order buttons, sign out) hangs
+      // silently. So the callback only schedules the work outside the lock.
+      const handleAuthEvent = async (event, session) => {
         if (session) {
           const userRole = normalizeRoleLabel(session.user.app_metadata?.role, session.user.email);
           const userName = session.user.user_metadata?.name || 'Administrador Supabase';
@@ -889,8 +889,10 @@ export default function App() {
             name: userName,
             isSupabaseUser: true
           });
+          // A refreshed token keeps the same data: only a new sign-in reloads it.
+          if (event !== 'SIGNED_IN') return;
           sessionStorage.setItem('helados_admin_login_timestamp', Date.now().toString());
-          
+
           // Re-sincronizar los datos una vez que tenemos la sesión activa de forma segura
           allowCloudWrite.current = false;
           setIsSyncLoaded(false);
@@ -902,7 +904,7 @@ export default function App() {
             });
             applyLoadedDataRef.current(updatedServerData);
             if (updatedServerData.staff_users !== undefined) setStaffUsers(updatedServerData.staff_users);
-            
+
             setTimeout(() => {
               allowCloudWrite.current = true;
               isRemoteUpdate.current = {}; // Limpiar flags residuales de la carga de admin
@@ -918,6 +920,13 @@ export default function App() {
           setIsLoggedIn(false);
           setCurrentUser(null);
         }
+      };
+      const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
+        console.log(`🔔 Supabase Auth Evento: ${event}`);
+        // getSession() ya realizó la carga inicial. Evita duplicar todas las
+        // lecturas de configuración y pedidos al abrir o recargar la app.
+        if (event === 'INITIAL_SESSION') return;
+        window.setTimeout(() => { handleAuthEvent(event, session); }, 0);
       });
       authSubscription = subscription;
       setIsSyncLoaded(true);
@@ -1423,8 +1432,8 @@ export default function App() {
     try {
       const headers = { 'Content-Type': 'application/json' };
       if (order.isOperator && supabase) {
-        const { data } = await supabase.auth.getSession();
-        if (data?.session?.access_token) headers.Authorization = `Bearer ${data.session.access_token}`;
+        const session = await currentSession(supabase).catch(() => null);
+        if (session?.access_token) headers.Authorization = `Bearer ${session.access_token}`;
       }
       const response = await fetch('/api/telegram', {
         method: 'POST',
@@ -1493,8 +1502,8 @@ export default function App() {
       } catch (error) {
         if (error?.status !== 409) throw error;
         // Our copy was outdated: reload this order and retry once if the step still applies.
-        const { data } = await supabase.auth.getSession();
-        const fresh = data?.session ? (await fetchOperatorOrders(data.session)).find(sameOrder) : null;
+        const session = await currentSession(supabase);
+        const fresh = session ? (await fetchOperatorOrders(session)).find(sameOrder) : null;
         if (!fresh) throw error;
         if (fresh.status === newStatus) saved = fresh;
         else if (fresh.status === previous.status) saved = await save(fresh);
@@ -1536,9 +1545,9 @@ export default function App() {
         if (err?.status === 409 && supabase) {
           // Someone else (or an outdated device) changed these orders: show the current state.
           try {
-            const { data } = await supabase.auth.getSession();
-            if (data?.session) {
-              const fresh = await fetchOperatorOrders(data.session);
+            const session = await currentSession(supabase);
+            if (session) {
+              const fresh = await fetchOperatorOrders(session);
               setOrders(current => mergeOrders(current, fresh));
               showAlert('Actualizamos la lista', 'El pedido había cambiado. Revisa su estado actual e intenta de nuevo.', 'warning');
               return false;
@@ -1575,9 +1584,15 @@ export default function App() {
       logoutInProgressRef.current = false;
     }, 2000); // 2 segundos para dar margen a la desconexión asíncrona
 
+    let signOutStalled = false;
     if (supabase) {
       try {
-        await supabase.auth.signOut();
+        // Never let a slow or stuck network call keep the operator signed in.
+        const outcome = await Promise.race([
+          supabase.auth.signOut().then(() => 'done'),
+          new Promise(resolve => window.setTimeout(() => resolve('timeout'), 4000)),
+        ]);
+        signOutStalled = outcome === 'timeout';
       } catch (err) {
         console.warn("Error al cerrar sesión en Supabase:", err.message);
       }
@@ -1610,6 +1625,8 @@ export default function App() {
     setIsLoggedIn(false);
     setCurrentUser(null);
     setView(isVendorApp ? 'admin' : 'shop');
+    // A stalled client may still hold the old session in memory: start clean.
+    if (signOutStalled) window.location.replace(isVendorApp ? window.location.pathname : '/');
   }
 
   const totalCartItems = cart.reduce((sum, item) => sum + item.quantity, 0);

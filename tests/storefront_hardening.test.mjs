@@ -182,3 +182,19 @@ test('tracking closes 72 hours after delivery, not after the order was placed', 
   assert.equal(trackingExpired({ ...placedLongAgo, statusHistory: [{ status: 'Entregado', timestamp: hoursAgo(73) }] }, now), true);
   assert.equal(trackingExpired({ status: 'Preparando', date: hoursAgo(500) }, now), false);
 });
+
+test('the auth listener never awaits Supabase calls inside the auth lock', async () => {
+  const { readFileSync } = await import('node:fs');
+  const app = readFileSync(new URL('../src/App.jsx', import.meta.url), 'utf8');
+  // supabase-js holds its auth lock while the callback runs; an awaited query
+  // there deadlocks every later session call (order buttons, sign out).
+  assert.doesNotMatch(app, /onAuthStateChange\(\s*async/);
+  assert.match(app, /onAuthStateChange\(\(event, session\) => \{[\s\S]{0,400}setTimeout\(/);
+});
+
+test('a stuck auth client surfaces as an error instead of a silent button', async () => {
+  const { currentSession } = await import('../src/utils/apiClient.js').catch(() => ({}));
+  if (!currentSession) return; // apiClient needs a browser build (Capacitor); covered by the view build.
+  const stuck = { auth: { getSession: () => new Promise(() => {}) } };
+  await assert.rejects(currentSession(stuck, 20), /La sesión no respondió/);
+});
