@@ -1,15 +1,15 @@
 import { useState, useEffect, useRef } from 'react';
 import { readOrder, requestOrder } from '../utils/apiClient';
-import { mergeOrders, isDeliveryOrder, orderStatusLabel, paymentDescription, requiresAdvancePayment } from '../utils/orderLifecycle';
+import { mergeOrders, isDeliveryOrder, orderStatusLabel, paymentDescription, requiresAdvancePayment, trackingExpired } from '../utils/orderLifecycle';
 import { sanitizeText, safeStorage } from '../utils/security';
 import { buildWhatsAppHref } from '../utils/orderMessaging';
 import { checkoutStorage } from '../utils/checkout';
+import { normalizeOrderCode } from '../utils/orderId';
 import './tracker.css';
 
 
 
 export default function OrderTracker({ orderId, orders, setView, storePhone, onClearActiveOrder }) {
-  const TRACKING_WINDOW_HOURS = 72;
   const [inputVal, setInputVal] = useState(orderId || '');
   const [activeSearchId, setActiveSearchId] = useState(orderId || '');
   const [searchNonce, setSearchNonce] = useState(0);
@@ -114,14 +114,23 @@ export default function OrderTracker({ orderId, orders, setView, storePhone, onC
     setRecentOrders(trimmedList);
   };
 
-  const isOrderExpired = (order) => {
-    if (!order?.date || !['Entregado', 'Cancelado'].includes(order.status)) return false;
-    const orderDate = new Date(order.date);
-    if (Number.isNaN(orderDate.getTime())) return false;
-    return (Date.now() - orderDate.getTime()) > TRACKING_WINDOW_HOURS * 60 * 60 * 1000;
-  };
+  const isOrderExpired = order => trackingExpired(order);
 
   const [copiedTrackingLink, setCopiedTrackingLink] = useState(false);
+  const [copiedField, setCopiedField] = useState('');
+  // Page text cannot be selected, so important data gets a copy button.
+  const copyText = async (value, field) => {
+    const text = String(value || '');
+    if (!text) return;
+    try {
+      await navigator.clipboard.writeText(text);
+    } catch {
+      window.prompt('Copia este dato:', text);
+      return;
+    }
+    setCopiedField(field);
+    window.setTimeout(() => setCopiedField(current => (current === field ? '' : current)), 2200);
+  };
 
   const computeEstimatedArrival = (order) => {
     if (!order?.date || ['Entregado', 'Cancelado'].includes(order.status)) return null;
@@ -204,7 +213,9 @@ export default function OrderTracker({ orderId, orders, setView, storePhone, onC
             setTrackingError('');
             // Si el pedido existe en local pero la API retornó 404, podría estar 'Por Corroborar'
           } else {
-            if (error.status === 404 || error.status === 400) {
+            if (error.status === 410) {
+              setTrackingError(error.message || 'El seguimiento de este pedido ya terminó.');
+            } else if (error.status === 404 || error.status === 400) {
               // Verificar si hay alguna orden local con ese código en estado 'Por Corroborar'
               setTrackingError(
                 `No encontramos ningún pedido con ese código. Verifica el código en tu ticket o mensaje de confirmación.`
@@ -286,11 +297,8 @@ export default function OrderTracker({ orderId, orders, setView, storePhone, onC
 
   const handleSearchSubmit = (e) => {
     e.preventDefault();
-    let cleanId = inputVal.replace(/\s+/g, '').toUpperCase();
+    const cleanId = normalizeOrderCode(inputVal);
     if (!cleanId) return;
-    if (!cleanId.startsWith('PED-') && !cleanId.startsWith('ORD-') && cleanId.length >= 3) {
-      cleanId = `PED-${cleanId}`;
-    }
     setLoadingOrder(false);
     setActiveSearchId(cleanId);
     setInputVal(cleanId);
@@ -345,7 +353,7 @@ export default function OrderTracker({ orderId, orders, setView, storePhone, onC
             <input
               type="text"
               className="form-control"
-              placeholder="Ej: PED-7K9A2 o 7K9A2"
+              placeholder="Ej: KMR-482"
               value={inputVal}
               onChange={(e) => setInputVal(e.target.value)}
               style={{ textTransform: 'uppercase', padding: '12px', fontSize: '1rem', letterSpacing: '1px' }}
@@ -515,7 +523,8 @@ export default function OrderTracker({ orderId, orders, setView, storePhone, onC
       <header className="tracker-head">
         <div>
           <span className="tracker-eyebrow">SEGUIMIENTO</span>
-          <h1>Pedido <span>{currentOrder.id}</span></h1>
+          <h1>Pedido <span className="allow-select">{currentOrder.id}</span></h1>
+          <button type="button" className="tracker-copy" onClick={() => copyText(currentOrder.id, 'code')}>{copiedField === 'code' ? '✓ Código copiado' : 'Copiar código'}</button>
           {currentOrder.customer?.tableNumber && <span className="tracker-chip">Mesa {currentOrder.customer.tableNumber}</span>}
         </div>
         <button type="button" className="tracker-link" onClick={resetSearch}>Buscar otro</button>

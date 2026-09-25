@@ -87,3 +87,13 @@ export function prepareOrderUpdate(previous, proposed, timestamp = new Date().to
 }
 
 export const orderStatusLabel = status => ({ 'Por Corroborar': 'Por validar', Pendiente: 'En cola', Preparando: 'En preparación', Listo: 'Listo para entregar', 'En camino': 'En camino', Entregado: 'Entregado', Cancelado: 'Cancelado' }[status] || status);
+
+// Public tracking closes 72 hours after the order is delivered or cancelled.
+export const TRACKING_WINDOW_MS = 72 * 60 * 60 * 1000;
+export function trackingExpired(order, now = Date.now()) {
+  if (!order || !['Entregado', 'Cancelado'].includes(order.status)) return false;
+  const finished = [...(Array.isArray(order.statusHistory) ? order.statusHistory : [])].reverse().find(event => event?.status === order.status)?.timestamp
+    || order.deliveredAt || order.updatedAt || order.date;
+  const finishedAt = new Date(finished || '').getTime();
+  return Number.isFinite(finishedAt) && now - finishedAt > TRACKING_WINDOW_MS;
+}

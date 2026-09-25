@@ -1,6 +1,7 @@
 import { useState, useRef, useEffect } from 'react';
 import DessertPreview, { BasePhoto, ScoopPhoto, ToppingPhoto } from './DessertPreview';
 import { available, cleanName, creationTotal, money, resolveRecommendation } from '../utils/dessert';
+import { syrupColor } from '../utils/toppingKinds';
 import './customizer.css';
 
 const MAX_SCOOPS = 5;
@@ -9,7 +10,6 @@ const steps = [
   { label: 'Sabores', title: '¿Qué sabores te provocan?', hint: `Toca un sabor para sumarlo. Hasta ${MAX_SCOOPS} bolas.` },
   { label: 'Toppings', title: 'El toque final', hint: 'Opcional: algo crujiente y una salsa.' },
 ];
-const syrupColor = syrup => /fresa|sauce/.test(`${syrup?.id} ${syrup?.name}`.toLowerCase()) ? '#c23a4c' : /manjar|caramel/.test(`${syrup?.id} ${syrup?.name}`.toLowerCase()) ? '#c98a45' : '#4a2517';
 const isFruity = flavor => /fresa|mango|maracu|lim[oó]n|frut|coco|pi[ñn]a|aguaymanto/.test(`${flavor.name} ${flavor.id}`.toLowerCase());
 
 export default function IceCreamCustomizer({bases = [], flavors = [], toppings = [], recommendations = [], onAddToCart, setView, showAlert, shopConfig}) {

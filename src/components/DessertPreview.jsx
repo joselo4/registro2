@@ -1,5 +1,6 @@
 import { useId } from 'react';
 import { baseVisual, customizerAsset, flavorTone, scoopLayout, toppingCell } from '../utils/dessert';
+import { SauceDrizzle, ToppingScatter } from './ToppingArt';
 import './dessert-preview.css';
 
 export function BasePhoto({base, className = ''}) {
@@ -37,7 +38,6 @@ export default function DessertPreview({base, scoops = [], toppings = [], syrup 
     : b.key === 'cup-eco' ? 'M66 274 Q160 315 254 274 L254 470 H66 Z'
     : b.key === 'cone-artisan' ? 'M105 254 Q160 279 215 254 L215 470 H105 Z'
     : 'M105 250 Q160 270 215 250 L215 470 H105 Z';
-  const sauceColor = /fresa|sauce/.test(`${syrup?.id}`) ? '#a6373d' : /manjar|caramel/.test(`${syrup?.id}`) ? '#b47940' : '#45251c';
   const container = <svg x={b.x} y={b.y} width={b.w} height={b.h} viewBox={b.crop} preserveAspectRatio="none"><image href={customizerAsset(b.key)} width="1280" height="1280" /></svg>;
   return <svg className={`dessert-preview ${compact ? 'compact' : ''}`} viewBox={`${compact ? 35 : 0} ${top} ${compact ? 250 : 320} ${bottom-top}`} role="img" aria-label={`${visibleScoops.map(s => s.name || 'Helado').join(', ') || 'Envase vacío'} en ${base?.name || 'cono'}${toppings.length ? `. Extras: ${toppings.map(t => t.name || 'Topping').join(', ')}` : ''}${syrup ? `. ${syrup.name || 'Salsa'}` : ''}`}>
     <defs>
@@ -57,15 +57,8 @@ export default function DessertPreview({base, scoops = [], toppings = [], syrup 
       const size = c.r * 2.4;
       return <g key={`${scoop.id}-${i}`}>
         <image x={c.x-size/2} y={c.y-size/2} width={size} height={size} href={customizerAsset('gelato-scoop-neutral')} filter={`url(#${uid}-flavor-${i})`} />
-        {syrup && <svg x={c.x-c.r*.75} y={c.y-c.r*.7} width={c.r*1.5} height={c.r*1.1} viewBox="0 0 100 75" aria-hidden="true"><path d="M 10 16 Q 48 0 87 17 Q 75 24 27 30 Q 4 35 30 43 Q 52 49 78 50 Q 92 57 68 62" fill="none" stroke={sauceColor} strokeWidth="5" strokeLinecap="round" /><path d="M 12 15 Q 47 2 85 17" fill="none" stroke="#fff6df" strokeOpacity=".28" strokeWidth="1.1" /></svg>}
-        {extras.map((topping, ti) => {
-          const cell = toppingCell(topping);
-          if (cell === null && !topping.image) return null;
-          const width = c.r * (extras.length > 1 ? .95 : 1.4);
-          const x = c.x-width/2 + (extras.length > 1 ? (ti%2 ? 1 : -1)*c.r*.26 : 0);
-          const y = c.y-c.r*.75 + Math.floor(ti/2)*c.r*.28;
-          return topping.image ? <image key={topping.id} href={topping.image} x={x} y={y} width={width} height={width*.72} /> : <svg key={topping.id} x={x} y={y} width={width} height={width*.78} viewBox={`${cell*510} 125 510 510`} preserveAspectRatio="none"><image href={customizerAsset('toppings-artisan')} width="2039" height="771" /></svg>;
-        })}
+        {syrup && <SauceDrizzle syrup={syrup} cx={c.x} cy={c.y - c.r * .55} width={c.r * 1.55} stroke={c.r * .1} />}
+        {extras.map((topping, ti) => <ToppingScatter key={topping.id || ti} topping={topping} cx={c.x} cy={c.y - c.r * .28} rx={c.r * .78} ry={c.r * .5} unit={c.r * .17} seed={ti + i * 7 + 1} density={1 / Math.sqrt(extras.length)} />)}
       </g>;
     })}
     </g>

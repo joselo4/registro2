@@ -157,3 +157,28 @@ test('cart suggestions push towards free delivery and vary once it is reached', 
   assert.equal(closer.item.type, 'popsicle');
   assert.equal(suggestFreeDeliveryCloser({ flavors: [], popsicles: [], missingForFreeDelivery: 0 }), null);
 });
+
+test('order codes are short, readable and accepted however the customer types them', async () => {
+  const { generateOrderId, normalizeOrderCode } = await import('../src/utils/orderId.js');
+  const codes = new Set(Array.from({ length: 200 }, generateOrderId));
+  for (const code of codes) {
+    assert.match(code, /^PED-[A-HJKMNP-Z]{3}-\d{3}$/);
+    assert.match(code, /^PED-[A-Z0-9-]{4,40}$/); // still valid for the order API
+  }
+  assert.ok(codes.size > 190);
+  assert.equal(normalizeOrderCode('kmr482'), 'PED-KMR-482');
+  assert.equal(normalizeOrderCode(' kmr-482 '), 'PED-KMR-482');
+  assert.equal(normalizeOrderCode('PED-KMR-482'), 'PED-KMR-482');
+  assert.equal(normalizeOrderCode('ped-wtqvfvgp2p'), 'PED-WTQVFVGP2P');
+  assert.equal(normalizeOrderCode('WTQVFVGP2P'), 'PED-WTQVFVGP2P');
+});
+
+test('tracking closes 72 hours after delivery, not after the order was placed', async () => {
+  const { trackingExpired } = await import('../src/utils/orderLifecycle.js');
+  const now = Date.parse('2026-09-25T12:00:00Z');
+  const hoursAgo = hours => new Date(now - hours * 3600000).toISOString();
+  const placedLongAgo = { status: 'Entregado', date: hoursAgo(200), statusHistory: [{ status: 'Por Corroborar', timestamp: hoursAgo(200) }, { status: 'Entregado', timestamp: hoursAgo(10) }] };
+  assert.equal(trackingExpired(placedLongAgo, now), false);
+  assert.equal(trackingExpired({ ...placedLongAgo, statusHistory: [{ status: 'Entregado', timestamp: hoursAgo(73) }] }, now), true);
+  assert.equal(trackingExpired({ status: 'Preparando', date: hoursAgo(500) }, now), false);
+});

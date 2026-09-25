@@ -40,7 +40,9 @@ test('all 20 container and scoop combinations render with toppings',()=>{
   for(const id of ['cono','cono-artesanal','vaso','waffle']) for(let count=1;count<=5;count++) {
     const html=renderToStaticMarkup(<DessertPreview base={{id,name:id}} scoops={Array.from({length:count},(_,i)=>({id:`fresa${i}`,name:'Fresa'}))} toppings={[{id:'chispas'},{id:'oreo'},{id:'mani'},{id:'gomitas'}]} syrup={{id:'fudge'}} />);
     assert.ok(!html.includes('NaN'));assert.ok(!html.includes('undefined'));
-    assert.ok(html.includes('toppings-artisan.webp'));assert.ok(html.includes('role="img"'));
+    // Each topping has its own drawing: cookie crumbs, peanuts, gummies and sprinkles.
+    for (const color of ['#241512', '#c98a4a', '#e8364b|#3cb54a|#ff9f1c|#ffd23f|#9b5de5', '#ff4d6d|#ffb703|#2ec4b6|#4361ee|#f72585|#80ed99']) assert.match(html, new RegExp(color));
+    assert.ok(html.includes('role="img"'));
   }
 });
 test('multiple previews do not share SVG filter IDs',()=>{

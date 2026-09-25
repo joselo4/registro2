@@ -1,6 +1,6 @@
 import { createAdminClient, fail, hasActiveStaffRecord, json, sameOriginRequest } from './_security.js';
 import { saveOrderChange, fetchAllSyncRows } from '../../src/utils/orderRepository.js';
-import { mergeOrders, orderPaymentTiming } from '../../src/utils/orderLifecycle.js';
+import { mergeOrders, orderPaymentTiming, trackingExpired } from '../../src/utils/orderLifecycle.js';
 import { orderStaffRole, driverOwnsOrder, allowedOrderChange } from './_orderAccess.js';
 import { getEnabledPaymentMethods } from '../../src/utils/paymentMethods.js';
 import { money } from '../../src/utils/checkout.js';
@@ -30,6 +30,7 @@ async function validatePaymentAvailability(client, previous, next, { enforceStor
   return getEnabledPaymentMethods(data?.value).includes(next.customer?.paymentMethod) ? null : 'Este método de pago ya no está disponible. Selecciona otro método activo.';
 }
 
+const TRACKING_EXPIRED = 'El seguimiento de este pedido terminó: está disponible hasta 72 horas después de la entrega. Si necesitas ayuda, escríbenos por WhatsApp.';
 const ORDER_ID_RE = /^PED-[A-Z0-9-]{4,40}$/;
 const RECEIPT_TOKEN_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 const ownsReceipt = (order, token) => Boolean(RECEIPT_TOKEN_RE.test(String(token || '')) && order?.submissionKey === token);
@@ -168,10 +169,12 @@ export async function onRequestGet({ request, env }, makeClient = createAdminCli
       const { data: legacy, error: legacyError } = await adminClient.from('helados_sync').select('value').eq('key', 'orders').maybeSingle();
       if (legacyError) return fail(502, 'read', 'No se pudo consultar el historial de pedidos.');
       const order = Array.isArray(legacy?.value) && legacy.value.find(item => cleanOrderId(item?.id) === id);
+      if (order && trackingExpired(order)) return fail(410, 'expired', TRACKING_EXPIRED);
       if (order) return json({ ok: true, order: ownsReceipt(order, receiptToken) ? order : publicTrackingView(order) });
       return fail(404, 'not_found', 'Pedido no encontrado.');
     }
 
+    if (trackingExpired(data.value)) return fail(410, 'expired', TRACKING_EXPIRED);
     return json({ ok: true, order: ownsReceipt(data.value, receiptToken) ? data.value : publicTrackingView(data.value) });
   } catch (err) {
     return json({ error: err.message || 'Error inesperado.' }, 500);

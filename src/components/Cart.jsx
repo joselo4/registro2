@@ -295,7 +295,7 @@ export default function Cart({
         };
         checkoutStorage.setItem('pending_order_submission', JSON.stringify(pendingSubmissionRef.current));
       }
-      const orderId = pendingSubmissionRef.current.id;
+      let orderId = pendingSubmissionRef.current.id;
       const newOrder = {
         id: orderId,
         submissionKey: pendingSubmissionRef.current.key,
@@ -350,12 +350,28 @@ export default function Cart({
       }
       const opCodeLine = sanitizedOpCode ? `\n*N° Operación (${paymentMethod}):* ${sanitizedOpCode}` : '';
       const trackerLink = `\n\n*Sigue tu pedido en vivo aquí:*\n${window.location.origin}${window.location.pathname}?track=${encodeURIComponent(orderId)}&token=${encodeURIComponent(newOrder.submissionKey)}`;
-      const whatsappMessage = `${whatsappGreeting}\n\n*Código:* ${orderId}\n*Cliente:* ${finalName}\n${destLine}\n*WhatsApp:* ${finalPhone}\n*Pago:* ${paymentMethod} · ${effectivePaymentTiming}${opCodeLine}\n\n*Pedido:*\n${itemsText}\n\n*Subtotal:* S/. ${cartSubtotal.toFixed(2)}${couponLine}\n*Delivery:* S/. ${activeDeliveryFee.toFixed(2)}\n*Total:* S/. ${total.toFixed(2)}${trackerLink}\n\n${whatsappFooter}`;
+      let whatsappMessage = `${whatsappGreeting}\n\n*Código:* ${orderId}\n*Cliente:* ${finalName}\n${destLine}\n*WhatsApp:* ${finalPhone}\n*Pago:* ${paymentMethod} · ${effectivePaymentTiming}${opCodeLine}\n\n*Pedido:*\n${itemsText}\n\n*Subtotal:* S/. ${cartSubtotal.toFixed(2)}${couponLine}\n*Delivery:* S/. ${activeDeliveryFee.toFixed(2)}\n*Total:* S/. ${total.toFixed(2)}${trackerLink}\n\n${whatsappFooter}`;
       
-      const whatsappUrl = buildWhatsAppHref(storePhone, whatsappMessage);
+      let whatsappUrl = buildWhatsAppHref(storePhone, whatsappMessage);
 
       // Registrar pedido en la base de datos (y esperar a que finalice la sincronización en Supabase)
-      await onPlaceOrder(newOrder);
+      for (let attempt = 0; ; attempt++) {
+        try {
+          await onPlaceOrder(newOrder);
+          break;
+        } catch (error) {
+          // Short codes can match an existing order: take another one and retry.
+          if (error?.status !== 409 || !/código/i.test(error.message || '') || attempt >= 3) throw error;
+          const previous = { id: newOrder.id, key: newOrder.submissionKey };
+          pendingSubmissionRef.current = { ...pendingSubmissionRef.current, id: generateOrderId(), key: globalThis.crypto.randomUUID() };
+          checkoutStorage.setItem('pending_order_submission', JSON.stringify(pendingSubmissionRef.current));
+          newOrder.id = pendingSubmissionRef.current.id;
+          newOrder.submissionKey = pendingSubmissionRef.current.key;
+          orderId = newOrder.id;
+          whatsappMessage = whatsappMessage.split(previous.id).join(orderId).split(encodeURIComponent(previous.id)).join(encodeURIComponent(orderId)).split(previous.key).join(newOrder.submissionKey);
+          whatsappUrl = buildWhatsAppHref(storePhone, whatsappMessage);
+        }
+      }
       pendingSubmissionRef.current = null;
       checkoutStorage.removeItem('pending_order_submission');
 
@@ -983,7 +999,7 @@ export default function Cart({
                 }}>
                   <div>
                     <span style={{ fontSize: '0.7rem', color: 'var(--text-light)', display: 'block' }}>Número oficial:</span>
-                    <strong style={{ fontSize: '1.05rem', letterSpacing: '0.5px' }}>
+                    <strong className="allow-select" style={{ fontSize: '1.05rem', letterSpacing: '0.5px' }}>
                       {formatPhoneDisplay(storePhone || '987654321')}
                     </strong>
                   </div>

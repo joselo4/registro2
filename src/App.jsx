@@ -19,6 +19,7 @@ import { configureWebVitalsMonitoring } from './utils/performanceMonitoring';
 import { readRememberedOperator } from './utils/rememberedOperator';
 import { readEmbeddedCatalog } from './utils/publicCatalogCache';
 import { reconcileCart } from './utils/cartRepricing';
+import { normalizeOrderCode } from './utils/orderId';
 import { safeStorage } from './utils/security';
 import { isShopOpenCurrently } from './utils/storeHours';
 import { cleanTableParam, isKnownView, urlForView, viewFromHash } from './utils/viewHistory';
@@ -657,7 +658,7 @@ export default function App() {
     const params = new URLSearchParams(window.location.search);
     const trackId = params.get('track') || params.get('orderId');
     if (trackId && trackId.trim()) {
-      const cleanTrackId = trackId.replace(/\s+/g, '').toUpperCase();
+      const cleanTrackId = normalizeOrderCode(trackId);
       setActiveOrderId(cleanTrackId);
       safeStorage.setItem('helados_active_order_id', cleanTrackId);
       setView('tracker');

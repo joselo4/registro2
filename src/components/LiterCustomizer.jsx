@@ -1,11 +1,11 @@
 import { useId, useRef, useState } from 'react';
 import { ScoopPhoto, ToppingPhoto } from './DessertPreview';
 import { flavorColor, money } from '../utils/dessert';
+import { syrupColor } from '../utils/toppingKinds';
+import { SauceDrizzle, ToppingScatter } from './ToppingArt';
 import './customizer.css';
 
 const MAX_TOPPINGS = 3;
-const syrupColor = syrup => /fresa|sauce/.test(`${syrup?.id} ${syrup?.name}`.toLowerCase()) ? '#c23a4c' : /manjar|caramel/.test(`${syrup?.id} ${syrup?.name}`.toLowerCase()) ? '#c98a45' : '#4a2517';
-const sprinkleColors = ['#ff4757', '#ffa502', '#2ed573', '#1e90ff', '#ff6b81', '#9b59b6'];
 
 // A family tub that fills with one stripe per chosen flavour.
 function LiterTub({ flavors = [], toppings = [], syrup = null }) {
@@ -17,7 +17,7 @@ function LiterTub({ flavors = [], toppings = [], syrup = null }) {
     <svg className="liter-tub" viewBox="0 0 240 190" role="img" aria-label={empty ? 'Pote de 1 litro vacío' : `Pote de 1 litro con ${flavors.map(f => f.name).join(', ')}`}>
       <defs>
         <clipPath id={`${uid}-body`}><path d="M30 64 H210 L197 162 Q120 176 43 162 Z" /></clipPath>
-        <clipPath id={`${uid}-top`}><rect x="22" y="14" width="196" height="52" /></clipPath>
+        <clipPath id={`${uid}-top`}><rect x="22" y="0" width="196" height="66" /></clipPath>
         <linearGradient id={`${uid}-shade`} x1="0" x2="1">
           <stop offset="0" stopColor="#fff" stopOpacity=".28" />
           <stop offset=".45" stopColor="#fff" stopOpacity="0" />
@@ -27,14 +27,14 @@ function LiterTub({ flavors = [], toppings = [], syrup = null }) {
       <ellipse cx="120" cy="174" rx="82" ry="7" fill="#5b2a36" opacity=".12" />
       <g clipPath={`url(#${uid}-top)`}>
         {empty
-          ? <path d="M36 64 Q120 40 204 64 Z" fill="#f3e6e9" />
+          ? <path d="M36 64 Q120 30 204 64 Z" fill="#f3e6e9" />
           : flavors.map((flavor, index) => (
-            <ellipse key={`top-${index}`} cx={30 + stripe * index + stripe / 2} cy="62" rx={stripe / 2 + 8} ry="20" fill={flavorColor(flavor)} />
+            <ellipse key={`top-${index}`} cx={30 + stripe * index + stripe / 2} cy="66" rx={stripe / 2 + 10} ry="36" fill={flavorColor(flavor)} />
           ))}
-        {syrup && !empty && <path d="M40 54 Q62 40 84 52 T128 50 T172 52 T202 54" fill="none" stroke={syrupColor(syrup)} strokeWidth="6" strokeLinecap="round" />}
-        {!empty && toppings.slice(0, MAX_TOPPINGS).flatMap((topping, t) => Array.from({ length: 6 }, (_, i) => (
-          <rect key={`${topping.id}-${i}`} x={48 + i * 26 + t * 7} y={46 + ((i + t) % 3) * 4} width="7" height="3" rx="1.5" fill={sprinkleColors[(i + t * 2) % sprinkleColors.length]} transform={`rotate(${(i * 37 + t * 20) % 90 - 45} ${51 + i * 26 + t * 7} ${47 + ((i + t) % 3) * 4})`} />
-        )))}
+        {syrup && !empty && <SauceDrizzle syrup={syrup} cx={120} cy={36} width={150} stroke={4.5} />}
+        {!empty && toppings.slice(0, MAX_TOPPINGS).map((topping, t) => (
+          <ToppingScatter key={topping.id || t} topping={topping} cx={120} cy={44} rx={74} ry={12} unit={6} seed={t + 1} density={1 / Math.sqrt(toppings.length)} />
+        ))}
       </g>
       <g clipPath={`url(#${uid}-body)`}>
         <rect x="20" y="60" width="200" height="120" fill={empty ? '#fbf3f5' : '#fff'} />

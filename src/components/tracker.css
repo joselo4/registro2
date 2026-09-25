@@ -89,3 +89,5 @@
   .tracker-steps li strong { font-size: .58rem; letter-spacing: -.01em; overflow-wrap: anywhere; }
   .tracker-hero .tracker-eta { display: block; border-radius: 12px; }
 }
+.tracker-copy { margin: 6px 8px 0 0; min-height: 34px; padding: 5px 12px; border: 1px dashed var(--tracker-accent); border-radius: 100px; background: color-mix(in srgb, var(--tracker-accent) 6%, var(--bg-secondary)); color: var(--tracker-accent); font-size: .78rem; font-weight: 800; cursor: pointer; }
+.tracker-details dd { display: flex; align-items: center; justify-content: flex-end; gap: 6px; flex-wrap: wrap; }
