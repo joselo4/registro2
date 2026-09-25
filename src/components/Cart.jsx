@@ -1,5 +1,6 @@
 import { useState, useEffect, useRef } from 'react';
 import CartItemPreview from './CartItemPreview';
+import './checkout.css';
 import DessertPreview from './DessertPreview';
 import { generateOrderId } from '../utils/orderId';
 import { getEnabledPaymentMethods, selectPaymentMethod } from '../utils/paymentMethods';
@@ -9,6 +10,7 @@ import { checkoutStorage, checkoutTotals } from '../utils/checkout';
 import { enabledOrderChannels, isOrderTypeEnabled, preferredOrderType } from '../utils/orderChannels';
 import { validateOrderInput } from '../utils/orderValidation';
 import { quickScoopItem } from '../utils/dessert';
+import { suggestFreeDeliveryCloser, suggestPack } from '../utils/cartSuggestions';
 
 const FIELD_IDS = { name: 'checkout-name', phone: 'checkout-phone', address: 'checkout-address', table: 'checkout-table' };
 
@@ -24,6 +26,7 @@ export default function Cart({
   flavors, 
   bases = [],
   packs = [],
+  popsicles = [],
   freeDeliveryThreshold, 
   freeDeliveryEnabled = true, 
   storePhone, 
@@ -397,7 +400,9 @@ export default function Cart({
         setTimeout(() => { submittingRef.current = false; setIsSubmitting(false); }, 2000);
     } catch (err) {
       console.error("Fallo al enviar pedido:", err);
-      alert(`⚠️ ${err?.message || 'No se pudo confirmar el pedido. Conservamos tu carrito para que vuelvas a intentarlo.'}`);
+      const message = err?.message || 'No se pudo confirmar el pedido. Conservamos tu carrito para que vuelvas a intentarlo.';
+      if (showAlert) showAlert('No pudimos confirmar tu pedido', `${message} Tu carrito sigue guardado.`, 'warning');
+      else alert(message);
       setIsSubmitting(false);
       submittingRef.current = false;
     }
@@ -424,13 +429,15 @@ export default function Cart({
 
   // The suggestion only stores which pack to offer; name and price come from
   // the live catalogue so the order API accepts it.
+  const missingForSuggestions = orderType === 'Delivery' && freeDeliveryEnabled && Number(freeDeliveryThreshold) > 0 && !isFreeDelivery ? missingForFreeDelivery : 0;
   const recommendedPack = (() => {
-    if (!cartRecommendedPack || cartRecommendedPack.active === false) return null;
-    const id = cartRecommendedPack.id || cartRecommendedPack.packId || 'pack_pareja';
-    const live = packs.find(pack => String(pack.id) === String(id) && pack.active !== false && Number.isFinite(Number(pack.price)));
-    if (!live || cart.some(item => item.id === live.id)) return null;
-    return { ...live, description: live.items || live.description || cartRecommendedPack.description || '' };
+    if (cartRecommendedPack?.active === false) return null;
+    const suggestion = suggestPack({ packs, cart, missingForFreeDelivery: missingForSuggestions, preferredId: cartRecommendedPack?.id || cartRecommendedPack?.packId });
+    if (!suggestion) return null;
+    const { pack, unlocksFreeDelivery } = suggestion;
+    return { ...pack, unlocksFreeDelivery, description: pack.items || pack.description || '' };
   })();
+  const freeDeliveryCloser = suggestFreeDeliveryCloser({ flavors, bases, popsicles, missingForFreeDelivery: missingForSuggestions });
 
   const handleAddSuggestedPack = () => {
     if (!recommendedPack) return;
@@ -563,14 +570,25 @@ export default function Cart({
               </div>
               
               <div style={{ marginTop: '10px', display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
-                <button 
-                  type="button"
-                  onClick={handleAddRandomScoop}
-                  className="btn btn-secondary" 
-                  style={{ padding: '6px 12px', fontSize: '0.75rem', flex: '1 1 120px' }}
-                >
-                  🎲 + Bola Sorpresa
-                </button>
+                {freeDeliveryCloser ? (
+                  <button
+                    type="button"
+                    onClick={() => shopOpen && onAddToCart(freeDeliveryCloser.item)}
+                    disabled={!shopOpen}
+                    className="btn btn-primary free-delivery-closer"
+                  >
+                    + {freeDeliveryCloser.label} · S/. {freeDeliveryCloser.item.price.toFixed(2)} <span>y tu delivery sale gratis</span>
+                  </button>
+                ) : (
+                  <button
+                    type="button"
+                    onClick={handleAddRandomScoop}
+                    className="btn btn-secondary"
+                    style={{ padding: '6px 12px', fontSize: '0.75rem', flex: '1 1 120px' }}
+                  >
+                    🎲 + Bola Sorpresa
+                  </button>
+                )}
               </div>
             </div>
           )}
@@ -609,7 +627,7 @@ export default function Cart({
           {recommendedPack && (
             <div className="glass-card" style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '10px 12px', background: 'linear-gradient(135deg, rgba(229, 142, 38, 0.04) 0%, rgba(255, 107, 129, 0.04) 100%)', border: '1px dashed var(--secondary-color)', borderRadius: 'var(--radius-md)' }}>
               <div style={{ maxWidth: '75%' }}>
-                <strong style={{ fontSize: '0.8rem', display: 'block' }}>🎁 Combo Recomendado</strong>
+                <strong style={{ fontSize: '0.8rem', display: 'block' }}>🎁 {recommendedPack.unlocksFreeDelivery ? 'Súmalo y tu delivery sale GRATIS' : 'Combo recomendado'}</strong>
                 <span style={{ fontSize: '0.7rem', color: 'var(--text-light)', display: 'block', marginTop: '2px' }}>
                   {recommendedPack.name} por S/. {Number(recommendedPack.price).toFixed(2)}{recommendedPack.description ? ` (${recommendedPack.description})` : ''}.
                 </span>

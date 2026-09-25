@@ -1071,6 +1071,21 @@ export default function SettingsManager({
           </div>
 
           <div className="form-group" style={{ gridColumn: 'span 2' }}>
+            <label htmlFor="store-hero-price-input">Precio destacado del inicio (opcional)</label>
+            <input
+              id="store-hero-price-input"
+              name="store-hero-price"
+              type="text"
+              className="form-control"
+              maxLength={40}
+              placeholder="Ej. Desde S/. 1.50 · Si lo dejas vacío se calcula con el helado más barato"
+              value={localShopConfig.heroPriceText || ''}
+              onChange={(e) => setLocalShopConfig(prev => ({ ...prev, heroPriceText: e.target.value.slice(0, 40) }))}
+            />
+            <span style={{ fontSize: '0.72rem', color: 'var(--text-light)' }}>Aparece bajo los botones del inicio, junto a "placer sin vueltas".</span>
+          </div>
+
+          <div className="form-group" style={{ gridColumn: 'span 2' }}>
             <label htmlFor="store-hero-image-input">Imagen del Banner Catálogo (Hero) - Opcional</label>
             <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
               <input

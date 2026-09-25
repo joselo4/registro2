@@ -222,3 +222,8 @@ body { background: #fffaf7; }
   /* No tab bar on desktop: keep the cart reminder low and out of the content. */
   .floating-cart-toast { bottom: 20px !important; }
 }
+
+/* Public pages: text and images cannot be selected, dragged or long-pressed. */
+.site-protected, .site-protected *, .friozo-shell, .friozo-shell * { -webkit-user-select: none; user-select: none; -webkit-touch-callout: none; }
+.site-protected img, .friozo-shell img { -webkit-user-drag: none; }
+.site-protected input, .site-protected textarea, .site-protected select, .site-protected [contenteditable="true"] { -webkit-user-select: text; user-select: text; -webkit-touch-callout: default; }

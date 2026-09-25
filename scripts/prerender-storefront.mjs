@@ -27,7 +27,7 @@ async function publicCatalog(env, fetchImpl) {
   }
   const endpoint = new URL('/rest/v1/helados_sync', url);
   endpoint.searchParams.set('select', 'key,value');
-  endpoint.searchParams.set('key', 'in.(flavors,packs,popsicles,bases,toppings,liter_config,delivery_fee,free_delivery_threshold,store_phone,store_name,store_logo)');
+  endpoint.searchParams.set('key', 'in.(flavors,packs,popsicles,bases,toppings,liter_config,delivery_fee,free_delivery_threshold,store_phone,store_name,store_logo,shop_open)');
   const response = await fetchImpl(endpoint, { headers: { apikey: key, Authorization: `Bearer ${key}` }, signal: AbortSignal.timeout(10000) });
   if (!response.ok) throw new Error(`No se pudo leer el catálogo público (${response.status}).`);
   const rows = await response.json();
@@ -43,12 +43,12 @@ function productCard(item, kind) {
   return `<article class="static-product"><a href="${escapeHtml(href)}">${image ? `<img src="${escapeHtml(image)}" alt="${escapeHtml(item.name)}" loading="lazy" width="160" height="160">` : '<span class="static-product-icon" aria-hidden="true">🍦</span>'}<h3>${escapeHtml(item.name)}</h3></a><p>${escapeHtml(item.description || 'Helado artesanal hecho en Andahuaylas.')}</p><strong>${kind === 'classic' ? 'Desde ' : ''}S/. ${money(item.price)}</strong><a class="static-product-action" href="${escapeHtml(href)}">Ver producto</a></article>`;
 }
 
-export function staticContent({ heading, intro, sections, deliveryText, phone, productName = '', status = true, isHome = false, startingPrice, storeName, storeLogo }) {
+export function staticContent({ heading, intro, sections, deliveryText, phone, productName = '', status = true, isHome = false, startingPrice, priceText, storeName, storeLogo }) {
   const cleanPhone = String(phone || '').replace(/D/g, '');
   const message = productName ? `Hola Friozo, quiero pedir ${productName}. Confírmenme precio y disponibilidad.` : 'Hola Friozo, quiero hacer un pedido de helados.';
   const whatsapp = /^51d{9}$/.test(cleanPhone) ? `https://wa.me/${cleanPhone}?text=${encodeURIComponent(message)}` : `https://wa.me/51989466466?text=${encodeURIComponent(message)}`;
   // The top mirrors the live storefront; the crawlable catalogue follows below.
-  const top = storefrontShellTop({ startingPrice, whatsapp, storeName, storeLogo, ...(isHome ? {} : { heading, intro }) });
+  const top = storefrontShellTop({ startingPrice, priceText, whatsapp, storeName, storeLogo, ...(isHome ? {} : { heading, intro }) });
   const catalog = `<div class="static-catalog">${isHome ? `<h2 class="static-catalog-title">${escapeHtml(heading)}</h2><p>${escapeHtml(intro)}</p>` : ''}<p class="static-delivery">${escapeHtml(deliveryText)}</p><div class="static-actions"><a class="static-primary" href="/#catalog">Explorar la carta</a><a href="${escapeHtml(whatsapp)}" rel="noopener noreferrer">Pedir por WhatsApp</a></div>${sections.map((section, index) => `<section class="static-section"${index === 0 ? ' id="catalog"' : ''}><h2><a href="${escapeHtml(section.path)}">${escapeHtml(section.label)}</a></h2><p>${escapeHtml(section.intro)}</p><div class="static-grid">${section.items.map(item => productCard(item, section.kind)).join('')}</div></section>`).join('')}<footer class="static-footer"><p>Los precios y la disponibilidad se confirman al completar el pedido.</p>${status ? '<p id="startup-status" role="status">La compra interactiva se está activando. Puedes ver la carta y pedir por WhatsApp.</p><button id="startup-retry" type="button" hidden>Volver a cargar la tienda</button>' : ''}</footer></div>`;
   return `<div class="friozo-shell">${top}${catalog}${storefrontShellBottom()}</div>`;
 }
@@ -94,7 +94,7 @@ export async function prerenderStorefront(directory = 'dist', options = {}) {
     if (paths.has(page.path)) throw new Error(`Ruta de producto duplicada: ${page.path}`);
     paths.add(page.path);
     page.bootstrap = bootstrap;
-    page.content = staticContent({ heading: page.heading, intro: page.intro, sections: page.sections, deliveryText, phone, productName: page.productName, isHome: page.isHome, startingPrice, storeName: catalog.store_name, storeLogo: catalog.store_logo });
+    page.content = staticContent({ heading: page.heading, intro: page.intro, sections: page.sections, deliveryText, phone, productName: page.productName, isHome: page.isHome, startingPrice, priceText: typeof catalog.shop_open?.heroPriceText === 'string' ? catalog.shop_open.heroPriceText.trim().slice(0, 40) : '', storeName: catalog.store_name, storeLogo: catalog.store_logo });
     const target = join(root, page.path === '/' ? 'index.html' : `${page.path.slice(1)}index.html`);
     await mkdir(resolve(target, '..'), { recursive: true });
     await writeFile(target, pageHtml(base, page));

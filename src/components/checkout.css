@@ -4,7 +4,9 @@
 .checkout-heading h1 { font-family: var(--font-title); font-size: clamp(2rem, 4vw, 3rem); letter-spacing: -.04em; line-height: 1.2; margin: 4px 0 8px; }
 .checkout-heading p, .cart-empty p { color: var(--text-light); font-size: 1rem; line-height: 1.6; }
 .checkout-item-count { margin-left: auto; padding: 8px 14px; border: 1px solid var(--border-color); border-radius: 999px; white-space: nowrap; font-size: .875rem; }
-.cart-container .cart-layout { display: grid; grid-template-columns: minmax(0, 1fr) minmax(340px, .85fr); gap: 32px; align-items: start; }
+.cart-container .cart-layout { display: grid; grid-template-columns: minmax(0, 1fr) minmax(360px, 420px); gap: 28px; align-items: start; }
+.cart-container .cart-items-section { min-width: 0; display: flex; flex-direction: column; gap: 14px; }
+@media (min-width: 801px) { .cart-container .checkout-section { position: sticky !important; top: 92px; } }
 .checkout-step { display: flex; align-items: center; gap: 12px; font-size: 1.25rem; margin: 0 0 20px; }
 .checkout-step > span { display: grid; place-items: center; width: 32px; height: 32px; border-radius: 50%; color: var(--bg-secondary); background: var(--primary-color); font-size: .875rem; flex: 0 0 auto; }
 .cart-container .checkout-section { padding: 28px !important; border-radius: 24px !important; border: 1px solid var(--border-color); box-shadow: var(--shadow-md); position: static; }
@@ -58,3 +60,10 @@
   .cart-container .cart-product-preview { width: 76px; height: 84px; flex-shrink: 0; }
   .cart-container .checkout-section { padding: 18px !important; }
 }
+.free-delivery-closer { flex: 1 1 100%; display: flex; flex-wrap: wrap; align-items: center; justify-content: center; gap: 4px 8px; min-height: 48px; padding: 10px 16px !important; border-radius: 14px !important; font-size: .9rem !important; font-weight: 800; }
+.free-delivery-closer span { font-size: .78rem; font-weight: 600; opacity: .9; }
+/* Heading of the order form reads top to bottom, not in three columns. */
+.cart-container .checkout-section .checkout-heading { display: flex; flex-direction: column; align-items: flex-start; gap: 2px; margin-bottom: 14px; }
+.cart-container .checkout-section .checkout-heading h3 { font-family: var(--font-title); font-size: clamp(1.5rem, 2.6vw, 2rem); letter-spacing: -.03em; line-height: 1.1; margin: 0; }
+.cart-container .checkout-section .checkout-heading p { font-size: .9rem; margin: 2px 0 0; }
+.cart-container .payment-options { grid-template-columns: repeat(auto-fit, minmax(92px, 1fr)); }

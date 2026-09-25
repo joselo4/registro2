@@ -154,3 +154,14 @@
 [data-theme="dark"] .topping-photo, [data-theme="dark"] .topping-word { background: #3d2934; }
 
 .ops .ops-stock-form button { color: #fff; background: #a7354b; }
+
+/* Arma tu litro */
+.liter-tub { width: 100%; height: 100%; display: block; }
+.liter-builder .atelier-steps.liter-steps { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+.liter-builder .atelier-unit-price { color: #1d7a4c; }
+.liter-builder .atelier-stage { grid-template-columns: 150px minmax(0, 1fr); }
+.liter-builder .atelier-stage-art, .liter-builder .atelier-stage-art .liter-tub { height: 124px; }
+@media (min-width: 760px) {
+  .liter-builder .atelier-stage { grid-template-columns: 1fr; }
+  .liter-builder .atelier-stage-art, .liter-builder .atelier-stage-art .liter-tub { height: 300px; }
+}

@@ -119,3 +119,41 @@ test('quick helados from the menu are priced exactly like the order API expects'
   assert.equal(double.price, 4.5);
   assert.equal(double.price, catalogItemPrice(double, catalog));
 });
+
+test('saved carts are re-priced like the order API before checkout', async () => {
+  const { reconcileCart } = await import('../src/utils/cartRepricing.js');
+  const { catalogItemPrice } = await import('../src/utils/orderPricing.js');
+  const catalog = {
+    bases: [{ id: 'cono_de_galleta_normal', name: 'Cono normal', price: 0 }, { id: 'cono', name: 'Cono artesanal', price: 1.5 }],
+    flavors: [{ id: 'fresa', name: 'Fresa', price: 1.5 }, { id: 'mango', name: 'Mango', price: 1.5, active: false }],
+    toppings: [],
+    packs: [{ id: 'pack_pareja', name: 'Dúo', price: 12 }],
+    popsicles: [],
+    literConfig: { price: 16, maxFlavors: 3 },
+  };
+  const oldQuick = { type: 'custom', name: 'Helado Simple de Fresa', base: { id: 'cono', name: 'Cono', price: 0 }, scoops: [{ id: 'fresa', name: 'Fresa', price: 1.5 }], toppings: [], price: 1.5, quantity: 2 };
+  const stalePack = { type: 'pack', id: 'pack_pareja', name: 'Dúo', price: 10, quantity: 1 };
+  const gone = { type: 'custom', name: 'Mango', base: { id: 'cono_de_galleta_normal', price: 0 }, scoops: [{ id: 'mango' }], toppings: [], price: 1.5, quantity: 1 };
+  const result = reconcileCart([oldQuick, stalePack, gone], catalog);
+  assert.equal(result.changed, true);
+  assert.deepEqual(result.removed, ['Mango']);
+  const [scoop, pack] = result.cart;
+  assert.equal(scoop.base.id, 'cono_de_galleta_normal');
+  assert.equal(scoop.price, 1.5); // the customer keeps the price they saw
+  assert.equal(pack.price, 12);
+  for (const item of result.cart) assert.equal(item.price, catalogItemPrice(item, { ...catalog, literConfig: catalog.literConfig }));
+  assert.equal(reconcileCart(result.cart, catalog).changed, false);
+});
+
+test('cart suggestions push towards free delivery and vary once it is reached', async () => {
+  const { suggestPack, suggestFreeDeliveryCloser } = await import('../src/utils/cartSuggestions.js');
+  const packs = [{ id: 'a', price: 6 }, { id: 'b', price: 10 }, { id: 'c', price: 22 }, { id: 'off', price: 4, active: false }];
+  assert.equal(suggestPack({ packs, cart: [], missingForFreeDelivery: 7 }).pack.id, 'b');
+  assert.equal(suggestPack({ packs, cart: [], missingForFreeDelivery: 7 }).unlocksFreeDelivery, true);
+  assert.equal(suggestPack({ packs, cart: [{ id: 'b', quantity: 1 }], missingForFreeDelivery: 7 }).pack.id, 'c');
+  const seen = new Set([1, 2, 3].map(quantity => suggestPack({ packs, cart: [{ id: 'x', quantity }] }).pack.id));
+  assert.ok(seen.size > 1, 'the suggestion rotates');
+  const closer = suggestFreeDeliveryCloser({ flavors: [{ id: 'f', name: 'Fresa', price: 1.5 }], bases: [{ id: 'n', name: 'Cono', price: 0 }], popsicles: [{ id: 'p', name: 'Mango', price: 3 }], missingForFreeDelivery: 2 });
+  assert.equal(closer.item.type, 'popsicle');
+  assert.equal(suggestFreeDeliveryCloser({ flavors: [], popsicles: [], missingForFreeDelivery: 0 }), null);
+});

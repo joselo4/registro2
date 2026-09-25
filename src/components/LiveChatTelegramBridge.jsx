@@ -201,7 +201,7 @@ export default function LiveChatTelegramBridge({
       {isOpen && (
         <div className="live-chat-window" id="support-chat" role="region" aria-label="Consulta sobre tu pedido">
           <div className="live-chat-header">
-            <h4>Atención por Telegram</h4>
+            <h4>Atención por chat</h4>
             <button className="live-chat-close" aria-label="Cerrar chat" onClick={() => setIsOpen(false)}>✕</button>
           </div>
           
@@ -210,14 +210,14 @@ export default function LiveChatTelegramBridge({
               <span className="live-chat-success-icon">✅</span>
               <strong style={{ fontSize: '0.9rem', color: 'var(--text-dark)' }}>¡Mensaje Enviado!</strong>
               <p style={{ fontSize: '0.75rem', color: 'var(--text-light)', margin: 0 }}>
-                Tu consulta llegó al Telegram de la tienda. El equipo tiene tus datos de contacto para atenderte.
+                Tu consulta llegó a la tienda. Te responderemos al número que dejaste.
               </p>
               <button type="button" className="btn btn-secondary" onClick={() => setSent(false)}>Enviar otra consulta</button>
             </div>
           ) : (
             <div className="live-chat-body">
               <p className="live-chat-welcome">
-                ¿Una duda antes de pedir? Envía tu consulta directamente al Telegram de la tienda, sin salir de esta página.
+                ¿Una duda antes de pedir? Escríbenos y te respondemos en minutos, sin salir de esta página.
               </p>
               
               <form className="live-chat-form" onSubmit={handleSendMessage}>
@@ -276,7 +276,7 @@ export default function LiveChatTelegramBridge({
                   style={{ width: '100%', padding: '8px', fontSize: '0.8rem', marginTop: '5px', cursor: 'pointer' }}
                   disabled={sending}
                 >
-                  {sending ? 'Enviando a Telegram…' : sendError ? 'Reintentar en Telegram' : 'Enviar a Telegram →'}
+                  {sending ? 'Enviando…' : sendError ? 'Reintentar' : 'Enviar'}
                 </button>
                 {sending && <p role="status" className="live-chat-welcome">Esperando confirmación de entrega…</p>}
                 {sendError && <div className="live-chat-feedback" role="alert">{sendError}</div>}

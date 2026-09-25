@@ -18,6 +18,7 @@ import { isGoogleMeasurementId, toGa4Event, toMetaPayload } from './utils/commer
 import { configureWebVitalsMonitoring } from './utils/performanceMonitoring';
 import { readRememberedOperator } from './utils/rememberedOperator';
 import { readEmbeddedCatalog } from './utils/publicCatalogCache';
+import { reconcileCart } from './utils/cartRepricing';
 import { safeStorage } from './utils/security';
 import { isShopOpenCurrently } from './utils/storeHours';
 import { cleanTableParam, isKnownView, urlForView, viewFromHash } from './utils/viewHistory';
@@ -568,6 +569,21 @@ export default function App() {
     window.scrollTo(0, 0);
   }, [view]);
 
+  // Public pages: no right-click menu or image dragging (forms and the admin
+  // panel keep normal behaviour so staff can copy phones and addresses).
+  useEffect(() => {
+    if (view === 'admin') return undefined;
+    const isEditable = target => target instanceof Element && Boolean(target.closest('input, textarea, select, [contenteditable="true"]'));
+    const blockMenu = event => { if (!isEditable(event.target)) event.preventDefault(); };
+    const blockDrag = event => { if (event.target instanceof HTMLImageElement) event.preventDefault(); };
+    document.addEventListener('contextmenu', blockMenu);
+    document.addEventListener('dragstart', blockDrag);
+    return () => {
+      document.removeEventListener('contextmenu', blockMenu);
+      document.removeEventListener('dragstart', blockDrag);
+    };
+  }, [view]);
+
   // Keep screens in the browser history so "back" works like a normal site.
   const historyViewRef = useRef(null);
   useEffect(() => {
@@ -606,6 +622,20 @@ export default function App() {
   useEffect(() => {
     checkoutStorage.setItem('helados_cart_draft', JSON.stringify(cart));
   }, [cart]);
+
+  // A cart saved days ago can hold old prices; align it with the catalogue
+  // (same rules as the order API) so checkout is not rejected.
+  useEffect(() => {
+    if (!isSyncLoaded || isVendorApp) return;
+    const result = reconcileCart(cart, { flavors, bases, toppings, packs, popsicles, literConfig });
+    if (!result.changed) return;
+    setCart(result.cart);
+    const notes = [
+      ...result.changes.map(change => `${change.name}: ahora S/. ${change.to.toFixed(2)}`),
+      ...result.removed.map(name => `${name} ya no está disponible y lo quitamos`),
+    ];
+    if (notes.length) setSuccessToast({ title: 'Actualizamos tu pedido', message: notes.slice(0, 2).join(' · ') });
+  }, [cart, isSyncLoaded, isVendorApp, flavors, bases, toppings, packs, popsicles, literConfig]);
   const [activeOrderId, setActiveOrderId] = useState(() => {
     const saved = safeStorage.getItem('helados_active_order_id');
     const savedTime = safeStorage.getItem('helados_active_order_time');
@@ -1504,7 +1534,7 @@ export default function App() {
   };
 
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', minHeight: '100vh' }}>
+    <div className={view === 'admin' ? undefined : 'site-protected'} style={{ display: 'flex', flexDirection: 'column', minHeight: '100vh' }}>
       
       {/* Barra de Navegación (Cabecera Principal) */}
       <nav className="navbar glass">
@@ -1737,6 +1767,7 @@ export default function App() {
             flavors={flavors}
             bases={bases}
             packs={packs}
+            popsicles={popsicles}
             telegramToken={telegramToken}
             telegramChatId={telegramChatId}
             freeDeliveryThreshold={freeDeliveryThreshold}

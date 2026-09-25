@@ -4,12 +4,12 @@ import { mergeOrders, isDeliveryOrder, orderStatusLabel, paymentDescription, req
 import { sanitizeText, safeStorage } from '../utils/security';
 import { buildWhatsAppHref } from '../utils/orderMessaging';
 import { checkoutStorage } from '../utils/checkout';
+import './tracker.css';
 
 
 
 export default function OrderTracker({ orderId, orders, setView, storePhone, onClearActiveOrder }) {
   const TRACKING_WINDOW_HOURS = 72;
-  const showDetailedTracker = true;
   const [inputVal, setInputVal] = useState(orderId || '');
   const [activeSearchId, setActiveSearchId] = useState(orderId || '');
   const [searchNonce, setSearchNonce] = useState(0);
@@ -130,6 +130,8 @@ export default function OrderTracker({ orderId, orders, setView, storePhone, onC
 
     const minEta = new Date(orderTime + 25 * 60 * 1000);
     const maxEta = new Date(orderTime + 40 * 60 * 1000);
+    // A late order shows no stale arrival time.
+    if (maxEta.getTime() < Date.now()) return null;
 
     const formatTime = (d) => {
       try {
@@ -146,7 +148,7 @@ export default function OrderTracker({ orderId, orders, setView, storePhone, onC
 
     return {
       rangeText: `${formatTime(minEta)} - ${formatTime(maxEta)}`,
-      minutesEstimate: '25 - 35 min'
+      minutesEstimate: '25 - 40 min'
     };
   };
 
@@ -282,21 +284,6 @@ export default function OrderTracker({ orderId, orders, setView, storePhone, onC
     return null;
   };
 
-  const formatStatusText = (status, orderType = 'Delivery') => {
-    if (status === 'Por Corroborar') return '⏳ Verificando · Tu pedido está siendo revisado por la tienda';
-    if (status === 'Pendiente') return '📋 Confirmado · En cola de cocina';
-    if (status === 'Preparando') return '👨‍🍳 En Preparación · Armando tus helados';
-    if (status === 'Listo') return '✅ Listo · Esperando entrega o repartidor';
-    if (status === 'En camino') return '🛵 En Camino · Repartidor en ruta';
-    if (status === 'Entregado') {
-      if (orderType === 'Mesa') return '🍽️ Servido en Mesa · ¡Buen provecho!';
-      if (orderType === 'Llevar' || orderType === 'Barra') return '🥡 Pedido Retirado · ¡Disfruta tus helados!';
-      return '🎉 ¡Entregado con Éxito!';
-    }
-    if (status === 'Cancelado') return '🛑 Pedido Cancelado';
-    return status;
-  };
-
   const handleSearchSubmit = (e) => {
     e.preventDefault();
     let cleanId = inputVal.replace(/\s+/g, '').toUpperCase();
@@ -404,7 +391,7 @@ export default function OrderTracker({ orderId, orders, setView, storePhone, onC
                 return matched && !isOrderExpired(matched);
               }).map((id) => {
                 const matched = orders.find(o => o.id.toLowerCase() === id.toLowerCase());
-                const statusTag = matched ? ` (${formatStatusText(matched.status)})` : '';
+                const statusTag = matched ? ` (${orderStatusLabel(matched.status)})` : '';
                 return (
                   <button
                     key={id}
@@ -485,610 +472,169 @@ export default function OrderTracker({ orderId, orders, setView, storePhone, onC
   }
 
 
+  // One status block, one step bar, one order summary: the same state used to
+  // be repeated in four different boxes.
+  const status = currentOrder.status || 'Pendiente';
+  const orderType = currentOrder.customer?.orderType || 'Delivery';
+  const isDelivery = isDeliveryOrder(currentOrder);
+  const isPickup = orderType === 'Llevar' || orderType === 'Barra';
+  const isTable = orderType === 'Mesa' || orderType === 'Mesa_Llevar';
+  const stages = isDelivery ? ['Por Corroborar', 'Pendiente', 'Preparando', 'Listo', 'En camino', 'Entregado'] : ['Por Corroborar', 'Pendiente', 'Preparando', 'Listo', 'Entregado'];
+  const stageLabels = { 'Por Corroborar': 'Recibido', Pendiente: 'Confirmado', Preparando: 'Preparando', Listo: 'Listo', 'En camino': 'En camino', Entregado: isDelivery ? 'Entregado' : isTable ? 'Servido' : 'Retirado' };
+  const history = (currentOrder.statusHistory?.length ? [...currentOrder.statusHistory] : [{ status, timestamp: currentOrder.date }])
+    .filter(event => event?.status)
+    .sort((a, b) => new Date(a.timestamp) - new Date(b.timestamp));
+  const reachedAt = Object.fromEntries(history.map(event => [event.status, event.timestamp]));
+  const currentIndex = stages.indexOf(status);
+  const shortTime = iso => {
+    try { return new Intl.DateTimeFormat('es-PE', { timeZone: 'America/Lima', hour: '2-digit', minute: '2-digit', hour12: true }).format(new Date(iso)); }
+    catch { return ''; }
+  };
+  const hero = {
+    'Por Corroborar': { icon: '⏳', tone: 'waiting', title: 'Recibimos tu pedido', text: isTable ? 'El personal está confirmando tu comanda. En breve pasa a cocina.' : requiresAdvancePayment(currentOrder) ? 'Estamos validando tu pago. En cuanto se confirme, empezamos a prepararlo.' : 'La tienda está confirmando los detalles. En breve empezamos a prepararlo.' },
+    Pendiente: { icon: '📋', tone: 'active', title: '¡Pedido confirmado!', text: 'Está en cola de cocina. En unos minutos empezamos a prepararlo.' },
+    Preparando: { icon: '👨‍🍳', tone: 'active', title: 'Preparando tus helados', text: 'Estamos sirviendo tu combinación con la textura ideal.' },
+    Listo: { icon: '✅', tone: 'active', title: isTable ? '¡Listo! Va a tu mesa' : isPickup ? '¡Listo para recoger!' : '¡Listo y empacado!', text: isTable ? 'El personal lo lleva a tu mesa en instantes.' : isPickup ? 'Acércate a la barra para recogerlo.' : 'Esperando la salida del repartidor.' },
+    'En camino': { icon: '🛵', tone: 'active', title: 'Tu pedido va en camino', text: 'El repartidor se dirige a tu dirección. ¡Prepárate para recibirlo!' },
+    Entregado: { icon: '🎉', tone: 'done', title: isTable ? '¡Buen provecho!' : isPickup ? '¡Pedido retirado!' : '¡Pedido entregado!', text: 'Gracias por elegirnos. Esperamos que lo disfrutes.' },
+    Cancelado: { icon: '🛑', tone: 'cancelled', title: 'Pedido cancelado', text: 'Si tienes dudas, escríbenos por WhatsApp y te ayudamos.' },
+  }[status] || { icon: '📦', tone: 'active', title: orderStatusLabel(status), text: '' };
+  const eta = isDelivery ? computeEstimatedArrival(currentOrder) : null;
+  const money = value => `S/. ${(Number(value) || 0).toFixed(2)}`;
+  const resetSearch = () => {
+    setActiveSearchId('');
+    setFetchedOrder(null);
+    setInputVal('');
+    setHasSearched(false);
+    if (onClearActiveOrder) onClearActiveOrder();
+  };
+  const driverPhone = String(currentOrder.assignedDriver?.phone || '').replace(/\D/g, '');
+
   return (
-    <div className="glass tracking-container" style={{ padding: '25px 20px', maxWidth: '650px', margin: '30px auto', borderRadius: 'var(--radius-lg)' }}>
-      <style dangerouslySetInnerHTML={{ __html: `
-        @keyframes pulse-highlight {
-          0% { transform: scale(1); }
-          50% { transform: scale(1.04); box-shadow: 0 0 15px rgba(46, 204, 113, 0.4); }
-          100% { transform: scale(1); }
-        }
-        .animate-status-pop {
-          animation: pulse-highlight 1.1s ease-in-out 2;
-          border: 2px solid var(--success) !important;
-        }
-      ` }} />
-      
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', flexWrap: 'wrap', gap: '10px', marginBottom: '15px' }}>
+    <div className="tracker">
+      <header className="tracker-head">
         <div>
-          <h2 style={{ fontSize: '1.6rem', margin: 0 }}>Seguimiento de Pedido</h2>
-          <p style={{ color: 'var(--text-light)', fontSize: '0.85rem', marginTop: '4px', display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
-            Código: <strong style={{ color: 'var(--primary-color)' }}>{currentOrder.id}</strong>
-            {currentOrder.customer.tableNumber && (
-              <span style={{
-                background: 'var(--primary-color)',
-                color: 'white',
-                fontSize: '0.7rem',
-                fontWeight: 'bold',
-                padding: '2px 8px',
-                borderRadius: '12px',
-                boxShadow: '0 2px 4px rgba(0,0,0,0.1)'
-              }}>
-                Mesa {currentOrder.customer.tableNumber}
-              </span>
-            )}
-          </p>
+          <span className="tracker-eyebrow">SEGUIMIENTO</span>
+          <h1>Pedido <span>{currentOrder.id}</span></h1>
+          {currentOrder.customer?.tableNumber && <span className="tracker-chip">Mesa {currentOrder.customer.tableNumber}</span>}
         </div>
-        <button 
-          className="btn btn-secondary" 
-          style={{ padding: '6px 12px', fontSize: '0.75rem' }} 
-          onClick={() => {
-            setActiveSearchId('');
-            setFetchedOrder(null);
-            setInputVal('');
-            setHasSearched(false);
-            if (onClearActiveOrder) {
-              onClearActiveOrder();
-            }
-          }}
-        >
-          🔍 Buscar Otro
-        </button>
-      </div>
+        <button type="button" className="tracker-link" onClick={resetSearch}>Buscar otro</button>
+      </header>
 
-      {/* Tarjeta de Estado Actual */}
-      <div className={`tracking-status-badge status-${(currentOrder.status || 'Pendiente').toLowerCase().replace(' ', '_')} ${animateStatus ? 'animate-status-pop' : ''}`} style={{
-        textAlign: 'center',
-        padding: '10px 15px',
-        fontWeight: 'bold',
-        borderRadius: '8px',
-        fontSize: '1.1rem',
-        marginBottom: '25px',
-        transition: 'all 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275)'
-      }}>
-        {formatStatusText(currentOrder.status || 'Pendiente', currentOrder.customer?.orderType)}
-      </div>
+      <section className={`tracker-hero tone-${hero.tone} ${animateStatus ? 'is-updated' : ''}`} aria-live="polite">
+        <span className="tracker-hero-icon" aria-hidden="true">{hero.icon}</span>
+        <div>
+          <h2>{hero.title}</h2>
+          {hero.text && <p>{hero.text}</p>}
+          {eta && <p className="tracker-eta">Llegada estimada <strong>{eta.rangeText}</strong></p>}
+        </div>
+      </section>
 
-      {currentOrder.limited && <p role="status" style={{ margin: '0 0 20px', color: 'var(--text-light)' }}>Para ver la dirección, el pago y los productos, abre el enlace privado recibido al hacer tu pedido.</p>}
-      {trackingError && <p role="status" style={{ padding: '12px', background: '#fff3cd', color: '#664d03', borderRadius: '8px' }}>{trackingError} Mostramos el último estado confirmado.</p>}
+      {currentOrder.limited && <p className="tracker-note" role="status">Para ver la dirección, el pago y los productos, abre el enlace privado que recibiste al hacer tu pedido.</p>}
+      {trackingError && <p className="tracker-note is-warning" role="status">{trackingError} Mostramos el último estado confirmado.</p>}
 
-      {/* Banner informativo especial para estado 'Por Corroborar' */}
-      {currentOrder.status === 'Por Corroborar' && (
-        <div style={{
-          padding: '14px 18px',
-          marginBottom: '18px',
-          borderRadius: '14px',
-          background: 'linear-gradient(135deg, rgba(230,126,34,0.10) 0%, rgba(243,156,18,0.07) 100%)',
-          border: '1.5px solid rgba(230,126,34,0.35)',
-          display: 'flex',
-          alignItems: 'center',
-          gap: '14px'
-        }}>
-          <span style={{ fontSize: '2rem' }}>⏳</span>
+      {status !== 'Cancelado' && (
+        <ol className="tracker-steps" aria-label="Etapas del pedido" style={{ '--count': stages.length, '--progress-ratio': Math.max(0, currentIndex) / (stages.length - 1) }}>
+          {stages.map((stage, index) => {
+            const state = index < currentIndex ? 'done' : index === currentIndex ? 'current' : 'todo';
+            return (
+              <li key={stage} className={`is-${state}`} aria-current={state === 'current' ? 'step' : undefined}>
+                <span className="tracker-dot" aria-hidden="true">{state === 'done' ? '✓' : index + 1}</span>
+                <strong>{stageLabels[stage]}</strong>
+                {reachedAt[stage] && state !== 'todo' && <small>{shortTime(reachedAt[stage])}</small>}
+              </li>
+            );
+          })}
+        </ol>
+      )}
+
+      {currentOrder.assignedDriver && (
+        <section className="tracker-card tracker-driver">
+          <span className="tracker-driver-icon" aria-hidden="true">🛵</span>
           <div>
-            <strong style={{ fontSize: '0.95rem', color: '#e67e22', display: 'block' }}>
-              Tu pedido está siendo verificado por la tienda
-            </strong>
-            <span style={{ fontSize: '0.8rem', color: 'var(--text-light)', display: 'block', marginTop: '3px' }}>
-              En breve recibirás confirmación y tu pedido pasará a preparación. ¡Gracias por tu paciencia! 🍦
-            </span>
+            <strong>{currentOrder.assignedDriver.name || 'Tu repartidor'}</strong>
+            <small>Lleva tu pedido</small>
           </div>
-        </div>
-      )}
-      {currentOrder.status !== 'Cancelado' ? <ol aria-label="Etapas del pedido" style={{ display: 'flex', flexWrap: 'wrap', gap: '8px', padding: 0, listStyle: 'none', marginBottom: '24px' }}>
-        {(isDeliveryOrder(currentOrder) ? ['Por Corroborar', 'Pendiente', 'Preparando', 'Listo', 'En camino', 'Entregado'] : ['Por Corroborar', 'Pendiente', 'Preparando', 'Listo', 'Entregado']).map((status, index) => <li key={status} aria-current={status === currentOrder.status ? 'step' : undefined} style={{ padding: '10px', borderRadius: '8px', fontSize: '14px', border: '1px solid var(--border-color)', background: status === currentOrder.status ? 'var(--primary-color)' : 'var(--bg-secondary)', color: status === currentOrder.status ? '#fff' : 'var(--text-dark)', fontWeight: status === currentOrder.status ? 800 : 400 }}>{index + 1}. {orderStatusLabel(status)}</li>)}
-      </ol> : <p role="status">Este pedido fue cancelado por la tienda.</p>}
-
-      {/* ⏱️ TARJETA DE TIEMPO ESTIMADO DE LLEGADA */}
-      {(() => {
-        const eta = computeEstimatedArrival(currentOrder);
-        if (!eta) return null;
-        return (
-          <div className="glass order-tracker-eta-card" style={{
-            padding: '14px 18px',
-            marginBottom: '22px',
-            borderRadius: '14px',
-            background: 'linear-gradient(135deg, rgba(255, 107, 129, 0.08) 0%, rgba(255, 160, 0, 0.06) 100%)',
-            border: '1px solid rgba(255, 107, 129, 0.25)',
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'space-between',
-            flexWrap: 'wrap',
-            gap: '12px'
-          }}>
-            <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
-              <span style={{ fontSize: '1.8rem' }}>⏱️</span>
-              <div>
-                <strong style={{ fontSize: '0.92rem', color: 'var(--text-dark)', display: 'block' }}>
-                  Tiempo Estimado de Entrega: {eta.minutesEstimate}
-                </strong>
-                <span style={{ fontSize: '0.78rem', color: 'var(--text-light)' }}>
-                  Llegada estimada entre <strong>{eta.rangeText}</strong> (Hora Lima)
-                </span>
-              </div>
-            </div>
-            <button
-              type="button"
-              className="btn btn-secondary"
-              onClick={handleShareTrackingLink}
-              style={{
-                fontSize: '0.75rem',
-                padding: '6px 12px',
-                borderRadius: '8px',
-                display: 'inline-flex',
-                alignItems: 'center',
-                gap: '5px',
-                cursor: 'pointer'
-              }}
-            >
-              {copiedTrackingLink ? '✅ ¡Enlace Copiado!' : '📋 Compartir Rastreo'}
-            </button>
-          </div>
-        );
-      })()}
-
-      {/* 🛵 INFORMACIÓN DEL REPARTIDOR ASIGNADO */}
-      {currentOrder && currentOrder.assignedDriver && (
-        <div className="glass" style={{
-          padding: '16px 20px',
-          margin: '20px 0',
-          borderRadius: 'var(--radius-md)',
-          border: '1.5px solid var(--delivery-color, #FF441F)',
-          background: 'linear-gradient(135deg, rgba(255, 68, 31, 0.05) 0%, var(--bg-secondary) 100%)',
-          display: 'flex',
-          flexDirection: 'column',
-          gap: '12px'
-        }}>
-          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: '8px' }}>
-            <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-              <div style={{ 
-                width: '42px', 
-                height: '42px', 
-                borderRadius: '50%', 
-                background: 'var(--delivery-color, #FF441F)', 
-                color: '#fff', 
-                display: 'flex', 
-                alignItems: 'center', 
-                justifyContent: 'center',
-                fontSize: '1.3rem',
-                boxShadow: '0 2px 8px rgba(255, 68, 31, 0.35)'
-              }}>
-                🛵
-              </div>
-              <div>
-                <strong style={{ fontSize: '0.95rem', color: 'var(--text-dark)', display: 'block' }}>
-                  Repartidor asignado: {currentOrder.assignedDriver.name || currentOrder.assignedDriver.email || 'Personal de Delivery'}
-                </strong>
-                <span style={{ fontSize: '0.78rem', color: 'var(--text-light)' }}>
-                  Personal encargado de la entrega de tu pedido
-                </span>
-                {currentOrder.assignedDriver.phone && (
-                  <div style={{ display: 'flex', gap: '6px', marginTop: '6px', flexWrap: 'wrap' }}>
-                    <a
-                      href={`tel:${String(currentOrder.assignedDriver.phone).replace(/\D/g, '')}`}
-                      style={{
-                        background: '#0ea5e9',
-                        color: '#fff',
-                        textDecoration: 'none',
-                        borderRadius: '6px',
-                        padding: '3px 8px',
-                        fontSize: '0.72rem',
-                        fontWeight: 600,
-                        display: 'inline-flex',
-                        alignItems: 'center',
-                        gap: '3px'
-                      }}
-                    >
-                      📞 Llamar
-                    </a>
-                    <a
-                      href={`https://wa.me/${String(currentOrder.assignedDriver.phone).replace(/\D/g, '').length === 9 ? '51' + String(currentOrder.assignedDriver.phone).replace(/\D/g, '') : String(currentOrder.assignedDriver.phone).replace(/\D/g, '')}?text=${encodeURIComponent(`¡Hola! Te escribo sobre mi pedido #${currentOrder.id} de helados 🍦`)}`}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      style={{
-                        background: '#25D366',
-                        color: '#fff',
-                        textDecoration: 'none',
-                        borderRadius: '6px',
-                        padding: '3px 8px',
-                        fontSize: '0.72rem',
-                        fontWeight: 600,
-                        display: 'inline-flex',
-                        alignItems: 'center',
-                        gap: '3px'
-                      }}
-                    >
-                      💬 WhatsApp
-                    </a>
-                  </div>
-                )}
-              </div>
-            </div>
-          </div>
-        </div>
+          {driverPhone && <div className="tracker-driver-actions">
+            <a href={`tel:${driverPhone}`}>Llamar</a>
+            <a href={`https://wa.me/${driverPhone.length === 9 ? `51${driverPhone}` : driverPhone}?text=${encodeURIComponent(`¡Hola! Te escribo sobre mi pedido #${currentOrder.id} 🍦`)}`} target="_blank" rel="noopener noreferrer">WhatsApp</a>
+          </div>}
+        </section>
       )}
 
-      {/* 🍦 ENCUESTA DE SATISFACCIÓN POST-ENTREGA */}
-      {currentOrder && !currentOrder.limited && currentOrder.status === 'Entregado' && (
-        <div className="glass animate-float-toast" style={{
-          padding: '20px',
-          margin: '20px 0 25px 0',
-          border: '2px dashed var(--success)',
-          borderRadius: 'var(--radius-md)',
-          background: 'linear-gradient(135deg, rgba(46, 204, 113, 0.05) 0%, var(--bg-secondary) 100%)',
-          textAlign: 'center',
-          boxShadow: 'var(--shadow-md)'
-        }}>
+      {!currentOrder.limited && status === 'Entregado' && (
+        <section className="tracker-card tracker-survey">
           {surveySubmitted ? (
-            <div style={{ animation: 'scalePop 0.4s ease-out' }}>
-              <span style={{ fontSize: '3rem', display: 'block', marginBottom: '8px' }}>🍦💖</span>
-              <strong style={{ fontSize: '1.1rem', color: 'var(--success)', display: 'block' }}>¡Muchas Gracias!</strong>
-              <p style={{ fontSize: '0.8rem', color: 'var(--text-light)', marginTop: '6px', margin: 0, lineHeight: 1.45 }}>
-                Tu opinión nos alegra el día y nos ayuda a seguir sirviendo helados deliciosos con la mejor calidad artesana.
-              </p>
-            </div>
+            <p><strong>¡Muchas gracias!</strong> Tu opinión nos ayuda a servirte mejor.</p>
           ) : (
-            <div>
-              <strong style={{ fontSize: '1.05rem', color: 'var(--text-dark)', display: 'block', marginBottom: '5px' }}>
-                ¿Disfrutaste tu Helado? 🍨
-              </strong>
-              <span style={{ fontSize: '0.78rem', color: 'var(--text-light)', display: 'block', marginBottom: '12px' }}>
-                Tu valoración nos ayuda a mejorar. Califícanos pulsando los conos de helado:
-              </span>
-              
-              <form onSubmit={handleSendSurvey} style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '15px' }}>
-                {/* Conos de Helado Interactivos */}
-                <div style={{ display: 'flex', gap: '8px', fontSize: '2.2rem', justifyContent: 'center' }}>
-                  {[1, 2, 3, 4, 5].map((index) => {
-                    const filled = index <= (hoverRating || rating);
-                    return (
-                      <span
-                        key={index}
-                        style={{
-                          cursor: 'pointer',
-                          filter: filled ? 'none' : 'grayscale(100%) opacity(30%)',
-                          transition: 'transform 0.15s cubic-bezier(0.175, 0.885, 0.32, 1.275), filter 0.2s',
-                          transform: filled ? 'scale(1.18)' : 'scale(1)',
-                          display: 'inline-block'
-                        }}
-                        onMouseEnter={() => setHoverRating(index)}
-                        onMouseLeave={() => setHoverRating(0)}
-                        onClick={() => setRating(index)}
-                        title={`${index} cono${index > 1 ? 's' : ''}`}
-                      >
-                        🍦
-                      </span>
-                    );
-                  })}
-                </div>
-
-                <div style={{ width: '100%' }}>
-                  <textarea
-                    className="form-control"
-                    rows="2"
-                    placeholder="Escribe algún comentario o sugerencia sobre tus helados (Opcional)..."
-                    style={{
-                      fontSize: '0.8rem',
-                      padding: '8px 12px',
-                      resize: 'none',
-                      borderRadius: 'var(--radius-sm)',
-                      border: '1px solid var(--border-color)',
-                      width: '100%',
-                      background: 'var(--bg-secondary)',
-                      color: 'var(--text-dark)'
-                    }}
-                    value={comment}
-                    onChange={(e) => setComment(e.target.value)}
-                  />
-                </div>
-
-                <button
-                  type="submit"
-                  className="btn btn-primary"
-                  style={{
-                    width: '100%',
-                    padding: '10px',
-                    fontSize: '0.85rem',
-                    backgroundColor: 'var(--success)',
-                    borderColor: 'var(--success)',
-                    color: 'white',
-                    display: 'flex',
-                    alignItems: 'center',
-                    justifyContent: 'center',
-                    gap: '6px',
-                    cursor: 'pointer',
-                    borderRadius: 'var(--radius-full)',
-                    margin: 0
-                  }}
-                  disabled={submittingSurvey}
-                >
-                  {submittingSurvey ? 'Enviando...' : '🚀 Enviar Valoración'}
-                </button>
-              </form>
-            </div>
+            <form onSubmit={handleSendSurvey}>
+              <strong>¿Qué tal estuvo tu helado?</strong>
+              <div className="tracker-rating" role="radiogroup" aria-label="Calificación">
+                {[1, 2, 3, 4, 5].map(index => (
+                  <button key={index} type="button" role="radio" aria-checked={rating === index} aria-label={`${index} de 5`}
+                    className={index <= (hoverRating || rating) ? 'is-on' : ''}
+                    onMouseEnter={() => setHoverRating(index)} onMouseLeave={() => setHoverRating(0)} onClick={() => setRating(index)}>🍦</button>
+                ))}
+              </div>
+              <textarea className="form-control" rows="2" placeholder="Cuéntanos algo más (opcional)" value={comment} onChange={e => setComment(e.target.value)} />
+              <button type="submit" className="btn btn-primary" disabled={submittingSurvey}>{submittingSurvey ? 'Enviando…' : 'Enviar calificación'}</button>
+            </form>
           )}
-        </div>
+        </section>
       )}
 
-      {/* Historial de Cambios de Estado (Hora Peruana) */}
-      {showDetailedTracker && (() => {
-        // Obtener todos los eventos del historial ordenados cronológicamente
-        const allHistory = currentOrder.statusHistory
-          ? [...currentOrder.statusHistory].sort((a, b) => new Date(a.timestamp) - new Date(b.timestamp))
-          : [{ status: 'Pendiente', timestamp: currentOrder.date }];
-
-        // Calcular tiempo transcurrido entre eventos
-        const getElapsed = (ts1, ts2) => {
-          if (!ts1 || !ts2) return '';
-          const diff = (new Date(ts2) - new Date(ts1)) / 60000;
-          if (diff < 60) return `${Math.round(diff)} min`;
-          const hours = Math.floor(diff / 60);
-          const mins = Math.round(diff % 60);
-          return mins > 0 ? `${hours}h ${mins}min` : `${hours}h`;
-        };
-
-        const statusMeta = {
-          'Por Corroborar': { 
-            emoji: '⏳', 
-            label: currentOrder?.customer?.orderType === 'Mesa' ? 'Validación de Mesa' : 'Validando Pago / Pedido', 
-            color: '#e67e22', 
-            bg: 'rgba(230,126,34,0.10)' 
-          },
-          'Pendiente':  { emoji: '📋', label: 'Confirmado · En Cola de Cocina', color: '#f39c12', bg: 'rgba(243,156,18,0.10)' },
-          'Preparando': { emoji: '👨‍🍳', label: 'En Cocina / Preparando', color: '#3498db', bg: 'rgba(52,152,219,0.10)' },
-          'Listo':      { emoji: '✅', label: 'Listo para Entrega',       color: '#27ae60', bg: 'rgba(39,174,96,0.10)' },
-          'En camino':  { emoji: '🛵', label: 'En Ruta de Entrega',      color: '#9b59b6', bg: 'rgba(155,89,182,0.10)' },
-          'Entregado':  { emoji: '🎉', label: 'Entregado con Éxito',     color: '#2ecc71', bg: 'rgba(46,204,113,0.10)' },
-          'Cancelado':  { emoji: '🛑', label: 'Pedido Cancelado',        color: '#e74c3c', bg: 'rgba(231,76,60,0.10)' }
-        };
-
-        return (
-          <div className="glass" style={{ padding: '15px 18px', marginBottom: '25px', background: 'rgba(0,0,0,0.01)', border: '1px solid var(--border-color)', borderRadius: 'var(--radius-md)' }}>
-            <h4 style={{ fontSize: '0.95rem', marginBottom: '15px', fontWeight: 'bold', display: 'flex', alignItems: 'center', gap: '8px', color: 'var(--text-dark)' }}>
-              📋 Historial Detallado del Pedido
-              <span style={{ fontSize: '0.7rem', color: 'var(--text-light)', fontWeight: 'normal', marginLeft: 'auto' }}>
-                🇵🇪 Hora Perú (Lima)
-              </span>
-            </h4>
-            <div style={{ display: 'flex', flexDirection: 'column', gap: '0', position: 'relative', paddingLeft: '18px' }}>
-              {/* Línea vertical conectora */}
-              <div style={{ position: 'absolute', left: '8px', top: '10px', bottom: '10px', width: '2px', background: 'linear-gradient(180deg, var(--primary-color), var(--border-color))' }}></div>
-
-              {allHistory.map((event, idx) => {
-                const meta = statusMeta[event.status] || { emoji: '📌', label: event.status, color: 'var(--text-light)', bg: 'transparent' };
-                const isLast = idx === allHistory.length - 1;
-                const isCurrent = event.status === currentOrder.status;
-                const nextEvent = allHistory[idx + 1];
-                const elapsed = nextEvent ? getElapsed(event.timestamp, nextEvent.timestamp) : '';
-                const formattedTime = formatPeruTime(event.timestamp);
-
-                return (
-                  <div key={idx} style={{ display: 'flex', flexDirection: 'column', position: 'relative', paddingBottom: isLast ? '0' : '14px' }}>
-                    {/* Bullet circular */}
-                    <div style={{
-                      position: 'absolute',
-                      left: '-14px',
-                      top: '3px',
-                      width: '12px',
-                      height: '12px',
-                      borderRadius: '50%',
-                      backgroundColor: isCurrent ? meta.color : '#2ecc71',
-                      border: `2px solid var(--bg-primary)`,
-                      boxShadow: isCurrent ? `0 0 12px ${meta.color}90` : 'none',
-                      zIndex: 1,
-                      animation: isCurrent ? 'trackerPulse 2s infinite' : 'none',
-                      flexShrink: 0
-                    }}></div>
-
-                    {/* Tarjeta de evento */}
-                    <div style={{
-                      background: isCurrent ? meta.bg : 'transparent',
-                      border: isCurrent ? `1px solid ${meta.color}40` : 'none',
-                      borderRadius: '8px',
-                      padding: isCurrent ? '8px 10px' : '2px 8px',
-                      transition: 'all 0.3s ease'
-                    }}>
-                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '4px' }}>
-                        <span style={{
-                          fontSize: '0.82rem',
-                          fontWeight: isCurrent ? '700' : '600',
-                          color: isCurrent ? meta.color : 'var(--text-dark)',
-                          display: 'flex',
-                          alignItems: 'center',
-                          gap: '5px'
-                        }}>
-                          <span style={{ fontSize: '1rem' }}>{meta.emoji}</span>
-                          {meta.label}
-                          {isCurrent && <span style={{ fontSize: '0.6rem', background: meta.color, color: 'white', padding: '1px 5px', borderRadius: '4px', fontWeight: 'bold' }}>ACTUAL</span>}
-                        </span>
-                        <span style={{
-                          fontSize: '0.72rem',
-                          color: isCurrent ? meta.color : 'var(--text-light)',
-                          fontWeight: isCurrent ? '700' : '500',
-                          fontFamily: 'monospace',
-                          background: isCurrent ? `${meta.color}15` : 'var(--bg-secondary)',
-                          padding: '2px 7px',
-                          borderRadius: '5px',
-                          letterSpacing: '0.02em'
-                        }}>
-                          {formattedTime}
-                        </span>
-                      </div>
-                      {elapsed && (
-                        <div style={{ fontSize: '0.65rem', color: 'var(--text-light)', marginTop: '3px', paddingLeft: '22px', fontStyle: 'italic' }}>
-                          ↳ Tiempo hasta siguiente estado: <strong>{elapsed}</strong>
-                        </div>
-                      )}
-                    </div>
-                  </div>
-                );
-              })}
-
-              {/* Mostrar estados pendientes como grises */}
-              {currentOrder.status !== 'Cancelado' && currentOrder.status !== 'Entregado' && (() => {
-                const completedStatuses = allHistory.map(h => h.status);
-                const stages = isDeliveryOrder(currentOrder)
-                  ? ['Por Corroborar', 'Pendiente', 'Preparando', 'Listo', 'En camino', 'Entregado']
-                  : ['Por Corroborar', 'Pendiente', 'Preparando', 'Listo', 'Entregado'];
-                const pendingStatuses = stages.filter(s => !completedStatuses.includes(s));
-                return pendingStatuses.map((s, idx) => {
-                  const meta = statusMeta[s];
-                  return (
-                    <div key={`pending-${idx}`} style={{ display: 'flex', flexDirection: 'column', position: 'relative', paddingBottom: idx < pendingStatuses.length - 1 ? '14px' : '0' }}>
-                      <div style={{
-                        position: 'absolute',
-                        left: '-14px',
-                        top: '3px',
-                        width: '12px',
-                        height: '12px',
-                        borderRadius: '50%',
-                        backgroundColor: 'var(--border-color)',
-                        border: '2px solid var(--bg-primary)',
-                        zIndex: 1
-                      }}></div>
-                      <div style={{ padding: '2px 8px' }}>
-                        <span style={{ fontSize: '0.78rem', color: 'var(--text-light)', display: 'flex', alignItems: 'center', gap: '5px' }}>
-                          <span style={{ opacity: 0.4 }}>{meta?.emoji}</span>
-                          <span style={{ opacity: 0.5 }}>{meta?.label}</span>
-                          <span style={{ fontSize: '0.65rem', fontStyle: 'italic', opacity: 0.4 }}>— Pendiente</span>
-                        </span>
-                      </div>
-                    </div>
-                  );
-                });
-              })()}
-            </div>
-            <style dangerouslySetInnerHTML={{ __html: `
-              @keyframes trackerPulse {
-                0%, 100% { box-shadow: 0 0 8px rgba(0,0,0,0.2); transform: scale(1); }
-                50% { box-shadow: 0 0 16px rgba(0,0,0,0.35); transform: scale(1.15); }
-              }
-            ` }} />
-          </div>
-        );
-      })()}
-
-      {/* Mensaje Informativo */}
-      {showDetailedTracker && !currentOrder.limited && (
-        <p style={{ fontSize: '0.85rem', color: 'var(--text-light)', textAlign: 'center', marginBottom: '25px', lineHeight: '1.4' }}>
-          {currentOrder.status === 'Por Corroborar' && (
-            currentOrder.customer?.orderType === 'Mesa'
-              ? '🍽️ El personal de sala está corroborando tu comanda en mesa. En breve pasará a cocina.'
-              : requiresAdvancePayment(currentOrder)
-                ? '📱 Estamos validando tu comprobante de abono con caja. En breve cocina comenzará a preparar tus helados.'
-                : '⏳ Estamos confirmando los detalles de tu pedido. En breve pasará a preparación en cocina.'
-          )}
-          {currentOrder.status === 'Pendiente' && '📋 ¡Pedido confirmado! Está en cola de cocina y en breves momentos nuestros maestros heladeros iniciarán su preparación.'}
-          {currentOrder.status === 'Preparando' && '👨‍🍳 ¡Nuestros maestros heladeros están sirviendo tu combinación favorita con la temperatura y textura ideal!'}
-          {currentOrder.status === 'Listo' && (
-            currentOrder.customer?.orderType === 'Mesa'
-              ? '🍽️ ¡Tus helados están listos! El personal de sala los llevará a tu mesa en instantes.'
-              : currentOrder.customer?.orderType === 'Llevar' || currentOrder.customer?.orderType === 'Barra'
-                ? '🥡 ¡Tu pedido está listo en barra! Puedes acercarte a recoger tus helados.'
-                : '🛵 ¡Tus helados están listos y empacados! Esperando salida del repartidor.'
-          )}
-          {currentOrder.status === 'En camino' && '🛵 ¡El motorizado va en camino hacia tu dirección! Prepárate para recibir tus helados.'}
-          {currentOrder.status === 'Entregado' && '🎉 ¡Helados entregados! Esperamos que disfrutes de tu deliciosa experiencia.'}
-          {currentOrder.status === 'Cancelado' && '🛑 Tu pedido ha sido cancelado. Si tienes dudas, contáctanos por WhatsApp.'}
-        </p>
-      )}
-
-      {/* Resumen del Pedido */}
-      {showDetailedTracker && (
-      <div style={{ textAlign: 'left', borderTop: '1px solid var(--border-color)', paddingTop: '20px', marginBottom: '25px' }}>
-        <h4 style={{ marginBottom: '12px', fontSize: '1rem', fontWeight: 'bold' }}>Datos de la Entrega</h4>
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '12px', fontSize: '0.8rem', color: 'var(--text-light)' }}>
-          <div>
-            <strong>Cliente:</strong> <span style={{ color: 'var(--text-dark)' }}>{currentOrder.customer.name}</span>
-          </div>
-          <div>
-            {currentOrder.customer.tableNumber ? (
-              <>
-                <strong>Mesa:</strong> <span style={{ color: 'var(--text-dark)' }}>{currentOrder.customer.tableNumber}</span>
-              </>
-            ) : (
-              <>
-                <strong>Dirección:</strong> <span style={{ color: 'var(--text-dark)' }}>{currentOrder.customer.address}</span>
-              </>
-            )}
-          </div>
-          <div>
-            <strong>WhatsApp:</strong> <span style={{ color: 'var(--text-dark)' }}>{currentOrder.customer.phone}</span>
-          </div>
-          <div>
-            <strong>Método de Pago:</strong> <span style={{ color: 'var(--text-dark)' }}>{paymentDescription(currentOrder)} · {currentOrder.paymentVerified ? 'Pago confirmado' : 'Pago pendiente'}</span>
-          </div>
-          {currentOrder.customer?.operationCode && (
-            <div>
-              <strong>N° Operación ({currentOrder.customer.paymentMethod}):</strong> <span style={{ color: 'var(--primary-color)', fontFamily: 'monospace', fontWeight: 700 }}>{currentOrder.customer.operationCode}</span>
-            </div>
-          )}
-        </div>
-
-        <div style={{ marginTop: '20px', background: 'rgba(0,0,0,0.02)', padding: '12px', borderRadius: 'var(--radius-md)', border: '1px solid var(--border-color)' }}>
-          <h5 style={{ marginBottom: '8px', fontSize: '0.85rem', fontWeight: 'bold' }}>Detalle de Compra</h5>
-          <ul style={{ listStyle: 'none', display: 'flex', flexDirection: 'column', gap: '8px', padding: 0, margin: 0 }}>
+      {!currentOrder.limited && (
+        <section className="tracker-card tracker-summary">
+          <h3>Tu pedido</h3>
+          <ul>
             {currentOrder.items.map((item, idx) => (
-              <li key={idx} style={{ fontSize: '0.8rem', display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', borderBottom: idx < currentOrder.items.length - 1 ? '1px dashed var(--border-color)' : 'none', paddingBottom: '6px' }}>
-                <div>
-                  <strong>{item.quantity}x {item.name}</strong>
-                  {renderItemDetails(item)}
-                </div>
-                <span style={{ fontWeight: 600, marginLeft: '10px' }}>S/. {(item.price * item.quantity).toFixed(2)}</span>
+              <li key={idx}>
+                <div><strong>{item.quantity}× {item.name}</strong>{renderItemDetails(item)}</div>
+                <span>{money(item.price * item.quantity)}</span>
               </li>
             ))}
           </ul>
-          
-          <div style={{ borderTop: '1px dashed var(--border-color)', marginTop: '12px', paddingTop: '10px', display: 'flex', flexDirection: 'column', gap: '6px', fontSize: '0.8rem', color: 'var(--text-light)' }}>
-            <div style={{ display: 'flex', justifyContent: 'space-between' }}>
-              <span>Subtotal:</span>
-              <span style={{ color: 'var(--text-dark)', fontWeight: '500' }}>S/. {(currentOrder.total || 0).toFixed(2)}</span>
-            </div>
-            {currentOrder.discount > 0 && (
-              <div style={{ display: 'flex', justifyContent: 'space-between', color: 'var(--success)', fontWeight: '600' }}>
-                <span>Descuento {currentOrder.couponCode ? `(${currentOrder.couponCode})` : ''}:</span>
-                <span>- S/. {(currentOrder.discount || 0).toFixed(2)}</span>
-              </div>
-            )}
-            <div style={{ display: 'flex', justifyContent: 'space-between' }}>
-              <span>Costo de Envío:</span>
-              <span style={{ color: 'var(--text-dark)', fontWeight: '500' }}>
-                {(currentOrder.deliveryFee || 0) === 0 ? <strong style={{ color: 'var(--success)' }}>GRATIS</strong> : `S/. ${(currentOrder.deliveryFee || 0).toFixed(2)}`}
-              </span>
-            </div>
-          </div>
-          
-          <div style={{ borderTop: '1px solid var(--border-color)', marginTop: '8px', paddingTop: '8px', display: 'flex', justifyContent: 'space-between', fontSize: '0.85rem', fontWeight: 700 }}>
-            <span>Total Pagado:</span>
-            <span style={{ color: 'var(--primary-color)', fontSize: '1rem' }}>
-              S/. {currentOrder.grandTotal.toFixed(2)}
-            </span>
-          </div>
-        </div>
-      </div>
+          <dl className="tracker-totals">
+            <div><dt>Subtotal</dt><dd>{money(currentOrder.total)}</dd></div>
+            {currentOrder.discount > 0 && <div className="is-discount"><dt>Descuento {currentOrder.couponCode ? `(${currentOrder.couponCode})` : ''}</dt><dd>- {money(currentOrder.discount)}</dd></div>}
+            {isDelivery && <div><dt>Envío</dt><dd>{(currentOrder.deliveryFee || 0) === 0 ? <strong className="is-free">GRATIS</strong> : money(currentOrder.deliveryFee)}</dd></div>}
+            <div className="is-total"><dt>Total</dt><dd>{money(currentOrder.grandTotal)}</dd></div>
+          </dl>
+          <dl className="tracker-details">
+            <div><dt>{currentOrder.customer?.tableNumber ? 'Mesa' : isDelivery ? 'Entrega en' : 'Recojo'}</dt><dd>{currentOrder.customer?.tableNumber || currentOrder.customer?.address}</dd></div>
+            <div><dt>Pago</dt><dd>{paymentDescription(currentOrder)} · {currentOrder.paymentVerified ? 'confirmado' : 'pendiente'}</dd></div>
+            {currentOrder.customer?.operationCode && <div><dt>N° operación</dt><dd>{currentOrder.customer.operationCode}</dd></div>}
+            <div><dt>A nombre de</dt><dd>{currentOrder.customer?.name} · {currentOrder.customer?.phone}</dd></div>
+          </dl>
+        </section>
       )}
 
-      <div style={{ display: 'flex', gap: '12px', justifyContent: 'center', flexWrap: 'wrap' }}>
-        <button className="btn btn-secondary" style={{ flex: '1 1 140px' }} onClick={() => setView('shop')}>
-          🍨 Volver a la Tienda
-        </button>
-        <button 
-          type="button" 
-          className="btn btn-secondary" 
-          style={{ flex: '1 1 150px' }} 
-          onClick={handleShareTrackingLink}
+      {history.length > 1 && (
+        <details className="tracker-history">
+          <summary>Ver historial con horas</summary>
+          <ol>
+            {history.map((event, idx) => (
+              <li key={idx}><span>{stageLabels[event.status] || orderStatusLabel(event.status)}</span><time>{formatPeruTime(event.timestamp)}</time></li>
+            ))}
+          </ol>
+        </details>
+      )}
+
+      <div className="tracker-actions">
+        <a
+          href={buildWhatsAppHref(storePhone || '51987654321', `¡Hola! Quisiera consultar mi pedido #${currentOrder.id} a nombre de ${currentOrder.customer?.name || 'Cliente'} 🍦`)}
+          target="_blank"
+          rel="noopener noreferrer"
+          className="btn tracker-whatsapp"
         >
-          {copiedTrackingLink ? '✅ ¡Enlace Copiado!' : '📋 Copiar Enlace'}
-        </button>
-        <a 
-          href={buildWhatsAppHref(storePhone || '51987654321', `¡Hola! Quisiera consultar el estado de mi pedido #${currentOrder.id} a nombre de ${currentOrder.customer?.name || 'Cliente'} 🍦`)} 
-          target="_blank" 
-          rel="noopener noreferrer" 
-          className="btn btn-primary"
-          style={{ background: '#25D366', borderColor: '#25D366', color: 'white', textDecoration: 'none', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '6px', flex: '1 1 160px' }}
-        >
-          💬 WhatsApp Soporte
+          💬 Consultar por WhatsApp
         </a>
+        <button type="button" className="btn btn-secondary" onClick={handleShareTrackingLink}>
+          {copiedTrackingLink ? '✅ Enlace copiado' : '🔗 Compartir seguimiento'}
+        </button>
+        <button type="button" className="btn btn-secondary" onClick={() => setView('shop')}>
+          🍨 Seguir comprando
+        </button>
       </div>
     </div>
   );

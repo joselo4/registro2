@@ -169,7 +169,7 @@ export default function CustomerShop({
     return () => observer.disconnect();
   }, [trackEvent, catalogItems, filter]);
   const activePrices = activeFlavors
-    .map(flavor => Number(flavor.price) || 0)
+    .map(flavor => quickScoopItem(flavor, bases).price)
     .filter(price => price > 0);
   const startingPrice = activePrices.length > 0
     ? Math.min(...activePrices).toFixed(2)
@@ -992,7 +992,7 @@ export default function CustomerShop({
           </div>
           <div className="hero-proof" aria-label="Beneficios de la tienda">
             <div className="hero-proof-item">
-              <strong>Desde S/. {startingPrice}</strong>
+              <strong>{String(shopConfig.heroPriceText || '').trim() || `Desde S/. ${startingPrice}`}</strong>
               <span>placer sin vueltas</span>
             </div>
             <div className="hero-proof-item">
