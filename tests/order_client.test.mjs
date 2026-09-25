@@ -36,3 +36,19 @@ test('tracking keeps not-found distinct from a failed network request', async t 
   t.mock.method(globalThis, 'fetch', async () => { throw new TypeError('connection lost'); });
   await assert.rejects(readOrder('PED-12345'), error => error.status !== 404);
 });
+
+test('a stuck auth client falls back to the saved session, or reports it', async () => {
+  const { currentSession } = await import('../src/utils/apiClient.js');
+  const stuck = { auth: { storageKey: 'sb-test-auth-token', getSession: () => new Promise(() => {}) } };
+  const values = new Map();
+  globalThis.localStorage = { getItem: key => values.get(key) ?? null };
+  try {
+    await assert.rejects(currentSession(stuck, 20), /La sesión no respondió/);
+    values.set('sb-test-auth-token', JSON.stringify({ access_token: 'saved', expires_at: Math.floor(Date.now() / 1000) + 600 }));
+    assert.equal((await currentSession(stuck, 20)).access_token, 'saved');
+    values.set('sb-test-auth-token', JSON.stringify({ access_token: 'old', expires_at: Math.floor(Date.now() / 1000) - 10 }));
+    await assert.rejects(currentSession(stuck, 20), /La sesión no respondió/);
+  } finally {
+    delete globalThis.localStorage;
+  }
+});

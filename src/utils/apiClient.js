@@ -41,13 +41,35 @@ export async function createOrder(order) {
 export const correctOrder = (id, submissionKey) => requestOrder('/api/order', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ action: 'customer_correct', id, submissionKey }) });
 export const readOrder = (id, token = '') => requestOrder(`/api/order?id=${encodeURIComponent(id)}${token ? `&token=${encodeURIComponent(token)}` : ''}`);
 
-// A stuck auth client must surface as an error, never as a button that does nothing.
-export async function currentSession(client, timeoutMs = 8000) {
-  const result = await Promise.race([
-    client.auth.getSession(),
-    new Promise((_, reject) => setTimeout(() => reject(new Error('La sesión no respondió. Recarga la página e inténtalo de nuevo.')), timeoutMs)),
-  ]);
-  return result?.data?.session || null;
+// Last resort when the auth client does not answer: the session it saved in
+// this browser, used only while its token is still valid.
+function storedSession(client) {
+  try {
+    const key = client?.auth?.storageKey;
+    const saved = key ? JSON.parse(globalThis.localStorage?.getItem(key) || 'null') : null;
+    const session = saved?.currentSession || saved;
+    if (!session?.access_token) return null;
+    if (Number(session.expires_at) && Number(session.expires_at) * 1000 < Date.now() + 30000) return null;
+    return session;
+  } catch {
+    return null;
+  }
+}
+
+// A stuck auth client must never freeze the panel: wait a few seconds, then
+// fall back to the session saved in this browser, else report it clearly.
+export async function currentSession(client, timeoutMs = 6000) {
+  try {
+    const result = await Promise.race([
+      client.auth.getSession(),
+      new Promise((_, reject) => setTimeout(() => reject(new Error('La sesión no respondió. Recarga la página e inténtalo de nuevo.')), timeoutMs)),
+    ]);
+    return result?.data?.session || null;
+  } catch (error) {
+    const saved = storedSession(client);
+    if (saved) return saved;
+    throw error;
+  }
 }
 
 export async function updateOrder(client, previous, order) {

@@ -811,7 +811,7 @@ export default function App() {
       let activeSession = null;
       try {
         if (!logoutInProgressRef.current) {
-          const { data: { session } } = await supabase.auth.getSession();
+          const session = await currentSession(supabase);
           if (session) {
             console.log("🔑 Sesión activa de Supabase recuperada:", session.user.email);
             hasActiveSession = true;

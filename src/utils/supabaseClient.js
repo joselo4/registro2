@@ -39,3 +39,4 @@ if (supabase) {
 } else {
   console.log("💾 Supabase no configurado. Utilizando base de datos local (LocalStorage) en modo fuera de línea.");
 }
+

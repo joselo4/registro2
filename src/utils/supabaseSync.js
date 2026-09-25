@@ -1,6 +1,6 @@
 import { supabase } from './supabaseClient';
 import { fetchAllSyncRows } from './orderRepository.js';
-import { apiUrl, fetchOperatorOrders } from './apiClient.js';
+import { apiUrl, currentSession, fetchOperatorOrders } from './apiClient.js';
 import { PUBLIC_STORE_KEYS, readPublicCatalog, savePublicCatalog } from './publicCatalogCache.js';
 
 // ─── Caché en memoria para reducir egress de Supabase ───────────────────────
@@ -25,6 +25,11 @@ const _writeQueues = {};
  * Si es administrador y tiene sesión activa, utiliza consultas directas protegidas por RLS.
  * Si es cliente, descarga únicamente las configuraciones públicas de la tienda.
  */
+const withTimeout = (promise, ms, label) => Promise.race([
+  promise,
+  new Promise((_, reject) => setTimeout(() => reject(new Error(`${label} tardó más de ${Math.round(ms / 1000)} s.`)), ms)),
+]);
+
 // Why the last full sync failed, so the admin panel can say it.
 let lastSyncError = '';
 export const getLastSyncError = () => lastSyncError;
@@ -49,8 +54,7 @@ export const fetchSyncedData = async (isAdmin = false, activeSession = null) => 
     let session = activeSession;
     if (!session) {
       try {
-        const { data } = await supabase.auth.getSession();
-        session = data?.session || null;
+        session = await currentSession(supabase);
       } catch (authErr) {
         console.warn("⚠️ Supabase Sync: Error al obtener sesión en fetch:", authErr.message);
       }
@@ -62,24 +66,20 @@ export const fetchSyncedData = async (isAdmin = false, activeSession = null) => 
     if (isAdmin && isSessionAdmin) {
       console.log("🔌 Solicitando datos administrativos seguros mediante consulta directa (Supabase Auth activa)...");
       // Two sources; one failing must not leave the whole panel offline.
-      let rowsError = null;
-      let ordersError = null;
-      try {
-        const data = await fetchAllSyncRows(supabase);
-        (data || []).forEach(row => {
-          syncData[row.key] = row.value;
-        });
-      } catch (error) {
-        rowsError = error;
-      }
-      // Server verifies every staff role, including drivers, cashiers and waiters
-      // whose older RLS installation may only expose public configuration.
-      let operatorOrders = null;
-      try {
-        operatorOrders = await fetchOperatorOrders(session);
-      } catch (error) {
-        ordersError = error;
-      }
+      // Both load in parallel and each has a time limit, so a slow or stuck
+      // step shows up as a reason instead of freezing the panel.
+      // The order API is authorised by the server, which also covers drivers,
+      // cashiers and waiters whose database policies only expose configuration.
+      const [rowsResult, ordersResult] = await Promise.allSettled([
+        withTimeout(fetchAllSyncRows(supabase), 15000, 'La lectura de datos de la tienda'),
+        withTimeout(fetchOperatorOrders(session), 20000, 'La lista de pedidos'),
+      ]);
+      const rowsError = rowsResult.status === 'rejected' ? rowsResult.reason : null;
+      const ordersError = ordersResult.status === 'rejected' ? ordersResult.reason : null;
+      (rowsResult.value || []).forEach(row => {
+        syncData[row.key] = row.value;
+      });
+      const operatorOrders = ordersResult.value || null;
       if (rowsError && ordersError) throw ordersError;
       if (operatorOrders) {
         Object.keys(syncData).filter(key => key.startsWith('order_') && !key.startsWith('order_call_')).forEach(key => { delete syncData[key]; });
@@ -196,8 +196,7 @@ const _executeUpsert = async (key, value) => {
   try {
     let session = null;
     try {
-      const { data } = await supabase.auth.getSession();
-      session = data?.session || null;
+      session = await currentSession(supabase);
     } catch (authErr) {
       console.warn("⚠️ Supabase Sync: Error al obtener sesión en upsert:", authErr.message);
     }
@@ -254,8 +253,7 @@ export const updateMultipleSyncedData = async (keyValuePairs) => {
   try {
     let session = null;
     try {
-      const { data } = await supabase.auth.getSession();
-      session = data?.session || null;
+      session = await currentSession(supabase);
     } catch (authErr) {
       console.warn("⚠️ Supabase Sync: Error al obtener sesión en upsert múltiple:", authErr.message);
     }
