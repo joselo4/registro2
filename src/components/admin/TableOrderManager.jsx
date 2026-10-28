@@ -870,7 +870,7 @@ export default function TableOrderManager({
       <div style={{ display: 'flex', flexDirection: 'column', gap: '15px' }}>
         
         {selectedTable ? (
-          <div className="glass" style={{ padding: '20px', borderRadius: 'var(--radius-lg)', borderLeft: '4px solid var(--primary-color)' }}>
+          <div className="glass" style={{ padding: '20px', borderRadius: 'var(--radius-lg)' }}>
             
             {/* Cabecera de Mesa Seleccionada */}
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', borderBottom: '1px solid var(--border-color)', paddingBottom: '10px', marginBottom: '12px' }}>
@@ -978,7 +978,7 @@ export default function TableOrderManager({
                   <div style={{
                     background: 'rgba(230, 126, 34, 0.12)',
                     border: '1px solid rgba(230, 126, 34, 0.3)',
-                    color: '#e67e22',
+                    color: 'var(--warning)',
                     padding: '10px',
                     borderRadius: '8px',
                     fontSize: '0.8rem',
@@ -1098,7 +1098,7 @@ export default function TableOrderManager({
                     <strong style={{ fontSize: '0.8rem', display: 'block', color: 'var(--success)', marginBottom: '8px' }}>💳 Registrar Pago y Liberar Mesa</strong>
                     <div className="form-group" style={{ marginBottom: '10px' }}>
                       <label style={{ fontSize: '0.75rem', fontWeight: 600 }}>Método de Pago:</label>
-                      <select 
+                      <select aria-label="Método de Pago" 
                         className="form-control" 
                         value={checkoutPaymentMethod}
                         onChange={(e) => setCheckoutPaymentMethod(e.target.value)}
@@ -1142,7 +1142,7 @@ export default function TableOrderManager({
                       <button
                         type="button"
                         className="btn btn-secondary"
-                        style={{ padding: '8px 12px', fontSize: '0.75rem', background: 'rgba(52, 152, 219, 0.1)', color: '#2980b9', border: '1px solid rgba(52, 152, 219, 0.3)' }}
+                        style={{ padding: '8px 12px', fontSize: '0.75rem', background: 'rgba(52, 152, 219, 0.1)', color: 'var(--info)', border: '1px solid rgba(52, 152, 219, 0.3)' }}
                         onClick={() => setShowSplitBill(!showSplitBill)}
                         title="Dividir la cuenta entre comensales"
                       >
@@ -1159,7 +1159,7 @@ export default function TableOrderManager({
                       <button
                         type="button"
                         className="btn btn-secondary"
-                        style={{ padding: '8px 12px', fontSize: '0.75rem', background: 'rgba(230, 126, 34, 0.08)', color: '#e67e22', border: '1px solid rgba(230,126,34,0.15)' }}
+                        style={{ padding: '8px 12px', fontSize: '0.75rem', background: 'rgba(230, 126, 34, 0.08)', color: 'var(--warning)', border: '1px solid rgba(230,126,34,0.15)' }}
                         onClick={() => {
                           if (window.confirm("¿Seguro que deseas liberar la mesa? Se marcará el pedido como cobrado para vaciar la mesa.")) {
                             handleCheckoutTable(activeOrder);
@@ -1179,7 +1179,7 @@ export default function TableOrderManager({
                         margin: '10px 0'
                       }}>
                         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '8px' }}>
-                          <strong style={{ fontSize: '0.82rem', color: '#2980b9' }}>🧮 División de Cuenta (Split Bill)</strong>
+                          <strong style={{ fontSize: '0.82rem', color: 'var(--info)' }}>🧮 División de Cuenta (Split Bill)</strong>
                           <button
                             type="button"
                             onClick={() => setShowSplitBill(false)}
@@ -1222,7 +1222,7 @@ export default function TableOrderManager({
                           <div style={{ fontSize: '0.75rem', color: 'var(--text-light)' }}>
                             Monto total: S/. {Number(activeOrder.grandTotal || 0).toFixed(2)} ÷ {splitPeopleCount} personas
                           </div>
-                          <div style={{ fontSize: '1.25rem', fontWeight: 'bold', color: '#2980b9', marginTop: '4px' }}>
+                          <div style={{ fontSize: '1.25rem', fontWeight: 'bold', color: 'var(--info)', marginTop: '4px' }}>
                             S/. {(activeOrder.grandTotal / splitPeopleCount).toFixed(2)} <span style={{ fontSize: '0.75rem', fontWeight: 'normal', color: '#555' }}>cada uno</span>
                           </div>
                         </div>
@@ -1377,7 +1377,7 @@ export default function TableOrderManager({
                     <div className="new-order-form-grid">
                       <div className="form-group">
                         <label style={{ fontSize: '0.75rem', fontWeight: 600 }}>Nombre Cliente:</label>
-                        <input
+                        <input aria-label="Nombre Cliente"
                           type="text"
                           placeholder={selectedTable === 'Barra' ? "Ej: Carlos o Barra" : `Ej: Mesa ${selectedTable} o Carlos`}
                           className="form-control"
@@ -1388,7 +1388,7 @@ export default function TableOrderManager({
                       </div>
                       <div className="form-group">
                         <label style={{ fontSize: '0.75rem', fontWeight: 600 }}>WhatsApp (Opcional):</label>
-                        <input
+                        <input aria-label="WhatsApp (Opcional)"
                           type="tel"
                           placeholder="Ej: 987654321"
                           className="form-control"
@@ -1399,9 +1399,9 @@ export default function TableOrderManager({
                       </div>
                       
                       {selectedTable !== 'Barra' && (
-                        <div className="form-group" style={{ gridColumn: 'span 2' }}>
+                        <div className="form-group" style={{ gridColumn: '1 / -1' }}>
                           <label style={{ fontSize: '0.75rem', fontWeight: 600 }}>Tipo de Servicio:</label>
-                          <select
+                          <select aria-label="Tipo de Servicio"
                             className="form-control"
                             style={{ fontSize: '0.8rem', padding: '6px' }}
                             value={newOrderType}

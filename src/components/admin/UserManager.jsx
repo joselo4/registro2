@@ -273,7 +273,7 @@ export default function UserManager({
         p_admin_role: currentUser.role,
         p_target_email: email,
         p_action: 'delete'
-        }, 'eliminacion de personal')
+        }, 'la eliminación de personal')
       ]);
       if (!snapshotOk || !authOk) {
         alert("Aviso: el usuario se eliminó localmente, pero no se pudo sincronizar con Supabase.");
@@ -304,7 +304,7 @@ export default function UserManager({
       p_status: userToToggle?.status || 'Activo',
       p_password: sanitizedPassword,
       p_action: 'upsert'
-    }, 'actualizacion de contraseña');
+    }, 'la actualización de contraseña');
     if (!syncOk) {
       alert("Aviso: no se pudo actualizar la contraseña en Supabase.");
     } else {
@@ -358,7 +358,7 @@ export default function UserManager({
       p_role: editingUser.role,
       p_status: targetUser?.status || 'Activo',
       p_action: 'upsert'
-      }, 'edicion de personal')
+      }, 'la edición de personal')
     ]);
     if (!snapshotOk || !authOk) {
       alert("Aviso: los cambios de perfil quedaron locales, pero no se pudieron sincronizar con Supabase.");
@@ -390,11 +390,11 @@ export default function UserManager({
       {/* Formulario Crear */}
       {showAddUser && (
         <form onSubmit={handleAddUserSubmit} className="glass" style={{ padding: '15px', marginBottom: '20px', display: 'flex', flexDirection: 'column', gap: '10px' }}>
-          <div className="form-group"><label>Nombre</label><input type="text" className="form-control" value={newUser.name} onChange={(e) => setNewUser({ ...newUser, name: e.target.value })} required /></div>
-          <div className="form-group"><label>Correo Electrónico (Login)</label><input type="email" className="form-control" value={newUser.email} onChange={(e) => setNewUser({ ...newUser, email: e.target.value })} required /></div>
+          <div className="form-group"><label>Nombre</label><input aria-label="Nombre" type="text" className="form-control" value={newUser.name} onChange={(e) => setNewUser({ ...newUser, name: e.target.value })} required /></div>
+          <div className="form-group"><label>Correo Electrónico (Login)</label><input aria-label="Correo Electrónico (Login)" type="email" className="form-control" value={newUser.email} onChange={(e) => setNewUser({ ...newUser, email: e.target.value })} required /></div>
           <div className="form-group">
             <label>Rol de Trabajo</label>
-            <select className="form-control" value={newUser.role} onChange={(e) => setNewUser({ ...newUser, role: e.target.value })}>
+            <select aria-label="Rol de Trabajo" className="form-control" value={newUser.role} onChange={(e) => setNewUser({ ...newUser, role: e.target.value })}>
               <option value="Administrador">Administrador</option>
               <option value="Vendedor">Vendedor</option>
               <option value="Cocina">Cocina / Preparador</option>
@@ -405,7 +405,7 @@ export default function UserManager({
           </div>
           <div className="form-group">
             <label>Teléfono / WhatsApp (Motorizado / Personal)</label>
-            <input 
+            <input aria-label="Teléfono / WhatsApp (Motorizado / Personal)" 
               type="tel" 
               className="form-control" 
               placeholder="Ej: 987654321" 
@@ -413,7 +413,7 @@ export default function UserManager({
               onChange={(e) => setNewUser({ ...newUser, phone: e.target.value })} 
             />
           </div>
-          <div className="form-group"><label>Contraseña</label><input type="password" className="form-control" value={newUser.password} onChange={(e) => setNewUser({ ...newUser, password: e.target.value })} required /></div>
+          <div className="form-group"><label>Contraseña</label><input aria-label="Contraseña" type="password" className="form-control" value={newUser.password} onChange={(e) => setNewUser({ ...newUser, password: e.target.value })} required /></div>
           <button type="submit" className="btn btn-primary" style={{ padding: '8px' }}>Guardar e Inscribir</button>
         </form>
       )}
@@ -424,7 +424,7 @@ export default function UserManager({
           <strong>Cambiar contraseña de: {editingUserPassword}</strong>
           <div className="form-group">
             <label>Nueva Clave de Acceso</label>
-            <input type="password" className="form-control" value={newPasswordForUser} onChange={(e) => setNewPasswordForUser(e.target.value)} required />
+            <input aria-label="Nueva Clave de Acceso" type="password" className="form-control" value={newPasswordForUser} onChange={(e) => setNewPasswordForUser(e.target.value)} required />
           </div>
           <div style={{ display: 'flex', gap: '8px' }}>
             <button type="submit" className="btn btn-primary" style={{ flex: 1, padding: '6px' }}>Actualizar Contraseña</button>
@@ -439,7 +439,7 @@ export default function UserManager({
           <strong>✏️ Editar Permisos y Datos de: {editingUser.email}</strong>
           <div className="form-group">
             <label>Nombre Completo</label>
-            <input 
+            <input aria-label="Nombre Completo" 
               type="text" 
               className="form-control" 
               value={editingUser.name} 
@@ -449,7 +449,7 @@ export default function UserManager({
           </div>
           <div className="form-group">
             <label>Rol de Trabajo</label>
-            <select 
+            <select aria-label="Rol de Trabajo" 
               className="form-control" 
               value={editingUser.role} 
               onChange={(e) => setEditingUser({ ...editingUser, role: e.target.value })}
@@ -464,7 +464,7 @@ export default function UserManager({
           </div>
           <div className="form-group">
             <label>Teléfono / WhatsApp</label>
-            <input 
+            <input aria-label="Teléfono / WhatsApp" 
               type="tel" 
               className="form-control" 
               placeholder="Ej: 987654321" 
@@ -545,7 +545,7 @@ export default function UserManager({
                     <strong>{user.name}</strong>
                     <div style={{ fontSize: '0.75rem', color: 'var(--text-light)' }}>{user.email}</div>
                     {user.phone && (
-                      <div style={{ fontSize: '0.72rem', color: 'var(--delivery-color, #FF441F)', fontWeight: 600, marginTop: '2px' }}>
+                      <div style={{ fontSize: '0.72rem', color: 'var(--delivery-ink)', fontWeight: 600, marginTop: '2px' }}>
                         📞 {user.phone}
                       </div>
                     )}

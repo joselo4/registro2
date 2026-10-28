@@ -217,15 +217,15 @@ export default function OrderTaker({ catalog, onPlaceOrder, showAlert, shopConfi
         {!channels.Mesa && !channels.Barra && <p style={{ color: 'var(--text-light)' }}>El tomador de pedidos está inactivo. Activa mesas o barra en Ajustes.</p>}
         <div className="form-group">
           <label style={{ fontSize: '0.8rem', fontWeight: 600 }}>Tipo de Atención</label>
-          <select className="form-control" value={orderType} onChange={(e) => setOrderType(e.target.value)}>
+          <select aria-label="Tipo de Atención" className="form-control" value={orderType} onChange={(e) => setOrderType(e.target.value)}>
             {channels.Barra && <option value="Barra">Atención en Barra / Tienda</option>}
             {channels.Mesa && <option value="Mesa">Atención en Mesa</option>}
           </select>
         </div>
-        {orderType === 'Mesa' && <div className="form-group"><label style={{ fontSize: '0.8rem', fontWeight: 600 }}>Número de mesa</label><select className="form-control" value={tableNumber} onChange={e => setTableNumber(e.target.value)}><option value="">Selecciona una mesa</option>{Array.from({ length: Number(shopConfig?.totalTables) || 12 }, (_, i) => i + 1).map(number => <option key={number} value={number} disabled={orders.some(o => ['Mesa', 'Mesa_Llevar'].includes(o.customer?.orderType) && String(o.customer?.tableNumber) === String(number) && o.status !== 'Cancelado' && !o.tablePaid)}>Mesa {number}</option>)}</select></div>}
+        {orderType === 'Mesa' && <div className="form-group"><label style={{ fontSize: '0.8rem', fontWeight: 600 }}>Número de mesa</label><select aria-label="Número de mesa" className="form-control" value={tableNumber} onChange={e => setTableNumber(e.target.value)}><option value="">Selecciona una mesa</option>{Array.from({ length: Number(shopConfig?.totalTables) || 12 }, (_, i) => i + 1).map(number => <option key={number} value={number} disabled={orders.some(o => ['Mesa', 'Mesa_Llevar'].includes(o.customer?.orderType) && String(o.customer?.tableNumber) === String(number) && o.status !== 'Cancelado' && !o.tablePaid)}>Mesa {number}</option>)}</select></div>}
         <div className="form-group">
           <label style={{ fontSize: '0.8rem', fontWeight: 600 }}>Nombre del cliente (opcional)</label>
-          <input type="text" className="form-control" placeholder="Ej: Carlos" value={customerName} onChange={(e) => setCustomerName(e.target.value)} />
+          <input aria-label="Nombre del cliente (opcional)" type="text" className="form-control" placeholder="Ej: Carlos" value={customerName} onChange={(e) => setCustomerName(e.target.value)} />
         </div>
 
         {/* Builder Activo */}
@@ -366,7 +366,7 @@ export default function OrderTaker({ catalog, onPlaceOrder, showAlert, shopConfi
                       />
                       <button 
                         onClick={() => handleRemoveItem(idx)} 
-                        style={{ background: 'none', border: 'none', color: '#e74c3c', cursor: 'pointer', padding: '0 4px', fontSize: '1.1rem', fontWeight: 'bold' }}
+                        style={{ background: 'none', border: 'none', color: 'var(--danger)', cursor: 'pointer', padding: '0 4px', fontSize: '1.1rem', fontWeight: 'bold' }}
                         title="Eliminar producto"
                       >
                         ×
@@ -501,27 +501,27 @@ export default function OrderTaker({ catalog, onPlaceOrder, showAlert, shopConfi
             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(130px, 1fr))', gap: '8px' }}>
               <button
                 type="button"
-                style={{ padding: '9px 8px', background: '#fff7ed', border: '1px solid #fdba74', borderRadius: '8px', cursor: 'pointer', textAlign: 'center' }}
+                style={{ padding: '9px 8px', background: 'color-mix(in srgb, var(--warning) 12%, var(--bg-secondary))', border: '1px solid #fdba74', borderRadius: '8px', cursor: 'pointer', textAlign: 'center' }}
                 onClick={() => handleAddDirectItem({ id: 'quick_cono_1', type: 'quick_ice', name: 'Cono Simple (1 Bola)', price: 5.0 })}
               >
                 <span style={{ display: 'block', fontWeight: 700, fontSize: '0.84rem' }}>🍦 Cono 1 Bola</span>
-                <span style={{ color: '#ea580c', fontSize: '0.8rem', fontWeight: 'bold' }}>S/. 5.00</span>
+                <span style={{ color: 'var(--warning)', fontSize: '0.8rem', fontWeight: 'bold' }}>S/. 5.00</span>
               </button>
               <button
                 type="button"
-                style={{ padding: '9px 8px', background: '#fff7ed', border: '1px solid #fdba74', borderRadius: '8px', cursor: 'pointer', textAlign: 'center' }}
+                style={{ padding: '9px 8px', background: 'color-mix(in srgb, var(--warning) 12%, var(--bg-secondary))', border: '1px solid #fdba74', borderRadius: '8px', cursor: 'pointer', textAlign: 'center' }}
                 onClick={() => handleAddDirectItem({ id: 'quick_cono_2', type: 'quick_ice', name: 'Cono Doble (2 Bolas)', price: 8.0 })}
               >
                 <span style={{ display: 'block', fontWeight: 700, fontSize: '0.84rem' }}>🍦🍦 Cono 2 Bolas</span>
-                <span style={{ color: '#ea580c', fontSize: '0.8rem', fontWeight: 'bold' }}>S/. 8.00</span>
+                <span style={{ color: 'var(--warning)', fontSize: '0.8rem', fontWeight: 'bold' }}>S/. 8.00</span>
               </button>
               <button
                 type="button"
-                style={{ padding: '9px 8px', background: '#fdf4ff', border: '1px solid #f0abfc', borderRadius: '8px', cursor: 'pointer', textAlign: 'center' }}
+                style={{ padding: '9px 8px', background: 'color-mix(in srgb, var(--accent-violet) 12%, var(--bg-secondary))', border: '1px solid #f0abfc', borderRadius: '8px', cursor: 'pointer', textAlign: 'center' }}
                 onClick={() => handleAddDirectItem({ id: 'quick_copa_3', type: 'quick_ice', name: 'Copa Artesanal (3 Bolas)', price: 12.0 })}
               >
                 <span style={{ display: 'block', fontWeight: 700, fontSize: '0.84rem' }}>🍨 Copa 3 Bolas</span>
-                <span style={{ color: '#c026d3', fontSize: '0.8rem', fontWeight: 'bold' }}>S/. 12.00</span>
+                <span style={{ color: 'var(--accent-violet)', fontSize: '0.8rem', fontWeight: 'bold' }}>S/. 12.00</span>
               </button>
             </div>
           </div>
@@ -536,11 +536,11 @@ export default function OrderTaker({ catalog, onPlaceOrder, showAlert, shopConfi
                 <button
                   key={p.id}
                   type="button"
-                  style={{ padding: '9px 8px', background: '#eff6ff', border: '1px solid #93c5fd', borderRadius: '8px', cursor: 'pointer', textAlign: 'center' }}
+                  style={{ padding: '9px 8px', background: 'color-mix(in srgb, var(--info) 12%, var(--bg-secondary))', border: '1px solid #93c5fd', borderRadius: '8px', cursor: 'pointer', textAlign: 'center' }}
                   onClick={() => handleAddDirectItem({ id: p.id, type: 'popsicle', name: 'Paleta: ' + p.name, price: Number(p.price || 3.0) })}
                 >
                   <span style={{ display: 'block', fontWeight: 700, fontSize: '0.84rem', marginBottom: '3px' }}>🍭 {p.name}</span>
-                  <span style={{ color: '#2563eb', fontSize: '0.8rem', fontWeight: 'bold' }}>S/. {Number(p.price || 3.0).toFixed(2)}</span>
+                  <span style={{ color: 'var(--info)', fontSize: '0.8rem', fontWeight: 'bold' }}>S/. {Number(p.price || 3.0).toFixed(2)}</span>
                 </button>
               ))}
             </div>
@@ -555,22 +555,22 @@ export default function OrderTaker({ catalog, onPlaceOrder, showAlert, shopConfi
               {literConfig?.active !== false && (
                 <button
                   type="button"
-                  style={{ padding: '9px 8px', background: '#fffbeb', border: '1px solid #fcd34d', borderRadius: '8px', cursor: 'pointer', textAlign: 'center' }}
+                  style={{ padding: '9px 8px', background: 'color-mix(in srgb, var(--warning) 12%, var(--bg-secondary))', border: '1px solid #fcd34d', borderRadius: '8px', cursor: 'pointer', textAlign: 'center' }}
                   onClick={() => handleAddDirectItem({ id: 'liter', type: 'liter', name: 'Helado 1 Litro Familiar', price: Number(literConfig?.price || 15.0) })}
                 >
                   <span style={{ display: 'block', fontWeight: 700, fontSize: '0.84rem', marginBottom: '3px' }}>🍨 Litro Familiar</span>
-                  <span style={{ color: '#d97706', fontSize: '0.8rem', fontWeight: 'bold' }}>S/. {Number(literConfig?.price || 15.0).toFixed(2)}</span>
+                  <span style={{ color: 'var(--warning)', fontSize: '0.8rem', fontWeight: 'bold' }}>S/. {Number(literConfig?.price || 15.0).toFixed(2)}</span>
                 </button>
               )}
               {packs.filter(p => p.active !== false).map(p => (
                 <button
                   key={p.id}
                   type="button"
-                  style={{ padding: '9px 8px', background: '#f0fdf4', border: '1px solid #86efac', borderRadius: '8px', cursor: 'pointer', textAlign: 'center' }}
+                  style={{ padding: '9px 8px', background: 'color-mix(in srgb, var(--success) 12%, var(--bg-secondary))', border: '1px solid #86efac', borderRadius: '8px', cursor: 'pointer', textAlign: 'center' }}
                   onClick={() => handleAddDirectItem({ id: p.id, type: 'pack', name: 'Pack: ' + p.name, price: Number(p.price) })}
                 >
                   <span style={{ display: 'block', fontWeight: 700, fontSize: '0.84rem', marginBottom: '3px' }}>🎁 {p.name}</span>
-                  <span style={{ color: '#16a34a', fontSize: '0.8rem', fontWeight: 'bold' }}>S/. {Number(p.price).toFixed(2)}</span>
+                  <span style={{ color: 'var(--success)', fontSize: '0.8rem', fontWeight: 'bold' }}>S/. {Number(p.price).toFixed(2)}</span>
                 </button>
               ))}
             </div>

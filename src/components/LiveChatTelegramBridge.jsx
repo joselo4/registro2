@@ -82,7 +82,7 @@ export default function LiveChatTelegramBridge({
           cursor: pointer;
           box-shadow: 0 4px 15px rgba(255, 107, 129, 0.4);
           z-index: 9999;
-          transition: bottom 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275), transform 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275), box-shadow 0.3s ease;
+          transition: bottom 0.3s cubic-bezier(0.16, 1, 0.3, 1), transform 0.3s cubic-bezier(0.16, 1, 0.3, 1), box-shadow 0.3s ease;
         }
         .live-chat-bubble:hover {
           transform: scale(1.1);
@@ -104,7 +104,7 @@ export default function LiveChatTelegramBridge({
           overflow: hidden;
           display: flex;
           flex-direction: column;
-          transition: bottom 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+          transition: bottom 0.3s cubic-bezier(0.16, 1, 0.3, 1);
           animation: slideUpIn 0.3s cubic-bezier(0.165, 0.84, 0.44, 1);
         }
         @keyframes slideUpIn {
@@ -177,7 +177,7 @@ export default function LiveChatTelegramBridge({
         }
         .live-chat-success-icon {
           font-size: 3rem;
-          animation: scalePop 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+          animation: scalePop 0.4s cubic-bezier(0.16, 1, 0.3, 1);
         }
         @keyframes scalePop {
           0% { transform: scale(0.5); }

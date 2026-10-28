@@ -38,7 +38,7 @@
 .cart-container .whatsapp-toggle-container { padding: 14px; background: var(--bg-primary); border: 1px solid var(--border-color); border-radius: 12px; }
 .whatsapp-toggle-label { font-size: .875rem !important; line-height: 1.5; cursor: pointer; }
 .checkout-assurance { color: var(--text-light); font-size: .875rem; line-height: 1.6; text-align: center; }
-.checkout-error { padding: 16px; border: 1px solid var(--danger); border-left-width: 4px; border-radius: 12px; color: var(--danger); font-size: .9375rem; line-height: 1.6; overflow-wrap: anywhere; }
+.checkout-error { padding: 16px; border: 1px solid var(--danger); background: color-mix(in srgb, var(--danger) 6%, transparent); border-radius: 12px; color: var(--danger); font-size: .9375rem; line-height: 1.6; overflow-wrap: anywhere; }
 .checkout-error p { margin: 4px 0; }
 .cart-empty { max-width: 580px; margin: 40px auto; padding: 40px 24px; text-align: center; }
 .cart-empty img { display: block; object-fit: contain; margin: 20px auto; }

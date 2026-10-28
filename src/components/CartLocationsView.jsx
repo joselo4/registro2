@@ -222,13 +222,13 @@ export default function CartLocationsView({
       clearInterval(updateTimerRef.current);
       updateTimerRef.current = null;
     }
-    showAlert?.('Ubicacion pausada', 'Tu carrito dejo de compartir posicion.', 'success');
+    showAlert?.('Ubicación pausada', 'Tu carrito dejó de compartir su posición.', 'success');
   };
 
   const shareCurrentPosition = async () => {
     if (!canManageLocation || !onUpdateCartLocations) return;
     if (shopConfig?.locationTrackingEnabled === false) {
-      showAlert?.('Funcion desactivada', 'El administrador desactivo el servicio de ubicacion.', 'warning');
+      showAlert?.('Función desactivada', 'El administrador desactivó el servicio de ubicación.', 'warning');
       return;
     }
 
@@ -254,7 +254,7 @@ export default function CartLocationsView({
       persistCart(nextCart);
       currentCartIdRef.current = nextCart.id;
       setIsSharing(true);
-      showAlert?.('Ubicacion compartida', 'Tu carrito ya aparece en el mapa publico.', 'success');
+      showAlert?.('Ubicación compartida', 'Tu carrito ya aparece en el mapa público.', 'success');
 
       // Reset the 10-minute timer countdown so it starts fresh from this manual update!
       if (updateTimerRef.current) {
@@ -264,7 +264,7 @@ export default function CartLocationsView({
         shareCurrentPositionRef.current();
       }, UPDATE_INTERVAL_MS);
     } catch {
-      showAlert?.('No se pudo obtener la ubicacion', 'Activa el permiso de ubicacion del vendedor para continuar.', 'error');
+      showAlert?.('No se pudo obtener la ubicación', 'Activa el permiso de ubicación del vendedor para continuar.', 'error');
     } finally {
       setIsLoadingPosition(false);
     }
@@ -424,11 +424,11 @@ export default function CartLocationsView({
       </div>
 
       {mode !== 'public' && (
-        <div className="glass-card" style={{ padding: '14px', marginBottom: '14px', background: 'rgba(255,255,255,0.4)' }}>
+        <div className="glass-card" style={{ padding: '14px', marginBottom: '14px', background: 'color-mix(in srgb, var(--bg-secondary) 40%, transparent)' }}>
           {!canManageLocation ? (
-            <div style={{ color: 'var(--danger)', fontWeight: 600 }}>No tienes permiso para compartir ubicacion.</div>
+            <div style={{ color: 'var(--danger)', fontWeight: 600 }}>No tienes permiso para compartir la ubicación.</div>
           ) : (
-            <div style={{ display: 'grid', gridTemplateColumns: '1fr auto', gap: '10px', alignItems: 'end' }}>
+            <div className="admin-split admin-split-end" style={{ display: 'grid', gap: '10px', alignItems: 'end' }}>
               <div className="form-group" style={{ marginBottom: 0 }}>
                 <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '6px', flexWrap: 'wrap' }}>
                   <label style={{ margin: 0 }}>Nombre visible del carrito</label>
@@ -441,7 +441,7 @@ export default function CartLocationsView({
                     fontSize: '0.72rem',
                     fontWeight: 'bold',
                     background: isSharing ? 'rgba(46, 204, 113, 0.15)' : 'rgba(231, 76, 60, 0.15)',
-                    color: isSharing ? '#2ecc71' : '#e74c3c',
+                    color: isSharing ? 'var(--success)' : 'var(--danger)',
                     border: '1px solid currentColor'
                   }}>
                     <span style={{
@@ -455,7 +455,7 @@ export default function CartLocationsView({
                     {isSharing ? 'Transmitiendo en vivo' : 'Transmisión pausada'}
                   </span>
                 </div>
-                <input
+                <input aria-label="Nombre visible del carrito"
                   className="form-control"
                   value={cartLabel}
                   onChange={(e) => setCartLabel(e.target.value)}
@@ -463,7 +463,7 @@ export default function CartLocationsView({
                   onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); handleLabelBlur(); e.target.blur(); } }}
                   placeholder="Carrito Centro"
                 />
-                <small style={{ color: 'var(--text-light)', display: 'block', marginTop: '4px' }}>Ahorro de bateria activo: la ubicacion se envia cada 10 minutos.</small>
+                <small style={{ color: 'var(--text-light)', display: 'block', marginTop: '4px' }}>Ahorro de batería activo: la ubicación se envía cada 10 minutos.</small>
               </div>
               <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
                 <button
@@ -472,7 +472,7 @@ export default function CartLocationsView({
                   onClick={shareCurrentPosition}
                   disabled={shopConfig?.locationTrackingEnabled === false || isLoadingPosition}
                 >
-                  {isLoadingPosition ? 'Actualizando...' : isSharing ? 'Actualizar ahora' : 'Compartir ubicacion'}
+                  {isLoadingPosition ? 'Actualizando...' : isSharing ? 'Actualizar ahora' : 'Compartir ubicación'}
                 </button>
                 <button
                   className="btn btn-secondary"
@@ -535,12 +535,12 @@ export default function CartLocationsView({
           <div style={{ color: 'var(--text-light)', marginBottom: '14px' }}>{mapError}</div>
           <div style={{ display: 'grid', gap: '10px' }}>
             {visibleCarts.length === 0 ? (
-              <div style={{ color: 'var(--text-light)' }}>Aun no hay carritos con ubicacion compartida.</div>
+              <div style={{ color: 'var(--text-light)' }}>Aún no hay carritos con ubicación compartida.</div>
             ) : visibleCarts.map((cart) => (
-              <div key={cart.id || cart.email || `${cart.lat}-${cart.lng}`} className="glass" style={{ padding: '12px', borderRadius: '12px', background: 'rgba(255,255,255,0.35)' }}>
+              <div key={cart.id || cart.email || `${cart.lat}-${cart.lng}`} className="glass" style={{ padding: '12px', borderRadius: '12px', background: 'color-mix(in srgb, var(--bg-secondary) 35%, transparent)' }}>
                 <strong>{cart.label || cart.name || 'Carrito'}</strong>
                 <div style={{ fontSize: '0.82rem', color: 'var(--text-light)' }}>
-                  Ultima ubicacion: {formatTime(cart.updatedAt || cart.lastUpdated)}
+                  Última ubicación: {formatTime(cart.updatedAt || cart.lastUpdated)}
                 </div>
               </div>
             ))}
@@ -566,10 +566,10 @@ export default function CartLocationsView({
               <strong style={{ fontSize: '1rem', color: 'var(--text-dark)' }}>🚚 Carritos Activos en la Calle</strong>
               <span style={{ color: 'var(--text-light)', fontSize: '0.78rem' }}>Los vendedores deciden cuándo compartir su posición.</span>
             </div>
-            <div style={{ display: 'grid', gap: '12px', gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))' }}>
+            <div style={{ display: 'grid', gap: '12px', gridTemplateColumns: 'repeat(auto-fit, minmax(min(280px, 100%), 1fr))' }}>
               {visibleCarts.length === 0 ? (
                 <div style={{ color: 'var(--text-light)', gridColumn: '1 / -1', textAlign: 'center', padding: '20px', fontStyle: 'italic' }}>
-                  Aun no hay carritos con ubicacion compartida.
+                  Aún no hay carritos con ubicación compartida.
                 </div>
               ) : visibleCarts.map((cart) => (
                 <div 
@@ -651,7 +651,7 @@ export default function CartLocationsView({
                           borderRadius: 'var(--radius-sm)',
                           backgroundColor: 'var(--bg-primary)',
                           borderColor: 'var(--border-color)',
-                          color: '#4285F4',
+                          color: 'var(--info)',
                           fontWeight: 600
                         }}
                         title="Abrir ubicación en Google Maps"
@@ -673,7 +673,7 @@ export default function CartLocationsView({
                           borderRadius: 'var(--radius-sm)',
                           backgroundColor: 'var(--bg-primary)',
                           borderColor: 'var(--border-color)',
-                          color: '#00b894',
+                          color: 'var(--success)',
                           fontWeight: 600
                         }}
                         title="Abrir ruta en Waze"

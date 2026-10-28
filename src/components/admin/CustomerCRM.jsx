@@ -109,13 +109,13 @@ const formatPeruvianPhoneForWhatsApp = (rawPhone) => {
 
 // Etiquetas predeterminadas recomendadas
 const DEFAULT_TAG_OPTIONS = [
-  { label: '🌟 VIP Oro', color: '#f39c12' },
-  { label: '🛵 Delivery Frecuente', color: '#3498db' },
-  { label: '🍦 Fan del Helado', color: '#9b59b6' },
-  { label: '🎂 Cumpleañero', color: '#e91e63' },
+  { label: '🌟 VIP Oro', color: 'var(--warning)' },
+  { label: '🛵 Delivery Frecuente', color: 'var(--info)' },
+  { label: '🍦 Fan del Helado', color: 'var(--accent-violet)' },
+  { label: '🎂 Cumpleañero', color: 'var(--primary-color)' },
   { label: '🏢 Corporativo', color: '#34495e' },
-  { label: '💳 Paga con Yape', color: '#00b894' },
-  { label: '🚫 Exigente/Especial', color: '#e17055' }
+  { label: '💳 Paga con Yape', color: 'var(--success)' },
+  { label: '🚫 Exigente/Especial', color: 'var(--danger)' }
 ];
 
 /**
@@ -650,7 +650,7 @@ function CustomerCRMContent({
           <span style={{ fontSize: '0.72rem', color: 'var(--text-light)', textTransform: 'uppercase', fontWeight: 700 }}>
             LTV Acumulado
           </span>
-          <div style={{ fontSize: '1.55rem', fontWeight: 800, color: '#27ae60', marginTop: '4px' }}>
+          <div style={{ fontSize: '1.55rem', fontWeight: 800, color: 'var(--success)', marginTop: '4px' }}>
             S/ {metrics.totalLtv.toFixed(2)}
           </div>
           <span style={{ fontSize: '0.72rem', color: 'var(--text-light)' }}>Ventas generadas</span>
@@ -660,17 +660,17 @@ function CustomerCRMContent({
           <span style={{ fontSize: '0.72rem', color: 'var(--text-light)', textTransform: 'uppercase', fontWeight: 700 }}>
             Clientes VIP
           </span>
-          <div style={{ fontSize: '1.55rem', fontWeight: 800, color: '#f39c12', marginTop: '4px' }}>
+          <div style={{ fontSize: '1.55rem', fontWeight: 800, color: 'var(--warning)', marginTop: '4px' }}>
             {metrics.vipCount}
           </div>
-          <span style={{ fontSize: '0.72rem', color: '#f39c12' }}>≥ S/ 80 o ≥ 4 compras</span>
+          <span style={{ fontSize: '0.72rem', color: 'var(--warning)' }}>≥ S/ 80 o ≥ 4 compras</span>
         </div>
 
         <div className="glass-card" style={{ padding: '14px', borderRadius: '14px' }}>
           <span style={{ fontSize: '0.72rem', color: 'var(--text-light)', textTransform: 'uppercase', fontWeight: 700 }}>
             Frecuentes
           </span>
-          <div style={{ fontSize: '1.55rem', fontWeight: 800, color: '#2980b9', marginTop: '4px' }}>
+          <div style={{ fontSize: '1.55rem', fontWeight: 800, color: 'var(--info)', marginTop: '4px' }}>
             {metrics.frequentCount}
           </div>
           <span style={{ fontSize: '0.72rem', color: 'var(--text-light)' }}>≥ 2 compras</span>
@@ -688,13 +688,13 @@ function CustomerCRMContent({
 
         {metrics.birthdayMonthCount > 0 && (
           <div className="glass-card" style={{ padding: '14px', borderRadius: '14px', border: '1px solid #e91e63' }}>
-            <span style={{ fontSize: '0.72rem', color: '#e91e63', textTransform: 'uppercase', fontWeight: 700 }}>
+            <span style={{ fontSize: '0.72rem', color: 'var(--primary-color)', textTransform: 'uppercase', fontWeight: 700 }}>
               🎂 Cumpleañeros Mes
             </span>
-            <div style={{ fontSize: '1.55rem', fontWeight: 800, color: '#e91e63', marginTop: '4px' }}>
+            <div style={{ fontSize: '1.55rem', fontWeight: 800, color: 'var(--primary-color)', marginTop: '4px' }}>
               {metrics.birthdayMonthCount}
             </div>
-            <span style={{ fontSize: '0.72rem', color: '#e91e63' }}>¡Envíales su regalo!</span>
+            <span style={{ fontSize: '0.72rem', color: 'var(--primary-color)' }}>¡Envíales su regalo!</span>
           </div>
         )}
       </div>
@@ -706,7 +706,7 @@ function CustomerCRMContent({
             <input
               type="text"
               className="form-control"
-              placeholder="🔍 Buscar cliente por nombre, teléfono, dirección, sabor, etiquetas..."
+              aria-label="Buscar cliente" placeholder="🔍 Buscar cliente por nombre, teléfono, dirección, sabor, etiquetas..."
               value={search}
               onChange={(e) => setSearch(e.target.value)}
               style={{ width: '100%', fontSize: '0.9rem', padding: '8px 14px' }}
@@ -718,7 +718,7 @@ function CustomerCRMContent({
               <label style={{ fontSize: '0.82rem', color: 'var(--text-light)', fontWeight: 600, margin: 0 }}>
                 Ordenar:
               </label>
-              <select
+              <select aria-label="Ordenar"
                 className="form-control"
                 value={sortBy}
                 onChange={(e) => setSortBy(e.target.value)}
@@ -737,7 +737,7 @@ function CustomerCRMContent({
               <label style={{ fontSize: '0.82rem', color: 'var(--text-light)', fontWeight: 600, margin: 0 }}>
                 Etiqueta:
               </label>
-              <select
+              <select aria-label="Etiqueta"
                 className="form-control"
                 value={selectedTagFilter}
                 onChange={(e) => setSelectedTagFilter(e.target.value)}
@@ -796,7 +796,7 @@ function CustomerCRMContent({
           <p style={{ margin: 0, fontSize: '0.88rem' }}>Intenta ajustar el término de búsqueda o el filtro de segmento.</p>
         </div>
       ) : (
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(330px, 1fr))', gap: '16px' }}>
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(min(330px, 100%), 1fr))', gap: '16px' }}>
           {filteredCustomers.map(customer => {
             const customerKey = customer.key;
 
@@ -853,15 +853,15 @@ function CustomerCRMContent({
                       fontWeight: 700,
                       padding: '3px 8px',
                       borderRadius: '10px',
-                      backgroundColor: `${customer.segmentColor}18`,
+                      backgroundColor: `color-mix(in srgb, ${customer.segmentColor} 9%, transparent)`,
                       color: customer.segmentColor,
-                      border: `1px solid ${customer.segmentColor}40`,
+                      border: `1px solid color-mix(in srgb, ${customer.segmentColor} 25%, transparent)`,
                       whiteSpace: 'nowrap'
                     }}>
                       {customer.segmentLabel}
                     </span>
                     {customer.isBirthdayMonth && (
-                      <span style={{ fontSize: '0.68rem', color: '#e91e63', fontWeight: 800 }} title="Cumpleaños en este mes">
+                      <span style={{ fontSize: '0.68rem', color: 'var(--primary-color)', fontWeight: 800 }} title="Cumpleaños en este mes">
                         🎂 Cumple este mes
                       </span>
                     )}
@@ -919,7 +919,7 @@ function CustomerCRMContent({
                 {/* Resumen de Métricas de Compra */}
                 <div style={{
                   display: 'grid',
-                  gridTemplateColumns: '1fr 1fr 1fr',
+                  gridTemplateColumns: 'repeat(3, minmax(0, 1fr))',
                   background: 'var(--bg-secondary)',
                   borderRadius: '12px',
                   padding: '8px 10px',
@@ -932,7 +932,7 @@ function CustomerCRMContent({
                   </div>
                   <div>
                     <span style={{ fontSize: '0.66rem', color: 'var(--text-light)', display: 'block' }}>Inversión (LTV)</span>
-                    <strong style={{ fontSize: '0.88rem', color: '#27ae60' }}>S/ {customer.totalSpent.toFixed(2)}</strong>
+                    <strong style={{ fontSize: '0.88rem', color: 'var(--success)' }}>S/ {customer.totalSpent.toFixed(2)}</strong>
                   </div>
                   <div>
                     <span style={{ fontSize: '0.66rem', color: 'var(--text-light)', display: 'block' }}>Ticket Prom.</span>
@@ -964,7 +964,7 @@ function CustomerCRMContent({
                 <div style={{ marginTop: 'auto' }}>
                   <input
                     type="text"
-                    placeholder="📝 Nota rápida (ej: timbre malogrado, prefiere Yape)..."
+                    aria-label="Nota rápida del cliente" placeholder="📝 Nota rápida (ej: timbre malogrado, prefiere Yape)..."
                     defaultValue={customer.note}
                     onBlur={(e) => handleSaveNote(customerKey, e.target.value)}
                     onKeyDown={(e) => {
@@ -986,7 +986,7 @@ function CustomerCRMContent({
                 </div>
 
                 {/* Botonera de Acciones Rápidas */}
-                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '6px', paddingTop: '4px' }}>
+                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, minmax(0, 1fr))', gap: '6px', paddingTop: '4px' }}>
                   <button
                     type="button"
                     className="btn btn-primary"
@@ -999,8 +999,8 @@ function CustomerCRMContent({
                       alignItems: 'center',
                       justifyContent: 'center',
                       gap: '5px',
-                      backgroundColor: '#25D366',
-                      borderColor: '#25D366',
+                      backgroundColor: '#0E7A5C',
+                      borderColor: '#0E7A5C',
                       color: '#ffffff'
                     }}
                   >
@@ -1322,7 +1322,7 @@ function WhatsAppCampaignModal({ customer, storeName, coupons = [], onClose, sho
             <label style={{ fontSize: '0.82rem', fontWeight: 600, color: 'var(--text-dark)', display: 'block', marginBottom: '6px' }}>
               Selecciona el tipo de mensaje:
             </label>
-            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '6px' }}>
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, minmax(0, 1fr))', gap: '6px' }}>
               {[
                 { id: 'promo_fav', label: '🍨 Promoción Favorito' },
                 { id: 'birthday', label: '🎂 Saludo Cumpleaños' },
@@ -1359,7 +1359,7 @@ function WhatsAppCampaignModal({ customer, storeName, coupons = [], onClose, sho
               <label style={{ fontSize: '0.8rem', fontWeight: 600, color: 'var(--text-dark)', display: 'block', marginBottom: '4px' }}>
                 Cupón a adjuntar:
               </label>
-              <select
+              <select aria-label="Cupón a adjuntar"
                 className="form-control"
                 value={selectedCouponCode}
                 onChange={(e) => setSelectedCouponCode(e.target.value)}
@@ -1394,8 +1394,7 @@ function WhatsAppCampaignModal({ customer, storeName, coupons = [], onClose, sho
                 color: '#111827',
                 fontSize: '0.84rem',
                 lineHeight: 1.45,
-                whiteSpace: 'pre-wrap',
-                borderLeft: '4px solid #25D366'
+                whiteSpace: 'pre-wrap'
               }}>
                 {currentMessage}
               </div>
@@ -1416,8 +1415,8 @@ function WhatsAppCampaignModal({ customer, storeName, coupons = [], onClose, sho
               className="btn btn-primary"
               onClick={handleSend}
               style={{
-                backgroundColor: '#25D366',
-                borderColor: '#25D366',
+                backgroundColor: '#0E7A5C',
+                borderColor: '#0E7A5C',
                 color: '#fff',
                 fontSize: '0.82rem',
                 display: 'flex',
@@ -1497,7 +1496,7 @@ function LoyaltyCouponModal({ customer, storeName, coupons = [], onUpdateCoupons
             <label style={{ fontSize: '0.82rem', fontWeight: 600, color: 'var(--text-dark)', display: 'block', marginBottom: '4px' }}>
               Código del cupón:
             </label>
-            <input
+            <input aria-label="Código del cupón"
               type="text"
               className="form-control"
               value={code}
@@ -1506,12 +1505,12 @@ function LoyaltyCouponModal({ customer, storeName, coupons = [], onUpdateCoupons
             />
           </div>
 
-          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '10px' }}>
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, minmax(0, 1fr))', gap: '10px' }}>
             <div>
               <label style={{ fontSize: '0.82rem', fontWeight: 600, color: 'var(--text-dark)', display: 'block', marginBottom: '4px' }}>
                 Descuento (%):
               </label>
-              <select
+              <select aria-label="Descuento (%)"
                 className="form-control"
                 value={discountPercent}
                 onChange={(e) => setDiscountPercent(parseInt(e.target.value, 10))}
@@ -1529,7 +1528,7 @@ function LoyaltyCouponModal({ customer, storeName, coupons = [], onUpdateCoupons
               <label style={{ fontSize: '0.82rem', fontWeight: 600, color: 'var(--text-dark)', display: 'block', marginBottom: '4px' }}>
                 Pedido mínimo (S/):
               </label>
-              <input
+              <input aria-label="Pedido mínimo (S/)"
                 type="number"
                 min="0"
                 step="1"
@@ -1617,7 +1616,7 @@ function ManualCustomerModal({ onSave, onClose }) {
             <label style={{ fontSize: '0.82rem', fontWeight: 600, color: 'var(--text-dark)', display: 'block', marginBottom: '4px' }}>
               Nombre completo *:
             </label>
-            <input
+            <input aria-label="Nombre completo *"
               type="text"
               required
               className="form-control"
@@ -1628,12 +1627,12 @@ function ManualCustomerModal({ onSave, onClose }) {
             />
           </div>
 
-          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '10px' }}>
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, minmax(0, 1fr))', gap: '10px' }}>
             <div>
               <label style={{ fontSize: '0.82rem', fontWeight: 600, color: 'var(--text-dark)', display: 'block', marginBottom: '4px' }}>
                 Teléfono / WhatsApp:
               </label>
-              <input
+              <input aria-label="Teléfono / WhatsApp"
                 type="tel"
                 className="form-control"
                 value={phone}
@@ -1647,7 +1646,7 @@ function ManualCustomerModal({ onSave, onClose }) {
               <label style={{ fontSize: '0.82rem', fontWeight: 600, color: 'var(--text-dark)', display: 'block', marginBottom: '4px' }}>
                 Cumpleaños (opcional):
               </label>
-              <input
+              <input aria-label="Cumpleaños (opcional)"
                 type="date"
                 className="form-control"
                 value={birthday}
@@ -1661,7 +1660,7 @@ function ManualCustomerModal({ onSave, onClose }) {
             <label style={{ fontSize: '0.82rem', fontWeight: 600, color: 'var(--text-dark)', display: 'block', marginBottom: '4px' }}>
               Dirección de entrega habitual:
             </label>
-            <input
+            <input aria-label="Dirección de entrega habitual"
               type="text"
               className="form-control"
               value={address}
@@ -1702,7 +1701,7 @@ function ManualCustomerModal({ onSave, onClose }) {
             <label style={{ fontSize: '0.82rem', fontWeight: 600, color: 'var(--text-dark)', display: 'block', marginBottom: '4px' }}>
               Nota interna del cliente:
             </label>
-            <input
+            <input aria-label="Nota interna del cliente"
               type="text"
               className="form-control"
               value={note}
@@ -1774,7 +1773,7 @@ function EditCustomerModal({ customer, onSave, onClose }) {
             <label style={{ fontSize: '0.82rem', fontWeight: 600, color: 'var(--text-dark)', display: 'block', marginBottom: '4px' }}>
               Nombre:
             </label>
-            <input
+            <input aria-label="Nombre"
               type="text"
               required
               className="form-control"
@@ -1784,12 +1783,12 @@ function EditCustomerModal({ customer, onSave, onClose }) {
             />
           </div>
 
-          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '10px' }}>
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, minmax(0, 1fr))', gap: '10px' }}>
             <div>
               <label style={{ fontSize: '0.82rem', fontWeight: 600, color: 'var(--text-dark)', display: 'block', marginBottom: '4px' }}>
                 Teléfono:
               </label>
-              <input
+              <input aria-label="Teléfono"
                 type="tel"
                 className="form-control"
                 value={phone}
@@ -1802,7 +1801,7 @@ function EditCustomerModal({ customer, onSave, onClose }) {
               <label style={{ fontSize: '0.82rem', fontWeight: 600, color: 'var(--text-dark)', display: 'block', marginBottom: '4px' }}>
                 Cumpleaños:
               </label>
-              <input
+              <input aria-label="Cumpleaños"
                 type="date"
                 className="form-control"
                 value={birthday}
@@ -1816,7 +1815,7 @@ function EditCustomerModal({ customer, onSave, onClose }) {
             <label style={{ fontSize: '0.82rem', fontWeight: 600, color: 'var(--text-dark)', display: 'block', marginBottom: '4px' }}>
               Dirección:
             </label>
-            <input
+            <input aria-label="Dirección"
               type="text"
               className="form-control"
               value={address}

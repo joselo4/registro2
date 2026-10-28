@@ -266,7 +266,7 @@ export default function KitchenDisplaySystem({
           </p>
         </div>
       ) : (
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(310px, 1fr))', gap: '16px' }}>
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(min(310px, 100%), 1fr))', gap: '16px' }}>
           {kitchenOrders.map(order => {
             const timeInfo = getElapsedTimeInfo(order.date);
             const isDelivery = order.customer?.orderType === 'Delivery' || (order.deliveryFee > 0);
@@ -294,12 +294,12 @@ export default function KitchenDisplaySystem({
                           <span className="badge-delivery">🛵 DELIVERY</span>
                         )}
                         {isTable && (
-                          <span style={{ background: 'rgba(52, 152, 219, 0.15)', color: '#2980b9', padding: '2px 7px', borderRadius: '12px', fontSize: '0.7rem', fontWeight: 'bold' }}>
+                          <span style={{ background: 'rgba(52, 152, 219, 0.15)', color: 'var(--info)', padding: '2px 7px', borderRadius: '12px', fontSize: '0.7rem', fontWeight: 'bold' }}>
                             🍽️ Mesa {order.customer?.tableNumber}
                           </span>
                         )}
                         {!isDelivery && !isTable && (
-                          <span style={{ background: 'rgba(155, 89, 182, 0.15)', color: '#8e44ad', padding: '2px 7px', borderRadius: '12px', fontSize: '0.7rem', fontWeight: 'bold' }}>
+                          <span style={{ background: 'rgba(155, 89, 182, 0.15)', color: 'var(--accent-violet)', padding: '2px 7px', borderRadius: '12px', fontSize: '0.7rem', fontWeight: 'bold' }}>
                             🥡 Llevar
                           </span>
                         )}
@@ -362,7 +362,7 @@ export default function KitchenDisplaySystem({
                   </div>
 
                   {order.notes && (
-                    <div style={{ marginTop: '8px', fontSize: '0.75rem', background: '#fff3cd', color: '#856404', padding: '6px 10px', borderRadius: '6px', border: '1px solid #ffeeba' }}>
+                    <div style={{ marginTop: '8px', fontSize: '0.75rem', background: 'color-mix(in srgb, var(--warning) 12%, var(--bg-secondary))', color: 'var(--warning)', padding: '6px 10px', borderRadius: '6px', border: '1px solid #ffeeba' }}>
                       ⚠️ <b>Nota:</b> {order.notes}
                     </div>
                   )}

@@ -19,6 +19,7 @@
   /* Estados */
   --success: hsl(145, 63%, 40%);
   --warning: hsl(48, 89%, 45%);
+  --accent-violet: #6d2f8e;
   --danger: hsl(4, 90%, 50%);
   --info: hsl(204, 76%, 45%);
 
@@ -152,11 +153,7 @@ h1, h2, h3, h4, h5, h6 {
   font-size: 1.5rem;
   font-weight: 800;
   font-family: var(--font-title);
-  background: linear-gradient(135deg, var(--primary-color), var(--secondary-color));
-  -webkit-background-clip: text;
-  -webkit-text-fill-color: transparent;
-  background-clip: text;
-  color: transparent;
+  color: var(--primary-color);
   user-select: none;
   letter-spacing: 0;
 }
@@ -229,11 +226,7 @@ h1, h2, h3, h4, h5, h6 {
   font-size: 3.5rem;
   line-height: 1.1;
   margin-bottom: 16px;
-  background: linear-gradient(135deg, var(--primary-color), var(--secondary-color));
-  -webkit-background-clip: text;
-  -webkit-text-fill-color: transparent;
-  background-clip: text;
-  color: transparent;
+  color: var(--primary-color);
   text-wrap: balance;
   letter-spacing: 0;
 }
@@ -451,7 +444,7 @@ h1, h2, h3, h4, h5, h6 {
 }
 
 .product-illustration svg {
-  transition: transform 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+  transition: transform 0.4s cubic-bezier(0.16, 1, 0.3, 1);
 }
 
 .product-card:hover .product-illustration svg {
@@ -627,21 +620,21 @@ h1, h2, h3, h4, h5, h6 {
 .scoop-1 {
   bottom: 75px;
   z-index: 8;
-  animation: drop-scoop-1 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+  animation: drop-scoop-1 0.4s cubic-bezier(0.16, 1, 0.3, 1);
 }
 
 .scoop-2 {
   bottom: 125px;
   z-index: 7;
   transform: scale(0.95);
-  animation: drop-scoop-2 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+  animation: drop-scoop-2 0.4s cubic-bezier(0.16, 1, 0.3, 1);
 }
 
 .scoop-3 {
   bottom: 170px;
   z-index: 6;
   transform: scale(0.9);
-  animation: drop-scoop-3 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+  animation: drop-scoop-3 0.4s cubic-bezier(0.16, 1, 0.3, 1);
 }
 
 .topping-visual {
@@ -901,7 +894,7 @@ h1, h2, h3, h4, h5, h6 {
 .form-control:focus {
   outline: none;
   border-color: var(--primary-color);
-  box-shadow: 0 0 0 3px rgba(0, 0, 0, 0.05);
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--primary-color) 30%, transparent);
 }
 
 .payment-options {
@@ -914,7 +907,8 @@ h1, h2, h3, h4, h5, h6 {
   border: 1px solid var(--border-color);
   padding: 10px;
   border-radius: var(--radius-sm);
-  background: #fff;
+  background: var(--bg-secondary);
+  color: var(--text-dark);
   font-family: var(--font-body);
   font-weight: 600;
   cursor: pointer;
@@ -924,7 +918,7 @@ h1, h2, h3, h4, h5, h6 {
 
 .payment-btn.selected {
   background: var(--primary-color);
-  color: #fff;
+  color: var(--bg-secondary);
   border-color: var(--primary-color);
 }
 
@@ -1099,6 +1093,26 @@ h1, h2, h3, h4, h5, h6 {
   gap: 25px;
 }
 
+.admin-sidebar-head {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  margin-bottom: 18px;
+}
+
+.admin-user-card {
+  margin-bottom: 15px;
+}
+
+/* Wide field beside a narrow one; stacks on phones (see the 600px block). */
+.admin-split {
+  grid-template-columns: minmax(0, 1.2fr) minmax(0, 0.8fr);
+}
+
+.admin-split-end {
+  grid-template-columns: minmax(0, 1fr) auto;
+}
+
 .admin-stats-grid {
   display: grid;
   grid-template-columns: repeat(3, 1fr);
@@ -1161,7 +1175,8 @@ h1, h2, h3, h4, h5, h6 {
   font-weight: 600;
   cursor: pointer;
   border: 1px solid var(--border-color);
-  background: #fff;
+  background: var(--bg-secondary);
+  color: var(--text-dark);
 }
 
 .admin-action-btn:hover {
@@ -1345,16 +1360,39 @@ input:checked + .slider:before {
     gap: 20px;
   }
 
-  .sidebar-menu {
-    display: grid;
-    grid-template-columns: repeat(auto-fit, minmax(130px, 1fr));
-    gap: 8px;
-    width: 100%;
+  /* One scrollable row instead of a 16-tile grid, so the work shows above the fold. */
+  .admin-sidebar-head {
+    flex-direction: row;
+    flex-wrap: wrap;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: 10px;
   }
-  
+
+  .admin-user-card {
+    margin-bottom: 10px;
+  }
+
+  .sidebar-menu {
+    display: flex;
+    flex-direction: row;
+    gap: 8px;
+    overflow-x: auto;
+    overscroll-behavior-x: contain;
+    scroll-snap-type: x proximity;
+    scrollbar-width: none;
+    padding-bottom: 2px;
+    mask-image: linear-gradient(to right, #000 calc(100% - 28px), transparent);
+  }
+
+  .sidebar-menu::-webkit-scrollbar {
+    display: none;
+  }
+
   .sidebar-btn {
-    white-space: normal;
-    word-break: break-word;
+    flex: 0 0 auto;
+    scroll-snap-align: start;
+    white-space: nowrap;
     padding: 10px 12px;
     font-size: 0.8rem;
     display: flex;
@@ -1364,7 +1402,7 @@ input:checked + .slider:before {
     background: rgba(255, 255, 255, 0.05);
     border: 1px solid var(--border-color);
     border-radius: var(--radius-md);
-    width: 100%;
+    width: auto;
     min-height: 44px;
     box-sizing: border-box;
   }
@@ -1601,6 +1639,11 @@ input:checked + .slider:before {
     box-sizing: border-box !important;
   }
 
+  .admin-split,
+  .admin-split-end {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
   .payment-options {
     grid-template-columns: repeat(auto-fit, minmax(80px, 1fr)) !important;
     gap: 6px !important;
@@ -1753,7 +1796,6 @@ input:checked + .slider:before {
   width: 100%;
   background: var(--bg-secondary);
   border: 1px solid var(--border-color);
-  border-left: 4px solid var(--secondary-color);
   padding: 16px 20px;
   border-radius: var(--radius-sm);
   margin: 15px 0 25px 0;
@@ -1817,7 +1859,7 @@ input:checked + .slider:before {
   box-shadow: var(--shadow-lg);
   display: flex;
   flex-direction: column;
-  animation: somSlideUp 0.38s cubic-bezier(0.34, 1.56, 0.64, 1) forwards;
+  animation: somSlideUp 0.38s cubic-bezier(0.16, 1, 0.3, 1) forwards;
 }
 .sabor-omatic-header {
   padding: 16px 20px;
@@ -1983,7 +2025,7 @@ input:checked + .slider:before {
   gap: 10px;
   border: 1px solid var(--glass-border);
   box-shadow: var(--shadow-lg);
-  animation: toastSlideIn 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.1) forwards;
+  animation: toastSlideIn 0.4s cubic-bezier(0.16, 1, 0.3, 1) forwards;
   transition: opacity 0.3s ease, transform 0.3s ease;
 }
 .tendencias-toast.dismissing {
@@ -3537,7 +3579,6 @@ input:checked + .slider:before {
     transform: none !important;
     padding: 9px 10px !important;
     border-radius: 17px !important;
-    background: rgba(255, 255, 255, 0.96) !important;
   }
 
   .floating-cart-toast .btn {
@@ -4212,7 +4253,7 @@ footer button {
 }
 
 .free-delivery-card {
-  transition: all 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+  transition: all 0.3s cubic-bezier(0.16, 1, 0.3, 1);
 }
 
 .free-delivery-card:hover {
@@ -4233,7 +4274,7 @@ footer button {
 }
 
 .payment-drawer-card {
-  animation: fadeInDrawer 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+  animation: fadeInDrawer 0.3s cubic-bezier(0.16, 1, 0.3, 1);
 }
 
 @keyframes fadeInDrawer {
@@ -4261,3 +4302,8 @@ footer button {
   }
 }
 
+
+/* Unstyled admin buttons otherwise keep the browser's black text, unreadable in dark mode. */
+:where(.admin-content) button {
+  color: inherit;
+}

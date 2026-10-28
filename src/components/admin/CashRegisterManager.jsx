@@ -220,7 +220,7 @@ export default function CashRegisterManager({
 
         {activeShift && (
           <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-            <span style={{ background: 'rgba(46, 204, 113, 0.15)', color: '#27ae60', border: '1px solid #2ecc71', padding: '4px 10px', borderRadius: '20px', fontSize: '0.75rem', fontWeight: 'bold' }}>
+            <span style={{ background: 'rgba(46, 204, 113, 0.15)', color: 'var(--success)', border: '1px solid #2ecc71', padding: '4px 10px', borderRadius: '20px', fontSize: '0.75rem', fontWeight: 'bold' }}>
               🟢 Turno Activo: {activeShift.id}
             </span>
             <button
@@ -249,7 +249,7 @@ export default function CashRegisterManager({
           <form onSubmit={handleOpenShift} style={{ display: 'flex', flexDirection: 'column', gap: '14px' }}>
             <div className="form-group">
               <label style={{ fontWeight: 'bold', fontSize: '0.85rem' }}>Fondo Inicial en Efectivo (S/)</label>
-              <input
+              <input aria-label="Fondo Inicial en Efectivo (S/)"
                 type="number"
                 step="0.50"
                 min="0"
@@ -262,7 +262,7 @@ export default function CashRegisterManager({
             </div>
             <div className="form-group">
               <label style={{ fontSize: '0.8rem' }}>Responsable de Caja</label>
-              <input
+              <input aria-label="Responsable de Caja"
                 type="text"
                 className="form-control"
                 value={currentUser?.name || 'Cajero'}
@@ -271,7 +271,7 @@ export default function CashRegisterManager({
             </div>
             <div className="form-group">
               <label style={{ fontSize: '0.8rem' }}>Notas de Apertura (opcional)</label>
-              <input
+              <input aria-label="Notas de Apertura (opcional)"
                 type="text"
                 className="form-control"
                 placeholder="Ej: Sencillo en monedas de S/ 2 y S/ 5"
@@ -293,18 +293,18 @@ export default function CashRegisterManager({
             <form onSubmit={handleAddMovement} className="glass" style={{ padding: '16px', borderRadius: '12px', border: '1px solid var(--primary-color)', display: 'flex', gap: '10px', flexWrap: 'wrap', alignItems: 'flex-end' }}>
               <div style={{ flex: 1, minWidth: '130px' }}>
                 <label style={{ fontSize: '0.75rem', fontWeight: 'bold' }}>Tipo de Operación</label>
-                <select className="form-control" value={movementType} onChange={(e) => setMovementType(e.target.value)}>
+                <select aria-label="Tipo de Operación" className="form-control" value={movementType} onChange={(e) => setMovementType(e.target.value)}>
                   <option value="out">🔴 Retiro / Gasto Menor</option>
                   <option value="in">🟢 Ingreso Extraordinario</option>
                 </select>
               </div>
               <div style={{ flex: 1, minWidth: '120px' }}>
                 <label style={{ fontSize: '0.75rem', fontWeight: 'bold' }}>Monto (S/)</label>
-                <input type="number" step="0.5" className="form-control" placeholder="0.00" value={movementAmount} onChange={(e) => setMovementAmount(e.target.value)} required />
+                <input aria-label="Monto (S/)" type="number" step="0.5" className="form-control" placeholder="0.00" value={movementAmount} onChange={(e) => setMovementAmount(e.target.value)} required />
               </div>
               <div style={{ flex: 2, minWidth: '180px' }}>
                 <label style={{ fontSize: '0.75rem', fontWeight: 'bold' }}>Concepto o Motivo</label>
-                <input type="text" className="form-control" placeholder="Ej: Compra de hielo / pago propinas" value={movementReason} onChange={(e) => setMovementReason(e.target.value)} required />
+                <input aria-label="Concepto o Motivo" type="text" className="form-control" placeholder="Ej: Compra de hielo / pago propinas" value={movementReason} onChange={(e) => setMovementReason(e.target.value)} required />
               </div>
               <button type="submit" className="btn btn-primary" style={{ padding: '8px 16px' }}>Guardar</button>
               <button type="button" className="btn btn-secondary" style={{ padding: '8px 12px' }} onClick={() => setShowMovementForm(false)}>Cancelar</button>
@@ -313,31 +313,31 @@ export default function CashRegisterManager({
 
           {/* Tarjetas KPI de Estado de Caja */}
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))', gap: '12px' }}>
-            <div className="glass" style={{ padding: '14px', borderRadius: '12px', borderLeft: '4px solid #3498db' }}>
+            <div className="glass" style={{ padding: '14px', borderRadius: '12px' }}>
               <span style={{ fontSize: '0.75rem', color: 'var(--text-light)', textTransform: 'uppercase', fontWeight: 'bold' }}>Fondo Inicial</span>
               <strong style={{ display: 'block', fontSize: '1.3rem', marginTop: '4px' }}>S/ {Number(activeShift.startingCash || 0).toFixed(2)}</strong>
               <small style={{ color: 'var(--text-light)', fontSize: '0.7rem' }}>Apertura: {new Date(activeShift.openedAt).toLocaleTimeString('es-PE', { hour: '2-digit', minute: '2-digit' })}</small>
             </div>
 
-            <div className="glass" style={{ padding: '14px', borderRadius: '12px', borderLeft: '4px solid #2ecc71' }}>
+            <div className="glass" style={{ padding: '14px', borderRadius: '12px' }}>
               <span style={{ fontSize: '0.75rem', color: 'var(--text-light)', textTransform: 'uppercase', fontWeight: 'bold' }}>Ventas Efectivo</span>
-              <strong style={{ display: 'block', fontSize: '1.3rem', marginTop: '4px', color: '#27ae60' }}>+S/ {shiftSales.cash.toFixed(2)}</strong>
+              <strong style={{ display: 'block', fontSize: '1.3rem', marginTop: '4px', color: 'var(--success)' }}>+S/ {shiftSales.cash.toFixed(2)}</strong>
               <small style={{ color: 'var(--text-light)', fontSize: '0.7rem' }}>Ingresos por cobro en caja</small>
             </div>
 
-            <div className="glass" style={{ padding: '14px', borderRadius: '12px', borderLeft: '4px solid #9b59b6' }}>
+            <div className="glass" style={{ padding: '14px', borderRadius: '12px' }}>
               <span style={{ fontSize: '0.75rem', color: 'var(--text-light)', textTransform: 'uppercase', fontWeight: 'bold' }}>Pagos Digitales</span>
-              <strong style={{ display: 'block', fontSize: '1.3rem', marginTop: '4px', color: '#8e44ad' }}>S/ {(shiftSales.yape + shiftSales.card).toFixed(2)}</strong>
+              <strong style={{ display: 'block', fontSize: '1.3rem', marginTop: '4px', color: 'var(--accent-violet)' }}>S/ {(shiftSales.yape + shiftSales.card).toFixed(2)}</strong>
               <small style={{ color: 'var(--text-light)', fontSize: '0.7rem' }}>Yape S/ {shiftSales.yape.toFixed(2)} | POS S/ {shiftSales.card.toFixed(2)}</small>
             </div>
 
-            <div className="glass" style={{ padding: '14px', borderRadius: '12px', borderLeft: '4px solid #e74c3c' }}>
+            <div className="glass" style={{ padding: '14px', borderRadius: '12px' }}>
               <span style={{ fontSize: '0.75rem', color: 'var(--text-light)', textTransform: 'uppercase', fontWeight: 'bold' }}>Gastos / Retiros</span>
-              <strong style={{ display: 'block', fontSize: '1.3rem', marginTop: '4px', color: '#c0392b' }}>-S/ {movementsSummary.out.toFixed(2)}</strong>
+              <strong style={{ display: 'block', fontSize: '1.3rem', marginTop: '4px', color: 'var(--danger)' }}>-S/ {movementsSummary.out.toFixed(2)}</strong>
               <small style={{ color: 'var(--text-light)', fontSize: '0.7rem' }}>{activeShift.movements?.length || 0} movimientos</small>
             </div>
 
-            <div className="glass" style={{ padding: '14px', borderRadius: '12px', borderLeft: '4px solid var(--primary-color)' }}>
+            <div className="glass" style={{ padding: '14px', borderRadius: '12px' }}>
               <span style={{ fontSize: '0.75rem', color: 'var(--text-light)', textTransform: 'uppercase', fontWeight: 'bold' }}>Efectivo Esperado</span>
               <strong style={{ display: 'block', fontSize: '1.4rem', marginTop: '4px', color: 'var(--primary-color)' }}>S/ {expectedCash.toFixed(2)}</strong>
               <small style={{ color: 'var(--text-light)', fontSize: '0.7rem' }}>Saldo teórico en gaveta</small>
@@ -388,7 +388,7 @@ export default function CashRegisterManager({
               <label style={{ fontSize: '0.78rem', fontWeight: 600, display: 'block', marginBottom: '4px' }}>
                 📝 Observaciones del Cierre (Opcional):
               </label>
-              <textarea
+              <textarea aria-label="📝 Observaciones del Cierre (Opcional)"
                 className="form-control"
                 placeholder="Ej: Diferencia por redondeo en sencillo, rotura de cono, billete deteriorado..."
                 value={closingNotes}

@@ -79,14 +79,14 @@
   .tracker-hero-icon { width: 50px; height: 50px; font-size: 1.6rem; border-radius: 14px; }
   .tracker-dot { width: 28px; height: 28px; }
   .tracker-steps::before, .tracker-steps::after { top: 13px; }
-  .tracker-steps li strong { font-size: .66rem; }
-  .tracker-steps li small { font-size: .6rem; }
+  .tracker-steps li strong { font-size: .72rem; }
+  .tracker-steps li small { font-size: .66rem; }
 }
 [data-theme="dark"] .tracker-hero { background: linear-gradient(135deg, #3d2530, #3a2e24); border-color: #5b3a47; }
 [data-theme="dark"] .tracker-hero p { color: #e8d2d6; }
 [data-theme="dark"] .tracker-hero-icon, [data-theme="dark"] .tracker-hero .tracker-eta { background: #2a1c24; }
 @media (max-width: 420px) {
-  .tracker-steps li strong { font-size: .58rem; letter-spacing: -.01em; overflow-wrap: anywhere; }
+  .tracker-steps li strong { font-size: .66rem; overflow-wrap: anywhere; hyphens: auto; }
   .tracker-hero .tracker-eta { display: block; border-radius: 12px; }
 }
 .tracker-copy { margin: 6px 8px 0 0; min-height: 34px; padding: 5px 12px; border: 1px dashed var(--tracker-accent); border-radius: 100px; background: color-mix(in srgb, var(--tracker-accent) 6%, var(--bg-secondary)); color: var(--tracker-accent); font-size: .78rem; font-weight: 800; cursor: pointer; }

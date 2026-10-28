@@ -540,7 +540,7 @@ export default function CartSettlementManager({
               <button
                 type="button"
                 className="btn btn-secondary btn-sm"
-                style={{ fontSize: '0.75rem', padding: '5px 10px', color: '#27ae60', borderColor: '#27ae60' }}
+                style={{ fontSize: '0.75rem', padding: '5px 10px', color: 'var(--success)', borderColor: '#27ae60' }}
                 onClick={handleSaveCartTemplate}
                 title="Guardar los productos y precios actuales como plantilla por defecto para este carrito"
               >
@@ -553,7 +553,7 @@ export default function CartSettlementManager({
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '12px' }}>
             <div className="form-group" style={{ marginBottom: 0 }}>
               <label style={{ fontSize: '0.78rem', fontWeight: 'bold' }}>Carrito / Punto Móvil</label>
-              <select
+              <select aria-label="Carrito / Punto Móvil"
                 className="form-control"
                 style={{ fontSize: '0.82rem', padding: '6px 10px' }}
                 value={selectedCartLabel}
@@ -567,7 +567,7 @@ export default function CartSettlementManager({
 
             <div className="form-group" style={{ marginBottom: 0 }}>
               <label style={{ fontSize: '0.78rem', fontWeight: 'bold' }}>Ruta / Zona Asignada</label>
-              <input
+              <input aria-label="Ruta / Zona Asignada"
                 type="text"
                 className="form-control"
                 placeholder="Ej: Ruta 1 - Malecón / Plaza"
@@ -579,7 +579,7 @@ export default function CartSettlementManager({
 
             <div className="form-group" style={{ marginBottom: 0 }}>
               <label style={{ fontSize: '0.78rem', fontWeight: 'bold' }}>Vendedor / Operador</label>
-              <input
+              <input aria-label="Vendedor / Operador"
                 type="text"
                 className="form-control"
                 placeholder="Nombre del vendedor"
@@ -592,7 +592,7 @@ export default function CartSettlementManager({
 
             <div className="form-group" style={{ marginBottom: 0 }}>
               <label style={{ fontSize: '0.78rem', fontWeight: 'bold' }}>Estado Actual</label>
-              <select
+              <select aria-label="Estado Actual"
                 className="form-control"
                 style={{ fontSize: '0.82rem', padding: '6px 10px' }}
                 value={cartStatus}
@@ -707,7 +707,7 @@ export default function CartSettlementManager({
             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))', gap: '14px', alignItems: 'flex-end' }}>
               <div className="form-group" style={{ marginBottom: 0 }}>
                 <label style={{ fontSize: '0.75rem', fontWeight: 600 }}>Efectivo Entregado (S/):</label>
-                <input
+                <input aria-label="Efectivo Entregado (S/)"
                   type="number"
                   step="0.5"
                   min="0"
@@ -721,7 +721,7 @@ export default function CartSettlementManager({
 
               <div className="form-group" style={{ marginBottom: 0 }}>
                 <label style={{ fontSize: '0.75rem', fontWeight: 600 }}>Yape / Plin en Ruta (S/):</label>
-                <input
+                <input aria-label="Yape / Plin en Ruta (S/)"
                   type="number"
                   step="0.5"
                   min="0"
@@ -735,7 +735,7 @@ export default function CartSettlementManager({
 
               <div>
                 <span style={{ fontSize: '0.72rem', color: 'var(--text-light)', display: 'block' }}>Total Rendido por Vendedor:</span>
-                <strong style={{ fontSize: '1.15rem', color: '#2980b9' }}>S/ {totalHandedIn.toFixed(2)}</strong>
+                <strong style={{ fontSize: '1.15rem', color: 'var(--info)' }}>S/ {totalHandedIn.toFixed(2)}</strong>
               </div>
 
               <div>
@@ -756,7 +756,7 @@ export default function CartSettlementManager({
 
             <div className="form-group" style={{ marginTop: '12px', marginBottom: 0 }}>
               <label style={{ fontSize: '0.75rem', fontWeight: 600 }}>Observaciones / Incidencias:</label>
-              <input
+              <input aria-label="Observaciones / Incidencias"
                 type="text"
                 className="form-control"
                 placeholder="Ej: Faltó 1 paleta rota por golpe, cliente de sombrilla pagó con Yape, etc."
@@ -771,7 +771,7 @@ export default function CartSettlementManager({
           <div style={{ background: 'var(--bg-primary)', padding: '16px 20px', borderRadius: '12px', border: '1px solid var(--border-color)', display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '14px' }}>
             <div>
               <span style={{ fontSize: '0.78rem', color: 'var(--text-light)' }}>Total Unidades Vendidas:</span>
-              <div style={{ fontSize: '1.4rem', fontWeight: 'bold', color: '#27ae60' }}>{totalSoldUnits} unidades</div>
+              <div style={{ fontSize: '1.4rem', fontWeight: 'bold', color: 'var(--success)' }}>{totalSoldUnits} unidades</div>
             </div>
 
             <div>
@@ -847,7 +847,7 @@ export default function CartSettlementManager({
 
           <div style={{ display: 'flex', gap: '10px', alignItems: 'center', flexWrap: 'wrap' }}>
             <label style={{ fontSize: '0.8rem', fontWeight: 'bold' }}>Selecciona Carrito a Configurar:</label>
-            <select
+            <select aria-label="Selecciona Carrito a Configurar"
               className="form-control"
               style={{ fontSize: '0.82rem', padding: '6px 12px', width: 'auto' }}
               value={selectedCartLabel}
@@ -955,7 +955,7 @@ export default function CartSettlementManager({
             </span>
           </div>
 
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))', gap: '14px' }}>
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(min(280px, 100%), 1fr))', gap: '14px' }}>
             {availableCarts.map(cartLabel => {
               const locationObj = cartsList.find(c => (c.label || c.name || `Carrito ${c.id}`) === cartLabel);
               const config = cartConfigs[cartLabel] || {};
@@ -1051,7 +1051,7 @@ export default function CartSettlementManager({
       {activeTab === 'alerts' && (
         <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
           <form onSubmit={handleSendOutOfStockAlert} className="glass" style={{ padding: '18px', borderRadius: '14px', border: '1.5px solid #f39c12' }}>
-            <h4 style={{ margin: '0 0 8px 0', fontSize: '1rem', color: '#d35400' }}>
+            <h4 style={{ margin: '0 0 8px 0', fontSize: '1rem', color: 'var(--warning)' }}>
               📢 Emitir Reporte Rápido de "Sin Stock" desde la Calle
             </h4>
             <p style={{ fontSize: '0.78rem', color: 'var(--text-light)', marginBottom: '14px' }}>
@@ -1061,7 +1061,7 @@ export default function CartSettlementManager({
             <div style={{ display: 'flex', gap: '10px', flexWrap: 'wrap', alignItems: 'flex-end' }}>
               <div style={{ width: '160px' }}>
                 <label style={{ fontSize: '0.75rem', fontWeight: 'bold' }}>Carrito Emisor</label>
-                <select
+                <select aria-label="Carrito Emisor"
                   className="form-control"
                   style={{ fontSize: '0.8rem', padding: '6px 8px' }}
                   value={selectedCartLabel}
@@ -1074,7 +1074,7 @@ export default function CartSettlementManager({
               </div>
               <div style={{ flex: 1, minWidth: '160px' }}>
                 <label style={{ fontSize: '0.75rem', fontWeight: 'bold' }}>Producto Agotado</label>
-                <input
+                <input aria-label="Producto Agotado"
                   type="text"
                   className="form-control"
                   placeholder="Ej: Lúcuma / Conos / Fresa Rellena"
@@ -1086,7 +1086,7 @@ export default function CartSettlementManager({
               </div>
               <div style={{ flex: 2, minWidth: '200px' }}>
                 <label style={{ fontSize: '0.75rem', fontWeight: 'bold' }}>Ubicación / Detalle</label>
-                <input
+                <input aria-label="Ubicación / Detalle"
                   type="text"
                   className="form-control"
                   placeholder="Ej: Cerca al muelle, nos quedan solo 2 de vainilla"
@@ -1111,7 +1111,7 @@ export default function CartSettlementManager({
                 {activeAlerts.map(alt => (
                   <div key={alt.id} style={{ background: 'rgba(243, 156, 18, 0.12)', border: '1px solid #f39c12', borderRadius: '10px', padding: '12px 16px', display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '10px' }}>
                     <div>
-                      <strong style={{ fontSize: '0.9rem', color: '#d35400' }}>{alt.cartLabel}: {alt.item}</strong>
+                      <strong style={{ fontSize: '0.9rem', color: 'var(--warning)' }}>{alt.cartLabel}: {alt.item}</strong>
                       <div style={{ fontSize: '0.75rem', color: 'var(--text-dark)', marginTop: '2px' }}>
                         Reportado por {alt.vendorName} • {alt.notes ? `"${alt.notes}" • ` : ''}{new Date(alt.timestamp).toLocaleTimeString('es-PE', { hour: '2-digit', minute: '2-digit' })}
                       </div>
@@ -1317,7 +1317,7 @@ export default function CartSettlementManager({
             {addMode === 'catalog' ? (
               <div className="form-group">
                 <label style={{ fontSize: '0.8rem', fontWeight: 'bold' }}>Selecciona Producto del Catálogo:</label>
-                <select
+                <select aria-label="Selecciona Producto del Catálogo"
                   className="form-control"
                   value={selectedCatalogItem}
                   onChange={(e) => setSelectedCatalogItem(e.target.value)}
@@ -1349,7 +1349,7 @@ export default function CartSettlementManager({
               <>
                 <div className="form-group">
                   <label style={{ fontSize: '0.8rem', fontWeight: 'bold' }}>Nombre de la Presentación / Producto:</label>
-                  <input
+                  <input aria-label="Nombre de la Presentación / Producto"
                     type="text"
                     className="form-control"
                     placeholder="Ej: Vaso 2 Bolas Especial / Sandwich Helado"
@@ -1360,7 +1360,7 @@ export default function CartSettlementManager({
                 </div>
                 <div className="form-group">
                   <label style={{ fontSize: '0.8rem', fontWeight: 'bold' }}>Categoría:</label>
-                  <select
+                  <select aria-label="Categoría"
                     className="form-control"
                     value={customItemCategory}
                     onChange={(e) => setCustomItemCategory(e.target.value)}
@@ -1375,10 +1375,10 @@ export default function CartSettlementManager({
               </>
             )}
 
-            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '10px' }}>
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, minmax(0, 1fr))', gap: '10px' }}>
               <div className="form-group">
                 <label style={{ fontSize: '0.8rem', fontWeight: 'bold' }}>Precio para este Carrito (S/):</label>
-                <input
+                <input aria-label="Precio para este Carrito (S/)"
                   type="number"
                   step="0.5"
                   min="0"
@@ -1391,7 +1391,7 @@ export default function CartSettlementManager({
               </div>
               <div className="form-group">
                 <label style={{ fontSize: '0.8rem', fontWeight: 'bold' }}>Carga Inicial (Unidades):</label>
-                <input
+                <input aria-label="Carga Inicial (Unidades)"
                   type="number"
                   min="1"
                   className="form-control"
@@ -1460,7 +1460,7 @@ export default function CartSettlementManager({
               </button>
             </div>
 
-            <div style={{ fontSize: '0.8rem', color: 'var(--text-dark)', display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '6px' }}>
+            <div style={{ fontSize: '0.8rem', color: 'var(--text-dark)', display: 'grid', gridTemplateColumns: 'repeat(2, minmax(0, 1fr))', gap: '6px' }}>
               <div><b>Carrito:</b> {viewingSettlement.cartLabel}</div>
               <div><b>Ruta:</b> {viewingSettlement.routeName || '-'}</div>
               <div><b>Vendedor:</b> {viewingSettlement.vendorName}</div>

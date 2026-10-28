@@ -548,6 +548,24 @@ export default function CustomerShop({
     }, 350);
   };
 
+  // Units already in the order per catalog product, so each card can confirm what was added.
+  const cartQuantities = useMemo(() => {
+    const counts = {};
+    for (const item of cart) {
+      let key = null;
+      if (item.type === 'popsicle' || item.type === 'pack') key = `${item.type}:${item.id}`;
+      else if (item.type === 'custom' && item.scoops?.length === 1 && !item.toppings?.length) key = `classic:${item.scoops[0].id}`;
+      if (key) counts[key] = (counts[key] || 0) + (Number(item.quantity) || 0);
+    }
+    return counts;
+  }, [cart]);
+
+  const addButtonLabel = useCallback((kind, id, idle = '+ Agregar') => {
+    const qty = cartQuantities[`${kind}:${id}`] || 0;
+    return qty > 0 ? <>✓ {qty} en tu pedido <span className="add-btn-more">+1</span></> : idle;
+  }, [cartQuantities]);
+  const inCartClass = useCallback((kind, id) => (cartQuantities[`${kind}:${id}`] ? ' in-cart' : ''), [cartQuantities]);
+
   // Helper for dynamic premium toppings per flavor in the shop catalog
   // Un helado clásico rápido es un helado simple de 1 bola en Cono
   const handleAddClassicToCart = useCallback((flavor) => {
@@ -619,11 +637,11 @@ export default function CustomerShop({
                         <div className="price-tag">S/. {Number(popsicle.price || 0).toFixed(2)}<span> / unidad</span></div>
                         <button
                           type="button"
-                          className="add-btn"
+                          className={`add-btn${inCartClass('popsicle', popsicle.id)}`}
                           aria-label={`Agregar paleta ${popsicle.name} al carrito`}
                           onClick={() => handleAddPopsicleToCart(popsicle)}
                         >
-                          + Agregar
+                          {addButtonLabel('popsicle', popsicle.id)}
                         </button>
                       </div>
                     </div>
@@ -732,12 +750,13 @@ export default function CustomerShop({
                             S/. {quickScoopItem(flavor, bases).price.toFixed(2)}
                             <span> / bola</span>
                           </div>
-                          <button 
-                            className="add-btn" 
+                          <button
+                            type="button"
+                            className={`add-btn${inCartClass('classic', flavor.id)}`}
                             aria-label={`Agregar helado de ${flavor.name} al carrito`}
                             onClick={() => handleAddClassicToCart(flavor)}
                           >
-                            + Agregar
+                            {addButtonLabel('classic', flavor.id)}
                           </button>
                         </div>
                       </div>
@@ -790,13 +809,13 @@ export default function CustomerShop({
                               {pack.discountText}
                             </div>
                           </div>
-                          <button 
-                            className="add-btn" 
-                            style={{ backgroundColor: 'var(--secondary-color)' }}
+                          <button
+                            type="button"
+                            className={`add-btn add-btn-pack${inCartClass('pack', pack.id)}`}
                             aria-label={`Agregar ${pack.name} al carrito`}
                             onClick={() => handleAddPackToCart(pack)}
                           >
-                            + Agregar Pack
+                            {addButtonLabel('pack', pack.id, '+ Agregar pack')}
                           </button>
                         </div>
                       </div>
@@ -819,7 +838,7 @@ export default function CustomerShop({
         ))}
       </div>
     );
-  }, [tableNumber, catalogOrder, filter, literConfig, literMatches, catalogFlavors, catalogPacks, catalogPopsicles, setView, handleAddClassicToCart, handleAddPackToCart, handleAddPopsicleToCart, openQuickView, shopConfig, bases]);
+  }, [tableNumber, catalogOrder, filter, literConfig, literMatches, catalogFlavors, catalogPacks, catalogPopsicles, setView, handleAddClassicToCart, handleAddPackToCart, handleAddPopsicleToCart, openQuickView, shopConfig, bases, addButtonLabel, inCartClass]);
 
   const resolvedHeroImage = storeHeroImage || '/hero-friozo-v2.webp';
 
@@ -1147,7 +1166,7 @@ export default function CustomerShop({
                       else if (kind === 'classic') handleAddClassicToCart(item);
                       else if (kind === 'popsicle') handleAddPopsicleToCart(item);
                       else setView('liter-customizer');
-                    }}>{kind === 'liter' ? 'Personalizar →' : '+ Agregar'}</button>
+                    }}>{kind === 'liter' ? 'Personalizar →' : addButtonLabel(kind, item.id)}</button>
                   </div>
                   <div className="featured-card-art" aria-hidden="true">
                     {image ? <img src={image} alt="" loading="lazy" decoding="async" /> : kind === 'classic' ? <DessertPreview compact base={{ id: 'cono', name: 'Cono' }} scoops={[item]} /> : <PackIllustration pack={item} />}

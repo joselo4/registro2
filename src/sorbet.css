@@ -13,6 +13,7 @@
   --border-color: #e4c9c2;
   --success: #176b3d;
   --warning: #875400;
+  --accent-violet: #6d2f8e;
   --danger: #b42138;
   --info: #216485;
   --shadow-sm: 0 3px 0 #4320170a;
@@ -23,7 +24,7 @@
   --glass-border: #745365; --border-color: #745365;
   --heading-color: #fff2e9; --text-dark: #fff2e9; --text-light: #dec1cd;
   --primary-color: #ff9fb9; --primary-hover: #ffbfd0; --secondary-color: #ffbd78;
-  --success: #8dd3aa; --warning: #f1c576; --danger: #ffacb8; --info: #a5d3ed;
+  --success: #8dd3aa; --warning: #f1c576; --danger: #ffacb8; --info: #a5d3ed; --accent-violet: #dcb2f2;
 }
 body { background: var(--bg-primary); background-image: radial-gradient(ellipse at 0 15%, #ffd4df80, transparent 48%), radial-gradient(ellipse at 100% 45%, #ffda6180, transparent 45%); background-attachment: fixed; }
 button, a, input, select, textarea { -webkit-tap-highlight-color: transparent; }
@@ -322,6 +323,8 @@ textarea:focus-visible { outline: 3px solid var(--primary-color); outline-offset
 [data-theme="dark"] .customer-shop .hero .hero-cta .btn-secondary:hover { color: #591e30; }
 [data-theme="dark"] .customer-shop .hero-circle-bg { background: #a96524; }
 [data-theme="dark"] .btn-primary, [data-theme="dark"] .add-btn, [data-theme="dark"] .filter-btn.active, [data-theme="dark"] .sidebar-btn.active { color: #432017; }
+/* Inline admin styles paint white text on the primary color, which turns light pink in dark mode. */
+[data-theme="dark"] .admin-content .btn-primary:not([style*="background"]), [data-theme="dark"] .admin-action-btn.active, [data-theme="dark"] .payment-btn.selected, [data-theme="dark"] .admin-content [style*="background: var(--primary-color)"], [data-theme="dark"] .admin-content [style*="background-color: var(--primary-color)"] { color: #432017 !important; }
 [data-theme="dark"] .product-illustration { background: #61452b; }
 [data-theme="dark"] .product-card:nth-child(3n+2) .product-illustration { background: #66344a; }
 [data-theme="dark"] .product-card:nth-child(3n+3) .product-illustration { background: #45512e; }

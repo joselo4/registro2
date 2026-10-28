@@ -139,6 +139,16 @@ const migrateLegacyBrandText = (value, fallback = '') => {
     .trim();
 };
 
+// The settings default to the network's home page; only link a real profile.
+const isOwnSocialProfile = (url) => {
+  try {
+    const { protocol, pathname } = new URL(String(url || ''));
+    return protocol === 'https:' && pathname.replace(/\/+$/, '') !== '';
+  } catch {
+    return false;
+  }
+};
+
 export default function App() {
   useEffect(() => {
     try { readRememberedOperator(window.localStorage); } catch { /* Storage can be blocked in private browsing. */ }
@@ -1692,6 +1702,11 @@ export default function App() {
   // The builders have their own purchase bar; a second floating bar would cover it.
   const showFloatingCart = cart.length > 0 && !['cart', 'admin', 'customizer', 'liter-customizer'].includes(view);
   const cartSubtotal = cart.reduce((sum, item) => sum + (Number(item.price) || 0) * item.quantity, 0);
+  // Only nudge toward free delivery when the store offers it and the order is not at a table.
+  const freeDeliveryGoal = !tableNumber && shopConfig.freeDeliveryEnabled !== false && Number(deliveryFee) > 0
+    ? Math.max(0, Number(freeDeliveryThreshold) || 0)
+    : 0;
+  const missingForFreeDelivery = Math.max(0, freeDeliveryGoal - cartSubtotal);
 
   const toggleTheme = () => {
     setTheme(prev => prev === 'light' ? 'dark' : 'light');
@@ -1766,7 +1781,7 @@ export default function App() {
                 style={{ textDecoration: 'none', display: 'inline-flex', alignItems: 'center' }}
               >
                 <span aria-hidden="true">📍</span>
-                <span>Ubicacion</span>
+                <span>Ubicación</span>
               </a>
               )}
               <a 
@@ -1797,7 +1812,7 @@ export default function App() {
                 style={{ fontSize: '1.1rem', padding: '6px' }}
                 title="Cambiar Tema"
               >
-                {theme === 'light' ? '🌙 Noche' : '☀️ Dia'}
+                {theme === 'light' ? '🌙 Noche' : '☀️ Día'}
               </button>
 
               {/* Indicador de conexión Realtime (Desktop) removido por discreción */}
@@ -1809,7 +1824,7 @@ export default function App() {
                   title="Cerrar Sesión"
                 >
                   <span aria-hidden="true">🚪</span>
-                  <span>Cerrar Sesion</span>
+                  <span>Cerrar sesión</span>
                 </button>
               )}
             </div>
@@ -1853,7 +1868,7 @@ export default function App() {
             fontWeight: '600',
             fontSize: '0.9rem'
           }}>
-            En este momento estamos fuera de horario de atencion. Puedes explorar el menu o administrar la tienda, pero no se aceptan pedidos.
+            En este momento estamos fuera de horario de atención. Puedes explorar el menú o administrar la tienda, pero no se aceptan pedidos.
           </div>
         )}
 
@@ -2122,17 +2137,24 @@ export default function App() {
         marginBottom: '65px' // Espacio para evitar que tape la barra inferior en móvil
       }}>
         {/* Redes Sociales del Local */}
-        <div style={{ marginBottom: '15px', display: 'flex', justifyContent: 'center', gap: '20px', flexWrap: 'wrap' }}>
-          <a href={storeInstagram || "https://www.instagram.com/"} target="_blank" rel="noopener noreferrer" style={{ color: 'var(--text-light)', display: 'inline-flex', alignItems: 'center', gap: '4px', textDecoration: 'none', fontWeight: '600' }} title="Instagram">
-            <span aria-hidden="true">📷</span> Instagram
+        <nav className="footer-social" aria-label="Redes sociales">
+          {isOwnSocialProfile(storeInstagram) && (
+            <a href={storeInstagram} target="_blank" rel="noopener noreferrer">
+              <svg aria-hidden="true" viewBox="0 0 24 24"><rect x="3.5" y="3.5" width="17" height="17" rx="5" /><circle cx="12" cy="12" r="4" /><circle cx="17.2" cy="6.8" r="0.6" /></svg>
+              Instagram
+            </a>
+          )}
+          {isOwnSocialProfile(storeFacebook) && (
+            <a href={storeFacebook} target="_blank" rel="noopener noreferrer">
+              <svg aria-hidden="true" viewBox="0 0 24 24"><rect x="3.5" y="3.5" width="17" height="17" rx="4" /><path d="M15 8h-1.5A2 2 0 0 0 11.5 10v10M9 13h5" /></svg>
+              Facebook
+            </a>
+          )}
+          <a href={`https://wa.me/${String(storePhone || '51987654321').replace(/\D/g, '')}?text=${encodeURIComponent(whatsappContactMessage || '¡Hola! Me gustaría hacer una consulta. 🍦')}`} target="_blank" rel="noopener noreferrer">
+            <svg aria-hidden="true" viewBox="0 0 24 24"><path d="M4.5 19.5l1.2-3.6A7.5 7.5 0 1 1 8.4 18.6z" /></svg>
+            WhatsApp
           </a>
-          <a href={storeFacebook || "https://www.facebook.com/"} target="_blank" rel="noopener noreferrer" style={{ color: 'var(--text-light)', display: 'inline-flex', alignItems: 'center', gap: '4px', textDecoration: 'none', fontWeight: '600' }} title="Facebook">
-            <span aria-hidden="true">f</span> Facebook
-          </a>
-          <a href={`https://wa.me/${String(storePhone || '51987654321').replace(/\D/g, '')}?text=${encodeURIComponent(whatsappContactMessage || '¡Hola! Me gustaría hacer una consulta. 🍦')}`} target="_blank" rel="noopener noreferrer" style={{ color: 'var(--text-light)', display: 'inline-flex', alignItems: 'center', gap: '4px', textDecoration: 'none', fontWeight: '600' }} title="WhatsApp">
-            <span aria-hidden="true">💬</span> WhatsApp
-          </a>
-        </div>
+        </nav>
         <div>&copy; {new Date().getFullYear()} {storeName} - Todos los derechos reservados.</div>
         <div style={{ marginTop: '5px' }}>Hecho con mucho amor por heladeros artesanales</div>
       </footer>
@@ -2223,60 +2245,26 @@ export default function App() {
 
       {/* Floating Cart Toast/Window */}
       {!isVendorApp && showFloatingCart && (
-        <div className="floating-cart-toast glass animate-float-toast" style={{
-          position: 'fixed',
-          bottom: '80px',
-          left: '50%',
-          transform: 'translateX(-50%)',
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'space-between',
-          gap: '15px',
-          padding: '10px 16px',
-          borderRadius: '20px',
-          boxShadow: '0 8px 32px rgba(255, 107, 129, 0.25)',
-          border: '1px solid rgba(255, 107, 129, 0.4)',
-          zIndex: 9997,
-          background: 'var(--glass-bg, rgba(255, 255, 255, 0.9))',
-          backdropFilter: 'blur(10px)',
-          WebkitBackdropFilter: 'blur(10px)',
-          width: '90%',
-          maxWidth: '380px'
-        }}>
-          <style dangerouslySetInnerHTML={{ __html: `
-            @keyframes slideUpBounce {
-              from { opacity: 0; transform: translate(-50%, 30px); }
-              to { opacity: 1; transform: translate(-50%, 0); }
-            }
-            .animate-float-toast {
-              animation: slideUpBounce 0.45s cubic-bezier(0.175, 0.885, 0.32, 1.275);
-            }
-            .floating-cart-toast button:hover {
-              transform: scale(1.05);
-            }
-          ` }} />
-          <div className="floating-cart-summary" style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-            <span style={{ fontSize: '1.2rem' }}>🛒</span>
-            <span className="floating-cart-copy" style={{ fontSize: '0.85rem', fontWeight: 'bold', color: 'var(--text-dark)' }}>
+        <div className="floating-cart-toast">
+          <div className="floating-cart-main">
+            <span className="floating-cart-copy">
               <small>{totalCartItems} {totalCartItems === 1 ? 'producto' : 'productos'}</small>
               <strong>S/. {cartSubtotal.toFixed(2)}</strong>
             </span>
+            <button type="button" className="btn btn-primary floating-cart-cta" onClick={() => setView('cart')}>
+              Ver mi pedido <span aria-hidden="true">→</span>
+            </button>
           </div>
-          <button 
-            className="btn btn-primary"
-            onClick={() => setView('cart')}
-            style={{ 
-              padding: '6px 14px', 
-              fontSize: '0.8rem', 
-              borderRadius: '12px', 
-              boxShadow: 'var(--shadow-sm)',
-              cursor: 'pointer',
-              whiteSpace: 'nowrap',
-              transition: 'transform 0.2s ease',
-              margin: 0
-            }}
-          >
-            Ver carrito <span aria-hidden="true">→</span></button>
+          {freeDeliveryGoal > 0 && (
+            <div className="floating-cart-goal" role="status">
+              <span>
+                {missingForFreeDelivery > 0
+                  ? <>Te faltan <b>S/. {missingForFreeDelivery.toFixed(2)}</b> para el delivery gratis</>
+                  : <><b>¡Delivery gratis!</b> Tu pedido ya califica</>}
+              </span>
+              <progress value={Math.min(cartSubtotal, freeDeliveryGoal)} max={freeDeliveryGoal} aria-label="Avance hacia el delivery gratis" />
+            </div>
+          )}
         </div>
       )}
 
@@ -2323,7 +2311,7 @@ export default function App() {
               to { opacity: 1; transform: scale(1); }
             }
             .alert-modal-content {
-              animation: scaleUp 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+              animation: scaleUp 0.3s cubic-bezier(0.16, 1, 0.3, 1);
             }
           ` }} />
           <div className="alert-modal-content" role="alertdialog" aria-modal="true" aria-labelledby="app-alert-title" aria-describedby="app-alert-message" style={{

@@ -161,10 +161,10 @@ export default function AdminPanel({
 
   const alert = (msg) => {
     if (showAlert) {
-      const isError = msg.toLowerCase().includes('error') || msg.toLowerCase().includes('fallÃ³') || msg.toLowerCase().includes('no se puede') || msg.toLowerCase().includes('invÃ¡lido') || msg.toLowerCase().includes('vacÃ­o') || msg.toLowerCase().includes('obligatorio') || msg.toLowerCase().includes('ya existe');
-      const isSuccess = msg.toLowerCase().includes('Ã©xito') || msg.toLowerCase().includes('guardados') || msg.toLowerCase().includes('actualizados') || msg.toLowerCase().includes('sincronizados');
+      const isError = msg.toLowerCase().includes('error') || msg.toLowerCase().includes('falló') || msg.toLowerCase().includes('no se puede') || msg.toLowerCase().includes('inválido') || msg.toLowerCase().includes('vacío') || msg.toLowerCase().includes('obligatorio') || msg.toLowerCase().includes('ya existe');
+      const isSuccess = msg.toLowerCase().includes('éxito') || msg.toLowerCase().includes('guardados') || msg.toLowerCase().includes('actualizados') || msg.toLowerCase().includes('sincronizados');
       const type = isError ? 'warning' : isSuccess ? 'success' : 'info';
-      const title = isError ? 'AtenciÃ³n' : isSuccess ? 'OperaciÃ³n Exitosa' : 'Aviso';
+      const title = isError ? 'Atención' : isSuccess ? 'Operación Exitosa' : 'Aviso';
       showAlert(title, msg, type);
     } else {
       window.alert(msg);
@@ -183,7 +183,7 @@ export default function AdminPanel({
     window.scrollTo(0, 0);
   }, [activeTab]);
 
-  // --- Estados de AutenticaciÃ³n y Seguridad ---
+  // --- Estados de Autenticación y Seguridad ---
   const [rememberMe, setRememberMe] = useState(() => {
     return localStorage.getItem('friozo_operator_remember') === 'true';
   });
@@ -207,11 +207,11 @@ export default function AdminPanel({
     localStorage.setItem('helados_lockout_until', lockoutUntil.toString());
   }, [lockoutUntil]);
 
-  // --- BitÃ¡cora de AuditorÃ­a (Simulada) ---
+  // --- Bitácora de Auditoría (Simulada) ---
   const [logs, setLogs] = useState(() => {
     const saved = localStorage.getItem('helados_admin_logs');
     return saved ? JSON.parse(saved) : [
-      { time: new Date().toLocaleTimeString('es-PE'), text: 'Inicio de sesiÃ³n administrativa habilitado.' }
+      { time: new Date().toLocaleTimeString('es-PE'), text: 'Inicio de sesión administrativa habilitado.' }
     ];
   });
 
@@ -224,7 +224,7 @@ export default function AdminPanel({
       time: new Date().toLocaleTimeString('es-PE', { hour: '2-digit', minute: '2-digit', second: '2-digit' }),
       text
     };
-    setLogs(prev => [newLog, ...prev.slice(0, 499)]); // Mantener Ãºltimas 500 operaciones
+    setLogs(prev => [newLog, ...prev.slice(0, 499)]); // Mantener últimas 500 operaciones
   };
 
    // --- Detector de Nuevos Pedidos (Alerta Sonora) ---
@@ -369,7 +369,7 @@ export default function AdminPanel({
     }
   }, [currentUser, activeTab, isTabAllowed]);
 
-  // --- Manejo del Inicio de SesiÃ³n ---
+  // --- Manejo del Inicio de Sesión ---
   const handleLogin = async (e) => {
     e.preventDefault();
     setAuthError('');
@@ -405,7 +405,7 @@ export default function AdminPanel({
       setPasswordInput('');
       setIsLoggedIn(true);
       setCurrentUser(userObj);
-      addLog(`Inicio de sesion ${isSupabase ? 'multidispositivo' : 'exitoso'} por ${userObj.name} (${userObj.role}).`);
+      addLog(`Inicio de sesión ${isSupabase ? 'multidispositivo' : 'exitoso'} por ${userObj.name} (${userObj.role}).`);
     };
 
     const handleLoginFailure = (customMsg) => {
@@ -421,7 +421,7 @@ export default function AdminPanel({
       }
     };
 
-    // 1. Intentar iniciar sesiÃ³n por medio de Supabase Auth nativo (JWT)
+    // 1. Intentar iniciar sesión por medio de Supabase Auth nativo (JWT)
     if (supabase) {
       try {
         console.log('Intentando inicio de sesion nativo con Supabase Auth...');
@@ -464,7 +464,7 @@ export default function AdminPanel({
   };
 
   const handleLogoutAction = async () => {
-    addLog(`Cierre de sesion por el usuario ${currentUser?.name || ''}.`);
+    addLog(`Cierre de sesión por el usuario ${currentUser?.name || ''}.`);
     await onLogout();
   };
 
@@ -475,19 +475,19 @@ export default function AdminPanel({
     const avgTicket = ordersToday.length > 0 ? (salesToday / ordersToday.length) : 0;
     const today = new Date().toLocaleDateString('es-PE');
     
-    const textReport = `ðŸ“Š REPORTE DE VENTAS DIARIO - ${storeName.toUpperCase()} (${today})\n` +
-      `â€¢ Pedidos VÃ¡lidos Hoy: ${ordersToday.length}\n` +
-      `â€¢ Ventas de Hoy: S/. ${salesToday.toFixed(2)}\n` +
-      `â€¢ Ticket Promedio Hoy: S/. ${avgTicket.toFixed(2)}\n` +
-      `â€¢ Meta Diaria: S/. ${salesGoal.toFixed(2)} (${Math.round((salesToday / salesGoal) * 100)}%)\n` +
+    const textReport = `📊 REPORTE DE VENTAS DIARIO - ${storeName.toUpperCase()} (${today})\n` +
+      `• Pedidos Válidos Hoy: ${ordersToday.length}\n` +
+      `• Ventas de Hoy: S/. ${salesToday.toFixed(2)}\n` +
+      `• Ticket Promedio Hoy: S/. ${avgTicket.toFixed(2)}\n` +
+      `• Meta Diaria: S/. ${salesGoal.toFixed(2)} (${Math.round((salesToday / salesGoal) * 100)}%)\n` +
       `---------------------------\n` +
       (ordersToday.length > 0 
         ? ordersToday.map(o => `[${o.status}] ${o.id} - ${o.customer.name} - S/. ${o.grandTotal.toFixed(2)}`).join('\n')
-        : 'Sin pedidos el dÃ­a de hoy.'
+        : 'Sin pedidos el día de hoy.'
       );
       
     navigator.clipboard.writeText(textReport)
-      .then(() => alert("Â¡Reporte de ventas copiado al portapapeles! Listo para enviar por WhatsApp."))
+      .then(() => alert("¡Reporte de ventas copiado al portapapeles! Listo para enviar por WhatsApp."))
       .catch(() => alert("Error al copiar reporte."));
   };
 
@@ -499,10 +499,10 @@ export default function AdminPanel({
     
     let csvContent = "\uFEFF";
     csvContent += "=== REPORTE FINANCIERO Y CONTROL DE CAJA ===\n";
-    csvContent += `HeladerÃ­a: ${storeName}\n`;
-    csvContent += `Fecha de GeneraciÃ³n: ${new Date().toLocaleString('es-PE')}\n\n`;
-    csvContent += "--- RESUMEN DE VENTAS POR DÃA ---\n";
-    csvContent += "Fecha,Pedidos VÃ¡lidos,Subtotal Insumos (S/.),Delivery Recaudado (S/.),Monto Total (S/.)\n";
+    csvContent += `Heladería: ${storeName}\n`;
+    csvContent += `Fecha de Generación: ${new Date().toLocaleString('es-PE')}\n\n`;
+    csvContent += "--- RESUMEN DE VENTAS POR DÍA ---\n";
+    csvContent += "Fecha,Pedidos Válidos,Subtotal Insumos (S/.),Delivery Recaudado (S/.),Monto Total (S/.)\n";
     
     const dailyMap = {};
     orders.filter(o => o.status !== 'Cancelado').forEach(o => {
@@ -520,8 +520,8 @@ export default function AdminPanel({
       csvContent += `${day.dateStr},${day.count},${day.subtotal.toFixed(2)},${day.delivery.toFixed(2)},${day.total.toFixed(2)}\n`;
     });
     
-    csvContent += "\n--- BITÃCORA DE GASTOS Y EGRESOS ---\n";
-    csvContent += "Fecha Gasto,CategorÃ­a,Concepto,Monto (S/.)\n";
+    csvContent += "\n--- BITÁCORA DE GASTOS Y EGRESOS ---\n";
+    csvContent += "Fecha Gasto,Categoría,Concepto,Monto (S/.)\n";
     
     expenses.forEach(e => {
       const expenseDateStr = new Date(e.date + 'T12:00:00').toLocaleDateString('es-PE');
@@ -589,7 +589,7 @@ export default function AdminPanel({
         <form onSubmit={handleLogin} style={{ display: 'flex', flexDirection: 'column', gap: '15px' }}>
           <div className="form-group">
             <label>Nombre de Usuario o Correo</label>
-            <input
+            <input aria-label="Nombre de Usuario o Correo"
               type="text"
               className="form-control"
               placeholder="admin o admin@donhelado.com"
@@ -661,14 +661,14 @@ export default function AdminPanel({
     <div className="admin-layout">
       {/* Sidebar */}
       <div className="glass admin-sidebar">
-        <h4 style={{ marginBottom: '5px', color: 'var(--primary-color)', fontSize: '1.1rem' }}>{storeName}</h4>
-        <div style={{ 
-          display: 'flex', 
-          alignItems: 'center', 
-          gap: '6px', 
-          fontSize: '0.68rem', 
+        <div className="admin-sidebar-head">
+        <h4 style={{ margin: 0, color: 'var(--primary-color)', fontSize: '1.1rem' }}>{storeName}</h4>
+        <div className="admin-sync-badge" style={{
+          display: 'flex',
+          alignItems: 'center',
+          gap: '6px',
+          fontSize: '0.68rem',
           fontWeight: 'bold',
-          marginBottom: '20px',
           padding: '4px 10px',
           borderRadius: '12px',
           backgroundColor: isCloudSynced ? 'rgba(46, 204, 113, 0.1)' : 'rgba(241, 196, 15, 0.1)',
@@ -684,10 +684,7 @@ export default function AdminPanel({
                 borderRadius: '50%',
                 background: realtimeStatus === 'connected' ? '#2ecc71' :
                             realtimeStatus === 'error' ? '#e74c3c' :
-                            '#f1c40f',
-                boxShadow: realtimeStatus === 'connected' ? '0 0 6px rgba(46, 204, 113, 0.6)' :
-                           realtimeStatus === 'error' ? '0 0 6px rgba(231, 76, 60, 0.6)' :
-                           '0 0 6px rgba(241, 196, 15, 0.6)'
+                            '#f1c40f'
               }}
               title={realtimeStatus === 'connected' ? 'Tiempo Real: Conectado' :
                      realtimeStatus === 'error' ? 'Tiempo Real: Desconectado' :
@@ -696,16 +693,16 @@ export default function AdminPanel({
           )}
           <span>{isCloudSynced ? (syncIssue ? 'Conectado con avisos' : 'Sincronizado (Supabase)') : 'Sin conexión · reintentando'}</span>
         </div>
+        </div>
         {syncIssue && <p className="admin-sync-issue" role="status">⚠️ {syncIssue}</p>}
 
 
         {currentUser && (
-          <div style={{
+          <div className="admin-user-card" style={{
             background: 'var(--bg-secondary, rgba(0, 0, 0, 0.02))',
             border: '1px solid var(--border-color)',
             borderRadius: '12px',
             padding: '8px 12px',
-            marginBottom: '15px',
             display: 'flex',
             alignItems: 'center',
             gap: '10px'
@@ -734,10 +731,10 @@ export default function AdminPanel({
             </div>
           </div>
         )}
-        <div className="sidebar-menu">
-          {isAdminUser(currentUser) && <button className={`sidebar-btn ${activeTab === 'operations' ? 'active' : ''}`} onClick={() => setActiveTab('operations')}>◉ Centro de operaciones</button>}
+        <nav className="sidebar-menu" aria-label="Secciones del panel">
+          {isAdminUser(currentUser) && <button aria-current={activeTab === 'operations' ? 'page' : undefined} className={`sidebar-btn ${activeTab === 'operations' ? 'active' : ''}`} onClick={() => setActiveTab('operations')}>◉ Centro de operaciones</button>}
           {isTabAllowed('driver_panel') && (
-            <button className={`sidebar-btn ${activeTab === 'driver_panel' ? 'active' : ''}`} onClick={() => setActiveTab('driver_panel')}>
+            <button aria-current={activeTab === 'driver_panel' ? 'page' : undefined} className={`sidebar-btn ${activeTab === 'driver_panel' ? 'active' : ''}`} onClick={() => setActiveTab('driver_panel')}>
               🛵 Mis Repartos ({orders.filter(o => {
                 if (!o || o.status === 'Cancelado' || o.status === 'Entregado') return false;
                 const d = o.assignedDriver;
@@ -749,81 +746,81 @@ export default function AdminPanel({
             </button>
           )}
           {isTabAllowed('kds') && (
-            <button className={`sidebar-btn ${activeTab === 'kds' ? 'active' : ''}`} onClick={() => setActiveTab('kds')}>
+            <button aria-current={activeTab === 'kds' ? 'page' : undefined} className={`sidebar-btn ${activeTab === 'kds' ? 'active' : ''}`} onClick={() => setActiveTab('kds')}>
               👨‍🍳 KDS Cocina ({orders.filter(o => o.status === 'Pendiente' || o.status === 'Preparando').length})
             </button>
           )}
           {isTabAllowed('orders') && (
             <>
-              <button className={`sidebar-btn ${activeTab === 'orders' ? 'active' : ''}`} onClick={() => setActiveTab('orders')}>
+              <button aria-current={activeTab === 'orders' ? 'page' : undefined} className={`sidebar-btn ${activeTab === 'orders' ? 'active' : ''}`} onClick={() => setActiveTab('orders')}>
                 📦 Pedidos ({orders.filter(o => o.status === 'Pendiente').length})
               </button>
               {isTabAllowed('crm') && (
-                <button className={`sidebar-btn ${activeTab === 'crm' ? 'active' : ''}`} onClick={() => setActiveTab('crm')}>
+                <button aria-current={activeTab === 'crm' ? 'page' : undefined} className={`sidebar-btn ${activeTab === 'crm' ? 'active' : ''}`} onClick={() => setActiveTab('crm')}>
                   📇 CRM Clientes
                 </button>
               )}
             </>
           )}
           {storeServiceEnabled && isTabAllowed('ordertaker') && (
-            <button className={`sidebar-btn ${activeTab === 'ordertaker' ? 'active' : ''}`} onClick={() => { setOrderTakerContext(null); setActiveTab('ordertaker'); }}>
+            <button aria-current={activeTab === 'ordertaker' ? 'page' : undefined} className={`sidebar-btn ${activeTab === 'ordertaker' ? 'active' : ''}`} onClick={() => { setOrderTakerContext(null); setActiveTab('ordertaker'); }}>
               🛒 Tomador de Pedidos
             </button>
           )}
           {isTabAllowed('inventory') && (
-            <button className={`sidebar-btn ${activeTab === 'inventory' ? 'active' : ''}`} onClick={() => setActiveTab('inventory')}>
+            <button aria-current={activeTab === 'inventory' ? 'page' : undefined} className={`sidebar-btn ${activeTab === 'inventory' ? 'active' : ''}`} onClick={() => setActiveTab('inventory')}>
               🍦 Carta Helada
             </button>
           )}
           {isTabAllowed('packs') && (
-            <button className={`sidebar-btn ${activeTab === 'packs' ? 'active' : ''}`} onClick={() => setActiveTab('packs')}>
+            <button aria-current={activeTab === 'packs' ? 'page' : undefined} className={`sidebar-btn ${activeTab === 'packs' ? 'active' : ''}`} onClick={() => setActiveTab('packs')}>
               🎁 Packs Combos
             </button>
           )}
           {currentUser && isAdminUser(currentUser) && isTabAllowed('users') && (
-            <button className={`sidebar-btn ${activeTab === 'users' ? 'active' : ''}`} onClick={() => setActiveTab('users')}>
+            <button aria-current={activeTab === 'users' ? 'page' : undefined} className={`sidebar-btn ${activeTab === 'users' ? 'active' : ''}`} onClick={() => setActiveTab('users')}>
               👥 Personal / Staff
             </button>
           )}
           {isTabAllowed('finance') && (
-            <button className={`sidebar-btn ${activeTab === 'finance' ? 'active' : ''}`} onClick={() => setActiveTab('finance')}>
+            <button aria-current={activeTab === 'finance' ? 'page' : undefined} className={`sidebar-btn ${activeTab === 'finance' ? 'active' : ''}`} onClick={() => setActiveTab('finance')}>
               💵 Caja y Finanzas
             </button>
           )}
           {isTabAllowed('stats') && (
-            <button className={`sidebar-btn ${activeTab === 'stats' ? 'active' : ''}`} onClick={() => setActiveTab('stats')}>
+            <button aria-current={activeTab === 'stats' ? 'page' : undefined} className={`sidebar-btn ${activeTab === 'stats' ? 'active' : ''}`} onClick={() => setActiveTab('stats')}>
               📈 Meta e Ingresos
             </button>
           )}
           {isTabAllowed('surveys') && (
-            <button className={`sidebar-btn ${activeTab === 'surveys' ? 'active' : ''}`} onClick={() => setActiveTab('surveys')}>
+            <button aria-current={activeTab === 'surveys' ? 'page' : undefined} className={`sidebar-btn ${activeTab === 'surveys' ? 'active' : ''}`} onClick={() => setActiveTab('surveys')}>
               ⭐ Encuestas ({orders.filter(o => o.survey).length})
             </button>
           )}
           {storeServiceEnabled && isTabAllowed('table_orders') && (
-            <button className={`sidebar-btn ${activeTab === 'table_orders' ? 'active' : ''}`} onClick={() => setActiveTab('table_orders')}>
+            <button aria-current={activeTab === 'table_orders' ? 'page' : undefined} className={`sidebar-btn ${activeTab === 'table_orders' ? 'active' : ''}`} onClick={() => setActiveTab('table_orders')}>
               🍽️ Pedidos en Mesa
             </button>
           )}
           {isAdminUser(currentUser) && (
-            <button className={`sidebar-btn ${activeTab === 'analytics' ? 'active' : ''}`} onClick={() => setActiveTab('analytics')}>
+            <button aria-current={activeTab === 'analytics' ? 'page' : undefined} className={`sidebar-btn ${activeTab === 'analytics' ? 'active' : ''}`} onClick={() => setActiveTab('analytics')}>
               📊 Embudo de ventas
             </button>
           )}
           {isTabAllowed('settings') && (
-            <button className={`sidebar-btn ${activeTab === 'settings' ? 'active' : ''}`} onClick={() => setActiveTab('settings')}>
+            <button aria-current={activeTab === 'settings' ? 'page' : undefined} className={`sidebar-btn ${activeTab === 'settings' ? 'active' : ''}`} onClick={() => setActiveTab('settings')}>
               ⚙️ Todos los ajustes
             </button>
           )}
           {isTabAllowed('locations') && (
-            <button className={`sidebar-btn ${activeTab === 'locations' ? 'active' : ''}`} onClick={() => setActiveTab('locations')}>
-              📍 Carritos / Ubicacion
+            <button aria-current={activeTab === 'locations' ? 'page' : undefined} className={`sidebar-btn ${activeTab === 'locations' ? 'active' : ''}`} onClick={() => setActiveTab('locations')}>
+              📍 Carritos / Ubicación
             </button>
           )}
-        </div>
+        </nav>
       </div>
 
-      {/* Contenido de pestaÃ±a activa */}
+      {/* Contenido de pestaña activa */}
       <div className="admin-content">
           <Suspense fallback={<div style={{ padding: '40px', textAlign: 'center', color: 'var(--text-light)' }}>Cargando módulo...</div>}>
           {activeTab === 'operations' && isAdminUser(currentUser) && <OperationsCenter orders={orders} salesGoal={salesGoal} shopOpen={shopOpen} onNavigate={setActiveTab} onUpdateOrderStatus={onUpdateOrderStatus} groups={[
@@ -1104,7 +1101,7 @@ export default function AdminPanel({
           </Suspense>
       </div>
 
-      {/* Panel Flotante Persistente para Llamados de AtenciÃ³n en Mesa */}
+      {/* Panel Flotante Persistente para Llamados de Atención en Mesa */}
       {(tableOrdersEnabled || isAdminUser(currentUser)) && tableCalls.filter(c => !c.resolved).length > 0 && (
         <div style={{
           position: 'fixed',
@@ -1120,22 +1117,22 @@ export default function AdminPanel({
           borderRadius: '16px',
           boxShadow: '0 12px 36px rgba(231, 76, 60, 0.35)',
           padding: '16px',
-          animation: 'slideUpBounceAdmin 0.4s ease',
+          animation: 'slideUpAdmin 0.4s ease',
           display: 'flex',
           flexDirection: 'column',
           gap: '10px'
         }}>
           <style dangerouslySetInnerHTML={{ __html: `
-            @keyframes slideUpBounceAdmin {
+            @keyframes slideUpAdmin {
               from { transform: translateY(50px); opacity: 0; }
               to { transform: translateY(0); opacity: 1; }
             }
           ` }} />
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderBottom: '1px solid var(--border-color)', paddingBottom: '6px' }}>
             <span style={{ fontWeight: 'bold', color: 'var(--danger)', fontSize: '0.85rem', display: 'flex', alignItems: 'center', gap: '6px' }}>
-              🛎️ LLAMADOS DE MESA ACTIVAS ({tableCalls.filter(c => !c.resolved).length})
+              🛎️ LLAMADOS DE MESA ACTIVOS ({tableCalls.filter(c => !c.resolved).length})
             </span>
-            <span style={{ background: 'var(--danger)', color: 'white', fontSize: '0.65rem', fontWeight: 'bold', padding: '2px 8px', borderRadius: '12px' }}>PENDIENTE</span>
+            <span style={{ background: 'var(--danger)', color: 'var(--bg-secondary)', fontSize: '0.65rem', fontWeight: 'bold', padding: '2px 8px', borderRadius: '12px' }}>PENDIENTE</span>
           </div>
           <div style={{ maxHeight: '180px', overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: '8px' }}>
             {tableCalls.filter(c => !c.resolved).map((call, idx) => (
@@ -1144,7 +1141,6 @@ export default function AdminPanel({
                 padding: '8px 10px',
                 borderRadius: '8px',
                 fontSize: '0.72rem',
-                borderLeft: '4px solid var(--primary-color)',
                 border: '1px solid var(--border-color)',
                 display: 'flex',
                 justifyContent: 'space-between',

@@ -408,8 +408,8 @@ BEGIN
 END;
 $$;
 
--- 10.1 Eliminar contraseÃ±as heredadas guardadas en JSON.
--- Las claves deben gestionarse Ãºnicamente con Supabase Auth.
+-- 10.1 Eliminar contraseñas heredadas guardadas en JSON.
+-- Las claves deben gestionarse únicamente con Supabase Auth.
 UPDATE public.helados_sync
 SET value = (
     SELECT COALESCE(jsonb_agg(item - 'password'), '[]'::jsonb)

@@ -76,7 +76,7 @@ export default function OrderManager({
       })
     );
     if (!href) {
-      alert('El pedido no tiene telefono valido para SMS.');
+      alert('El pedido no tiene un teléfono válido para SMS.');
       return;
     }
     window.location.assign(href);
@@ -294,7 +294,7 @@ export default function OrderManager({
     }
     
     let csvContent = "\uFEFF"; // BOM para UTF-8 en Excel
-    csvContent += "ID Pedido,Fecha,Cliente,WhatsApp,Direccion,Forma Pago,Monto Pedido,Delivery,Monto Total,Estado\n";
+    csvContent += "ID Pedido,Fecha,Cliente,WhatsApp,Dirección,Forma Pago,Monto Pedido,Delivery,Monto Total,Estado\n";
     
     orders.forEach(o => {
       const dateStr = new Date(o.date).toLocaleString('es-PE', { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit' });
@@ -439,13 +439,13 @@ export default function OrderManager({
           </span>
         </h3>
 
-        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '15px', marginBottom: '20px' }} className="admin-stats-columns">
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, minmax(0, 1fr))', gap: '15px', marginBottom: '20px' }} className="admin-stats-columns">
           {/* Datos del Cliente */}
           <div className="glass" style={{ padding: '15px', display: 'flex', flexDirection: 'column', gap: '8px' }}>
             <strong style={{ fontSize: '0.85rem' }}>👤 Datos del Cliente</strong>
             <div className="form-group">
               <label style={{ fontSize: '0.75rem' }}>Nombre</label>
-              <input 
+              <input aria-label="Nombre" 
                 type="text" 
                 className="form-control" 
                 style={{ fontSize: '0.8rem', padding: '6px' }} 
@@ -458,7 +458,7 @@ export default function OrderManager({
             </div>
             <div className="form-group">
               <label style={{ fontSize: '0.75rem' }}>Teléfono</label>
-              <input 
+              <input aria-label="Teléfono" 
                 type="text" 
                 className="form-control" 
                 style={{ fontSize: '0.8rem', padding: '6px' }} 
@@ -471,7 +471,7 @@ export default function OrderManager({
             </div>
             <div className="form-group">
               <label style={{ fontSize: '0.75rem' }}>Dirección de Entrega</label>
-              <input 
+              <input aria-label="Dirección de Entrega" 
                 type="text" 
                 className="form-control" 
                 style={{ fontSize: '0.8rem', padding: '6px' }} 
@@ -484,7 +484,7 @@ export default function OrderManager({
             </div>
             <div className="form-group">
               <label style={{ fontSize: '0.75rem' }}>Método de Pago</label>
-              <select 
+              <select aria-label="Método de Pago" 
                 className="form-control" 
                 style={{ fontSize: '0.8rem', padding: '6px' }} 
                 value={editingOrder.customer.paymentMethod}
@@ -619,11 +619,11 @@ export default function OrderManager({
         </div>
 
         {/* Envío y Totales */}
-        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '15px', alignItems: 'flex-start', marginBottom: '20px' }} className="admin-stats-columns">
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, minmax(0, 1fr))', gap: '15px', alignItems: 'flex-start', marginBottom: '20px' }} className="admin-stats-columns">
           <div className="glass" style={{ padding: '15px' }}>
             <div className="form-group" style={{ margin: 0 }}>
               <label style={{ fontSize: '0.78rem', fontWeight: 'bold' }}>🚚 Costo de Delivery / Envío</label>
-              <input 
+              <input aria-label="🚚 Costo de Delivery / Envío" 
                 type="number" 
                 step="0.50" 
                 className="form-control" 
@@ -776,11 +776,11 @@ export default function OrderManager({
             border: '1px solid var(--border-color)'
           }}>
             {[
-              { id: 'Por Corroborar', step: '1', label: 'Por validar', icon: '⏳', count: kpis.toCorroborate, color: '#e67e22', desc: 'Validar pago/datos' },
-              { id: 'Pendiente', step: '2', label: 'Confirmados', icon: '📋', count: kpis.pending, color: '#2980b9', desc: 'En cola de cocina' },
-              { id: 'Preparando', step: '3', label: 'Preparando', icon: '👨‍🍳', count: kpis.preparing, color: '#8e44ad', desc: 'En elaboración' },
-              { id: 'Listo', step: '4', label: 'Listos', icon: '✅', count: kpis.ready, color: '#16846b', desc: 'Por entregar o despachar' },
-              { id: 'En camino', step: '5', label: 'En camino', icon: '🛵', count: kpis.delivery, color: 'var(--delivery-color, #FF441F)', desc: 'Despachado' },
+              { id: 'Por Corroborar', step: '1', label: 'Por validar', icon: '⏳', count: kpis.toCorroborate, color: 'var(--warning)', desc: 'Validar pago/datos' },
+              { id: 'Pendiente', step: '2', label: 'Confirmados', icon: '📋', count: kpis.pending, color: 'var(--info)', desc: 'En cola de cocina' },
+              { id: 'Preparando', step: '3', label: 'Preparando', icon: '👨‍🍳', count: kpis.preparing, color: 'var(--accent-violet)', desc: 'En elaboración' },
+              { id: 'Listo', step: '4', label: 'Listos', icon: '✅', count: kpis.ready, color: 'var(--success)', desc: 'Por entregar o despachar' },
+              { id: 'En camino', step: '5', label: 'En camino', icon: '🛵', count: kpis.delivery, color: 'var(--delivery-ink)', desc: 'Despachado' },
               { id: 'Entregado', step: '6', label: 'Entregados', icon: '🎉', count: kpis.delivered, color: 'var(--success, #27ae60)', desc: 'Completados' }
             ].map(st => {
               const isSelected = orderFilter === st.id;
@@ -791,7 +791,7 @@ export default function OrderManager({
                   onClick={() => setOrderFilter(orderFilter === st.id ? 'all' : st.id)}
                   style={{
                     border: isSelected ? `2px solid ${st.color}` : '1px solid var(--border-color)',
-                    background: isSelected ? 'var(--bg-secondary, #fff)' : 'rgba(255,255,255,0.6)',
+                    background: isSelected ? 'var(--bg-secondary, #fff)' : 'color-mix(in srgb, var(--bg-secondary) 60%, transparent)',
                     borderRadius: '8px',
                     padding: '8px 10px',
                     cursor: 'pointer',
@@ -800,7 +800,7 @@ export default function OrderManager({
                     flexDirection: 'column',
                     gap: '2px',
                     transition: 'all 0.15s ease',
-                    boxShadow: isSelected ? `0 2px 8px ${st.color}25` : 'none'
+                    boxShadow: isSelected ? `0 2px 8px color-mix(in srgb, ${st.color} 15%, transparent)` : 'none'
                   }}
                   title={`Filtrar por ${st.label}`}
                 >
@@ -830,14 +830,14 @@ export default function OrderManager({
             <input
               type="text"
               className="form-control"
-              placeholder="🔍 Buscar por ID de pedido o nombre de cliente..."
+              aria-label="Buscar pedido por código o cliente" placeholder="🔍 Buscar por ID de pedido o nombre de cliente..."
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
             />
           </div>
 
           {/* Filtros Combinados */}
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))', gap: '15px', marginBottom: '15px' }}>
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(min(280px, 100%), 1fr))', gap: '15px', marginBottom: '15px' }}>
             <div style={{ 
               display: 'flex', 
               gap: '8px', 
@@ -935,7 +935,7 @@ export default function OrderManager({
               height: '100%'
             }}>
               <span style={{ fontSize: '0.8rem', fontWeight: 'bold', color: 'var(--text-dark)' }}>🛵 Repartidor:</span>
-              <select
+              <select aria-label="Filtrar por repartidor"
                 value={driverFilter}
                 onChange={(e) => setDriverFilter(e.target.value)}
                 style={{
@@ -964,7 +964,7 @@ export default function OrderManager({
             padding: '10px 14px',
             background: 'linear-gradient(135deg, rgba(255, 68, 31, 0.08) 0%, rgba(255, 68, 31, 0.02) 100%)',
             borderRadius: '8px',
-            borderLeft: '4px solid var(--delivery-color, #FF441F)',
+            border: '1px solid rgba(255, 68, 31, 0.3)',
             marginBottom: '14px',
             fontSize: '0.8rem',
             color: 'var(--text-dark)',
@@ -1078,9 +1078,9 @@ export default function OrderManager({
                             fontWeight: 700,
                             padding: '2px 6px',
                             borderRadius: '4px',
-                            background: `${stage.color}15`,
+                            background: `color-mix(in srgb, ${stage.color} 8%, transparent)`,
                             color: stage.color,
-                            border: `1px solid ${stage.color}40`,
+                            border: `1px solid color-mix(in srgb, ${stage.color} 25%, transparent)`,
                             display: 'inline-block'
                           }}>
                             {stage.text}
@@ -1096,13 +1096,13 @@ export default function OrderManager({
                             marginTop: '6px',
                             padding: '6px 9px',
                             borderRadius: '6px',
-                            background: '#fffbeb',
+                            background: 'color-mix(in srgb, var(--warning) 12%, var(--bg-secondary))',
                             border: '1px solid #fcd34d',
                             fontSize: '0.73rem',
-                            color: '#92400e',
+                            color: 'var(--warning)',
                             lineHeight: 1.35
                           }}>
-                            <div style={{ fontWeight: 800, display: 'flex', alignItems: 'center', gap: '4px', color: '#b45309', marginBottom: '2px' }}>
+                            <div style={{ fontWeight: 800, display: 'flex', alignItems: 'center', gap: '4px', color: 'var(--warning)', marginBottom: '2px' }}>
                               <span>⚠️</span>
                               <span>{requiresAdvancePayment(order) ? 'VALIDACIÓN DE PAGO:' : 'CONFIRMACIÓN DEL PEDIDO:'}</span>
                             </div>
@@ -1110,11 +1110,11 @@ export default function OrderManager({
                               <div>
                                 Verificar abono de <strong>S/. {Number(order.grandTotal || 0).toFixed(2)}</strong> por <strong>{order.customer?.paymentMethod || 'Pago digital'}</strong>.
                                 {order.customer?.operationCode ? (
-                                  <div style={{ marginTop: '2px', fontWeight: 700, color: '#6b21a8' }}>
-                                    N° Op: <span style={{ fontFamily: 'monospace', background: '#f3e8ff', padding: '1px 5px', borderRadius: '3px' }}>{order.customer.operationCode}</span>
+                                  <div style={{ marginTop: '2px', fontWeight: 700, color: 'var(--accent-violet)' }}>
+                                    N° Op: <span style={{ fontFamily: 'monospace', background: 'color-mix(in srgb, var(--accent-violet) 12%, var(--bg-secondary))', padding: '1px 5px', borderRadius: '3px' }}>{order.customer.operationCode}</span>
                                   </div>
                                 ) : (
-                                  <div style={{ marginTop: '2px', color: '#b91c1c' }}>
+                                  <div style={{ marginTop: '2px', color: 'var(--danger)' }}>
                                     (Sin N° de operación · Pedir voucher o verificar en app bancaria)
                                   </div>
                                 )}
@@ -1143,9 +1143,9 @@ export default function OrderManager({
                             marginTop: '6px',
                             padding: '7px 9px',
                             borderRadius: '6px',
-                            background: '#fff7ed',
+                            background: 'color-mix(in srgb, var(--warning) 12%, var(--bg-secondary))',
                             border: '1px solid #fb923c',
-                            color: '#9a3412',
+                            color: 'var(--warning)',
                             fontSize: '0.72rem',
                             fontWeight: 700,
                             lineHeight: 1.35
@@ -1203,7 +1203,7 @@ export default function OrderManager({
                                 className="admin-action-btn"
                                 onClick={() => handleDispatchToDriverWhatsApp(order)}
                                 style={{
-                                  background: '#25D366',
+                                  background: '#0E7A5C',
                                   color: '#fff',
                                   fontSize: '0.68rem',
                                   padding: '3px 6px',
@@ -1251,7 +1251,7 @@ export default function OrderManager({
                           )}
                           {String(order.customer?.paymentMethod || '').toLowerCase().includes('plin') && (
                             <span style={{
-                              background: '#0097a7',
+                              background: '#00727f',
                               color: '#fff',
                               fontSize: '0.66rem',
                               fontWeight: 700,
@@ -1297,9 +1297,9 @@ export default function OrderManager({
                           )}
 
                           {order.status === 'Cancelado' ? (
-                            <span style={{ fontSize: '0.75rem', fontWeight: 700, color: '#b91c1c' }}>Pedido cancelado · sin cobro</span>
+                            <span style={{ fontSize: '0.75rem', fontWeight: 700, color: 'var(--danger)' }}>Pedido cancelado · sin cobro</span>
                           ) : Number(order.grandTotal || 0) <= 0 ? (
-                            <span style={{ fontSize: '0.75rem', fontWeight: 700, color: '#15803d' }}>Cortesía · sin importe pendiente</span>
+                            <span style={{ fontSize: '0.75rem', fontWeight: 700, color: 'var(--success)' }}>Cortesía · sin importe pendiente</span>
                           ) : isPaymentOnArrival(order) && (
                             <span style={{ fontSize: '0.875rem', fontWeight: 700 }}>Pago al llegar · {order.paymentVerified ? 'Cobrado' : 'Pendiente de cobro'}</span>
                           )}
@@ -1307,8 +1307,8 @@ export default function OrderManager({
                           {order.status === 'Cancelado' || Number(order.grandTotal || 0) <= 0 ? null : order.paymentVerified ? (
                             <span
                               style={{
-                                background: '#dcfce7',
-                                color: '#15803d',
+                                background: 'color-mix(in srgb, var(--success) 12%, var(--bg-secondary))',
+                                color: 'var(--success)',
                                 border: '1px solid #86efac',
                                 borderRadius: '4px',
                                 padding: '2px 6px',
@@ -1328,8 +1328,8 @@ export default function OrderManager({
                                 type="button"
                                 onClick={() => handleTogglePaymentVerified(order)}
                                 style={{
-                                  background: '#fef3c7',
-                                  color: '#b45309',
+                                  background: 'color-mix(in srgb, var(--warning) 12%, var(--bg-secondary))',
+                                  color: 'var(--warning)',
                                   border: '1px solid #f59e0b',
                                   borderRadius: '4px',
                                   padding: '2px 6px',
@@ -1346,13 +1346,13 @@ export default function OrderManager({
                                 ⚠️ Validar Abono
                               </button>
                           ) : isPaymentOnArrival(order) && isDelivery ? (
-                            <span style={{ fontSize: '0.64rem', color: '#b45309', fontWeight: 700 }}>
+                            <span style={{ fontSize: '0.64rem', color: 'var(--warning)', fontWeight: 700 }}>
                               🚚 Cobro a cargo del repartidor
                             </span>
                           ) : isPaymentOnArrival(order) ? (
-                            <span style={{ fontSize: '0.64rem', color: '#b45309', fontWeight: 700 }}>🏪 Cobro pendiente en tienda</span>
+                            <span style={{ fontSize: '0.64rem', color: 'var(--warning)', fontWeight: 700 }}>🏪 Cobro pendiente en tienda</span>
                           ) : (
-                            <span style={{ fontSize: '0.64rem', color: '#b91c1c', fontWeight: 700 }}>Pago pendiente de validar</span>
+                            <span style={{ fontSize: '0.64rem', color: 'var(--danger)', fontWeight: 700 }}>Pago pendiente de validar</span>
                           )}
                         </div>
                       </td>
@@ -1385,7 +1385,7 @@ export default function OrderManager({
                               style={{
                                 color: '#fff',
                                 fontWeight: 800,
-                                background: '#2980b9',
+                                background: '#1f6391',
                                 border: 'none',
                                 borderRadius: '6px',
                                 padding: '6px 10px',
@@ -1495,7 +1495,7 @@ export default function OrderManager({
                               className="admin-action-btn"
                               style={{
                                 textDecoration: 'none',
-                                color: '#7b1fa2',
+                                color: 'var(--accent-violet)',
                                 background: 'rgba(123, 31, 162, 0.1)',
                                 border: '1px solid #7b1fa2',
                                 borderRadius: '4px',
@@ -1530,7 +1530,7 @@ export default function OrderManager({
                             <button
                               type="button"
                               className="admin-action-btn"
-                              style={{ color: '#0984e3' }}
+                              style={{ color: 'var(--info)' }}
                               title="Editar Pedido"
                               onClick={() => handleStartEditingOrder(order)}
                             >
@@ -1542,7 +1542,7 @@ export default function OrderManager({
                             target="_blank" 
                             rel="noopener noreferrer" 
                             className="admin-action-btn" 
-                            style={{ textDecoration: 'none', color: '#25D366', textAlign: 'center' }}
+                            style={{ textDecoration: 'none', color: 'var(--success)', textAlign: 'center' }}
                           >
                             💬 Chat
                           </a>
@@ -1550,7 +1550,7 @@ export default function OrderManager({
                             <button
                               type="button"
                               className="admin-action-btn"
-                              style={{ color: 'var(--delivery-color, #FF441F)', fontWeight: 600 }}
+                              style={{ color: 'var(--delivery-ink)', fontWeight: 600 }}
                               title="Imprimir ticket térmico ESC/POS (58mm / 80mm)"
                               onClick={() => {
                                 printThermalTicket({
@@ -1568,7 +1568,7 @@ export default function OrderManager({
                           <button
                             type="button"
                             className="admin-action-btn"
-                            style={{ color: '#e58e26' }}
+                            style={{ color: 'var(--warning)' }}
                             title="Imprimir ticket de comanda para la cocina"
                             onClick={() => {
                               const dateStr = new Date(order.date).toLocaleString('es-PE', { 
@@ -1750,7 +1750,7 @@ export default function OrderManager({
               </p>
             </div>
           ) : (
-            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))', gap: '15px' }}>
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(min(280px, 100%), 1fr))', gap: '15px' }}>
               {filteredSurveys.map(order => {
                 const waUrl = buildWhatsAppHref(order.customer?.phone, `Hola ${order.customer?.name || 'cliente'}, nos comunicamos de ${storeName} con relación a tu pedido ${order.id}...`);
                 
@@ -1761,7 +1761,7 @@ export default function OrderManager({
                 return (
                   <div key={order.id} className="glass" style={{ 
                     padding: '15px', 
-                    borderLeft: `5px solid ${order.survey.rating <= 3 ? 'var(--danger)' : 'var(--success)'}`,
+                    border: `1px solid ${order.survey.rating <= 3 ? 'var(--danger)' : 'var(--success)'}`,
                     display: 'flex',
                     flexDirection: 'column',
                     gap: '10px',
@@ -1773,7 +1773,7 @@ export default function OrderManager({
                       <span style={{ fontSize: '0.7rem', color: 'var(--text-light)' }}>🕒 {surveyDateStr}</span>
                     </div>
 
-                    <div style={{ display: 'flex', gap: '4px', fontSize: '1.2rem', color: '#ff6b81', margin: '2px 0' }}>
+                    <div style={{ display: 'flex', gap: '4px', fontSize: '1.2rem', color: 'var(--primary-color)', margin: '2px 0' }}>
                       {[1, 2, 3, 4, 5].map(idx => (
                         <span key={idx} style={{ filter: idx <= order.survey.rating ? 'none' : 'grayscale(100%) opacity(20%)' }}>🍦</span>
                       ))}
@@ -1819,8 +1819,8 @@ export default function OrderManager({
                             alignItems: 'center', 
                             justifyContent: 'center', 
                             gap: '4px', 
-                            backgroundColor: '#25D366', 
-                            borderColor: '#25D366', 
+                            backgroundColor: '#0E7A5C', 
+                            borderColor: '#0E7A5C', 
                             color: 'white',
                             borderRadius: '6px',
                             textDecoration: 'none',
@@ -1923,14 +1923,14 @@ export default function OrderManager({
 
             {/* O registrar un nuevo repartidor en 1 paso */}
             <form onSubmit={handleSaveQuickDriver} style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
-              <div style={{ fontSize: '0.85rem', fontWeight: 700, color: 'var(--delivery-color, #FF441F)' }}>
+              <div style={{ fontSize: '0.85rem', fontWeight: 700, color: 'var(--delivery-ink)' }}>
                 O registrar nuevo repartidor / motorizado:
               </div>
               <div>
                 <label style={{ display: 'block', fontSize: '0.78rem', fontWeight: 600, marginBottom: '4px' }}>
                   Nombre completo del motorizado:
                 </label>
-                <input
+                <input aria-label="Nombre completo del motorizado"
                   type="text"
                   placeholder="Ej: Carlos Mendoza"
                   value={quickDriverName}
@@ -1943,7 +1943,7 @@ export default function OrderManager({
                 <label style={{ display: 'block', fontSize: '0.78rem', fontWeight: 600, marginBottom: '4px' }}>
                   Celular / WhatsApp para despacho (9 dígitos):
                 </label>
-                <input
+                <input aria-label="Celular / WhatsApp para despacho (9 dígitos)"
                   type="tel"
                   placeholder="Ej: 987654321"
                   value={quickDriverPhone}

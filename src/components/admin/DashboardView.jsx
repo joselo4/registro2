@@ -328,7 +328,8 @@ export default function DashboardView({
                 setExpandedDay(null);
               }}
               className={`filter-btn ${statsRange === r.id ? 'active' : ''}`}
-              style={{ padding: '4px 10px', fontSize: '0.75rem', border: 'none', background: 'transparent', whiteSpace: 'nowrap' }}
+              aria-pressed={statsRange === r.id}
+              style={{ padding: '8px 12px', minHeight: '36px', fontSize: '0.75rem', border: 'none', whiteSpace: 'nowrap' }}
             >
               {r.label}
             </button>
@@ -401,10 +402,10 @@ export default function DashboardView({
         </div>
       </div>
 
-      <div style={{ display: 'grid', gridTemplateColumns: '1.2fr 0.8fr', gap: '20px' }} className="admin-stats-columns">
+      <div className="admin-split admin-stats-columns" style={{ display: 'grid', gap: '20px' }}>
         <div style={{ display: 'flex', flexDirection: 'column', gap: '15px' }}>
           {/* Barra de progreso de meta diaria */}
-          <div className="glass" style={{ padding: '15px', borderLeft: '5px solid var(--primary-color)' }}>
+          <div className="glass" style={{ padding: '15px' }}>
             <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.9rem', fontWeight: 'bold' }}>
               <span>🎯 Meta de Ventas Diaria: S/. {salesGoal.toFixed(2)}</span>
               <span style={{ color: 'var(--primary-color)' }}>{progressPercent}% Completado</span>
@@ -567,7 +568,7 @@ export default function DashboardView({
       </div>
 
       {/* Smart Pricing */}
-      <div className="glass" style={{ padding: '20px', borderRadius: '8px', background: 'linear-gradient(135deg, rgba(46, 204, 113, 0.05) 0%, rgba(241, 196, 15, 0.03) 100%)', borderLeft: '5px solid var(--success)' }}>
+      <div className="glass" style={{ padding: '20px', borderRadius: '8px', background: 'linear-gradient(135deg, rgba(46, 204, 113, 0.05) 0%, rgba(241, 196, 15, 0.03) 100%)', border: '1px solid color-mix(in srgb, var(--success) 45%, transparent)' }}>
         <h4 style={{ margin: '0 0 15px 0', fontSize: '0.9rem', fontWeight: 'bold', display: 'flex', alignItems: 'center', gap: '8px', color: 'var(--text-dark)' }}>
           💡 Smart-Pricing & Sugerencias de Utilidades
         </h4>
@@ -690,7 +691,7 @@ export default function DashboardView({
                         height={Math.max(2, height)}
                         fill="url(#bar-gradient)"
                         rx="3"
-                        style={{ transition: 'all 0.5s cubic-bezier(0.175, 0.885, 0.32, 1.275)', cursor: 'pointer' }}
+                        style={{ transition: 'all 0.5s cubic-bezier(0.16, 1, 0.3, 1)', cursor: 'pointer' }}
                       >
                         <title>{`${d.dateStr}: S/. ${d.sales.toFixed(2)} (${d.validCount} pedidos)`}</title>
                       </rect>

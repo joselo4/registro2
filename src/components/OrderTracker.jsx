@@ -353,7 +353,7 @@ export default function OrderTracker({ orderId, orders, setView, storePhone, onC
               target="_blank" 
               rel="noopener noreferrer" 
               className="btn btn-primary"
-              style={{ background: '#25D366', borderColor: '#25D366', color: 'white', textDecoration: 'none', display: 'inline-flex', alignItems: 'center', justifyContent: 'center', gap: '6px', padding: '8px 12px', fontSize: '0.8rem', borderRadius: '8px' }}
+              style={{ background: '#0E7A5C', borderColor: '#0E7A5C', color: 'white', textDecoration: 'none', display: 'inline-flex', alignItems: 'center', justifyContent: 'center', gap: '6px', padding: '8px 12px', fontSize: '0.8rem', borderRadius: '8px' }}
             >
               💬 WhatsApp Soporte
             </a>
@@ -363,7 +363,7 @@ export default function OrderTracker({ orderId, orders, setView, storePhone, onC
         <form onSubmit={handleSearchSubmit} style={{ display: 'flex', flexDirection: 'column', gap: '15px' }}>
           <div className="form-group">
             <label style={{ fontSize: '0.8rem', fontWeight: 600 }}>Código de Pedido</label>
-            <input
+            <input aria-label="Código de Pedido"
               type="text"
               className="form-control"
               placeholder="Ej: KMR-482"
@@ -452,9 +452,9 @@ export default function OrderTracker({ orderId, orders, setView, storePhone, onC
             type="button"
             className="btn btn-secondary"
             style={{
-              backgroundColor: '#25D366',
+              backgroundColor: '#0E7A5C',
               color: 'white',
-              borderColor: '#25D366',
+              borderColor: '#0E7A5C',
               width: '100%',
               fontSize: '0.85rem',
               display: 'flex',

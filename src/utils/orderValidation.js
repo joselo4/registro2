@@ -77,7 +77,7 @@ export const validateOrderInput = ({
 export const getOrderStageInfo = (status, isDelivery = true) => {
   const stages = isDelivery ? ['Por Corroborar', 'Pendiente', 'Preparando', 'Listo', 'En camino', 'Entregado'] : ['Por Corroborar', 'Pendiente', 'Preparando', 'Listo', 'Entregado'];
   const labels = { 'Por Corroborar': 'Validar pedido y pago', Pendiente: 'En cola', Preparando: 'Preparando', Listo: 'Listo para entregar', 'En camino': 'En camino', Entregado: 'Entregado', Cancelado: 'Cancelado' };
-  const colors = { 'Por Corroborar': '#b85e00', Pendiente: '#2980b9', Preparando: '#8e44ad', Listo: '#16846b', 'En camino': '#c43c1c', Entregado: '#218c4b', Cancelado: '#c0392b' };
+  const colors = { 'Por Corroborar': 'var(--warning)', Pendiente: 'var(--info)', Preparando: 'var(--accent-violet)', Listo: 'var(--success)', 'En camino': 'var(--delivery-ink, #c43c1c)', Entregado: 'var(--success)', Cancelado: 'var(--danger)' };
   const index = stages.indexOf(status);
-  return { text: index >= 0 ? `${index + 1}/${stages.length} ${labels[status]}` : labels[status] || status, color: colors[status] || '#7f8c8d', step: index >= 0 ? `Paso ${index + 1}` : '' };
+  return { text: index >= 0 ? `${index + 1}/${stages.length} ${labels[status]}` : labels[status] || status, color: colors[status] || 'var(--text-light)', step: index >= 0 ? `Paso ${index + 1}` : '' };
 };

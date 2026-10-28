@@ -865,7 +865,7 @@ export default function SettingsManager({
       <div className="glass settings-detail-section" style={{ padding: '20px', display: 'flex', flexDirection: 'column', gap: '15px' }}>
         
         {/* Nombre, Título, Logo y Favicon del Local */}
-        <div style={{ display: 'grid', gridTemplateColumns: '1.2fr 0.8fr', gap: '15px', borderBottom: '1px solid var(--border-color)', paddingBottom: '15px' }}>
+        <div className="admin-split" style={{ display: 'grid', gap: '15px', borderBottom: '1px solid var(--border-color)', paddingBottom: '15px' }}>
           <div className="form-group">
             <label htmlFor="store-name-input">Nombre de la Heladería / Sitio Web</label>
             <input
@@ -918,7 +918,7 @@ export default function SettingsManager({
             </div>
           </div>
 
-          <div className="form-group" style={{ gridColumn: 'span 2' }}>
+          <div className="form-group" style={{ gridColumn: '1 / -1' }}>
             <label htmlFor="store-title-input">Título de la Página (SEO - Recomendado min 50 caracteres)</label>
             <input
               id="store-title-input"
@@ -934,7 +934,7 @@ export default function SettingsManager({
             </span>
           </div>
 
-          <div className="form-group" style={{ gridColumn: 'span 2' }}>
+          <div className="form-group" style={{ gridColumn: '1 / -1' }}>
             <label htmlFor="store-favicon-input" style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
               <span>🎨 Ícono de la Web / Favicon de Pestaña</span>
               {localStoreLogo && (
@@ -1070,7 +1070,7 @@ export default function SettingsManager({
             </span>
           </div>
 
-          <div className="form-group" style={{ gridColumn: 'span 2' }}>
+          <div className="form-group" style={{ gridColumn: '1 / -1' }}>
             <label htmlFor="store-hero-price-input">Precio destacado del inicio (opcional)</label>
             <input
               id="store-hero-price-input"
@@ -1085,7 +1085,7 @@ export default function SettingsManager({
             <span style={{ fontSize: '0.72rem', color: 'var(--text-light)' }}>Aparece bajo los botones del inicio, junto a "placer sin vueltas".</span>
           </div>
 
-          <div className="form-group" style={{ gridColumn: 'span 2' }}>
+          <div className="form-group" style={{ gridColumn: '1 / -1' }}>
             <label htmlFor="store-hero-image-input">Imagen del Banner Catálogo (Hero) - Opcional</label>
             <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
               <input
@@ -1146,7 +1146,7 @@ export default function SettingsManager({
             </span>
           </div>
 
-          <div className="form-group" style={{ gridColumn: 'span 2' }}>
+          <div className="form-group" style={{ gridColumn: '1 / -1' }}>
             <label htmlFor="store-instagram-input">📸 Enlace de Instagram</label>
             <input
               id="store-instagram-input"
@@ -1159,7 +1159,7 @@ export default function SettingsManager({
             />
           </div>
 
-          <div className="form-group" style={{ gridColumn: 'span 2' }}>
+          <div className="form-group" style={{ gridColumn: '1 / -1' }}>
             <label htmlFor="store-facebook-input">📘 Enlace de Facebook</label>
             <input
               id="store-facebook-input"
@@ -1255,7 +1255,7 @@ export default function SettingsManager({
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderBottom: '1px solid var(--border-color)', paddingBottom: '10px' }}>
           <div>
             <strong style={{ display: 'block' }}>Delivery gratis por monto minimo</strong>
-            <span style={{ fontSize: '0.75rem', color: 'var(--text-light)', display: 'block' }}>Activa o desactiva la promocion automatica de envio gratis.</span>
+            <span style={{ fontSize: '0.75rem', color: 'var(--text-light)', display: 'block' }}>Activa o desactiva la promoción automática de envío gratis.</span>
           </div>
           <label className="toggle-switch" htmlFor="free-delivery-enabled-input">
             <input
@@ -1375,7 +1375,7 @@ export default function SettingsManager({
             value={localDeliveryCampaignText}
             onChange={(e) => setLocalDeliveryCampaignText(e.target.value)}
           />
-          <div style={{ marginTop: '8px', padding: '10px', background: 'linear-gradient(135deg, rgba(46, 204, 113, 0.15) 0%, rgba(52, 152, 219, 0.1) 100%)', borderLeft: `4px solid ${localShopConfig.freeDeliveryEnabled !== false ? 'var(--success)' : 'var(--danger)'}`, borderRadius: '6px', textAlign: 'center' }}>
+          <div style={{ marginTop: '8px', padding: '10px', background: 'linear-gradient(135deg, rgba(46, 204, 113, 0.15) 0%, rgba(52, 152, 219, 0.1) 100%)', border: `1px solid ${localShopConfig.freeDeliveryEnabled !== false ? 'var(--success)' : 'var(--danger)'}`, borderRadius: '6px', textAlign: 'center' }}>
             <span style={{ fontSize: '0.9rem', fontWeight: 'bold', display: 'block' }}>
               {localShopConfig.freeDeliveryEnabled !== false
                 ? `Delivery GRATIS por compras desde S/. ${parseFloat(localFreeDeliveryThreshold || 0).toFixed(2)}`
@@ -1400,7 +1400,7 @@ export default function SettingsManager({
                 marginTop: '6px', 
                 cursor: 'pointer', 
                 background: 'rgba(229, 142, 38, 0.1)', 
-                color: '#e58e26', 
+                color: 'var(--warning)', 
                 border: '1px solid rgba(229, 142, 38, 0.3)', 
                 borderRadius: '6px', 
                 display: 'inline-flex', 
@@ -1592,7 +1592,7 @@ export default function SettingsManager({
                   Define el número total de mesas habilitadas en tu negocio.
                 </span>
               </div>
-              <input 
+              <input aria-label="Cantidad de mesas activas"
                 type="number"
                 className="form-control"
                 style={{ fontSize: '0.8rem', padding: '6px', maxWidth: '80px', textAlign: 'center' }}
@@ -1627,9 +1627,9 @@ export default function SettingsManager({
 
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
             <div>
-              <strong style={{ display: 'block' }}>Ubicacion de Carritos en Vivo</strong>
+              <strong style={{ display: 'block' }}>Ubicación de carritos en vivo</strong>
               <span style={{ fontSize: '0.75rem', color: 'var(--text-light)', display: 'block', marginTop: '2px' }}>
-                Muestra u oculta la pestaña de mapa en la web y permite que vendedores compartan ubicacion.
+                Muestra u oculta la pestaña de mapa en la web y permite que vendedores compartan su ubicación.
               </span>
             </div>
             <label className="toggle-switch" htmlFor="shop-location-tracking-enabled-input">
@@ -1644,7 +1644,7 @@ export default function SettingsManager({
           </div>
           <div className="form-group">
             <label>Mensaje si no hay carritos en calle</label>
-            <textarea
+            <textarea aria-label="Mensaje si no hay carritos en calle"
               className="form-control"
               rows="3"
               value={localShopConfig.locationUnavailableMessage || ''}
@@ -1655,7 +1655,7 @@ export default function SettingsManager({
 
           <div className="form-group">
             <label>Texto del boton de venta</label>
-            <input
+            <input aria-label="Texto del boton de venta"
               className="form-control"
               value={localShopConfig.locationUnavailableButtonText || ''}
               onChange={(e) => setLocalShopConfig(prev => ({ ...prev, locationUnavailableButtonText: e.target.value }))}
@@ -1672,7 +1672,7 @@ export default function SettingsManager({
               Controla la frecuencia y el tiempo de exhibición de las alertas flotantes del catálogo.
             </span>
           </div>
-          <div style={{ display: 'grid', gridTemplateColumns: '1.2fr 0.8fr', gap: '15px' }}>
+          <div className="admin-split" style={{ display: 'grid', gap: '15px' }}>
             <div className="form-group">
               <label htmlFor="trends-interval-input" style={{ fontSize: '0.75rem', fontWeight: 'bold' }}>Frecuencia de Actualización (segundos)</label>
               <input
@@ -1705,12 +1705,12 @@ export default function SettingsManager({
         </div>
 
         {/* SMS de estados */}
-        <div className="glass" style={{ borderLeft: '4px solid #2ecc71', padding: '15px', background: 'rgba(46, 204, 113, 0.03)', borderRadius: '8px', marginBottom: '15px' }}>
+        <div className="glass" style={{ padding: '15px', background: 'rgba(46, 204, 113, 0.03)', borderRadius: '8px', marginBottom: '15px' }}>
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: '12px', marginBottom: '10px' }}>
             <div>
               <strong style={{ display: 'block', fontSize: '0.9rem' }}>SMS al cliente por cambio de estado</strong>
               <span style={{ fontSize: '0.75rem', color: 'var(--text-light)' }}>
-                Abre la app SMS del telefono del operador con el mensaje listo para enviar.
+                Abre la app SMS del teléfono del operador con el mensaje listo para enviar.
               </span>
             </div>
             <label className="toggle-switch" htmlFor="sms-notifications-enabled-input">
@@ -1724,13 +1724,13 @@ export default function SettingsManager({
             </label>
           </div>
 
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(240px, 1fr))', gap: '10px' }}>
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(min(240px, 100%), 1fr))', gap: '10px' }}>
             {ORDER_STATUSES.map(status => {
               const templates = normalizeSmsTemplates(localShopConfig.smsTemplates);
               return (
                 <div key={status} className="form-group" style={{ marginBottom: 0 }}>
                   <label style={{ fontSize: '0.75rem', fontWeight: 700 }}>{status}</label>
-                  <textarea
+                  <textarea aria-label={`Mensaje SMS para el estado ${status}`}
                     className="form-control"
                     rows="3"
                     style={{ fontSize: '0.75rem', resize: 'vertical' }}
@@ -1753,7 +1753,7 @@ export default function SettingsManager({
         </div>
 
         {/* Telegram Bot */}
-        <div className="glass" style={{ borderLeft: '4px solid #0088cc', padding: '15px', background: 'rgba(0, 136, 204, 0.03)', borderRadius: '8px', marginBottom: '15px' }}>
+        <div className="glass" style={{ padding: '15px', background: 'rgba(0, 136, 204, 0.03)', borderRadius: '8px', marginBottom: '15px' }}>
           <strong style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '0.9rem' }}>
             ✈️ Notificaciones en tiempo real (Telegram Bot)
           </strong>
@@ -1766,9 +1766,9 @@ export default function SettingsManager({
               className="btn btn-secondary"
               onClick={handleTestTelegramConnection}
               disabled={telegramTestStatus.loading}
-              style={{ fontSize: '0.78rem', padding: '7px 12px', borderColor: '#0088cc', color: '#0088cc' }}
+              style={{ fontSize: '0.78rem', padding: '7px 12px', borderColor: '#0088cc', color: 'var(--info)' }}
             >
-              {telegramTestStatus.loading ? 'Probando...' : 'Probar notificacion'}
+              {telegramTestStatus.loading ? 'Probando...' : 'Probar notificación'}
             </button>
             {telegramTestStatus.success && (
               <span style={{ color: 'var(--success)', fontSize: '0.75rem', fontWeight: 700 }}>
@@ -1784,12 +1784,12 @@ export default function SettingsManager({
         </div>
 
         {/* 🛠️ MÓDULOS Y HERRAMIENTAS OPERATIVAS */}
-        <div className="glass" style={{ borderLeft: '4px solid #f39c12', padding: '18px', background: 'rgba(243, 156, 18, 0.03)', borderRadius: '8px', marginBottom: '15px' }}>
+        <div className="glass" style={{ padding: '18px', background: 'rgba(243, 156, 18, 0.03)', borderRadius: '8px', marginBottom: '15px' }}>
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '8px' }}>
             <strong style={{ display: 'flex', alignItems: 'center', gap: '8px', fontSize: '1rem', color: 'var(--text-dark)' }}>
               🛠️ Módulos y Herramientas Operativas
             </strong>
-            <span style={{ fontSize: '0.72rem', background: 'rgba(243, 156, 18, 0.15)', color: '#d35400', padding: '2px 8px', borderRadius: '12px', fontWeight: 'bold' }}>
+            <span style={{ fontSize: '0.72rem', background: 'rgba(243, 156, 18, 0.15)', color: 'var(--warning)', padding: '2px 8px', borderRadius: '12px', fontWeight: 'bold' }}>
               Personalizable
             </span>
           </div>
@@ -1889,7 +1889,7 @@ export default function SettingsManager({
             </div>
 
             {/* Impresión Térmica ESC/POS */}
-            <div style={{ borderBottom: '1px solid rgba(0,0,0,0.05)', paddingBottom: '12px', background: 'rgba(255,255,255,0.55)', borderRadius: '10px', padding: '12px' }}>
+            <div style={{ borderBottom: '1px solid rgba(0,0,0,0.05)', paddingBottom: '12px', background: 'color-mix(in srgb, var(--bg-secondary) 55%, transparent)', borderRadius: '10px', padding: '12px' }}>
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: '12px' }}>
                 <div>
                   <strong style={{ fontSize: '0.85rem', display: 'block' }}>🧾 Impresión Térmica ESC/POS (58mm / 80mm)</strong>
@@ -1956,7 +1956,7 @@ export default function SettingsManager({
             <div style={{ background: 'rgba(0, 136, 204, 0.04)', padding: '12px', borderRadius: '8px', border: '1px solid rgba(0, 136, 204, 0.2)' }}>
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '8px' }}>
                 <div>
-                  <strong style={{ fontSize: '0.85rem', color: '#0088cc', display: 'block' }}>
+                  <strong style={{ fontSize: '0.85rem', color: 'var(--info)', display: 'block' }}>
                     🌙 Reporte Nocturno Automático de Ventas a Telegram
                   </strong>
                   <span style={{ fontSize: '0.72rem', color: 'var(--text-light)' }}>
@@ -1977,7 +1977,7 @@ export default function SettingsManager({
                 <div style={{ display: 'flex', gap: '15px', alignItems: 'center', marginTop: '10px', flexWrap: 'wrap' }}>
                   <div className="form-group" style={{ marginBottom: 0 }}>
                     <label style={{ fontSize: '0.75rem', fontWeight: 600 }}>Hora de Envío Automático (Hora Perú):</label>
-                    <input
+                    <input aria-label="Hora de Envío Automático (Hora Perú)"
                       type="time"
                       className="form-control"
                       style={{ fontSize: '0.8rem', padding: '4px 8px', width: '130px' }}
@@ -2012,7 +2012,7 @@ export default function SettingsManager({
         </div>
 
         {/* Estado Sincronización */}
-        <div className="glass" style={{ borderLeft: '4px solid var(--primary-color)', padding: '15px', background: 'rgba(255, 107, 129, 0.02)', borderRadius: '8px', marginBottom: '15px' }}>
+        <div className="glass" style={{ padding: '15px', background: 'rgba(255, 107, 129, 0.02)', borderRadius: '8px', marginBottom: '15px' }}>
           <strong style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '0.9rem' }}>
             🔌 Estado de la Base de Datos en la Nube
           </strong>
@@ -2119,7 +2119,7 @@ alter table public.helados_sync enable row level security;`}
         </div>
 
         {/* QR Tables Consolidated */}
-        <div className="glass" style={{ borderLeft: '4px solid var(--secondary-color)', padding: '20px', background: 'rgba(229, 142, 38, 0.02)', borderRadius: '8px', marginBottom: '15px' }}>
+        <div className="glass" style={{ padding: '20px', background: 'rgba(229, 142, 38, 0.02)', borderRadius: '8px', marginBottom: '15px' }}>
           <strong style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '0.95rem', marginBottom: '4px' }}>
             📱 Códigos QR para Clientes en Tienda
           </strong>
@@ -2132,7 +2132,7 @@ alter table public.helados_sync enable row level security;`}
             <label style={{ fontSize: '0.8rem', fontWeight: 'bold', display: 'block', marginBottom: '5px' }}>
               🔗 Enlace base personalizado para el Código QR
             </label>
-            <input 
+            <input aria-label="🔗 Enlace base personalizado para el Código QR" 
               type="text" 
               className="form-control" 
               placeholder={`Por defecto: ${window.location.origin + window.location.pathname}`}
@@ -2258,7 +2258,7 @@ alter table public.helados_sync enable row level security;`}
                   <div style={{ display: 'flex', gap: '10px', alignItems: 'flex-end', marginBottom: '10px' }}>
                     <div className="form-group" style={{ flex: '0 0 90px' }}>
                       <label style={{ fontSize: '0.7rem', fontWeight: 'bold' }}>N° Mesa:</label>
-                      <input
+                      <input aria-label="N° Mesa"
                         type="number"
                         min="1"
                         max="100"
@@ -2372,7 +2372,7 @@ alter table public.helados_sync enable row level security;`}
         </div>
 
         {/* WhatsApp Customization */}
-        <div className="glass" style={{ borderLeft: '4px solid var(--info)', padding: '15px', background: 'rgba(52, 152, 219, 0.02)', borderRadius: '8px', marginBottom: '15px' }}>
+        <div className="glass" style={{ padding: '15px', background: 'rgba(52, 152, 219, 0.02)', borderRadius: '8px', marginBottom: '15px' }}>
           <strong style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '0.9rem' }}>
             📝 Personalización del Mensaje de WhatsApp
           </strong>
@@ -2382,7 +2382,7 @@ alter table public.helados_sync enable row level security;`}
           <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
             <div className="form-group">
               <label style={{ fontSize: '0.75rem', fontWeight: 600 }}>Texto de Saludo (Cabecera):</label>
-              <textarea
+              <textarea aria-label="Texto de Saludo (Cabecera)"
                 className="form-control"
                 rows="2"
                 style={{ fontSize: '0.8rem', padding: '6px', resize: 'vertical', width: '100%', fontFamily: 'inherit' }}
@@ -2392,7 +2392,7 @@ alter table public.helados_sync enable row level security;`}
             </div>
             <div className="form-group">
               <label style={{ fontSize: '0.75rem', fontWeight: 600 }}>Texto de Despedida (Pie de página):</label>
-              <input
+              <input aria-label="Texto de Despedida (Pie de página)"
                 type="text"
                 className="form-control"
                 style={{ fontSize: '0.8rem', padding: '6px', width: '100%' }}
@@ -2411,14 +2411,14 @@ alter table public.helados_sync enable row level security;`}
           <form onSubmit={handleAddCouponSubmit} style={{ display: 'flex', gap: '8px', flexWrap: 'wrap', marginBottom: '15px', background: 'rgba(0,0,0,0.02)', padding: '10px', borderRadius: '6px', alignItems: 'center' }}>
             <input
               type="text"
-              placeholder="CÓDIGO"
+              aria-label="Código del cupón" placeholder="CÓDIGO"
               className="form-control"
               style={{ flex: '1 1 120px', textTransform: 'uppercase', fontSize: '0.8rem', padding: '6px' }}
               value={newCoupon.code}
               onChange={(e) => setNewCoupon({ ...newCoupon, code: e.target.value.toUpperCase() })}
               required
             />
-            <select
+            <select aria-label="Tipo de descuento"
               className="form-control"
               style={{ flex: '1 1 120px', fontSize: '0.8rem', padding: '6px' }}
               value={newCoupon.type}
@@ -2431,7 +2431,7 @@ alter table public.helados_sync enable row level security;`}
             {newCoupon.type !== 'free_delivery' && (
               <input
                 type="number"
-                placeholder="Valor"
+                aria-label="Valor del descuento" placeholder="Valor"
                 className="form-control"
                 style={{ width: '80px', fontSize: '0.8rem', padding: '6px' }}
                 value={newCoupon.value}
@@ -2441,7 +2441,7 @@ alter table public.helados_sync enable row level security;`}
             )}
             <input
               type="number"
-              placeholder="Límite canjes (0 = ilimitado)"
+              aria-label="Límite de canjes, 0 es ilimitado" placeholder="Límite canjes (0 = ilimitado)"
               className="form-control"
               style={{ width: '130px', fontSize: '0.8rem', padding: '6px' }}
               value={newCoupon.limit || ''}
@@ -2669,10 +2669,10 @@ alter table public.helados_sync enable row level security;`}
               </label>
             </div>
 
-            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '10px' }}>
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, minmax(0, 1fr))', gap: '10px' }}>
               <div className="form-group">
                 <label style={{ fontSize: '0.75rem', fontWeight: 'bold' }}>Precio Base S/.</label>
-                <input
+                <input aria-label="Precio Base S/."
                   type="number"
                   step="0.50"
                   className="form-control"
@@ -2683,7 +2683,7 @@ alter table public.helados_sync enable row level security;`}
               </div>
               <div className="form-group">
                 <label style={{ fontSize: '0.75rem', fontWeight: 'bold' }}>Máx. Sabores por Pote</label>
-                <input
+                <input aria-label="Máx. Sabores por Pote"
                   type="number"
                   min="1"
                   max="5"
@@ -2752,7 +2752,7 @@ alter table public.helados_sync enable row level security;`}
             Define qué ingredientes (envase, sabor, topping y jarabe) aparecen seleccionados automáticamente cuando el cliente abre el personalizador.
           </p>
           
-          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '10px' }}>
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, minmax(0, 1fr))', gap: '10px' }}>
             <div className="form-group">
               <label htmlFor="default-base-select" style={{ fontSize: '0.75rem', fontWeight: 'bold' }}>Envase Inicial</label>
               <select
@@ -2825,12 +2825,12 @@ alter table public.helados_sync enable row level security;`}
               <input 
                 type="text" 
                 className="form-control" 
-                placeholder="🔍 Buscar..." 
+                aria-label="Buscar en la bitácora" placeholder="🔍 Buscar..." 
                 style={{ width: '100px', fontSize: '0.7rem', padding: '3px 8px', height: '24px' }} 
                 value={logSearchQuery} 
                 onChange={(e) => setLogSearchQuery(e.target.value)} 
               />
-              <select 
+              <select aria-label="Cantidad de registros"
                 className="form-control" 
                 style={{ width: '70px', fontSize: '0.7rem', padding: '2px 5px', height: '24px', cursor: 'pointer' }}
                 value={logsLimit}
@@ -2962,7 +2962,7 @@ alter table public.helados_sync enable row level security;`}
                   <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap', alignItems: 'center' }}>
                     <div style={{ flex: '1 1 150px' }}>
                       <label style={{ fontSize: '0.7rem', fontWeight: 'bold', display: 'block', marginBottom: '3px' }}>Nombre del Cliente</label>
-                      <input
+                      <input aria-label="Nombre del Cliente"
                         type="text"
                         className="form-control"
                         style={{ fontSize: '0.8rem', padding: '5px' }}
@@ -2983,7 +2983,7 @@ alter table public.helados_sync enable row level security;`}
                     
                     <div style={{ width: '110px' }}>
                       <label style={{ fontSize: '0.7rem', fontWeight: 'bold', display: 'block', marginBottom: '3px' }}>Puntuación</label>
-                      <select
+                      <select aria-label="Puntuación"
                         className="form-control"
                         style={{ fontSize: '0.8rem', padding: '4px', cursor: 'pointer', height: '30px' }}
                         value={t.rating || 5}
@@ -3003,7 +3003,7 @@ alter table public.helados_sync enable row level security;`}
 
                     <div style={{ width: '70px' }}>
                       <label style={{ fontSize: '0.7rem', fontWeight: 'bold', display: 'block', marginBottom: '3px' }}>Fondo Avatar</label>
-                      <input
+                      <input aria-label="Fondo Avatar"
                         type="color"
                         className="form-control"
                         style={{ padding: '2px', height: '30px', cursor: 'pointer' }}
@@ -3020,7 +3020,7 @@ alter table public.helados_sync enable row level security;`}
                       <button 
                         type="button" 
                         className="btn" 
-                        style={{ padding: '6px 10px', fontSize: '0.75rem', background: 'var(--danger)', color: 'white', border: 'none', borderRadius: '4px', cursor: 'pointer' }}
+                        style={{ padding: '6px 10px', fontSize: '0.75rem', background: 'var(--danger)', color: 'var(--bg-secondary)', border: 'none', borderRadius: '4px', cursor: 'pointer' }}
                         onClick={() => {
                           setLocalTestimonials(localTestimonials.filter((_, i) => i !== idx));
                         }}
@@ -3032,7 +3032,7 @@ alter table public.helados_sync enable row level security;`}
                   
                   <div>
                     <label style={{ fontSize: '0.7rem', fontWeight: 'bold', display: 'block', marginBottom: '3px' }}>Comentario o Reseña</label>
-                    <textarea
+                    <textarea aria-label="Comentario o Reseña"
                       className="form-control"
                       rows="2"
                       style={{ fontSize: '0.8rem', padding: '6px', resize: 'vertical', width: '100%', fontFamily: 'inherit' }}
@@ -3052,7 +3052,7 @@ alter table public.helados_sync enable row level security;`}
         </div>
 
         {/* Catalog Ordering */}
-        <div className="glass" style={{ padding: '20px', borderRadius: '8px', borderLeft: '4px solid var(--secondary-color)', background: 'rgba(229, 142, 38, 0.02)', marginBottom: '15px' }}>
+        <div className="glass" style={{ padding: '20px', borderRadius: '8px', background: 'rgba(229, 142, 38, 0.02)', marginBottom: '15px' }}>
           <strong>🗂️ Prioridad y Orden de Secciones en la Carta</strong>
           <p style={{ fontSize: '0.75rem', color: 'var(--text-light)', marginTop: '4px', marginBottom: '15px' }}>
             Usa los botones para reorganizar cómo se muestran las categorías en el catálogo principal en tiempo real.

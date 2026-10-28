@@ -75,7 +75,7 @@ export default function InventoryManager({
   // --- Estados CRUD Sabores ---
   const [showAddFlavor, setShowAddFlavor] = useState(false);
   const [editingFlavor, setEditingFlavor] = useState(null);
-  const [newFlavor, setNewFlavor] = useState({ name: '', price: 1.0, cost: 0.35, color: '#ff6b81', isPremium: false, isPopular: false, description: '', image: '' });
+  const [newFlavor, setNewFlavor] = useState({ name: '', price: 1.0, cost: 0.35, color: 'var(--primary-color)', isPremium: false, isPopular: false, description: '', image: '' });
 
   // --- Estados CRUD Toppings ---
   const [showAddTopping, setShowAddTopping] = useState(false);
@@ -136,7 +136,7 @@ export default function InventoryManager({
     onUpdateFlavors([...flavors, added]);
     setShowAddFlavor(false);
     addLog(`Sabor creado: ${sanitizedName} por ${currentUser?.name}.`);
-    setNewFlavor({ name: '', price: 1.0, cost: 0.35, color: '#ff6b81', isPremium: false, isPopular: false, description: '', image: '' });
+    setNewFlavor({ name: '', price: 1.0, cost: 0.35, color: 'var(--primary-color)', isPremium: false, isPopular: false, description: '', image: '' });
   };
 
   const handleEditFlavorSubmit = (e) => {
@@ -524,20 +524,20 @@ export default function InventoryManager({
           </div>
 
           {showAddFlavor && (
-            <form onSubmit={handleAddFlavorSubmit} style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '10px', marginBottom: '15px', background: 'rgba(0,0,0,0.02)', padding: '12px', borderRadius: '8px' }}>
-              <div className="form-group"><label>Nombre Sabor</label><input type="text" className="form-control" value={newFlavor.name} onChange={(e) => setNewFlavor({ ...newFlavor, name: e.target.value })} required /></div>
-              <div className="form-group"><label>Precio Venta S/.</label><input type="number" step="0.10" className="form-control" value={newFlavor.price} onChange={(e) => setNewFlavor({ ...newFlavor, price: e.target.value })} required /></div>
-              <div className="form-group"><label>Costo Insumo S/.</label><input type="number" step="0.05" className="form-control" value={newFlavor.cost} onChange={(e) => setNewFlavor({ ...newFlavor, cost: e.target.value })} required /></div>
-              <div className="form-group"><label>Color Hex</label><input type="color" className="form-control" value={newFlavor.color} onChange={(e) => setNewFlavor({ ...newFlavor, color: e.target.value })} /></div>
+            <form onSubmit={handleAddFlavorSubmit} style={{ display: 'grid', gridTemplateColumns: 'repeat(2, minmax(0, 1fr))', gap: '10px', marginBottom: '15px', background: 'rgba(0,0,0,0.02)', padding: '12px', borderRadius: '8px' }}>
+              <div className="form-group"><label>Nombre Sabor</label><input aria-label="Nombre Sabor" type="text" className="form-control" value={newFlavor.name} onChange={(e) => setNewFlavor({ ...newFlavor, name: e.target.value })} required /></div>
+              <div className="form-group"><label>Precio Venta S/.</label><input aria-label="Precio Venta S/." type="number" step="0.10" className="form-control" value={newFlavor.price} onChange={(e) => setNewFlavor({ ...newFlavor, price: e.target.value })} required /></div>
+              <div className="form-group"><label>Costo Insumo S/.</label><input aria-label="Costo Insumo S/." type="number" step="0.05" className="form-control" value={newFlavor.cost} onChange={(e) => setNewFlavor({ ...newFlavor, cost: e.target.value })} required /></div>
+              <div className="form-group"><label>Color Hex</label><input aria-label="Color Hex" type="color" className="form-control" value={newFlavor.color} onChange={(e) => setNewFlavor({ ...newFlavor, color: e.target.value })} /></div>
               <div className="form-group">
                 <label>Categoría</label>
-                <select className="form-control" value={newFlavor.isPremium} onChange={(e) => setNewFlavor({ ...newFlavor, isPremium: e.target.value === 'true' })}>
+                <select aria-label="Categoría" className="form-control" value={newFlavor.isPremium} onChange={(e) => setNewFlavor({ ...newFlavor, isPremium: e.target.value === 'true' })}>
                   <option value="false">Clásico (S/. 1.00)</option><option value="true">Premium (S/. 1.50)</option>
                 </select>
               </div>
-              <div className="form-group" style={{ gridColumn: 'span 2' }}><label>Descripción</label><input type="text" className="form-control" value={newFlavor.description} onChange={(e) => setNewFlavor({ ...newFlavor, description: e.target.value })} /></div>
+              <div className="form-group" style={{ gridColumn: '1 / -1' }}><label>Descripción</label><input aria-label="Descripción" type="text" className="form-control" value={newFlavor.description} onChange={(e) => setNewFlavor({ ...newFlavor, description: e.target.value })} /></div>
               
-              <div className="form-group" style={{ gridColumn: 'span 2' }}>
+              <div className="form-group" style={{ gridColumn: '1 / -1' }}>
                 <label style={{ display: 'block', marginBottom: '4px', fontSize: '0.8rem', fontWeight: 'bold' }}>Fotografía del Sabor (Cloudflare R2)</label>
                 <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
                   {newFlavor.image ? (
@@ -557,33 +557,33 @@ export default function InventoryManager({
                 </div>
               </div>
 
-              <div className="form-group" style={{ display: 'flex', alignItems: 'center', gap: '8px', gridColumn: 'span 2', margin: '5px 0' }}>
+              <div className="form-group" style={{ display: 'flex', alignItems: 'center', gap: '8px', gridColumn: '1 / -1', margin: '5px 0' }}>
                 <label className="toggle-switch" style={{ transform: 'scale(0.8)' }}>
                   <input type="checkbox" checked={newFlavor.isPopular || false} onChange={(e) => setNewFlavor({ ...newFlavor, isPopular: e.target.checked })} />
                   <span className="slider"></span>
                 </label>
                 <span style={{ fontSize: '0.8rem', fontWeight: 600 }}>🔥 Destacar como Producto Más Vendido / Popular</span>
               </div>
-              <button type="submit" className="btn btn-primary" style={{ gridColumn: 'span 2', padding: '6px' }}>Guardar</button>
+              <button type="submit" className="btn btn-primary" style={{ gridColumn: '1 / -1', padding: '6px' }}>Guardar</button>
             </form>
           )}
 
           {editingFlavor && (
-            <form onSubmit={handleEditFlavorSubmit} style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '10px', marginBottom: '15px', background: 'rgba(229, 142, 38, 0.05)', padding: '12px', borderRadius: '8px', border: '1px solid var(--secondary-color)' }}>
-              <div className="form-group" style={{ gridColumn: 'span 2' }}><strong>Editar Sabor: {editingFlavor.name}</strong></div>
-              <div className="form-group"><label>Nombre</label><input type="text" className="form-control" value={editingFlavor.name} onChange={(e) => setEditingFlavor({ ...editingFlavor, name: e.target.value })} required /></div>
-              <div className="form-group"><label>Precio Venta S/.</label><input type="number" step="0.10" className="form-control" value={editingFlavor.price} onChange={(e) => setEditingFlavor({ ...editingFlavor, price: e.target.value })} required /></div>
-              <div className="form-group"><label>Costo Insumo S/.</label><input type="number" step="0.05" className="form-control" value={editingFlavor.cost || ''} onChange={(e) => setEditingFlavor({ ...editingFlavor, cost: e.target.value })} required /></div>
-              <div className="form-group"><label>Color</label><input type="color" className="form-control" value={editingFlavor.color} onChange={(e) => setEditingFlavor({ ...editingFlavor, color: e.target.value })} /></div>
+            <form onSubmit={handleEditFlavorSubmit} style={{ display: 'grid', gridTemplateColumns: 'repeat(2, minmax(0, 1fr))', gap: '10px', marginBottom: '15px', background: 'rgba(229, 142, 38, 0.05)', padding: '12px', borderRadius: '8px', border: '1px solid var(--secondary-color)' }}>
+              <div className="form-group" style={{ gridColumn: '1 / -1' }}><strong>Editar Sabor: {editingFlavor.name}</strong></div>
+              <div className="form-group"><label>Nombre</label><input aria-label="Nombre" type="text" className="form-control" value={editingFlavor.name} onChange={(e) => setEditingFlavor({ ...editingFlavor, name: e.target.value })} required /></div>
+              <div className="form-group"><label>Precio Venta S/.</label><input aria-label="Precio Venta S/." type="number" step="0.10" className="form-control" value={editingFlavor.price} onChange={(e) => setEditingFlavor({ ...editingFlavor, price: e.target.value })} required /></div>
+              <div className="form-group"><label>Costo Insumo S/.</label><input aria-label="Costo Insumo S/." type="number" step="0.05" className="form-control" value={editingFlavor.cost || ''} onChange={(e) => setEditingFlavor({ ...editingFlavor, cost: e.target.value })} required /></div>
+              <div className="form-group"><label>Color</label><input aria-label="Color" type="color" className="form-control" value={editingFlavor.color} onChange={(e) => setEditingFlavor({ ...editingFlavor, color: e.target.value })} /></div>
               <div className="form-group">
                 <label>Categoría</label>
-                <select className="form-control" value={editingFlavor.isPremium} onChange={(e) => setEditingFlavor({ ...editingFlavor, isPremium: e.target.value === 'true' })}>
+                <select aria-label="Categoría" className="form-control" value={editingFlavor.isPremium} onChange={(e) => setEditingFlavor({ ...editingFlavor, isPremium: e.target.value === 'true' })}>
                   <option value="false">Clásico</option><option value="true">Premium</option>
                 </select>
               </div>
-              <div className="form-group" style={{ gridColumn: 'span 2' }}><label>Descripción</label><input type="text" className="form-control" value={editingFlavor.description} onChange={(e) => setEditingFlavor({ ...editingFlavor, description: e.target.value })} /></div>
+              <div className="form-group" style={{ gridColumn: '1 / -1' }}><label>Descripción</label><input aria-label="Descripción" type="text" className="form-control" value={editingFlavor.description} onChange={(e) => setEditingFlavor({ ...editingFlavor, description: e.target.value })} /></div>
               
-              <div className="form-group" style={{ gridColumn: 'span 2' }}>
+              <div className="form-group" style={{ gridColumn: '1 / -1' }}>
                 <label style={{ display: 'block', marginBottom: '4px', fontSize: '0.8rem', fontWeight: 'bold' }}>Fotografía del Sabor (Cloudflare R2)</label>
                 <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
                   {editingFlavor.image ? (
@@ -603,14 +603,14 @@ export default function InventoryManager({
                 </div>
               </div>
 
-              <div className="form-group" style={{ display: 'flex', alignItems: 'center', gap: '8px', gridColumn: 'span 2', margin: '5px 0' }}>
+              <div className="form-group" style={{ display: 'flex', alignItems: 'center', gap: '8px', gridColumn: '1 / -1', margin: '5px 0' }}>
                 <label className="toggle-switch" style={{ transform: 'scale(0.8)' }}>
                   <input type="checkbox" checked={editingFlavor.isPopular || false} onChange={(e) => setEditingFlavor({ ...editingFlavor, isPopular: e.target.checked })} />
                   <span className="slider"></span>
                 </label>
                 <span style={{ fontSize: '0.8rem', fontWeight: 600 }}>🔥 Destacar como Producto Más Vendido / Popular</span>
               </div>
-              <div style={{ gridColumn: 'span 2', display: 'flex', gap: '8px' }}>
+              <div style={{ gridColumn: '1 / -1', display: 'flex', gap: '8px' }}>
                 <button type="submit" className="btn btn-primary" style={{ flex: 1, padding: '6px' }}>Guardar Cambios</button>
                 <button type="button" className="btn btn-secondary" style={{ flex: 1, padding: '6px' }} onClick={() => setEditingFlavor(null)}>Cancelar</button>
               </div>
@@ -637,8 +637,8 @@ export default function InventoryManager({
                         <div style={{ width: '12px', height: '12px', borderRadius: '50%', backgroundColor: f.color || '#ccc' }}></div>
                         {f.image && <img src={f.image} alt={f.name} style={{ width: '24px', height: '24px', objectFit: 'cover', borderRadius: '4px' }} />}
                         <span>{f.name}</span>
-                        {f.isPremium && <span style={{ fontSize: '0.65rem', backgroundColor: 'rgba(230,126,34,0.15)', color: '#d35400', padding: '2px 6px', borderRadius: '8px', fontWeight: 'bold' }}>⭐ Premium</span>}
-                        {f.isPopular && <span style={{ fontSize: '0.65rem', backgroundColor: 'rgba(231,76,60,0.15)', color: '#c0392b', padding: '2px 6px', borderRadius: '8px', fontWeight: 'bold' }}>🔥 Popular</span>}
+                        {f.isPremium && <span style={{ fontSize: '0.65rem', backgroundColor: 'rgba(230,126,34,0.15)', color: 'var(--warning)', padding: '2px 6px', borderRadius: '8px', fontWeight: 'bold' }}>⭐ Premium</span>}
+                        {f.isPopular && <span style={{ fontSize: '0.65rem', backgroundColor: 'rgba(231,76,60,0.15)', color: 'var(--danger)', padding: '2px 6px', borderRadius: '8px', fontWeight: 'bold' }}>🔥 Popular</span>}
                       </div>
                     </td>
                     <td>S/. {parseFloat(f.price || 0).toFixed(2)}</td>
@@ -697,20 +697,20 @@ export default function InventoryManager({
           </div>
 
           {showAddTopping && (
-            <form onSubmit={handleAddToppingSubmit} style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '10px', marginBottom: '15px', background: 'rgba(0,0,0,0.02)', padding: '12px', borderRadius: '8px' }}>
-              <div className="form-group"><label>Nombre Topping</label><input type="text" className="form-control" value={newTopping.name} onChange={(e) => setNewTopping({ ...newTopping, name: e.target.value })} required /></div>
-              <div className="form-group"><label>Precio Venta S/.</label><input type="number" step="0.10" className="form-control" value={newTopping.price} onChange={(e) => setNewTopping({ ...newTopping, price: e.target.value })} required /></div>
-              <div className="form-group"><label>Costo Insumo S/.</label><input type="number" step="0.05" className="form-control" value={newTopping.cost} onChange={(e) => setNewTopping({ ...newTopping, cost: e.target.value })} required /></div>
-              <div className="form-group" style={{ gridColumn: 'span 2' }}>
+            <form onSubmit={handleAddToppingSubmit} style={{ display: 'grid', gridTemplateColumns: 'repeat(2, minmax(0, 1fr))', gap: '10px', marginBottom: '15px', background: 'rgba(0,0,0,0.02)', padding: '12px', borderRadius: '8px' }}>
+              <div className="form-group"><label>Nombre Topping</label><input aria-label="Nombre Topping" type="text" className="form-control" value={newTopping.name} onChange={(e) => setNewTopping({ ...newTopping, name: e.target.value })} required /></div>
+              <div className="form-group"><label>Precio Venta S/.</label><input aria-label="Precio Venta S/." type="number" step="0.10" className="form-control" value={newTopping.price} onChange={(e) => setNewTopping({ ...newTopping, price: e.target.value })} required /></div>
+              <div className="form-group"><label>Costo Insumo S/.</label><input aria-label="Costo Insumo S/." type="number" step="0.05" className="form-control" value={newTopping.cost} onChange={(e) => setNewTopping({ ...newTopping, cost: e.target.value })} required /></div>
+              <div className="form-group" style={{ gridColumn: '1 / -1' }}>
                 <label>Categoría Topping</label>
-                <select className="form-control" value={newTopping.category} onChange={(e) => setNewTopping({ ...newTopping, category: e.target.value })}>
+                <select aria-label="Categoría Topping" className="form-control" value={newTopping.category} onChange={(e) => setNewTopping({ ...newTopping, category: e.target.value })}>
                   <option value="solido">Sólido (Cereal, Galleta, etc.)</option>
                   <option value="jalea">Salsa / Jalea (Líquidos)</option>
                   <option value="fruta">Fruta Natural</option>
                 </select>
               </div>
               
-              <div className="form-group" style={{ gridColumn: 'span 2' }}>
+              <div className="form-group" style={{ gridColumn: '1 / -1' }}>
                 <label style={{ display: 'block', marginBottom: '4px', fontSize: '0.8rem', fontWeight: 'bold' }}>Fotografía del Topping (R2)</label>
                 <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
                   {newTopping.image ? (
@@ -727,26 +727,26 @@ export default function InventoryManager({
                 </div>
               </div>
 
-              <button type="submit" className="btn btn-primary" style={{ gridColumn: 'span 2', padding: '6px' }}>Guardar</button>
+              <button type="submit" className="btn btn-primary" style={{ gridColumn: '1 / -1', padding: '6px' }}>Guardar</button>
             </form>
           )}
 
           {editingTopping && (
-            <form onSubmit={handleEditToppingSubmit} style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '10px', marginBottom: '15px', background: 'rgba(229, 142, 38, 0.05)', padding: '12px', borderRadius: '8px', border: '1px solid var(--secondary-color)' }}>
-              <div className="form-group" style={{ gridColumn: 'span 2' }}><strong>Editar Topping: {editingTopping.name}</strong></div>
-              <div className="form-group"><label>Nombre</label><input type="text" className="form-control" value={editingTopping.name} onChange={(e) => setEditingTopping({ ...editingTopping, name: e.target.value })} required /></div>
-              <div className="form-group"><label>Precio Venta S/.</label><input type="number" step="0.10" className="form-control" value={editingTopping.price} onChange={(e) => setEditingTopping({ ...editingTopping, price: e.target.value })} required /></div>
-              <div className="form-group"><label>Costo Insumo S/.</label><input type="number" step="0.05" className="form-control" value={editingTopping.cost || ''} onChange={(e) => setEditingTopping({ ...editingTopping, cost: e.target.value })} required /></div>
-              <div className="form-group" style={{ gridColumn: 'span 2' }}>
+            <form onSubmit={handleEditToppingSubmit} style={{ display: 'grid', gridTemplateColumns: 'repeat(2, minmax(0, 1fr))', gap: '10px', marginBottom: '15px', background: 'rgba(229, 142, 38, 0.05)', padding: '12px', borderRadius: '8px', border: '1px solid var(--secondary-color)' }}>
+              <div className="form-group" style={{ gridColumn: '1 / -1' }}><strong>Editar Topping: {editingTopping.name}</strong></div>
+              <div className="form-group"><label>Nombre</label><input aria-label="Nombre" type="text" className="form-control" value={editingTopping.name} onChange={(e) => setEditingTopping({ ...editingTopping, name: e.target.value })} required /></div>
+              <div className="form-group"><label>Precio Venta S/.</label><input aria-label="Precio Venta S/." type="number" step="0.10" className="form-control" value={editingTopping.price} onChange={(e) => setEditingTopping({ ...editingTopping, price: e.target.value })} required /></div>
+              <div className="form-group"><label>Costo Insumo S/.</label><input aria-label="Costo Insumo S/." type="number" step="0.05" className="form-control" value={editingTopping.cost || ''} onChange={(e) => setEditingTopping({ ...editingTopping, cost: e.target.value })} required /></div>
+              <div className="form-group" style={{ gridColumn: '1 / -1' }}>
                 <label>Categoría</label>
-                <select className="form-control" value={editingTopping.category} onChange={(e) => setEditingTopping({ ...editingTopping, category: e.target.value })}>
+                <select aria-label="Categoría" className="form-control" value={editingTopping.category} onChange={(e) => setEditingTopping({ ...editingTopping, category: e.target.value })}>
                   <option value="solido">Sólido</option>
                   <option value="jalea">Salsa / Jalea</option>
                   <option value="fruta">Fruta Natural</option>
                 </select>
               </div>
 
-              <div className="form-group" style={{ gridColumn: 'span 2' }}>
+              <div className="form-group" style={{ gridColumn: '1 / -1' }}>
                 <label style={{ display: 'block', marginBottom: '4px', fontSize: '0.8rem', fontWeight: 'bold' }}>Fotografía del Topping (R2)</label>
                 <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
                   {editingTopping.image ? (
@@ -763,7 +763,7 @@ export default function InventoryManager({
                 </div>
               </div>
 
-              <div style={{ gridColumn: 'span 2', display: 'flex', gap: '8px' }}>
+              <div style={{ gridColumn: '1 / -1', display: 'flex', gap: '8px' }}>
                 <button type="submit" className="btn btn-primary" style={{ flex: 1, padding: '6px' }}>Guardar Cambios</button>
                 <button type="button" className="btn btn-secondary" style={{ flex: 1, padding: '6px' }} onClick={() => setEditingTopping(null)}>Cancelar</button>
               </div>
@@ -849,14 +849,14 @@ export default function InventoryManager({
           </div>
 
           {showAddBase && (
-            <form onSubmit={handleAddBaseSubmit} style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '10px', marginBottom: '15px', background: 'rgba(0,0,0,0.02)', padding: '12px', borderRadius: '8px' }}>
-              <div className="form-group"><label>Nombre del Envase</label><input type="text" className="form-control" value={newBase.name} onChange={(e) => setNewBase({ ...newBase, name: e.target.value })} required /></div>
-              <div className="form-group"><label>Precio Venta S/.</label><input type="number" step="0.10" className="form-control" value={newBase.price} onChange={(e) => setNewBase({ ...newBase, price: e.target.value })} required /></div>
-              <div className="form-group"><label>Costo Insumo S/.</label><input type="number" step="0.05" className="form-control" value={newBase.cost} onChange={(e) => setNewBase({ ...newBase, cost: e.target.value })} required /></div>
-              <div className="form-group"><label>Icono (Emoji)</label><input type="text" className="form-control" value={newBase.icon} onChange={(e) => setNewBase({ ...newBase, icon: e.target.value })} /></div>
-              <div className="form-group"><label>Descripción</label><input type="text" className="form-control" value={newBase.description} onChange={(e) => setNewBase({ ...newBase, description: e.target.value })} /></div>
+            <form onSubmit={handleAddBaseSubmit} style={{ display: 'grid', gridTemplateColumns: 'repeat(2, minmax(0, 1fr))', gap: '10px', marginBottom: '15px', background: 'rgba(0,0,0,0.02)', padding: '12px', borderRadius: '8px' }}>
+              <div className="form-group"><label>Nombre del Envase</label><input aria-label="Nombre del Envase" type="text" className="form-control" value={newBase.name} onChange={(e) => setNewBase({ ...newBase, name: e.target.value })} required /></div>
+              <div className="form-group"><label>Precio Venta S/.</label><input aria-label="Precio Venta S/." type="number" step="0.10" className="form-control" value={newBase.price} onChange={(e) => setNewBase({ ...newBase, price: e.target.value })} required /></div>
+              <div className="form-group"><label>Costo Insumo S/.</label><input aria-label="Costo Insumo S/." type="number" step="0.05" className="form-control" value={newBase.cost} onChange={(e) => setNewBase({ ...newBase, cost: e.target.value })} required /></div>
+              <div className="form-group"><label>Icono (Emoji)</label><input aria-label="Icono (Emoji)" type="text" className="form-control" value={newBase.icon} onChange={(e) => setNewBase({ ...newBase, icon: e.target.value })} /></div>
+              <div className="form-group"><label>Descripción</label><input aria-label="Descripción" type="text" className="form-control" value={newBase.description} onChange={(e) => setNewBase({ ...newBase, description: e.target.value })} /></div>
               
-              <div className="form-group" style={{ gridColumn: 'span 2' }}>
+              <div className="form-group" style={{ gridColumn: '1 / -1' }}>
                 <label style={{ display: 'block', marginBottom: '4px', fontSize: '0.8rem', fontWeight: 'bold' }}>Imagen de Envase (R2)</label>
                 <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
                   <BasePhoto base={newBase} className="admin-base-photo" />
@@ -869,20 +869,20 @@ export default function InventoryManager({
                 </div>
               </div>
 
-              <button type="submit" className="btn btn-primary" style={{ gridColumn: 'span 2', padding: '6px' }}>Guardar</button>
+              <button type="submit" className="btn btn-primary" style={{ gridColumn: '1 / -1', padding: '6px' }}>Guardar</button>
             </form>
           )}
 
           {editingBase && (
-            <form onSubmit={handleEditBaseSubmit} style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '10px', marginBottom: '15px', background: 'rgba(229, 142, 38, 0.05)', padding: '12px', borderRadius: '8px', border: '1px solid var(--secondary-color)' }}>
-              <div className="form-group" style={{ gridColumn: 'span 2' }}><strong>Editar Envase: {editingBase.name}</strong></div>
-              <div className="form-group"><label>Nombre</label><input type="text" className="form-control" value={editingBase.name} onChange={(e) => setEditingBase({ ...editingBase, name: e.target.value })} required /></div>
-              <div className="form-group"><label>Precio Venta S/.</label><input type="number" step="0.10" className="form-control" value={editingBase.price} onChange={(e) => setEditingBase({ ...editingBase, price: e.target.value })} required /></div>
-              <div className="form-group"><label>Costo Insumo S/.</label><input type="number" step="0.05" className="form-control" value={editingBase.cost || ''} onChange={(e) => setEditingBase({ ...editingBase, cost: e.target.value })} required /></div>
-              <div className="form-group"><label>Icono (Emoji)</label><input type="text" className="form-control" value={editingBase.icon} onChange={(e) => setEditingBase({ ...editingBase, icon: e.target.value })} /></div>
-              <div className="form-group"><label>Descripción</label><input type="text" className="form-control" value={editingBase.description} onChange={(e) => setEditingBase({ ...editingBase, description: e.target.value })} /></div>
+            <form onSubmit={handleEditBaseSubmit} style={{ display: 'grid', gridTemplateColumns: 'repeat(2, minmax(0, 1fr))', gap: '10px', marginBottom: '15px', background: 'rgba(229, 142, 38, 0.05)', padding: '12px', borderRadius: '8px', border: '1px solid var(--secondary-color)' }}>
+              <div className="form-group" style={{ gridColumn: '1 / -1' }}><strong>Editar Envase: {editingBase.name}</strong></div>
+              <div className="form-group"><label>Nombre</label><input aria-label="Nombre" type="text" className="form-control" value={editingBase.name} onChange={(e) => setEditingBase({ ...editingBase, name: e.target.value })} required /></div>
+              <div className="form-group"><label>Precio Venta S/.</label><input aria-label="Precio Venta S/." type="number" step="0.10" className="form-control" value={editingBase.price} onChange={(e) => setEditingBase({ ...editingBase, price: e.target.value })} required /></div>
+              <div className="form-group"><label>Costo Insumo S/.</label><input aria-label="Costo Insumo S/." type="number" step="0.05" className="form-control" value={editingBase.cost || ''} onChange={(e) => setEditingBase({ ...editingBase, cost: e.target.value })} required /></div>
+              <div className="form-group"><label>Icono (Emoji)</label><input aria-label="Icono (Emoji)" type="text" className="form-control" value={editingBase.icon} onChange={(e) => setEditingBase({ ...editingBase, icon: e.target.value })} /></div>
+              <div className="form-group"><label>Descripción</label><input aria-label="Descripción" type="text" className="form-control" value={editingBase.description} onChange={(e) => setEditingBase({ ...editingBase, description: e.target.value })} /></div>
 
-              <div className="form-group" style={{ gridColumn: 'span 2' }}>
+              <div className="form-group" style={{ gridColumn: '1 / -1' }}>
                 <label style={{ display: 'block', marginBottom: '4px', fontSize: '0.8rem', fontWeight: 'bold' }}>Imagen de Envase (R2)</label>
                 <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
                   <BasePhoto base={editingBase} className="admin-base-photo" />
@@ -895,7 +895,7 @@ export default function InventoryManager({
                 </div>
               </div>
 
-              <div style={{ gridColumn: 'span 2', display: 'flex', gap: '8px' }}>
+              <div style={{ gridColumn: '1 / -1', display: 'flex', gap: '8px' }}>
                 <button type="submit" className="btn btn-primary" style={{ flex: 1, padding: '6px' }}>Guardar Cambios</button>
                 <button type="button" className="btn btn-secondary" style={{ flex: 1, padding: '6px' }} onClick={() => setEditingBase(null)}>Cancelar</button>
               </div>
@@ -980,44 +980,44 @@ export default function InventoryManager({
 
           {showAddRecommendation && (
             <form onSubmit={handleAddRecommendationSubmit} style={{ display: 'flex', flexDirection: 'column', gap: '10px', marginBottom: '15px', background: 'rgba(0,0,0,0.02)', padding: '12px', borderRadius: '8px' }}>
-              <div className="form-group"><label>Nombre Combinación</label><input type="text" className="form-control" value={newRec.name} onChange={(e) => setNewRec({ ...newRec, name: e.target.value })} placeholder="Ej: Tentación de Fresa" required /></div>
+              <div className="form-group"><label>Nombre Combinación</label><input aria-label="Nombre Combinación" type="text" className="form-control" value={newRec.name} onChange={(e) => setNewRec({ ...newRec, name: e.target.value })} placeholder="Ej: Tentación de Fresa" required /></div>
               <div className="form-group">
                 <label>Envase Base</label>
-                <select className="form-control" value={newRec.baseId} onChange={(e) => setNewRec({ ...newRec, baseId: e.target.value })}>
+                <select aria-label="Envase Base" className="form-control" value={newRec.baseId} onChange={(e) => setNewRec({ ...newRec, baseId: e.target.value })}>
                   {bases.map(b => <option key={b.id} value={b.id}>{b.name}</option>)}
                 </select>
               </div>
               <div className="form-group">
                 <label>Sabor 1</label>
-                <select className="form-control" value={newRec.flavorId1} onChange={(e) => setNewRec({ ...newRec, flavorId1: e.target.value })}>
+                <select aria-label="Sabor 1" className="form-control" value={newRec.flavorId1} onChange={(e) => setNewRec({ ...newRec, flavorId1: e.target.value })}>
                   <option value="">-- Seleccionar --</option>
                   {flavors.map(f => <option key={f.id} value={f.id}>{f.name}</option>)}
                 </select>
               </div>
               <div className="form-group">
                 <label>Sabor 2 (Opcional)</label>
-                <select className="form-control" value={newRec.flavorId2} onChange={(e) => setNewRec({ ...newRec, flavorId2: e.target.value })}>
+                <select aria-label="Sabor 2 (Opcional)" className="form-control" value={newRec.flavorId2} onChange={(e) => setNewRec({ ...newRec, flavorId2: e.target.value })}>
                   <option value="">-- Ninguno --</option>
                   {flavors.map(f => <option key={f.id} value={f.id}>{f.name}</option>)}
                 </select>
               </div>
               <div className="form-group">
                 <label>Sabor 3 (Opcional)</label>
-                <select className="form-control" value={newRec.flavorId3} onChange={(e) => setNewRec({ ...newRec, flavorId3: e.target.value })}>
+                <select aria-label="Sabor 3 (Opcional)" className="form-control" value={newRec.flavorId3} onChange={(e) => setNewRec({ ...newRec, flavorId3: e.target.value })}>
                   <option value="">-- Ninguno --</option>
                   {flavors.map(f => <option key={f.id} value={f.id}>{f.name}</option>)}
                 </select>
               </div>
               <div className="form-group">
                 <label>Topping/Acompañamiento</label>
-                <select className="form-control" value={newRec.toppingId} onChange={(e) => setNewRec({ ...newRec, toppingId: e.target.value })}>
+                <select aria-label="Topping/Acompañamiento" className="form-control" value={newRec.toppingId} onChange={(e) => setNewRec({ ...newRec, toppingId: e.target.value })}>
                   <option value="">-- Ninguno --</option>
                   {toppings.map(t => <option key={t.id} value={t.id}>{t.name}</option>)}
                 </select>
               </div>
               <div className="form-group">
                 <label>Fudge o Salsa Adicional (Opcional)</label>
-                <input type="text" className="form-control" value={newRec.syrupId || ''} onChange={(e) => setNewRec({ ...newRec, syrupId: e.target.value })} placeholder="Ej: Fudge de Chocolate" />
+                <input aria-label="Fudge o Salsa Adicional (Opcional)" type="text" className="form-control" value={newRec.syrupId || ''} onChange={(e) => setNewRec({ ...newRec, syrupId: e.target.value })} placeholder="Ej: Fudge de Chocolate" />
               </div>
               <button type="submit" className="btn btn-primary" style={{ padding: '8px' }}>Guardar</button>
             </form>
@@ -1026,44 +1026,44 @@ export default function InventoryManager({
           {editingRecommendation && (
             <form onSubmit={handleEditRecommendationSubmit} style={{ display: 'flex', flexDirection: 'column', gap: '10px', marginBottom: '15px', background: 'rgba(229, 142, 38, 0.05)', padding: '12px', borderRadius: '8px', border: '1px solid var(--secondary-color)' }}>
               <strong>Editar Recomendación: {editingRecommendation.name}</strong>
-              <div className="form-group"><label>Nombre Combinación</label><input type="text" className="form-control" value={editRec.name} onChange={(e) => setEditRec({ ...editRec, name: e.target.value })} required /></div>
+              <div className="form-group"><label>Nombre Combinación</label><input aria-label="Nombre Combinación" type="text" className="form-control" value={editRec.name} onChange={(e) => setEditRec({ ...editRec, name: e.target.value })} required /></div>
               <div className="form-group">
                 <label>Envase Base</label>
-                <select className="form-control" value={editRec.baseId} onChange={(e) => setEditRec({ ...editRec, baseId: e.target.value })}>
+                <select aria-label="Envase Base" className="form-control" value={editRec.baseId} onChange={(e) => setEditRec({ ...editRec, baseId: e.target.value })}>
                   {bases.map(b => <option key={b.id} value={b.id}>{b.name}</option>)}
                 </select>
               </div>
               <div className="form-group">
                 <label>Sabor 1</label>
-                <select className="form-control" value={editRec.flavorId1} onChange={(e) => setEditRec({ ...editRec, flavorId1: e.target.value })}>
+                <select aria-label="Sabor 1" className="form-control" value={editRec.flavorId1} onChange={(e) => setEditRec({ ...editRec, flavorId1: e.target.value })}>
                   <option value="">-- Seleccionar --</option>
                   {flavors.map(f => <option key={f.id} value={f.id}>{f.name}</option>)}
                 </select>
               </div>
               <div className="form-group">
                 <label>Sabor 2 (Opcional)</label>
-                <select className="form-control" value={editRec.flavorId2} onChange={(e) => setEditRec({ ...editRec, flavorId2: e.target.value })}>
+                <select aria-label="Sabor 2 (Opcional)" className="form-control" value={editRec.flavorId2} onChange={(e) => setEditRec({ ...editRec, flavorId2: e.target.value })}>
                   <option value="">-- Ninguno --</option>
                   {flavors.map(f => <option key={f.id} value={f.id}>{f.name}</option>)}
                 </select>
               </div>
               <div className="form-group">
                 <label>Sabor 3 (Opcional)</label>
-                <select className="form-control" value={editRec.flavorId3} onChange={(e) => setEditRec({ ...editRec, flavorId3: e.target.value })}>
+                <select aria-label="Sabor 3 (Opcional)" className="form-control" value={editRec.flavorId3} onChange={(e) => setEditRec({ ...editRec, flavorId3: e.target.value })}>
                   <option value="">-- Ninguno --</option>
                   {flavors.map(f => <option key={f.id} value={f.id}>{f.name}</option>)}
                 </select>
               </div>
               <div className="form-group">
                 <label>Topping</label>
-                <select className="form-control" value={editRec.toppingId} onChange={(e) => setEditRec({ ...editRec, toppingId: e.target.value })}>
+                <select aria-label="Topping" className="form-control" value={editRec.toppingId} onChange={(e) => setEditRec({ ...editRec, toppingId: e.target.value })}>
                   <option value="">-- Ninguno --</option>
                   {toppings.map(t => <option key={t.id} value={t.id}>{t.name}</option>)}
                 </select>
               </div>
               <div className="form-group">
                 <label>Fudge o Salsa Adicional (Opcional)</label>
-                <input type="text" className="form-control" value={editRec.syrupId || ''} onChange={(e) => setEditRec({ ...editRec, syrupId: e.target.value })} />
+                <input aria-label="Fudge o Salsa Adicional (Opcional)" type="text" className="form-control" value={editRec.syrupId || ''} onChange={(e) => setEditRec({ ...editRec, syrupId: e.target.value })} />
               </div>
               <div style={{ display: 'flex', gap: '8px' }}>
                 <button type="submit" className="btn btn-primary" style={{ flex: 1, padding: '8px' }}>Guardar</button>
@@ -1156,16 +1156,16 @@ export default function InventoryManager({
           </div>
 
           {showAddPack && (
-            <form onSubmit={handleAddPackSubmit} style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '10px', marginBottom: '15px', background: 'rgba(0,0,0,0.02)', padding: '12px', borderRadius: '8px' }}>
-              <div className="form-group"><label>Nombre del Combo</label><input type="text" className="form-control" value={newPack.name} onChange={(e) => setNewPack({ ...newPack, name: e.target.value })} required /></div>
-              <div className="form-group"><label>Precio Venta S/.</label><input type="number" step="0.10" className="form-control" value={newPack.price} onChange={(e) => setNewPack({ ...newPack, price: e.target.value })} required /></div>
-              <div className="form-group"><label>Costo Insumo S/.</label><input type="number" step="0.10" className="form-control" value={newPack.cost} onChange={(e) => setNewPack({ ...newPack, cost: e.target.value })} required /></div>
-              <div className="form-group" style={{ gridColumn: 'span 2' }}><label>Descripción Detallada</label><textarea className="form-control" rows={2} value={newPack.description} onChange={(e) => setNewPack({ ...newPack, description: e.target.value })} /></div>
-              <div className="form-group" style={{ gridColumn: 'span 2' }}><label>Productos Incluidos (Ej: 2 Litros de helado, 4 Toppings)</label><input type="text" className="form-control" value={newPack.items} onChange={(e) => setNewPack({ ...newPack, items: e.target.value })} placeholder="Ej: 3 clásicos, 1 premium" /></div>
-              <div className="form-group"><label>Texto Descuento (Ej: 20% OFF)</label><input type="text" className="form-control" value={newPack.discountText} onChange={(e) => setNewPack({ ...newPack, discountText: e.target.value })} /></div>
-              <div className="form-group"><label>Etiqueta / Badge (Ej: Recomendado)</label><input type="text" className="form-control" value={newPack.badge} onChange={(e) => setNewPack({ ...newPack, badge: e.target.value })} /></div>
+            <form onSubmit={handleAddPackSubmit} style={{ display: 'grid', gridTemplateColumns: 'repeat(2, minmax(0, 1fr))', gap: '10px', marginBottom: '15px', background: 'rgba(0,0,0,0.02)', padding: '12px', borderRadius: '8px' }}>
+              <div className="form-group"><label>Nombre del Combo</label><input aria-label="Nombre del Combo" type="text" className="form-control" value={newPack.name} onChange={(e) => setNewPack({ ...newPack, name: e.target.value })} required /></div>
+              <div className="form-group"><label>Precio Venta S/.</label><input aria-label="Precio Venta S/." type="number" step="0.10" className="form-control" value={newPack.price} onChange={(e) => setNewPack({ ...newPack, price: e.target.value })} required /></div>
+              <div className="form-group"><label>Costo Insumo S/.</label><input aria-label="Costo Insumo S/." type="number" step="0.10" className="form-control" value={newPack.cost} onChange={(e) => setNewPack({ ...newPack, cost: e.target.value })} required /></div>
+              <div className="form-group" style={{ gridColumn: '1 / -1' }}><label>Descripción Detallada</label><textarea aria-label="Descripción Detallada" className="form-control" rows={2} value={newPack.description} onChange={(e) => setNewPack({ ...newPack, description: e.target.value })} /></div>
+              <div className="form-group" style={{ gridColumn: '1 / -1' }}><label>Productos Incluidos (Ej: 2 Litros de helado, 4 Toppings)</label><input aria-label="Productos Incluidos (Ej: 2 Litros de helado, 4 Toppings)" type="text" className="form-control" value={newPack.items} onChange={(e) => setNewPack({ ...newPack, items: e.target.value })} placeholder="Ej: 3 clásicos, 1 premium" /></div>
+              <div className="form-group"><label>Texto Descuento (Ej: 20% OFF)</label><input aria-label="Texto Descuento (Ej: 20% OFF)" type="text" className="form-control" value={newPack.discountText} onChange={(e) => setNewPack({ ...newPack, discountText: e.target.value })} /></div>
+              <div className="form-group"><label>Etiqueta / Badge (Ej: Recomendado)</label><input aria-label="Etiqueta / Badge (Ej: Recomendado)" type="text" className="form-control" value={newPack.badge} onChange={(e) => setNewPack({ ...newPack, badge: e.target.value })} /></div>
 
-              <div className="form-group" style={{ gridColumn: 'span 2' }}>
+              <div className="form-group" style={{ gridColumn: '1 / -1' }}>
                 <label style={{ display: 'block', marginBottom: '4px', fontSize: '0.8rem', fontWeight: 'bold' }}>Imagen Publicitaria (R2)</label>
                 <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
                   {newPack.image ? (
@@ -1182,22 +1182,22 @@ export default function InventoryManager({
                 </div>
               </div>
 
-              <button type="submit" className="btn btn-primary" style={{ gridColumn: 'span 2', padding: '6px' }}>Guardar Combo</button>
+              <button type="submit" className="btn btn-primary" style={{ gridColumn: '1 / -1', padding: '6px' }}>Guardar Combo</button>
             </form>
           )}
 
           {editingPack && (
-            <form onSubmit={handleEditPackSubmit} style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '10px', marginBottom: '15px', background: 'rgba(229, 142, 38, 0.05)', padding: '12px', borderRadius: '8px', border: '1px solid var(--secondary-color)' }}>
-              <div className="form-group" style={{ gridColumn: 'span 2' }}><strong>Editar Combo: {editingPack.name}</strong></div>
-              <div className="form-group"><label>Nombre</label><input type="text" className="form-control" value={editingPack.name} onChange={(e) => setEditingPack({ ...editingPack, name: e.target.value })} required /></div>
-              <div className="form-group"><label>Precio Venta S/.</label><input type="number" step="0.10" className="form-control" value={editingPack.price} onChange={(e) => setEditingPack({ ...editingPack, price: e.target.value })} required /></div>
-              <div className="form-group"><label>Costo Insumo S/.</label><input type="number" step="0.10" className="form-control" value={editingPack.cost || ''} onChange={(e) => setEditingPack({ ...editingPack, cost: e.target.value })} required /></div>
-              <div className="form-group" style={{ gridColumn: 'span 2' }}><label>Descripción</label><textarea className="form-control" rows={2} value={editingPack.description} onChange={(e) => setEditingPack({ ...editingPack, description: e.target.value })} /></div>
-              <div className="form-group" style={{ gridColumn: 'span 2' }}><label>Productos Incluidos</label><input type="text" className="form-control" value={editingPack.items} onChange={(e) => setEditingPack({ ...editingPack, items: e.target.value })} /></div>
-              <div className="form-group"><label>Texto Descuento</label><input type="text" className="form-control" value={editingPack.discountText} onChange={(e) => setEditingPack({ ...editingPack, discountText: e.target.value })} /></div>
-              <div className="form-group"><label>Etiqueta / Badge</label><input type="text" className="form-control" value={editingPack.badge} onChange={(e) => setEditingPack({ ...editingPack, badge: e.target.value })} /></div>
+            <form onSubmit={handleEditPackSubmit} style={{ display: 'grid', gridTemplateColumns: 'repeat(2, minmax(0, 1fr))', gap: '10px', marginBottom: '15px', background: 'rgba(229, 142, 38, 0.05)', padding: '12px', borderRadius: '8px', border: '1px solid var(--secondary-color)' }}>
+              <div className="form-group" style={{ gridColumn: '1 / -1' }}><strong>Editar Combo: {editingPack.name}</strong></div>
+              <div className="form-group"><label>Nombre</label><input aria-label="Nombre" type="text" className="form-control" value={editingPack.name} onChange={(e) => setEditingPack({ ...editingPack, name: e.target.value })} required /></div>
+              <div className="form-group"><label>Precio Venta S/.</label><input aria-label="Precio Venta S/." type="number" step="0.10" className="form-control" value={editingPack.price} onChange={(e) => setEditingPack({ ...editingPack, price: e.target.value })} required /></div>
+              <div className="form-group"><label>Costo Insumo S/.</label><input aria-label="Costo Insumo S/." type="number" step="0.10" className="form-control" value={editingPack.cost || ''} onChange={(e) => setEditingPack({ ...editingPack, cost: e.target.value })} required /></div>
+              <div className="form-group" style={{ gridColumn: '1 / -1' }}><label>Descripción</label><textarea aria-label="Descripción" className="form-control" rows={2} value={editingPack.description} onChange={(e) => setEditingPack({ ...editingPack, description: e.target.value })} /></div>
+              <div className="form-group" style={{ gridColumn: '1 / -1' }}><label>Productos Incluidos</label><input aria-label="Productos Incluidos" type="text" className="form-control" value={editingPack.items} onChange={(e) => setEditingPack({ ...editingPack, items: e.target.value })} /></div>
+              <div className="form-group"><label>Texto Descuento</label><input aria-label="Texto Descuento" type="text" className="form-control" value={editingPack.discountText} onChange={(e) => setEditingPack({ ...editingPack, discountText: e.target.value })} /></div>
+              <div className="form-group"><label>Etiqueta / Badge</label><input aria-label="Etiqueta / Badge" type="text" className="form-control" value={editingPack.badge} onChange={(e) => setEditingPack({ ...editingPack, badge: e.target.value })} /></div>
 
-              <div className="form-group" style={{ gridColumn: 'span 2' }}>
+              <div className="form-group" style={{ gridColumn: '1 / -1' }}>
                 <label style={{ display: 'block', marginBottom: '4px', fontSize: '0.8rem', fontWeight: 'bold' }}>Imagen Publicitaria (R2)</label>
                 <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
                   {editingPack.image ? (
@@ -1214,7 +1214,7 @@ export default function InventoryManager({
                 </div>
               </div>
 
-              <div style={{ gridColumn: 'span 2', display: 'flex', gap: '8px' }}>
+              <div style={{ gridColumn: '1 / -1', display: 'flex', gap: '8px' }}>
                 <button type="submit" className="btn btn-primary" style={{ flex: 1, padding: '6px' }}>Guardar Cambios</button>
                 <button type="button" className="btn btn-secondary" style={{ flex: 1, padding: '6px' }} onClick={() => setEditingPack(null)}>Cancelar</button>
               </div>
@@ -1242,8 +1242,8 @@ export default function InventoryManager({
                         {p.image ? <img src={p.image} alt={p.name} style={{ width: '32px', height: '32px', objectFit: 'cover', borderRadius: '6px' }} /> : '🎁'}
                         <div>
                           <strong>{p.name}</strong>
-                          {p.badge && <span style={{ marginLeft: '6px', fontSize: '0.65rem', backgroundColor: 'var(--primary-color)', color: 'white', padding: '1px 5px', borderRadius: '6px', fontWeight: 'bold' }}>{p.badge}</span>}
-                          {p.discountText && <span style={{ marginLeft: '4px', fontSize: '0.65rem', backgroundColor: 'var(--success)', color: 'white', padding: '1px 5px', borderRadius: '6px', fontWeight: 'bold' }}>{p.discountText}</span>}
+                          {p.badge && <span style={{ marginLeft: '6px', fontSize: '0.65rem', backgroundColor: 'var(--primary-color)', color: 'var(--bg-secondary)', padding: '1px 5px', borderRadius: '6px', fontWeight: 'bold' }}>{p.badge}</span>}
+                          {p.discountText && <span style={{ marginLeft: '4px', fontSize: '0.65rem', backgroundColor: 'var(--success)', color: 'var(--bg-secondary)', padding: '1px 5px', borderRadius: '6px', fontWeight: 'bold' }}>{p.discountText}</span>}
                         </div>
                       </div>
                     </td>
@@ -1310,11 +1310,11 @@ export default function InventoryManager({
             const setter = editingPopsicle ? setEditingPopsicle : setNewPopsicle;
             return (
               <form onSubmit={editingPopsicle ? handleEditPopsicleSubmit : handleAddPopsicleSubmit} className="popsicle-admin-form">
-                <div className="form-group"><label>Nombre</label><input className="form-control" value={item.name} onChange={e => setter({ ...item, name: e.target.value })} required /></div>
-                <div className="form-group"><label>Precio S/.</label><input type="number" min="0" step="0.10" className="form-control" value={item.price} onChange={e => setter({ ...item, price: e.target.value })} required /></div>
-                <div className="form-group"><label>Costo S/.</label><input type="number" min="0" step="0.10" className="form-control" value={item.cost} onChange={e => setter({ ...item, cost: e.target.value })} /></div>
-                <div className="form-group"><label>Etiqueta</label><input className="form-control" value={item.badge || ''} onChange={e => setter({ ...item, badge: e.target.value })} placeholder="Nueva, Tropical, Premium..." /></div>
-                <div className="form-group" style={{ gridColumn: '1 / -1' }}><label>Descripción</label><textarea rows="2" className="form-control" value={item.description || ''} onChange={e => setter({ ...item, description: e.target.value })} /></div>
+                <div className="form-group"><label>Nombre</label><input aria-label="Nombre" className="form-control" value={item.name} onChange={e => setter({ ...item, name: e.target.value })} required /></div>
+                <div className="form-group"><label>Precio S/.</label><input aria-label="Precio S/." type="number" min="0" step="0.10" className="form-control" value={item.price} onChange={e => setter({ ...item, price: e.target.value })} required /></div>
+                <div className="form-group"><label>Costo S/.</label><input aria-label="Costo S/." type="number" min="0" step="0.10" className="form-control" value={item.cost} onChange={e => setter({ ...item, cost: e.target.value })} /></div>
+                <div className="form-group"><label>Etiqueta</label><input aria-label="Etiqueta" className="form-control" value={item.badge || ''} onChange={e => setter({ ...item, badge: e.target.value })} placeholder="Nueva, Tropical, Premium..." /></div>
+                <div className="form-group" style={{ gridColumn: '1 / -1' }}><label>Descripción</label><textarea aria-label="Descripción" rows="2" className="form-control" value={item.description || ''} onChange={e => setter({ ...item, description: e.target.value })} /></div>
                 <div className="form-group" style={{ gridColumn: '1 / -1' }}>
                   <label>Foto del producto</label>
                   <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>

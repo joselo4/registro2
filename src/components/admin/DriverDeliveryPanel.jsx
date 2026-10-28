@@ -217,7 +217,7 @@ export default function DriverDeliveryPanel({
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(140px, 1fr))', gap: '12px', marginBottom: '16px' }}>
         <div style={{ background: '#fff', padding: '12px 16px', borderRadius: '10px', border: '1px solid #e2e8f0', boxShadow: '0 1px 3px rgba(0,0,0,0.05)' }}>
           <div style={{ fontSize: '0.75rem', color: '#64748b', fontWeight: 600 }}>Entregas Activas</div>
-          <div style={{ fontSize: '1.3rem', fontWeight: 800, color: '#FF441F' }}>{activeDeliveries.length}</div>
+          <div style={{ fontSize: '1.3rem', fontWeight: 800, color: 'var(--delivery-ink)' }}>{activeDeliveries.length}</div>
         </div>
         <div style={{ background: '#fff', padding: '12px 16px', borderRadius: '10px', border: '1px solid #e2e8f0', boxShadow: '0 1px 3px rgba(0,0,0,0.05)' }}>
           <div style={{ fontSize: '0.75rem', color: '#64748b', fontWeight: 600 }}>Entregadas Hoy</div>
@@ -246,7 +246,7 @@ export default function DriverDeliveryPanel({
             fontSize: '0.9rem',
             border: 'none',
             cursor: 'pointer',
-            background: activeSubTab === 'active' ? '#FF441F' : '#e2e8f0',
+            background: activeSubTab === 'active' ? 'var(--delivery-color)' : '#e2e8f0',
             color: activeSubTab === 'active' ? '#fff' : '#475569'
           }}
         >
@@ -301,7 +301,7 @@ export default function DriverDeliveryPanel({
                   style={{
                     background: '#fff',
                     borderRadius: '12px',
-                    border: order.status === 'En camino' ? '2px solid #FF441F' : '1px solid #e2e8f0',
+                    border: order.status === 'En camino' ? '2px solid var(--delivery-color)' : '1px solid #e2e8f0',
                     padding: '16px',
                     boxShadow: '0 2px 8px rgba(0,0,0,0.06)'
                   }}
@@ -343,7 +343,7 @@ export default function DriverDeliveryPanel({
                       margin: '6px 0',
                       padding: '8px 12px',
                       background: '#fffbeb',
-                      borderLeft: '4px solid #f59e0b',
+                      border: '1px solid #fcd34d',
                       borderRadius: '4px',
                       fontSize: '0.9rem',
                       color: '#92400e'
@@ -444,7 +444,7 @@ export default function DriverDeliveryPanel({
                           target="_blank"
                           rel="noopener noreferrer"
                           style={{
-                            background: '#25D366',
+                            background: '#0E7A5C',
                             color: '#fff',
                             textDecoration: 'none',
                             padding: '8px',
@@ -472,7 +472,7 @@ export default function DriverDeliveryPanel({
                         onClick={() => handleStartDelivery(order)}
                         style={{
                           flex: 1,
-                          background: '#FF441F',
+                          background: 'var(--delivery-color)',
                           color: '#fff',
                           border: 'none',
                           padding: '12px',

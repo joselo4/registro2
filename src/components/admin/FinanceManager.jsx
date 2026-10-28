@@ -224,19 +224,20 @@ export default function FinanceManager({
     <div style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '15px' }}>
         <h3 style={{ margin: 0 }}>Caja y Control de Finanzas</h3>
-        <div style={{ display: 'flex', gap: '6px', background: 'rgba(0,0,0,0.03)', padding: '4px', borderRadius: '20px' }}>
+        <div role="group" aria-label="Periodo" style={{ display: 'flex', flexWrap: 'wrap', gap: '6px', background: 'rgba(0,0,0,0.03)', padding: '4px', borderRadius: '20px' }}>
           {[
-            { id: 'today', label: 'Hoy 📅' },
-            { id: 'week', label: 'Esta Semana 📅' },
-            { id: 'month', label: 'Este Mes 📅' },
-            { id: 'all', label: 'Todo 📦' }
+            { id: 'today', label: 'Hoy' },
+            { id: 'week', label: 'Esta semana' },
+            { id: 'month', label: 'Este mes' },
+            { id: 'all', label: 'Todo' }
           ].map(r => (
             <button
               key={r.id}
               type="button"
               onClick={() => setFinanceRange(r.id)}
+              aria-pressed={financeRange === r.id}
               className={`filter-btn ${financeRange === r.id ? 'active' : ''}`}
-              style={{ padding: '4px 10px', fontSize: '0.75rem', border: 'none', background: 'transparent', whiteSpace: 'nowrap' }}
+              style={{ padding: '8px 12px', minHeight: '36px', fontSize: '0.75rem', border: 'none', whiteSpace: 'nowrap' }}
             >
               {r.label}
             </button>
@@ -246,22 +247,22 @@ export default function FinanceManager({
 
       {/* Resumen Financiero */}
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))', gap: '15px' }}>
-        <div className="glass-card" style={{ padding: '15px', borderLeft: '5px solid var(--success)', background: 'linear-gradient(135deg, rgba(46, 204, 113, 0.05) 0%, rgba(255, 255, 255, 0.2) 100%)' }}>
+        <div className="glass-card" style={{ padding: '15px', background: 'linear-gradient(135deg, rgba(46, 204, 113, 0.05) 0%, color-mix(in srgb, var(--bg-secondary) 20%, transparent) 100%)' }}>
           <span style={{ fontSize: '0.75rem', color: 'var(--text-light)', fontWeight: 600 }}>💰 INGRESOS TOTALES</span>
           <div style={{ fontSize: '1.6rem', fontWeight: 'bold', color: 'var(--success)', marginTop: '5px' }}>S/. {totalSales.toFixed(2)}</div>
           <span style={{ fontSize: '0.65rem', color: 'var(--text-light)', display: 'block', marginTop: '2px' }}>Pedidos online + ventas físicas</span>
         </div>
-        <div className="glass-card" style={{ padding: '15px', borderLeft: '5px solid var(--danger)', background: 'linear-gradient(135deg, rgba(231, 76, 60, 0.05) 0%, rgba(255, 255, 255, 0.2) 100%)' }}>
+        <div className="glass-card" style={{ padding: '15px', background: 'linear-gradient(135deg, rgba(231, 76, 60, 0.05) 0%, color-mix(in srgb, var(--bg-secondary) 20%, transparent) 100%)' }}>
           <span style={{ fontSize: '0.75rem', color: 'var(--text-light)', fontWeight: 600 }}>💸 EGRESOS / GASTOS</span>
           <div style={{ fontSize: '1.6rem', fontWeight: 'bold', color: 'var(--danger)', marginTop: '5px' }}>S/. {totalExpenses.toFixed(2)}</div>
           <span style={{ fontSize: '0.65rem', color: 'var(--text-light)', display: 'block', marginTop: '2px' }}>Compras e insumos registrados</span>
         </div>
-        <div className="glass-card" style={{ padding: '15px', borderLeft: '5px solid var(--primary-color)', background: 'linear-gradient(135deg, rgba(255, 107, 129, 0.05) 0%, rgba(255, 255, 255, 0.2) 100%)' }}>
+        <div className="glass-card" style={{ padding: '15px', background: 'linear-gradient(135deg, rgba(255, 107, 129, 0.05) 0%, color-mix(in srgb, var(--bg-secondary) 20%, transparent) 100%)' }}>
           <span style={{ fontSize: '0.75rem', color: 'var(--text-light)', fontWeight: 600 }}>📈 BALANCE NETO</span>
           <div style={{ fontSize: '1.6rem', fontWeight: 'bold', color: balance >= 0 ? 'var(--primary-color)' : 'var(--danger)', marginTop: '5px' }}>S/. {balance.toFixed(2)}</div>
           <span style={{ fontSize: '0.65rem', color: 'var(--text-light)', display: 'block', marginTop: '2px' }}>Ganancia real del local</span>
         </div>
-        <div className="glass-card" style={{ padding: '15px', borderLeft: '5px solid var(--info)', background: 'linear-gradient(135deg, rgba(52, 152, 219, 0.05) 0%, rgba(255, 255, 255, 0.2) 100%)' }}>
+        <div className="glass-card" style={{ padding: '15px', background: 'linear-gradient(135deg, rgba(52, 152, 219, 0.05) 0%, color-mix(in srgb, var(--bg-secondary) 20%, transparent) 100%)' }}>
           <span style={{ fontSize: '0.75rem', color: 'var(--text-light)', fontWeight: 600 }}>📊 RENTABILIDAD ESTIMADA</span>
           <div style={{ fontSize: '1.6rem', fontWeight: 'bold', color: profitMargin >= 25 ? 'var(--success)' : profitMargin > 0 ? 'var(--info)' : 'var(--danger)', marginTop: '5px' }}>{profitMargin}%</div>
           <span style={{ fontSize: '0.65rem', color: 'var(--text-light)', display: 'block', marginTop: '2px' }}>Margen de ganancia neta</span>
@@ -269,7 +270,7 @@ export default function FinanceManager({
       </div>
 
       {/* DESGLOSE DETALLADO */}
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(300px, 1fr))', gap: '15px', marginTop: '5px' }}>
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(min(300px, 100%), 1fr))', gap: '15px', marginTop: '5px' }}>
         <div className="glass" style={{ padding: '15px' }}>
           <strong style={{ fontSize: '0.82rem', display: 'block', borderBottom: '1px solid var(--border-color)', paddingBottom: '6px', marginBottom: '10px' }}>
             📊 Origen y Canales de Ingresos
@@ -319,14 +320,14 @@ export default function FinanceManager({
         </div>
       </div>
 
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(300px, 1fr))', gap: '20px' }}>
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(min(300px, 100%), 1fr))', gap: '20px' }}>
         {/* REGISTRAR VENTA FÍSICA */}
         <div className="glass" style={{ padding: '20px' }}>
           <h4 style={{ marginBottom: '15px', display: 'flex', alignItems: 'center', gap: '8px' }}>🛒 Registrar Venta Física (Mostrador)</h4>
           <form onSubmit={handleAddPhysicalSale} style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
             <div className="form-group">
               <label>Producto o Detalle</label>
-              <select 
+              <select aria-label="Producto o Detalle" 
                 className="form-control" 
                 value={quickSaleProduct} 
                 onChange={(e) => {
@@ -344,10 +345,10 @@ export default function FinanceManager({
               </select>
             </div>
 
-            <div style={{ display: 'grid', gridTemplateColumns: '1.2fr 0.8fr', gap: '10px' }}>
+            <div className="admin-split" style={{ display: 'grid', gap: '10px' }}>
               <div className="form-group">
                 <label>Nombre del Cliente (Opcional)</label>
-                <input 
+                <input aria-label="Nombre del Cliente (Opcional)" 
                   type="text" 
                   className="form-control" 
                   placeholder="Ej: Anónimo" 
@@ -357,7 +358,7 @@ export default function FinanceManager({
               </div>
               <div className="form-group">
                 <label>Monto Cobrado S/.</label>
-                <input 
+                <input aria-label="Monto Cobrado S/." 
                   type="number" 
                   step="0.10" 
                   className="form-control" 
@@ -403,7 +404,7 @@ export default function FinanceManager({
           <form onSubmit={handleAddExpense} style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
             <div className="form-group">
               <label>Concepto del Gasto</label>
-              <input 
+              <input aria-label="Concepto del Gasto" 
                 type="text" 
                 className="form-control" 
                 placeholder="Ej: Compra de 5kg de fresas" 
@@ -413,10 +414,10 @@ export default function FinanceManager({
               />
             </div>
 
-            <div style={{ display: 'grid', gridTemplateColumns: '1.2fr 0.8fr', gap: '10px' }}>
+            <div className="admin-split" style={{ display: 'grid', gap: '10px' }}>
               <div className="form-group">
                 <label>Categoría</label>
-                <select 
+                <select aria-label="Categoría" 
                   className="form-control" 
                   value={expenseCategory}
                   onChange={(e) => setExpenseCategory(e.target.value)}
@@ -430,7 +431,7 @@ export default function FinanceManager({
               </div>
               <div className="form-group">
                 <label>Monto Gasto S/.</label>
-                <input 
+                <input aria-label="Monto Gasto S/." 
                   type="number" 
                   step="0.10" 
                   className="form-control" 
@@ -443,7 +444,7 @@ export default function FinanceManager({
 
             <div className="form-group">
               <label>Fecha</label>
-              <input 
+              <input aria-label="Fecha" 
                 type="date" 
                 className="form-control" 
                 value={expenseDate}
