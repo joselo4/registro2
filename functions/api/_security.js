@@ -107,3 +107,35 @@ export const isTrustedStaff = (user) => {
   return !String(user?.app_metadata?.status || '').toLowerCase().includes('suspend') &&
     (isTrustedAdmin(user) || role === 'vendedor');
 };
+
+// Identifies a raster image from its first bytes; the browser-supplied type is not trusted.
+// SVG and anything else is refused because the public bucket would serve it as a page.
+export const sniffImageType = (bytes) => {
+  const b = bytes instanceof Uint8Array ? bytes : new Uint8Array(bytes || []);
+  const ascii = (start, end) => String.fromCharCode(...b.slice(start, end));
+  if (b[0] === 0xff && b[1] === 0xd8 && b[2] === 0xff) return 'image/jpeg';
+  if (b[0] === 0x89 && ascii(1, 4) === 'PNG') return 'image/png';
+  if (ascii(0, 4) === 'GIF8') return 'image/gif';
+  if (ascii(0, 4) === 'RIFF' && ascii(8, 12) === 'WEBP') return 'image/webp';
+  if (ascii(4, 8) === 'ftyp' && ['avif', 'avis'].includes(ascii(8, 12))) return 'image/avif';
+  return null;
+};
+
+// Best-effort burst limit per connection for public endpoints that notify staff.
+// Counters live in this server instance only, so a Cloudflare rate-limiting rule
+// is still the durable defence; this stops a single client from flooding the chat.
+const recentHits = new Map();
+export const tooManyRequests = (request, bucket, max, windowMs, now = Date.now()) => {
+  const ip = request.headers.get('CF-Connecting-IP') || request.headers.get('X-Real-IP') || '';
+  if (!ip) return false;
+  const key = `${bucket}:${ip}`;
+  const hits = (recentHits.get(key) || []).filter(time => now - time < windowMs);
+  if (hits.length >= max) {
+    recentHits.set(key, hits);
+    return true;
+  }
+  hits.push(now);
+  recentHits.set(key, hits);
+  if (recentHits.size > 5000) recentHits.delete(recentHits.keys().next().value);
+  return false;
+};

@@ -1,4 +1,4 @@
-import { createAdminClient, fail, json, sameOriginRequest } from './_security.js';
+import { createAdminClient, fail, json, sameOriginRequest, tooManyRequests } from './_security.js';
 import { isOrderTypeEnabled } from '../../src/utils/orderChannels.js';
 
 // Same table format the order API accepts (1-999).
@@ -30,6 +30,8 @@ export async function onRequestPost({ request, env }, makeClient = createAdminCl
 
     if (!table) return fail(400, 'input', 'Número de mesa inválido.');
     if (!resolved && !requestText) return fail(400, 'input', 'Falta la solicitud.');
+    // Every table in the shop shares one connection, so the cap is generous.
+    if (!resolved && tooManyRequests(request, 'table-call', 30, 10 * 60 * 1000)) return fail(429, 'rate', 'Hay muchos llamados seguidos. Un mozo irá a tu mesa en breve.');
 
     const adminClient = await makeClient(env);
     if (!resolved) {

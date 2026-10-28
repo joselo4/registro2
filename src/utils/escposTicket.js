@@ -83,7 +83,7 @@ export const printThermalTicket = ({
           }
           return `
             <div class="item-row">
-              <span class="qty">${item.quantity || 1}x</span>
+              <span class="qty">${escapeTicketText(item.quantity || 1)}x</span>
               <span class="item-name">${escapeTicketText(item.name || 'Helado')}</span>
               <span class="price">S/ ${((item.price || 0) * (item.quantity || 1)).toFixed(2)}</span>
             </div>
@@ -107,12 +107,12 @@ export const printThermalTicket = ({
     if (!shift) return;
     contentHtml = `
       <div class="ticket">
-        <div class="center bold title">${storeName.toUpperCase()}</div>
+        <div class="center bold title">${escapeTicketText(storeName.toUpperCase())}</div>
         <div class="center subtitle">📋 REPORTE DE CIERRE DE CAJA (Z)</div>
         <div class="divider"></div>
-        <div class="row"><span>TURNO ID:</span> <b>${shift.id || 'Z-001'}</b></div>
+        <div class="row"><span>TURNO ID:</span> <b>${escapeTicketText(shift.id || 'Z-001')}</b></div>
         <div class="row"><span>FECHA/HORA:</span> <span>${nowStr}</span></div>
-        <div class="row"><span>CAJERO:</span> <b>${shift.cashierName || 'Caja'}</b></div>
+        <div class="row"><span>CAJERO:</span> <b>${escapeTicketText(shift.cashierName || 'Caja')}</b></div>
         <div class="divider"></div>
         <div class="row"><span>FONDO INICIAL:</span> <b>S/ ${(shift.startingCash || 0).toFixed(2)}</b></div>
         <div class="row"><span>VENTAS EFECTIVO:</span> <span>+S/ ${(shift.cashSales || 0).toFixed(2)}</span></div>
@@ -132,7 +132,7 @@ export const printThermalTicket = ({
         <div class="row"><span>Transferencias:</span> <span>S/ ${(shift.transferSales || 0).toFixed(2)}</span></div>
         <div class="divider"></div>
         <div class="row total"><span>TOTAL VENTAS DEL TURNO:</span> <span>S/ ${(shift.totalTurnover || 0).toFixed(2)}</span></div>
-        <div class="row"><span>PEDIDOS ATENDIDOS:</span> <span>${shift.ordersCount || 0}</span></div>
+        <div class="row"><span>PEDIDOS ATENDIDOS:</span> <span>${escapeTicketText(shift.ordersCount || 0)}</span></div>
         <div class="divider"></div>
         <div class="center footer">FIRMA CAJERO / RESPONSABLE</div>
         <br/><br/>
@@ -143,14 +143,14 @@ export const printThermalTicket = ({
     if (!settlement) return;
     contentHtml = `
       <div class="ticket">
-        <div class="center bold title">${storeName.toUpperCase()}</div>
+        <div class="center bold title">${escapeTicketText(storeName.toUpperCase())}</div>
         <div class="center subtitle">🍦 LIQUIDACIÓN DIARIA DE CARRITO</div>
         <div class="divider"></div>
-        <div class="row"><span>LIQ ID:</span> <b>${settlement.id || 'LIQ-001'}</b></div>
+        <div class="row"><span>LIQ ID:</span> <b>${escapeTicketText(settlement.id || 'LIQ-001')}</b></div>
         <div class="row"><span>FECHA/HORA:</span> <span>${nowStr}</span></div>
-        <div class="row"><span>CARRITO:</span> <b>${settlement.cartLabel || 'Carrito'}</b></div>
-        <div class="row"><span>VENDEDOR:</span> <b>${settlement.vendorName || 'Vendedor'}</b></div>
-        ${settlement.routeName ? `<div class="row"><span>RUTA:</span> <span>${settlement.routeName}</span></div>` : ''}
+        <div class="row"><span>CARRITO:</span> <b>${escapeTicketText(settlement.cartLabel || 'Carrito')}</b></div>
+        <div class="row"><span>VENDEDOR:</span> <b>${escapeTicketText(settlement.vendorName || 'Vendedor')}</b></div>
+        ${settlement.routeName ? `<div class="row"><span>RUTA:</span> <span>${escapeTicketText(settlement.routeName)}</span></div>` : ''}
         <div class="divider"></div>
         <div class="bold section-title">DETALLE CARGA VS RETORNO:</div>
         <div class="row bold" style="font-size:10px; border-bottom:1px dashed #000; padding-bottom:3px; margin-bottom:4px;">
@@ -160,13 +160,13 @@ export const printThermalTicket = ({
         </div>
         ${(settlement.details || []).map(d => `
           <div class="row" style="font-size:10.5px; padding:2px 0;">
-            <span style="max-width:110px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">${d.name} (S/${Number(d.price).toFixed(2)})</span>
-            <span>${d.loaded}/${d.returned}/<b>${d.sold}</b></span>
+            <span style="max-width:110px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">${escapeTicketText(d.name)} (S/${Number(d.price).toFixed(2)})</span>
+            <span>${escapeTicketText(d.loaded)}/${escapeTicketText(d.returned)}/<b>${escapeTicketText(d.sold)}</b></span>
             <b>S/${Number(d.subtotal).toFixed(2)}</b>
           </div>
         `).join('')}
         <div class="divider"></div>
-        <div class="row total"><span>TOTAL UNIDADES VENDIDAS:</span> <b>${settlement.totalUnits || 0} u.</b></div>
+        <div class="row total"><span>TOTAL UNIDADES VENDIDAS:</span> <b>${escapeTicketText(settlement.totalUnits || 0)} u.</b></div>
         <div class="row total"><span>TOTAL A RENDIR:</span> <b>S/ ${(settlement.totalAmount || 0).toFixed(2)}</b></div>
         ${settlement.paymentDetails ? `
           <div class="divider"></div>
@@ -176,7 +176,7 @@ export const printThermalTicket = ({
             <span>Diferencia:</span> <span>${(settlement.paymentDetails.diff || 0) >= 0 ? `+S/ ${(settlement.paymentDetails.diff || 0).toFixed(2)}` : `-S/ ${Math.abs(settlement.paymentDetails.diff || 0).toFixed(2)}`}</span>
           </div>
         ` : ''}
-        ${settlement.notes ? `<div class="divider"></div><div class="notes"><b>Obs:</b> ${settlement.notes}</div>` : ''}
+        ${settlement.notes ? `<div class="divider"></div><div class="notes"><b>Obs:</b> ${ticketMultiline(settlement.notes)}</div>` : ''}
         <div class="divider"></div>
         <div class="center footer" style="font-size:9.5px;">FIRMA VENDEDOR &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; FIRMA SUPERVISOR</div>
         <br/><br/>
@@ -196,7 +196,7 @@ export const printThermalTicket = ({
     <html>
       <head>
         <meta charset="utf-8">
-        <title>Ticket ${type.toUpperCase()}</title>
+        <title>Ticket ${escapeTicketText(type.toUpperCase())}</title>
         <style>
           @page {
             margin: 0;

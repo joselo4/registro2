@@ -1,4 +1,4 @@
-import { fail, getAuthenticatedUser, isTrustedStaff } from './_security.js';
+import { fail, getAuthenticatedUser, isTrustedStaff, sniffImageType } from './_security.js';
 
 export async function onRequestPost(context) {
   try {
@@ -27,16 +27,19 @@ export async function onRequestPost(context) {
         { status: 400, headers: { "Content-Type": "application/json" } }
       );
     }
-    if (!String(archivo.type || '').startsWith('image/')) {
-      return new Response(
-        JSON.stringify({ error: "Error: Solo se permiten imagenes." }),
-        { status: 400, headers: { "Content-Type": "application/json" } }
-      );
-    }
     if (Number(archivo.size || 0) > 5 * 1024 * 1024) {
       return new Response(
         JSON.stringify({ error: "Error: La imagen no puede superar 5 MB." }),
         { status: 413, headers: { "Content-Type": "application/json" } }
+      );
+    }
+    // The real format comes from the file's bytes, never from the browser's claim.
+    const contenido = new Uint8Array(await archivo.arrayBuffer());
+    const tipoReal = sniffImageType(contenido);
+    if (!tipoReal) {
+      return new Response(
+        JSON.stringify({ error: "Error: Solo se permiten imágenes JPG, PNG, WebP, GIF o AVIF." }),
+        { status: 400, headers: { "Content-Type": "application/json" } }
       );
     }
 
@@ -52,9 +55,9 @@ export async function onRequestPost(context) {
     const nombreFinal = nombreSeguro || `${Date.now()}-imagen.webp`;
 
     // 4. Subir el archivo directamente a tu almacenamiento de Cloudflare R2
-    await BUCKET.put(nombreFinal, archivo.stream(), {
+    await BUCKET.put(nombreFinal, contenido, {
       httpMetadata: {
-        contentType: archivo.type || "image/jpeg", // Mantiene el tipo de archivo (jpg, png, etc.)
+        contentType: tipoReal,
       }
     });
 
@@ -80,8 +83,9 @@ export async function onRequestPost(context) {
     );
 
   } catch (error) {
+    console.error('r2 upload failed:', error);
     return new Response(
-      JSON.stringify({ error: error.message }), 
+      JSON.stringify({ error: "No se pudo guardar la imagen. Intenta nuevamente." }),
       { status: 500, headers: { "Content-Type": "application/json" } }
     );
   }

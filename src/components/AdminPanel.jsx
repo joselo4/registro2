@@ -1,22 +1,53 @@
  
-import { useState, useEffect, useRef, useCallback, lazy, Suspense } from 'react';
+import { useState, useEffect, useRef, useCallback, lazy, Suspense, useTransition } from 'react';
 import { supabase } from '../utils/supabaseClient';
 import { updateSyncedData } from '../utils/supabaseSync';
-const SettingsManager = lazy(() => import('./admin/SettingsManager'));
-const InventoryManager = lazy(() => import('./admin/InventoryManager'));
-const FinanceManager = lazy(() => import('./admin/FinanceManager'));
-const CashRegisterManager = lazy(() => import('./admin/CashRegisterManager'));
-const OrderManager = lazy(() => import('./admin/OrderManager'));
-const DashboardView = lazy(() => import('./admin/DashboardView'));
-const OperationsCenter = lazy(() => import('./admin/OperationsCenter'));
-const UserManager = lazy(() => import('./admin/UserManager'));
-const TableOrderManager = lazy(() => import('./admin/TableOrderManager'));
-const OrderTaker = lazy(() => import('./admin/OrderTaker'));
-const AnalyticsPanel = lazy(() => import('./admin/AnalyticsPanel'));
-const CustomerCRM = lazy(() => import('./admin/CustomerCRM'));
-const DriverDeliveryPanel = lazy(() => import('./admin/DriverDeliveryPanel'));
-const KitchenDisplaySystem = lazy(() => import('./admin/KitchenDisplaySystem'));
-import CartLocationsView from './CartLocationsView';
+
+// Each module keeps its own chunk, but the loader is shared so the panel can fetch
+// them ahead of time; a module that is already downloaded renders without a fallback.
+const moduleLoaders = {
+  settings: () => import('./admin/SettingsManager'),
+  inventory: () => import('./admin/InventoryManager'),
+  finance: () => import('./admin/FinanceManager'),
+  cash: () => import('./admin/CashRegisterManager'),
+  orders: () => import('./admin/OrderManager'),
+  stats: () => import('./admin/DashboardView'),
+  operations: () => import('./admin/OperationsCenter'),
+  users: () => import('./admin/UserManager'),
+  table_orders: () => import('./admin/TableOrderManager'),
+  ordertaker: () => import('./admin/OrderTaker'),
+  analytics: () => import('./admin/AnalyticsPanel'),
+  crm: () => import('./admin/CustomerCRM'),
+  driver_panel: () => import('./admin/DriverDeliveryPanel'),
+  kds: () => import('./admin/KitchenDisplaySystem'),
+  locations: () => import('./CartLocationsView'),
+};
+const preloadedModules = new Map();
+const preloadModule = (key) => {
+  const load = moduleLoaders[key];
+  if (!load) return null;
+  if (!preloadedModules.has(key)) preloadedModules.set(key, load().catch(error => { preloadedModules.delete(key); throw error; }));
+  return preloadedModules.get(key);
+};
+const lazyModule = (key) => lazy(() => preloadModule(key));
+// Tabs whose screen is built from more than one module.
+const TAB_MODULES = { finance: ['cash', 'finance'], packs: ['inventory'], surveys: ['orders'] };
+
+const SettingsManager = lazyModule('settings');
+const InventoryManager = lazyModule('inventory');
+const FinanceManager = lazyModule('finance');
+const CashRegisterManager = lazyModule('cash');
+const OrderManager = lazyModule('orders');
+const DashboardView = lazyModule('stats');
+const OperationsCenter = lazyModule('operations');
+const UserManager = lazyModule('users');
+const TableOrderManager = lazyModule('table_orders');
+const OrderTaker = lazyModule('ordertaker');
+const AnalyticsPanel = lazyModule('analytics');
+const CustomerCRM = lazyModule('crm');
+const DriverDeliveryPanel = lazyModule('driver_panel');
+const KitchenDisplaySystem = lazyModule('kds');
+const CartLocationsView = lazyModule('locations');
 import './admin/AdminGrowth.css';
 import { readRememberedOperator } from '../utils/rememberedOperator';
 import { sanitizeHTML } from '../utils/security';
@@ -173,7 +204,37 @@ export default function AdminPanel({
 
   // --- Estados de UI ---
   const [activeTab, setActiveTab] = useState('operations');
+  // A transition keeps the current module on screen while the next one finishes loading,
+  // instead of blanking the panel with a loading message.
+  const [isSwitchingTab, startTabTransition] = useTransition();
+  const [requestedTab, setRequestedTab] = useState('operations');
+  const switchTab = useCallback((tab) => {
+    (TAB_MODULES[tab] || [tab]).forEach(preloadModule);
+    setRequestedTab(tab);
+    startTabTransition(() => setActiveTab(tab));
+  }, []);
+  // The menu answers the tap right away, even while the module is still rendering.
+  const navTab = isSwitchingTab ? requestedTab : activeTab;
   const [orderTakerContext, setOrderTakerContext] = useState(null);
+
+  // Download every module in the background once the panel is open, so switching is instant.
+  useEffect(() => {
+    if (!isLoggedIn) return undefined;
+    let cancelled = false;
+    let handle = null;
+    const queue = Object.keys(moduleLoaders);
+    const idle = window.requestIdleCallback || ((cb) => window.setTimeout(cb, 200));
+    const cancelIdle = window.cancelIdleCallback || window.clearTimeout;
+    const next = () => {
+      const key = queue.shift();
+      if (cancelled || !key) return;
+      Promise.resolve(preloadModule(key)).catch(() => {}).finally(() => {
+        if (!cancelled) handle = idle(next);
+      });
+    };
+    handle = idle(next);
+    return () => { cancelled = true; if (handle) cancelIdle(handle); };
+  }, [isLoggedIn]);
   const storeServiceEnabled = tableOrdersEnabled || shopConfig?.barOrdersEnabled !== false;
   useEffect(() => {
     if (!storeServiceEnabled && (activeTab === 'table_orders' || activeTab === 'ordertaker')) setActiveTab('orders');
@@ -732,9 +793,9 @@ export default function AdminPanel({
           </div>
         )}
         <nav className="sidebar-menu" aria-label="Secciones del panel">
-          {isAdminUser(currentUser) && <button aria-current={activeTab === 'operations' ? 'page' : undefined} className={`sidebar-btn ${activeTab === 'operations' ? 'active' : ''}`} onClick={() => setActiveTab('operations')}>◉ Centro de operaciones</button>}
+          {isAdminUser(currentUser) && <button aria-current={navTab === 'operations' ? 'page' : undefined} className={`sidebar-btn ${navTab === 'operations' ? 'active' : ''}`} onClick={() => switchTab('operations')}>◉ Centro de operaciones</button>}
           {isTabAllowed('driver_panel') && (
-            <button aria-current={activeTab === 'driver_panel' ? 'page' : undefined} className={`sidebar-btn ${activeTab === 'driver_panel' ? 'active' : ''}`} onClick={() => setActiveTab('driver_panel')}>
+            <button aria-current={navTab === 'driver_panel' ? 'page' : undefined} className={`sidebar-btn ${navTab === 'driver_panel' ? 'active' : ''}`} onClick={() => switchTab('driver_panel')}>
               🛵 Mis Repartos ({orders.filter(o => {
                 if (!o || o.status === 'Cancelado' || o.status === 'Entregado') return false;
                 const d = o.assignedDriver;
@@ -746,74 +807,74 @@ export default function AdminPanel({
             </button>
           )}
           {isTabAllowed('kds') && (
-            <button aria-current={activeTab === 'kds' ? 'page' : undefined} className={`sidebar-btn ${activeTab === 'kds' ? 'active' : ''}`} onClick={() => setActiveTab('kds')}>
+            <button aria-current={navTab === 'kds' ? 'page' : undefined} className={`sidebar-btn ${navTab === 'kds' ? 'active' : ''}`} onClick={() => switchTab('kds')}>
               👨‍🍳 KDS Cocina ({orders.filter(o => o.status === 'Pendiente' || o.status === 'Preparando').length})
             </button>
           )}
           {isTabAllowed('orders') && (
             <>
-              <button aria-current={activeTab === 'orders' ? 'page' : undefined} className={`sidebar-btn ${activeTab === 'orders' ? 'active' : ''}`} onClick={() => setActiveTab('orders')}>
+              <button aria-current={navTab === 'orders' ? 'page' : undefined} className={`sidebar-btn ${navTab === 'orders' ? 'active' : ''}`} onClick={() => switchTab('orders')}>
                 📦 Pedidos ({orders.filter(o => o.status === 'Pendiente').length})
               </button>
               {isTabAllowed('crm') && (
-                <button aria-current={activeTab === 'crm' ? 'page' : undefined} className={`sidebar-btn ${activeTab === 'crm' ? 'active' : ''}`} onClick={() => setActiveTab('crm')}>
+                <button aria-current={navTab === 'crm' ? 'page' : undefined} className={`sidebar-btn ${navTab === 'crm' ? 'active' : ''}`} onClick={() => switchTab('crm')}>
                   📇 CRM Clientes
                 </button>
               )}
             </>
           )}
           {storeServiceEnabled && isTabAllowed('ordertaker') && (
-            <button aria-current={activeTab === 'ordertaker' ? 'page' : undefined} className={`sidebar-btn ${activeTab === 'ordertaker' ? 'active' : ''}`} onClick={() => { setOrderTakerContext(null); setActiveTab('ordertaker'); }}>
+            <button aria-current={navTab === 'ordertaker' ? 'page' : undefined} className={`sidebar-btn ${navTab === 'ordertaker' ? 'active' : ''}`} onClick={() => { setOrderTakerContext(null); switchTab('ordertaker'); }}>
               🛒 Tomador de Pedidos
             </button>
           )}
           {isTabAllowed('inventory') && (
-            <button aria-current={activeTab === 'inventory' ? 'page' : undefined} className={`sidebar-btn ${activeTab === 'inventory' ? 'active' : ''}`} onClick={() => setActiveTab('inventory')}>
+            <button aria-current={navTab === 'inventory' ? 'page' : undefined} className={`sidebar-btn ${navTab === 'inventory' ? 'active' : ''}`} onClick={() => switchTab('inventory')}>
               🍦 Carta Helada
             </button>
           )}
           {isTabAllowed('packs') && (
-            <button aria-current={activeTab === 'packs' ? 'page' : undefined} className={`sidebar-btn ${activeTab === 'packs' ? 'active' : ''}`} onClick={() => setActiveTab('packs')}>
+            <button aria-current={navTab === 'packs' ? 'page' : undefined} className={`sidebar-btn ${navTab === 'packs' ? 'active' : ''}`} onClick={() => switchTab('packs')}>
               🎁 Packs Combos
             </button>
           )}
           {currentUser && isAdminUser(currentUser) && isTabAllowed('users') && (
-            <button aria-current={activeTab === 'users' ? 'page' : undefined} className={`sidebar-btn ${activeTab === 'users' ? 'active' : ''}`} onClick={() => setActiveTab('users')}>
+            <button aria-current={navTab === 'users' ? 'page' : undefined} className={`sidebar-btn ${navTab === 'users' ? 'active' : ''}`} onClick={() => switchTab('users')}>
               👥 Personal / Staff
             </button>
           )}
           {isTabAllowed('finance') && (
-            <button aria-current={activeTab === 'finance' ? 'page' : undefined} className={`sidebar-btn ${activeTab === 'finance' ? 'active' : ''}`} onClick={() => setActiveTab('finance')}>
+            <button aria-current={navTab === 'finance' ? 'page' : undefined} className={`sidebar-btn ${navTab === 'finance' ? 'active' : ''}`} onClick={() => switchTab('finance')}>
               💵 Caja y Finanzas
             </button>
           )}
           {isTabAllowed('stats') && (
-            <button aria-current={activeTab === 'stats' ? 'page' : undefined} className={`sidebar-btn ${activeTab === 'stats' ? 'active' : ''}`} onClick={() => setActiveTab('stats')}>
+            <button aria-current={navTab === 'stats' ? 'page' : undefined} className={`sidebar-btn ${navTab === 'stats' ? 'active' : ''}`} onClick={() => switchTab('stats')}>
               📈 Meta e Ingresos
             </button>
           )}
           {isTabAllowed('surveys') && (
-            <button aria-current={activeTab === 'surveys' ? 'page' : undefined} className={`sidebar-btn ${activeTab === 'surveys' ? 'active' : ''}`} onClick={() => setActiveTab('surveys')}>
+            <button aria-current={navTab === 'surveys' ? 'page' : undefined} className={`sidebar-btn ${navTab === 'surveys' ? 'active' : ''}`} onClick={() => switchTab('surveys')}>
               ⭐ Encuestas ({orders.filter(o => o.survey).length})
             </button>
           )}
           {storeServiceEnabled && isTabAllowed('table_orders') && (
-            <button aria-current={activeTab === 'table_orders' ? 'page' : undefined} className={`sidebar-btn ${activeTab === 'table_orders' ? 'active' : ''}`} onClick={() => setActiveTab('table_orders')}>
+            <button aria-current={navTab === 'table_orders' ? 'page' : undefined} className={`sidebar-btn ${navTab === 'table_orders' ? 'active' : ''}`} onClick={() => switchTab('table_orders')}>
               🍽️ Pedidos en Mesa
             </button>
           )}
           {isAdminUser(currentUser) && (
-            <button aria-current={activeTab === 'analytics' ? 'page' : undefined} className={`sidebar-btn ${activeTab === 'analytics' ? 'active' : ''}`} onClick={() => setActiveTab('analytics')}>
+            <button aria-current={navTab === 'analytics' ? 'page' : undefined} className={`sidebar-btn ${navTab === 'analytics' ? 'active' : ''}`} onClick={() => switchTab('analytics')}>
               📊 Embudo de ventas
             </button>
           )}
           {isTabAllowed('settings') && (
-            <button aria-current={activeTab === 'settings' ? 'page' : undefined} className={`sidebar-btn ${activeTab === 'settings' ? 'active' : ''}`} onClick={() => setActiveTab('settings')}>
+            <button aria-current={navTab === 'settings' ? 'page' : undefined} className={`sidebar-btn ${navTab === 'settings' ? 'active' : ''}`} onClick={() => switchTab('settings')}>
               ⚙️ Todos los ajustes
             </button>
           )}
           {isTabAllowed('locations') && (
-            <button aria-current={activeTab === 'locations' ? 'page' : undefined} className={`sidebar-btn ${activeTab === 'locations' ? 'active' : ''}`} onClick={() => setActiveTab('locations')}>
+            <button aria-current={navTab === 'locations' ? 'page' : undefined} className={`sidebar-btn ${navTab === 'locations' ? 'active' : ''}`} onClick={() => switchTab('locations')}>
               📍 Carritos / Ubicación
             </button>
           )}
@@ -821,9 +882,9 @@ export default function AdminPanel({
       </div>
 
       {/* Contenido de pestaña activa */}
-      <div className="admin-content">
+      <div className={`admin-content${isSwitchingTab ? ' is-switching' : ''}`} aria-busy={isSwitchingTab}>
           <Suspense fallback={<div style={{ padding: '40px', textAlign: 'center', color: 'var(--text-light)' }}>Cargando módulo...</div>}>
-          {activeTab === 'operations' && isAdminUser(currentUser) && <OperationsCenter orders={orders} salesGoal={salesGoal} shopOpen={shopOpen} onNavigate={setActiveTab} onUpdateOrderStatus={onUpdateOrderStatus} groups={[
+          {activeTab === 'operations' && isAdminUser(currentUser) && <OperationsCenter orders={orders} salesGoal={salesGoal} shopOpen={shopOpen} onNavigate={switchTab} onUpdateOrderStatus={onUpdateOrderStatus} groups={[
           {key:'flavors',name:'Sabores',items:flavors,update:onUpdateFlavors},
           {key:'bases',name:'Envases',items:bases,update:onUpdateBases},
           {key:'toppings',name:'Toppings y salsas',items:toppings,update:onUpdateToppings},
@@ -841,7 +902,7 @@ export default function AdminPanel({
             onUpdateCoupons={onUpdateCoupons}
             shopConfig={shopConfig}
             onChangeShopConfig={onChangeShopConfig}
-            onNavigate={setActiveTab}
+            onNavigate={switchTab}
             onPlaceOrder={onPlaceOrder}
           />
         )}
@@ -986,7 +1047,7 @@ export default function AdminPanel({
             tableCalls={tableCalls}
             onUpdateTableCalls={onUpdateTableCalls}
             shopConfig={shopConfig}
-            onOpenOrderTaker={(context) => { setOrderTakerContext({ ...context, key: Date.now() }); setActiveTab('ordertaker'); }}
+            onOpenOrderTaker={(context) => { setOrderTakerContext({ ...context, key: Date.now() }); switchTab('ordertaker'); }}
           />
         )}
 
@@ -1081,7 +1142,7 @@ export default function AdminPanel({
             onChangeMetaPixelId={onChangeMetaPixelId}
             googleAnalyticsId={googleAnalyticsId}
             onChangeGoogleAnalyticsId={onChangeGoogleAnalyticsId}
-            onOpenAnalytics={() => setActiveTab('analytics')}
+            onOpenAnalytics={() => switchTab('analytics')}
           />
         )}
 

@@ -3,9 +3,21 @@
  */
 
 /**
+ * Escapa texto para insertarlo en HTML, incluido el valor de un atributo.
+ * @param {any} text
+ * @returns {string} Texto con &, <, >, comillas y apóstrofos escapados
+ */
+export const escapeHTML = (text) => String(text ?? '')
+  .replace(/&/g, '&amp;')
+  .replace(/</g, '&lt;')
+  .replace(/>/g, '&gt;')
+  .replace(/"/g, '&quot;')
+  .replace(/'/g, '&#039;');
+
+/**
  * Sanitiza texto eliminando bloques <script>, <style> y todas las etiquetas HTML para prevenir ataques XSS.
  * Seguro ante valores null, undefined, numéricos u objetos.
- * @param {any} text 
+ * @param {any} text
  * @returns {string} Texto limpio sin scripts ni etiquetas HTML
  */
 export const sanitizeHTML = (text) => {

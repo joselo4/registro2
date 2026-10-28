@@ -1,4 +1,4 @@
-import { json, sameOriginRequest, createAdminClient, getAuthenticatedUser, isTrustedAdmin } from './_security.js';
+import { json, sameOriginRequest, createAdminClient, getAuthenticatedUser, isTrustedAdmin, tooManyRequests } from './_security.js';
 import { orderStaffRole } from './_orderAccess.js';
 
 const allowedKinds = new Set(['order', 'table_call', 'survey', 'support', 'test', 'daily_report']);
@@ -103,6 +103,9 @@ export async function onRequestPost({ request, env }, makeClient = createAdminCl
 
     if (!allowedKinds.has(kind)) {
       return json({ error: 'Tipo de notificacion no permitido.' }, 400);
+    }
+    if (kind === 'support' && tooManyRequests(request, 'support', 5, 10 * 60 * 1000)) {
+      return json({ error: 'Recibimos varios mensajes seguidos. Espera unos minutos o escríbenos por WhatsApp.' }, 429);
     }
 
     // 1. Validaciones de Autorización y Base de Datos por tipo
@@ -250,6 +253,7 @@ export async function onRequestPost({ request, env }, makeClient = createAdminCl
     if (err?.name === 'AbortError' || /timeout/i.test(String(err?.message || err))) {
       return json({ error: 'Telegram está tardando en confirmar la entrega. Espera un momento antes de reintentar.' }, 504);
     }
-    return json({ error: err?.message || String(err) || 'Error inesperado.' }, 500);
+    console.error('telegram failed:', err);
+    return json({ error: 'No se pudo enviar el mensaje. Intenta nuevamente.' }, 500);
   }
 }

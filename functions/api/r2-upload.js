@@ -1,5 +1,5 @@
 import { S3Client, PutObjectCommand } from '@aws-sdk/client-s3';
-import { fail, getAuthenticatedUser, isTrustedStaff, json } from './_security.js';
+import { fail, getAuthenticatedUser, isTrustedStaff, json, sniffImageType } from './_security.js';
 
 const cleanPrefix = (value) =>
   String(value || 'productos')
@@ -21,11 +21,13 @@ export async function onRequestPost({ request, env }) {
       return json({ error: 'No se recibió un archivo válido.' }, 400);
     }
 
-    if (!String(file.type || '').startsWith('image/')) {
-      return json({ error: 'Solo se permiten imagenes.' }, 400);
-    }
     if (Number(file.size || 0) > 5 * 1024 * 1024) {
       return json({ error: 'La imagen no puede superar 5 MB.' }, 413);
+    }
+    const body = new Uint8Array(await file.arrayBuffer());
+    const contentType = sniffImageType(body);
+    if (!contentType) {
+      return json({ error: 'Solo se permiten imágenes JPG, PNG, WebP, GIF o AVIF.' }, 400);
     }
 
     const accountId = env.R2_ACCOUNT_ID;
@@ -42,7 +44,8 @@ export async function onRequestPost({ request, env }) {
       .toLowerCase()
       .replace(/[^a-z0-9]/g, '_')
       .substring(0, 20) || 'imagen';
-    const key = `${prefix}/${Date.now()}_${cleanName}.webp`;
+    const extension = contentType === 'image/jpeg' ? 'jpg' : contentType.split('/')[1];
+    const key = `${prefix}/${Date.now()}_${cleanName}.${extension}`;
 
     const s3Client = new S3Client({
       region: 'auto',
@@ -53,20 +56,19 @@ export async function onRequestPost({ request, env }) {
       },
     });
 
-    const body = new Uint8Array(await file.arrayBuffer());
-
     await s3Client.send(
       new PutObjectCommand({
         Bucket: bucketName,
         Key: key,
         Body: body,
-        ContentType: file.type || 'image/webp',
+        ContentType: contentType,
       })
     );
 
     const baseUrl = String(publicUrl).replace(/\/+$/, '');
     return json({ ok: true, url: `${baseUrl}/${key}` });
   } catch (err) {
-    return json({ error: err.message || 'Error inesperado.' }, 500);
+    console.error('r2-upload failed:', err);
+    return json({ error: 'No se pudo subir la imagen. Intenta nuevamente.' }, 500);
   }
 }

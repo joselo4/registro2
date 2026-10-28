@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
 import { supabase } from '../../utils/supabaseClient';
+import { escapeHTML } from '../../utils/security';
 import { uploadToR2, compressToWebP } from '../../utils/r2Client';
 import { updateMultipleSyncedData } from '../../utils/supabaseSync';
 import { DEFAULT_SMS_TEMPLATES, ORDER_STATUSES, normalizeSmsTemplates } from '../../utils/orderMessaging';
@@ -364,7 +365,7 @@ export default function SettingsManager({
     printWindow.document.write(`
       <html>
         <head>
-          <title>MESA ${qrTableNumber} - ${storeName}</title>
+          <title>MESA ${escapeHTML(qrTableNumber)} - ${escapeHTML(storeName)}</title>
           <style>
             body {
               font-family: Arial, sans-serif;
@@ -403,9 +404,9 @@ export default function SettingsManager({
         </head>
         <body onload="window.print(); window.close();">
           <div class="container">
-            <h1>${storeName}</h1>
-            <h2>🍽️ MESA ${qrTableNumber}</h2>
-            <img src="${qrImageUrl}" alt="Código QR Mesa ${qrTableNumber}" />
+            <h1>${escapeHTML(storeName)}</h1>
+            <h2>🍽️ MESA ${escapeHTML(qrTableNumber)}</h2>
+            <img src="${escapeHTML(qrImageUrl)}" alt="Código QR Mesa ${escapeHTML(qrTableNumber)}" />
             <p>Escanea este código para ver nuestra carta digital y realizar tu pedido desde tu celular 📱</p>
           </div>
         </body>

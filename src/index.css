@@ -4307,3 +4307,12 @@ footer button {
 :where(.admin-content) button {
   color: inherit;
 }
+
+/* While the next admin module renders, the current one dims instead of disappearing. */
+.admin-content {
+  transition: opacity 0.15s ease;
+}
+
+.admin-content.is-switching {
+  opacity: 0.6;
+}
