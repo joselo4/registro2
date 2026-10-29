@@ -109,6 +109,18 @@ export default function AnalyticsPanel({ googleAnalyticsId }) {
           <article><small>Conversión</small><strong>{conversion}%</strong><span>de visitas a pedidos</span></article>
         </div>
         <Funnel steps={STORE_STEPS} totals={totals} />
+        <div className="analytics-extras" aria-label="Uso de funciones de venta">
+          <article>
+            <small>Vista 3D del helado</small>
+            <strong>{Number(totals.view_3d) || 0}</strong>
+            <span>{Number(totals.visit) ? `${Math.round((Number(totals.view_3d) || 0) / Number(totals.visit) * 100)}% de las visitas la abrieron` : 'Aún sin visitas en el periodo'}</span>
+          </article>
+          <article>
+            <small>«¿Lo de siempre?»</small>
+            <strong>{Number(totals.repeat_order) || 0}</strong>
+            <span>veces repitieron su último pedido</span>
+          </article>
+        </div>
         <Trend series={report.series} primary="visit" secondary="purchase" labels={['Visitas', 'Pedidos']} />
         <div className="analytics-lists">
           <div className="ga4-trend"><h3>Lo más pedido</h3>{report.topProducts.length ? <ol className="analytics-top">{report.topProducts.map(product => <li key={product.name}><span>{product.name}</span><strong>{product.units} u.</strong><small>{money(product.revenue)}</small></li>)}</ol> : <p>Aún no hay pedidos en este periodo.</p>}</div>

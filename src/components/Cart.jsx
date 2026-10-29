@@ -10,6 +10,7 @@ import { checkoutStorage, checkoutTotals } from '../utils/checkout';
 import { enabledOrderChannels, isOrderTypeEnabled, preferredOrderType } from '../utils/orderChannels';
 import { validateOrderInput } from '../utils/orderValidation';
 import { quickScoopItem } from '../utils/dessert';
+import { checkCoupon } from '../utils/apiClient';
 import { suggestFreeDeliveryCloser, suggestPack } from '../utils/cartSuggestions';
 
 const FIELD_IDS = { name: 'checkout-name', phone: 'checkout-phone', address: 'checkout-address', table: 'checkout-table' };
@@ -32,7 +33,6 @@ export default function Cart({
   freeDeliveryEnabled = true, 
   storePhone, 
   storeName, 
-  coupons, 
   whatsappGreeting, 
   whatsappFooter, 
   cartRecommendedPack, 
@@ -151,27 +151,22 @@ export default function Cart({
 
   const missingForFreeDelivery = Math.max(0, Number(freeDeliveryThreshold || 0) - cartSubtotal);
 
-  const handleApplyCoupon = (e) => {
+  const [checkingCoupon, setCheckingCoupon] = useState(false);
+  // The server checks the code; the order API checks it again when the order is saved.
+  const handleApplyCoupon = async (e) => {
     e.preventDefault();
     setCouponError('');
-    if (!couponInput.trim()) return;
+    if (!couponInput.trim() || checkingCoupon) return;
 
     const code = couponInput.trim().toUpperCase();
-    const found = coupons ? coupons.find(c => c.code === code) : null;
-
-    if (found) {
-      if (found.active === false) {
-        setCouponError('Este cupón se encuentra inactivo.');
-        setAppliedCoupon(null);
-      } else if (found.limit > 0 && (found.usedCount || 0) >= found.limit) {
-        setCouponError('Este cupón ha alcanzado el límite de usos.');
-        setAppliedCoupon(null);
-      } else {
-        setAppliedCoupon(found);
-        setCouponInput('');
-      }
+    setCheckingCoupon(true);
+    const result = await checkCoupon(code);
+    setCheckingCoupon(false);
+    if (result.coupon) {
+      setAppliedCoupon(result.coupon);
+      setCouponInput('');
     } else {
-      setCouponError('Cupón inválido o expirado.');
+      setCouponError(result.error);
       setAppliedCoupon(null);
     }
   };
@@ -1075,9 +1070,10 @@ export default function Cart({
                     className="btn btn-secondary"
                     onClick={handleApplyCoupon}
                     style={{ padding: '6px 12px', fontSize: '0.75rem' }}
-                    disabled={!shopOpen}
+                    disabled={!shopOpen || checkingCoupon}
+                    aria-busy={checkingCoupon}
                   >
-                    Aplicar
+                    {checkingCoupon ? 'Comprobando…' : 'Aplicar'}
                   </button>
                 </div>
               ) : (

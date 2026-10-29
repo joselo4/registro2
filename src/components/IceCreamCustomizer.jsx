@@ -1,5 +1,6 @@
 import { useState, useRef, useEffect, lazy, Suspense } from 'react';
 import DessertPreview, { BasePhoto, ScoopPhoto, ToppingPhoto } from './DessertPreview';
+import { recordFunnelEvent } from '../utils/storeAnalytics';
 // The 3D engine downloads only when a customer asks for the 3D view.
 const Dessert3DViewer = lazy(() => import('./Dessert3DViewer'));
 import { available, cleanName, creationTotal, money, resolveRecommendation } from '../utils/dessert';
@@ -132,7 +133,7 @@ export default function IceCreamCustomizer({bases = [], flavors = [], toppings =
       <aside className="atelier-stage" aria-label="Tu helado">
         <div className="atelier-view-toggle" role="group" aria-label="Tipo de vista">
           <button type="button" aria-pressed={!view3d} onClick={() => setView3d(false)}>Foto</button>
-          <button type="button" aria-pressed={view3d} onClick={() => setView3d(true)}>Ver en 3D</button>
+          <button type="button" aria-pressed={view3d} onClick={() => { if (!view3d) recordFunnelEvent('View3D'); setView3d(true); }}>Ver en 3D</button>
         </div>
         {view3d ? (
           <div className="atelier-stage-art atelier-stage-3d">

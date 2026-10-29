@@ -34,16 +34,28 @@ Cloudflare → tu dominio pideanda.com → Security → WAF → Rate limiting ru
 - **Límite:** 10 peticiones cada 1 minuto (en el plan gratuito el periodo mínimo es de 10 segundos: usa 3 peticiones cada 10 segundos).
 - **Acción:** Block, durante 10 minutos (o lo que permita tu plan).
 
+Añade también `/api/coupon` a la lista de la expresión.
+
 No incluyas `/api/order` en esta regla: los pedidos ya tienen su propio límite por teléfono y por conexión, y una mesa con varios clientes comparte la misma IP.
 
-## 3. Comprobar qué ve un visitante sin sesión
+## 3. Cupones privados e índices de pedidos (Supabase)
+
+Hasta ahora cualquiera podía leer todos los códigos de cupón desde el navegador (comprobado el 29 de octubre de 2026: 3 cupones visibles). La tienda ya no los descarga: comprueba un código a la vez en el servidor, con límite de intentos. Para cerrar también la lectura directa en la base de datos:
+
+1. Publica esta versión de la tienda (para que el carrito use la comprobación nueva).
+2. Supabase → SQL Editor → pega y ejecuta el contenido de `supabase-cupones-e-indices.sql`.
+3. Ejecuta `node scripts/check-public-access.mjs`: `coupons` debe salir como «protegido».
+
+El mismo archivo crea índices para que los límites de pedidos por teléfono sigan rápidos con miles de pedidos.
+
+## 4. Comprobar qué ve un visitante sin sesión
 
 ```bash
 node scripts/check-public-access.mjs
 ```
 
-Usa solo la clave pública (la misma que recibe cualquier navegador) y únicamente lee. Debe terminar con «Ningún dato privado es legible sin sesión». Última comprobación: 29 de octubre de 2026, sin datos privados expuestos. Las escrituras no se prueban desde fuera porque cambiarían datos reales; las cubren las políticas de `setup_security_v2.sql`.
+Usa solo la clave pública (la misma que recibe cualquier navegador) y únicamente lee. Debe terminar con «Ningún dato privado es legible sin sesión». Última comprobación: 29 de octubre de 2026. Pedidos, personal, finanzas, tokens y suscripciones estaban protegidos; los cupones eran legibles (se corrige con el paso 3). Las escrituras no se prueban desde fuera porque cambiarían datos reales; las cubren las políticas de `setup_security_v2.sql`.
 
-## 4. Telegram
+## 5. Telegram
 
 Si un pedido no llega a Telegram pero el panel sí avisa: Ajustes → «Probar notificación». Si la prueba falla, revisa `TELEGRAM_BOT_TOKEN` y `TELEGRAM_CHAT_ID` en las variables de Cloudflare y que el bot siga dentro del chat o grupo.

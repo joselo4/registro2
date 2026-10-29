@@ -1,8 +1,11 @@
 import { createAdminClient, fail, json, sameOriginRequest } from './_security.js';
-import { addCounts, cleanFunnelEvents, funnelKey, limaDay } from './_funnel.js';
+import { addCounts, cleanFunnelEvents, FUNNEL_SHARDS, funnelKey, funnelOverflowKey, limaDay } from './_funnel.js';
+
+const MAX_ATTEMPTS = 6;
+const pause = ms => new Promise(resolve => setTimeout(resolve, ms));
 
 // Receives batched, anonymous funnel counts from the storefront.
-export async function onRequestPost({ request, env }, makeClient = createAdminClient) {
+export async function onRequestPost({ request, env }, makeClient = createAdminClient, { random = Math.random } = {}) {
   try {
     if (!sameOriginRequest(request)) return fail(403, 'origin', 'Origen no permitido.');
     const text = await request.text();
@@ -13,9 +16,11 @@ export async function onRequestPost({ request, env }, makeClient = createAdminCl
     if (!Object.keys(events).length) return json({ ok: true, recorded: 0 });
 
     const client = await makeClient(env);
-    const key = funnelKey(limaDay());
-    // Compare-and-swap on updated_at; a few retries absorb concurrent visitors.
-    for (let attempt = 0; attempt < 5; attempt++) {
+    const day = limaDay();
+    // Compare-and-swap on updated_at. Each attempt picks a random shard, so a
+    // conflict with another visitor moves on to a (probably) quiet row.
+    for (let attempt = 0; attempt < MAX_ATTEMPTS; attempt++) {
+      const key = funnelKey(day, Math.floor(random() * FUNNEL_SHARDS));
       const { data: row, error: readError } = await client.from('helados_sync').select('value,updated_at').eq('key', key).maybeSingle();
       if (readError) return fail(502, 'read', 'No se pudo registrar la visita.');
       const now = new Date().toISOString();
@@ -30,8 +35,16 @@ export async function onRequestPost({ request, env }, makeClient = createAdminCl
       const { data: saved, error } = await query.select('key').maybeSingle();
       if (!error && saved) return json({ ok: true, recorded: Object.values(events).reduce((sum, count) => sum + count, 0) });
       if (error && error.code !== '23505') return fail(502, 'write', 'No se pudo registrar la visita.');
+      await pause(5 + Math.floor(random() * 20 * (attempt + 1)));
     }
-    return fail(409, 'busy', 'Demasiadas visitas simultáneas; se descartó este lote.');
+    // Still contended after every retry: keep the batch in a row of its own, which
+    // cannot conflict, so a burst of visitors never loses counts.
+    const id = Array.from({ length: 12 }, () => Math.floor(random() * 36).toString(36)).join('');
+    const { error: overflowError } = await client.from('helados_sync')
+      .insert({ key: funnelOverflowKey(day, id), value: events, updated_at: new Date().toISOString() })
+      .select('key').maybeSingle();
+    if (overflowError) return fail(502, 'write', 'No se pudo registrar la visita.');
+    return json({ ok: true, recorded: Object.values(events).reduce((sum, count) => sum + count, 0) });
   } catch {
     return fail(500, 'server', 'No se pudo registrar la visita.');
   }

@@ -98,3 +98,25 @@ export async function fetchOperatorOrders(session) {
     return payload.orders;
   } finally { clearTimeout(timer); }
 }
+
+// Asks the server about one coupon code; the full coupon list is not public.
+export async function checkCoupon(code) {
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), 8000);
+  try {
+    const response = await fetch(apiUrl('/api/coupon'), {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ code }),
+      signal: controller.signal,
+      cache: 'no-store',
+    });
+    const payload = await response.json().catch(() => null);
+    if (response.ok && payload?.ok && payload.coupon) return { coupon: payload.coupon };
+    return { error: payload?.error || 'Cupón inválido o expirado.', unreachable: !payload };
+  } catch {
+    return { error: 'No pudimos comprobar el cupón. Revisa tu conexión e intenta otra vez.', unreachable: true };
+  } finally {
+    clearTimeout(timer);
+  }
+}

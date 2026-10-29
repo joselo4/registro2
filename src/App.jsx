@@ -1517,6 +1517,7 @@ export default function App() {
   const repeatLastOrder = () => {
     if (!lastOrder) return;
     // The cart reconciliation effect then applies today's prices and drops what is sold out.
+    recordFunnelEvent('RepeatOrder');
     setCart(current => lastOrder.items.reduce((next, item) => addCartItem(next, { ...item, quantity: Number(item.quantity) || 1 }), current));
     setSuccessToast({ title: 'Listo, tu pedido de siempre', message: 'Revisa el carrito: usamos los precios de hoy.' });
     setView('cart');
@@ -1964,7 +1965,6 @@ export default function App() {
             freeDeliveryEnabled={shopConfig.freeDeliveryEnabled !== false}
             storePhone={storePhone}
             storeName={storeName}
-            coupons={coupons}
             salesGoal={salesGoal}
             whatsappGreeting={whatsappGreeting}
             whatsappFooter={whatsappFooter}

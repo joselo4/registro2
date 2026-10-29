@@ -18,3 +18,8 @@
 @media(max-width:900px){.funnel-cards{grid-template-columns:repeat(3,minmax(0,1fr))}.analytics-lists{grid-template-columns:1fr}}@media(max-width:600px){.analytics-kpis{grid-template-columns:1fr}.funnel-cards{grid-template-columns:1fr 1fr}}
 [data-theme="dark"] .ga4-note{background:color-mix(in srgb,var(--warning) 14%,var(--bg-secondary))}
 [data-theme="dark"] .ga4-error{background:color-mix(in srgb,var(--danger) 12%,var(--bg-secondary));border-color:color-mix(in srgb,var(--danger) 40%,transparent)}
+.analytics-extras{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(220px,100%),1fr));gap:12px;margin:14px 0}
+.analytics-extras article{display:grid;gap:4px;padding:14px 16px;border:1px solid var(--border-color);border-radius:14px;background:var(--bg-secondary)}
+.analytics-extras small{font-size:.78rem;color:var(--text-light);font-weight:700}
+.analytics-extras strong{font-size:1.5rem;font-variant-numeric:tabular-nums;color:var(--text-dark)}
+.analytics-extras span{font-size:.78rem;color:var(--text-light)}

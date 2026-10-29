@@ -9,6 +9,8 @@ import { onRequestGet as ga4ReportGet } from '../functions/api/ga4-report.js';
 import { onRequestPost as trackPost } from '../functions/api/track.js';
 import { onRequestGet as storeReportGet } from '../functions/api/store-report.js';
 import { onRequestGet as pushGet, onRequestPost as pushPost } from '../functions/api/push.js';
+import { onRequestGet as catalogGet } from '../functions/api/catalog.js';
+import { onRequestPost as couponPost } from '../functions/api/coupon.js';
 import { json } from '../functions/api/_security.js';
 
 const routes = {
@@ -22,6 +24,8 @@ const routes = {
   '/api/track': { POST: trackPost },
   '/api/store-report': { GET: storeReportGet },
   '/api/push': { GET: pushGet, POST: pushPost },
+  '/api/catalog': { GET: catalogGet },
+  '/api/coupon': { POST: couponPost },
 };
 
 export default {

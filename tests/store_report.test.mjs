@@ -2,7 +2,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import { onRequestPost as track } from '../functions/api/track.js';
 import { buildStoreReport, onRequestGet as storeReport } from '../functions/api/store-report.js';
-import { cleanFunnelEvents, limaDay } from '../functions/api/_funnel.js';
+import { cleanFunnelEvents, funnelDayFromKey, limaDay } from '../functions/api/_funnel.js';
 
 // Minimal helados_sync model: select/eq/like/gte/is, insert and conditional update.
 function database(initial = []) {
@@ -37,6 +37,8 @@ function database(initial = []) {
     },
   };
 }
+// Today's counters, added up across the shard rows the track endpoint spreads them over.
+const todayTotals = db => [...db.rows.values()].filter(row => funnelDayFromKey(row.key) === limaDay()).reduce((sum, row) => { for (const [name, count] of Object.entries(row.value)) sum[name] = (sum[name] || 0) + count; return sum; }, {});
 const post = body => new Request('https://shop.test/api/track', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) });
 
 test('funnel counts are anonymous, bounded and add up per Lima day', async () => {
@@ -44,10 +46,9 @@ test('funnel counts are anonymous, bounded and add up per Lima day', async () =>
   const db = database();
   assert.equal((await track({ request: post({ events: { visit: 1, view_item: 2 } }), env: {} }, async () => db)).status, 200);
   assert.equal((await track({ request: post({ events: { view_item: 3, add_to_cart: 1 } }), env: {} }, async () => db)).status, 200);
-  const today = db.rows.get(`funnel_${limaDay()}`).value;
-  assert.deepEqual(today, { visit: 1, view_item: 5, add_to_cart: 1 });
+  assert.deepEqual(todayTotals(db), { visit: 1, view_item: 5, add_to_cart: 1 });
   assert.equal((await track({ request: post({ events: { purchase: 5 } }), env: {} }, async () => db)).status, 200);
-  assert.equal(db.rows.get(`funnel_${limaDay()}`).value.purchase, undefined); // purchases come from real orders
+  assert.equal(todayTotals(db).purchase, undefined); // purchases come from real orders
 });
 
 test('the store report joins funnel steps with real, non-cancelled orders', () => {
@@ -80,4 +81,22 @@ test('only administrators can read the store report', async () => {
   const response = await storeReport({ request, env: {} }, { authenticate: async () => ({ user: { app_metadata: { role: 'Administrador' } }, adminClient: db }) });
   assert.equal(response.status, 200);
   assert.equal((await response.json()).totals.visit, 3);
+});
+
+test('the report adds shard and overflow rows, and keeps older single-row days', () => {
+  const now = new Date('2026-09-25T18:00:00Z');
+  const report = buildStoreReport({
+    days: 7,
+    now,
+    funnelRows: [
+      { key: 'funnel_2026-09-25_3', value: { visit: 10, view_3d: 2 } },
+      { key: 'funnel_2026-09-25_41', value: { visit: 5, repeat_order: 1 } },
+      { key: 'funnel_2026-09-25_xab12cd34ef56', value: { visit: 1 } },
+      { key: 'funnel_2026-09-24', value: { visit: 7 } },
+      { key: 'funnel_2026-09-25_evil', value: { visit: 999 } },
+    ],
+  });
+  assert.equal(report.totals.visit, 23);
+  assert.equal(report.totals.view_3d, 2);
+  assert.equal(report.totals.repeat_order, 1);
 });

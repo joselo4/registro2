@@ -10,6 +10,8 @@ import { onRequestGet as handleGa4ReportGet } from './functions/api/ga4-report.j
 import { onRequestPost as handleTrackPost } from './functions/api/track.js'
 import { onRequestGet as handleStoreReportGet } from './functions/api/store-report.js'
 import { onRequestGet as handlePushGet, onRequestPost as handlePushPost } from './functions/api/push.js'
+import { onRequestGet as handleCatalogGet } from './functions/api/catalog.js'
+import { onRequestPost as handleCouponPost } from './functions/api/coupon.js'
 
 const apiRoutes = {
   '/api/admin-auth-user': { POST: handleAdminAuthUser },
@@ -22,6 +24,8 @@ const apiRoutes = {
   '/api/track': { POST: handleTrackPost },
   '/api/store-report': { GET: handleStoreReportGet },
   '/api/push': { GET: handlePushGet, POST: handlePushPost },
+  '/api/catalog': { GET: handleCatalogGet },
+  '/api/coupon': { POST: handleCouponPost },
 }
 
 function localPagesApiPlugin(env) {

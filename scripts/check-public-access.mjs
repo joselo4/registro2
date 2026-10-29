@@ -21,7 +21,7 @@ if (!url || !anonKey) {
 const client = createClient(url, anonKey, { auth: { persistSession: false, autoRefreshToken: false } });
 
 // Keys that must never be readable without a staff session.
-const PRIVATE_KEYS = ['orders', 'staff_users', 'staff_permissions', 'expenses', 'cash_shifts', 'sales_goal', 'push_subscriptions', 'telegram_token', 'telegram_chat_id', 'r2_config', 'audit_logs'];
+const PRIVATE_KEYS = ['orders', 'staff_users', 'staff_permissions', 'expenses', 'cash_shifts', 'sales_goal', 'push_subscriptions', 'telegram_token', 'telegram_chat_id', 'r2_config', 'audit_logs', 'coupons'];
 // Keys the public storefront needs.
 const PUBLIC_KEYS = ['flavors', 'shop_open', 'store_name'];
 

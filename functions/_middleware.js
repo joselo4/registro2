@@ -39,7 +39,9 @@ export async function onRequest(context) {
       '/api/ga4-report',
       '/api/track',
       '/api/store-report',
-      '/api/push'
+      '/api/push',
+      '/api/catalog',
+      '/api/coupon'
     ];
 
     if (!validApiRoutes.includes(path)) {

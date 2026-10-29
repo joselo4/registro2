@@ -3,7 +3,7 @@ import { apiUrl } from './apiClient';
 // Anonymous funnel counts for the store's own conversion report: no personal
 // data, only how many times each step happened. Events are batched and sent
 // every few seconds, or when the page is hidden.
-const FUNNEL = { visit: 'visit', ViewProduct: 'view_item', AddToCart: 'add_to_cart', InitiateCheckout: 'begin_checkout' };
+const FUNNEL = { visit: 'visit', ViewProduct: 'view_item', AddToCart: 'add_to_cart', InitiateCheckout: 'begin_checkout', View3D: 'view_3d', RepeatOrder: 'repeat_order' };
 const pending = {};
 let timer = null;
 let listening = false;

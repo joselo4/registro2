@@ -1,5 +1,5 @@
 import { fail, getAuthenticatedUser, isTrustedAdmin, json, sameOriginRequest, createAdminClient } from './_security.js';
-import { FUNNEL_EVENTS, limaDay } from './_funnel.js';
+import { FUNNEL_EVENTS, funnelDayFromKey, limaDay } from './_funnel.js';
 
 const DAY_MS = 24 * 60 * 60 * 1000;
 
@@ -10,7 +10,7 @@ export function buildStoreReport({ funnelRows = [], orders = [], days = 30, now 
   const dates = Array.from({ length: days }, (_, index) => limaDay(new Date(now.getTime() - (days - 1 - index) * DAY_MS)));
   const byDay = new Map(dates.map(date => [date, { date, ...Object.fromEntries(FUNNEL_EVENTS.map(name => [name, 0])), purchase: 0, revenue: 0 }]));
   for (const row of funnelRows) {
-    const day = byDay.get(String(row.key || '').replace(/^funnel_/, ''));
+    const day = byDay.get(funnelDayFromKey(row.key));
     if (!day || !row.value || typeof row.value !== 'object') continue;
     for (const name of FUNNEL_EVENTS) day[name] += Math.max(0, Number(row.value[name]) || 0);
   }

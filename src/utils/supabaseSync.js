@@ -34,6 +34,22 @@ const withTimeout = (promise, ms, label) => Promise.race([
 let lastSyncError = '';
 export const getLastSyncError = () => lastSyncError;
 
+async function fetchEdgeCatalog(timeoutMs = 5000) {
+  if (typeof fetch !== 'function') return null;
+  const controller = typeof AbortController === 'function' ? new AbortController() : null;
+  const timer = controller ? setTimeout(() => controller.abort(), timeoutMs) : null;
+  try {
+    const response = await fetch(apiUrl('/api/catalog'), { signal: controller?.signal });
+    if (!response.ok) return null;
+    const payload = await response.json();
+    return payload?.ok && payload.data && typeof payload.data === 'object' ? payload.data : null;
+  } catch {
+    return null;
+  } finally {
+    if (timer) clearTimeout(timer);
+  }
+}
+
 export const fetchSyncedData = async (isAdmin = false, activeSession = null) => {
   if (!supabase) return null;
 
@@ -97,19 +113,25 @@ export const fetchSyncedData = async (isAdmin = false, activeSession = null) => 
         console.warn('⚠️ Sincronización parcial del panel:', syncData.__syncIssue);
       }
     } else {
-      // Caso de uso público (Clientes): cargar únicamente la configuración general no sensible
-      console.log("🔌 Cargando configuración pública de la tienda...");
-      const { data, error } = await supabase
-        .from('helados_sync')
-        .select('*')
-        .in('key', PUBLIC_STORE_KEYS);
+      // Caso de uso público (Clientes): cargar únicamente la configuración general no sensible.
+      // First from the edge-cached catalog, so crowds do not reach the database;
+      // the direct query remains as a fallback.
+      const cached = await fetchEdgeCatalog();
+      if (cached) {
+        Object.assign(syncData, cached);
+      } else {
+        const { data, error } = await supabase
+          .from('helados_sync')
+          .select('*')
+          .in('key', PUBLIC_STORE_KEYS);
 
-      if (error) throw error;
+        if (error) throw error;
 
-      if (data && data.length > 0) {
-        data.forEach(row => {
-          syncData[row.key] = row.value;
-        });
+        if (data && data.length > 0) {
+          data.forEach(row => {
+            syncData[row.key] = row.value;
+          });
+        }
       }
       savePublicCatalog(syncData);
     }
