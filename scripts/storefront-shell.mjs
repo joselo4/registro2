@@ -24,7 +24,7 @@ export function storefrontShellTop({ startingPrice = '1.50', priceText = '', hea
     + `<div class="mobile-header-actions" style="align-items:center;gap:8px"><span class="nav-btn-icon" aria-hidden="true">🌙</span></div>`
     + `</div></nav>`
     + `<main class="container" style="padding-bottom:80px;flex:1"><div class="customer-shop"><section class="hero">`
-    + `<div class="hero-text"><div class="hero-eyebrow"><span class="hero-live-dot" aria-hidden="true"></span>HELADOS, FRUTA Y MUCHA FELICIDAD</div>`
+    + `<div class="hero-text">`
     + `<h1 id="startup-title">${title}</h1>`
     + `<p class="hero-description">${description}</p>`
     + `<div class="hero-cta"><a class="btn btn-primary hero-primary-cta" href="#personalizar" style="text-decoration:none">Quiero mi helado <span aria-hidden="true">→</span></a><a class="btn btn-secondary" href="#catalog" style="text-decoration:none">Explorar la carta</a></div>`

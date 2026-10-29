@@ -87,7 +87,7 @@ export default function AnalyticsPanel({ googleAnalyticsId }) {
 
   return <section className="ga4-panel">
     <header className="ga4-header">
-      <div><span className="ga4-eyebrow">INTELIGENCIA COMERCIAL</span><h2>Embudo de ventas</h2><p>Cuántas personas llegan, miran, agregan y compran, para saber en qué paso se pierden ventas.</p></div>
+      <div><h2>Embudo de ventas</h2><p>Cuántas personas llegan, miran, agregan y compran, para saber en qué paso se pierden ventas.</p></div>
       <div className="ga4-controls">
         <label>Periodo <select value={days} onChange={e => setDays(Number(e.target.value))}><option value={7}>7 días</option><option value={30}>30 días</option><option value={90}>90 días</option></select></label>
         <button className="btn" type="button" onClick={() => setRefresh(value => value + 1)} disabled={loading}>↻ Actualizar</button>

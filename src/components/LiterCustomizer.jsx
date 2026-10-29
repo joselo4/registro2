@@ -146,7 +146,7 @@ export default function LiterCustomizer({ flavors, toppings = [], literConfig, o
     <section className="atelier liter-builder" aria-label="Arma tu litro">
       <header className="atelier-heading">
         <button type="button" className="atelier-back" onClick={() => (isEditing ? onCancelEdit?.() : setView('shop'))}>{isEditing ? '← Mi pedido' : '← Carta'}</button>
-        <div><span className="atelier-eyebrow">{isEditing ? 'EDITANDO TU LITRO' : 'PARA LLEVAR A CASA'}</span><h1>Tu litro, <em>a tu gusto.</em></h1></div>
+        <div><h1>{isEditing ? 'Editando tu litro' : 'Tu litro'}, <em>a tu gusto.</em></h1></div>
       </header>
       {isEditing && <p className="atelier-editing-note" role="status">Cambia sabores o extras y toca <strong>Guardar cambios</strong>. La cantidad en tu pedido se mantiene.</p>}
 

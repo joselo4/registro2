@@ -10,20 +10,36 @@ import { validateCustomerPricing } from '../../src/utils/orderPricing.js';
 import { isOrderTypeEnabled } from '../../src/utils/orderChannels.js';
 import { clientKey, contactKey, orderLimitError } from './_orderLimits.js';
 import { newOrderTelegramText, sendTelegramMessage } from './telegram.js';
+import { notifyStaff } from './_pushStore.js';
 
-// The server announces each new order itself, so the notice no longer depends on the
-// customer's phone staying online after checkout. A failed notice never fails the order.
-async function announceNewOrder(env, order, waitUntil) {
+// The server announces each new order itself (Telegram and staff phones), so the notice
+// no longer depends on the customer's phone staying online after checkout.
+// A failed notice never fails the order.
+async function announceNewOrder(env, order, waitUntil, client) {
+  if (!order?.id || order.status === 'Entregado') return;
+  const tasks = [];
   const token = String(env.TELEGRAM_BOT_TOKEN || '').trim();
   const chatId = String(env.TELEGRAM_CHAT_ID || '').trim();
-  if (!token || !chatId || !order?.id || order.status === 'Entregado') return;
-  const send = sendTelegramMessage({ token, chatId, text: newOrderTelegramText(order) })
-    .then(({ response, payload }) => {
-      if (!response.ok || payload?.ok !== true) console.error('order notice rejected by Telegram:', payload?.description || response.status);
-    })
-    .catch(error => console.error('order notice failed:', error));
-  if (typeof waitUntil === 'function') waitUntil(send);
-  else await send;
+  if (token && chatId) {
+    tasks.push(sendTelegramMessage({ token, chatId, text: newOrderTelegramText(order) })
+      .then(({ response, payload }) => {
+        if (!response.ok || payload?.ok !== true) console.error('order notice rejected by Telegram:', payload?.description || response.status);
+      })
+      .catch(error => console.error('order notice failed:', error)));
+  }
+  if (client) {
+    const toValidate = order.status === 'Por Corroborar';
+    tasks.push(notifyStaff(client, env, {
+      title: toValidate ? `🔔 Pedido por validar · S/. ${Number(order.grandTotal || 0).toFixed(2)}` : `🍦 Nuevo pedido · S/. ${Number(order.grandTotal || 0).toFixed(2)}`,
+      body: `${order.customer?.name || 'Cliente'} · ${order.customer?.orderType || 'Pedido'} · ${order.customer?.paymentMethod || ''}`.trim(),
+      tag: `order-${order.id}`,
+      url: '/#admin',
+      requireInteraction: toValidate,
+    }));
+  }
+  const all = Promise.all(tasks);
+  if (typeof waitUntil === 'function') waitUntil(all);
+  else await all;
 }
 
 async function checkCustomerPricing(client, order) {
@@ -326,7 +342,7 @@ export async function onRequestPost(context, makeClient = createAdminClient) {
         .maybeSingle();
       if (error?.code === '23505') return fail(409, 'conflict', 'Este código ya pertenece a otro pedido.');
       if (error || !saved?.value) return fail(502, 'write', 'No se pudo guardar el pedido del operador.');
-      await announceNewOrder(env, saved.value, waitUntil);
+      await announceNewOrder(env, saved.value, waitUntil, client);
       return json({ ok: true, order: saved.value });
     }
     const order = body?.order || body?.value;
@@ -410,7 +426,7 @@ export async function onRequestPost(context, makeClient = createAdminClient) {
       }
       if (couponError?.code === '22023') return fail(409, 'coupon', 'El cupón ya no está disponible. Actualiza el carrito.');
       if (couponError || !savedCouponOrder?.id) return fail(502, 'write', 'No se pudo guardar el pedido con cupón. Inténtalo nuevamente.');
-      await announceNewOrder(env, savedCouponOrder, waitUntil);
+      await announceNewOrder(env, savedCouponOrder, waitUntil, adminClient);
       return json({ ok: true, order: savedCouponOrder });
     }
     let write;
@@ -428,7 +444,7 @@ export async function onRequestPost(context, makeClient = createAdminClient) {
     }
     if (writeError) return fail(502, 'write', 'No se pudo guardar el pedido. Inténtalo nuevamente.');
     if (!saved?.value) return fail(409, 'conflict', 'El pedido cambió mientras guardabas. Inténtalo nuevamente.');
-    if (!existingRow) await announceNewOrder(env, saved.value, waitUntil);
+    if (!existingRow) await announceNewOrder(env, saved.value, waitUntil, adminClient);
     return json({ ok: true, order: saved.value });
   } catch (err) {
     return json({ error: err.message || 'Error inesperado.' }, 500);

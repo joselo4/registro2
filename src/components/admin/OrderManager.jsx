@@ -1370,12 +1370,12 @@ export default function OrderManager({
                               style={{
                                 color: '#fff',
                                 fontWeight: 800,
-                                background: '#e67e22',
+                                background: '#b34700',
                                 border: 'none',
                                 borderRadius: '6px',
                                 padding: '6px 10px',
                                 fontSize: '0.78rem',
-                                boxShadow: '0 2px 6px rgba(230,126,34,0.3)',
+                                boxShadow: '0 2px 6px rgba(179,71,0,0.3)',
                                 cursor: 'pointer'
                               }}
                               onClick={() => handleValidateAndAcceptOrder(order)}

@@ -53,6 +53,8 @@ import { readRememberedOperator } from '../utils/rememberedOperator';
 import { sanitizeHTML } from '../utils/security';
 import { triggerDeviceVibration } from '../utils/appAudioNotifications';
 import { orderAttention, formatWait } from '../utils/orderAttention';
+import PushAlertsToggle from './admin/PushAlertsToggle';
+import Icon from './Icon';
 
 // eslint-disable-next-line no-unused-vars
 const isValidEmail = (email) => {
@@ -417,7 +419,7 @@ export default function AdminPanel({
     const timer = window.setInterval(() => setAttentionNow(Date.now()), 30000);
     return () => window.clearInterval(timer);
   }, []);
-  const attention = useMemo(() => orderAttention(orders, attentionNow), [orders, attentionNow]);
+  const attention = useMemo(() => orderAttention(orders, attentionNow, shopConfig?.attentionLimits), [orders, attentionNow, shopConfig?.attentionLimits]);
   const toValidateCount = attention.toValidate.length;
   const overdueCount = attention.overdue.length;
 
@@ -885,11 +887,12 @@ export default function AdminPanel({
             </div>
           </div>
         )}
+        <PushAlertsToggle />
         <nav className="sidebar-menu" aria-label="Secciones del panel">
-          {isAdminUser(currentUser) && <button aria-current={navTab === 'operations' ? 'page' : undefined} className={`sidebar-btn ${navTab === 'operations' ? 'active' : ''}`} onClick={() => switchTab('operations')}>◉ Centro de operaciones</button>}
+          {isAdminUser(currentUser) && <button aria-current={navTab === 'operations' ? 'page' : undefined} className={`sidebar-btn ${navTab === 'operations' ? 'active' : ''}`} onClick={() => switchTab('operations')}><Icon name="pulse" />Centro de operaciones</button>}
           {isTabAllowed('driver_panel') && (
             <button aria-current={navTab === 'driver_panel' ? 'page' : undefined} className={`sidebar-btn ${navTab === 'driver_panel' ? 'active' : ''}`} onClick={() => switchTab('driver_panel')}>
-              🛵 Mis Repartos ({orders.filter(o => {
+              <Icon name="scooter" />Mis Repartos ({orders.filter(o => {
                 if (!o || o.status === 'Cancelado' || o.status === 'Entregado') return false;
                 const d = o.assignedDriver;
                 if (!d) return false;
@@ -901,74 +904,74 @@ export default function AdminPanel({
           )}
           {isTabAllowed('kds') && (
             <button aria-current={navTab === 'kds' ? 'page' : undefined} className={`sidebar-btn ${navTab === 'kds' ? 'active' : ''}`} onClick={() => switchTab('kds')}>
-              👨‍🍳 KDS Cocina ({orders.filter(o => o.status === 'Pendiente' || o.status === 'Preparando').length})
+              <Icon name="chef" />KDS Cocina ({orders.filter(o => o.status === 'Pendiente' || o.status === 'Preparando').length})
             </button>
           )}
           {isTabAllowed('orders') && (
             <>
               <button aria-current={navTab === 'orders' ? 'page' : undefined} className={`sidebar-btn ${navTab === 'orders' ? 'active' : ''}`} onClick={() => switchTab('orders')}>
-                📦 Pedidos ({orders.filter(o => o.status === 'Pendiente' || o.status === 'Por Corroborar').length}){toValidateCount > 0 && <span className="sidebar-alert" aria-label={`${toValidateCount} por validar`}>{toValidateCount}</span>}
+                <Icon name="box" />Pedidos ({orders.filter(o => o.status === 'Pendiente' || o.status === 'Por Corroborar').length}){toValidateCount > 0 && <span className="sidebar-alert" aria-label={`${toValidateCount} por validar`}>{toValidateCount}</span>}
               </button>
               {isTabAllowed('crm') && (
                 <button aria-current={navTab === 'crm' ? 'page' : undefined} className={`sidebar-btn ${navTab === 'crm' ? 'active' : ''}`} onClick={() => switchTab('crm')}>
-                  📇 CRM Clientes
+                  <Icon name="contacts" />CRM Clientes
                 </button>
               )}
             </>
           )}
           {storeServiceEnabled && isTabAllowed('ordertaker') && (
             <button aria-current={navTab === 'ordertaker' ? 'page' : undefined} className={`sidebar-btn ${navTab === 'ordertaker' ? 'active' : ''}`} onClick={() => { setOrderTakerContext(null); switchTab('ordertaker'); }}>
-              🛒 Tomador de Pedidos
+              <Icon name="receipt" />Tomador de Pedidos
             </button>
           )}
           {isTabAllowed('inventory') && (
             <button aria-current={navTab === 'inventory' ? 'page' : undefined} className={`sidebar-btn ${navTab === 'inventory' ? 'active' : ''}`} onClick={() => switchTab('inventory')}>
-              🍦 Carta Helada
+              <Icon name="icecream" />Carta Helada
             </button>
           )}
           {isTabAllowed('packs') && (
             <button aria-current={navTab === 'packs' ? 'page' : undefined} className={`sidebar-btn ${navTab === 'packs' ? 'active' : ''}`} onClick={() => switchTab('packs')}>
-              🎁 Packs Combos
+              <Icon name="gift" />Packs Combos
             </button>
           )}
           {currentUser && isAdminUser(currentUser) && isTabAllowed('users') && (
             <button aria-current={navTab === 'users' ? 'page' : undefined} className={`sidebar-btn ${navTab === 'users' ? 'active' : ''}`} onClick={() => switchTab('users')}>
-              👥 Personal / Staff
+              <Icon name="users" />Personal / Staff
             </button>
           )}
           {isTabAllowed('finance') && (
             <button aria-current={navTab === 'finance' ? 'page' : undefined} className={`sidebar-btn ${navTab === 'finance' ? 'active' : ''}`} onClick={() => switchTab('finance')}>
-              💵 Caja y Finanzas
+              <Icon name="wallet" />Caja y Finanzas
             </button>
           )}
           {isTabAllowed('stats') && (
             <button aria-current={navTab === 'stats' ? 'page' : undefined} className={`sidebar-btn ${navTab === 'stats' ? 'active' : ''}`} onClick={() => switchTab('stats')}>
-              📈 Meta e Ingresos
+              <Icon name="trend" />Meta e Ingresos
             </button>
           )}
           {isTabAllowed('surveys') && (
             <button aria-current={navTab === 'surveys' ? 'page' : undefined} className={`sidebar-btn ${navTab === 'surveys' ? 'active' : ''}`} onClick={() => switchTab('surveys')}>
-              ⭐ Encuestas ({orders.filter(o => o.survey).length})
+              <Icon name="star" />Encuestas ({orders.filter(o => o.survey).length})
             </button>
           )}
           {storeServiceEnabled && isTabAllowed('table_orders') && (
             <button aria-current={navTab === 'table_orders' ? 'page' : undefined} className={`sidebar-btn ${navTab === 'table_orders' ? 'active' : ''}`} onClick={() => switchTab('table_orders')}>
-              🍽️ Pedidos en Mesa
+              <Icon name="table" />Pedidos en Mesa
             </button>
           )}
           {isAdminUser(currentUser) && (
             <button aria-current={navTab === 'analytics' ? 'page' : undefined} className={`sidebar-btn ${navTab === 'analytics' ? 'active' : ''}`} onClick={() => switchTab('analytics')}>
-              📊 Embudo de ventas
+              <Icon name="funnel" />Embudo de ventas
             </button>
           )}
           {isTabAllowed('settings') && (
             <button aria-current={navTab === 'settings' ? 'page' : undefined} className={`sidebar-btn ${navTab === 'settings' ? 'active' : ''}`} onClick={() => switchTab('settings')}>
-              ⚙️ Todos los ajustes
+              <Icon name="gear" />Todos los ajustes
             </button>
           )}
           {isTabAllowed('locations') && (
             <button aria-current={navTab === 'locations' ? 'page' : undefined} className={`sidebar-btn ${navTab === 'locations' ? 'active' : ''}`} onClick={() => switchTab('locations')}>
-              📍 Carritos / Ubicación
+              <Icon name="pin" />Carritos / Ubicación
             </button>
           )}
         </nav>
@@ -984,6 +987,17 @@ export default function AdminPanel({
                 <span className="attention-copy">
                   <strong>{toValidateCount === 1 ? '1 pedido por validar' : `${toValidateCount} pedidos por validar`}</strong>
                   <small>El más antiguo llegó {formatWait(attention.oldestToValidateMinutes)}</small>
+                  {(() => {
+                    const oldest = attention.toValidate[0]?.order;
+                    if (!oldest) return null;
+                    const code = String(oldest.customer?.operationCode || '').trim();
+                    return (
+                      <span className="attention-detail">
+                        {oldest.customer?.name || 'Cliente'} · S/. {Number(oldest.grandTotal || 0).toFixed(2)} · {oldest.customer?.paymentMethod || 'Pago por definir'}
+                        {code && <> · Operación <b>{code}</b></>}
+                      </span>
+                    );
+                  })()}
                 </span>
                 <button type="button" className="attention-action" onClick={() => openOrdersFiltered('Por Corroborar')}>Validar ahora</button>
               </div>

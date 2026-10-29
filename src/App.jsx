@@ -27,6 +27,7 @@ import { isShopOpenCurrently } from './utils/storeHours';
 import { cleanTableParam, isKnownView, urlForView, viewFromHash } from './utils/viewHistory';
 
 import CustomerShop from './components/CustomerShop';
+import Icon from './components/Icon';
 const IceCreamCustomizer = React.lazy(() => import('./components/IceCreamCustomizer'));
 const LiterCustomizer = React.lazy(() => import('./components/LiterCustomizer'));
 const Cart = React.lazy(() => import('./components/Cart'));
@@ -1497,6 +1498,30 @@ export default function App() {
     if (cartEdit && view !== cartEdit.view) setCartEdit(null);
   }, [view, cartEdit]);
 
+  // "Lo de siempre": the products of this browser's last order, kept on the device only.
+  const [lastOrder, setLastOrder] = useState(() => {
+    try {
+      const saved = JSON.parse(safeStorage.getItem('friozo_last_order') || 'null');
+      return saved && Array.isArray(saved.items) && saved.items.length ? saved : null;
+    } catch {
+      return null;
+    }
+  });
+  const rememberLastOrder = (items, total) => {
+    const kept = (Array.isArray(items) ? items : []).filter(item => item && item.type !== 'extra').slice(0, 20);
+    if (!kept.length) return;
+    const record = { items: kept, total: Number(total) || 0, date: new Date().toISOString() };
+    safeStorage.setItem('friozo_last_order', JSON.stringify(record));
+    setLastOrder(record);
+  };
+  const repeatLastOrder = () => {
+    if (!lastOrder) return;
+    // The cart reconciliation effect then applies today's prices and drops what is sold out.
+    setCart(current => lastOrder.items.reduce((next, item) => addCartItem(next, { ...item, quantity: Number(item.quantity) || 1 }), current));
+    setSuccessToast({ title: 'Listo, tu pedido de siempre', message: 'Revisa el carrito: usamos los precios de hoy.' });
+    setView('cart');
+  };
+
   const handlePlaceOrder = async (newOrder) => {
     let savedOrder = newOrder;
     if (newOrder.isOperator) {
@@ -1508,6 +1533,7 @@ export default function App() {
     setOrders(prev => [savedOrder, ...prev.filter(order => order.id !== savedOrder.id)]);
     if (!newOrder.isOperator) {
       if (savedOrder.submissionKey) checkoutStorage.setItem(`helados_order_token_${savedOrder.id}`, savedOrder.submissionKey);
+      rememberLastOrder(newOrder.items, savedOrder.grandTotal);
       setCart(current => subtractOrderedItems(current, newOrder.items || []));
       setActiveOrderId(savedOrder.id);
       setView('tracker');
@@ -1725,7 +1751,7 @@ export default function App() {
                 onClick={(e) => { e.preventDefault(); setView('shop'); }}
                 style={{ textDecoration: 'none', display: 'inline-flex', alignItems: 'center' }}
               >
-                <span aria-hidden="true">🍦</span>
+                <Icon name="store" size={18} />
                 <span>Tienda</span>
               </a>
               <a 
@@ -1734,7 +1760,7 @@ export default function App() {
                 onClick={(e) => { e.preventDefault(); setView('customizer'); }}
                 style={{ textDecoration: 'none', display: 'inline-flex', alignItems: 'center' }}
               >
-                <span aria-hidden="true">✦</span>
+                <Icon name="sparkle" size={18} />
                 <span>Crear el mío</span>
               </a>
               <a 
@@ -1743,7 +1769,7 @@ export default function App() {
                 onClick={(e) => { e.preventDefault(); setView('cart'); }}
                 style={{ textDecoration: 'none', display: 'inline-flex', alignItems: 'center' }}
               >
-                <span aria-hidden="true">🛒</span>
+                <Icon name="bag" size={18} />
                 <span>Mi pedido</span>
                 {totalCartItems > 0 && <span className="cart-badge">{totalCartItems}</span>}
               </a>
@@ -1754,7 +1780,7 @@ export default function App() {
                 onClick={(e) => { e.preventDefault(); setView('locations'); }}
                 style={{ textDecoration: 'none', display: 'inline-flex', alignItems: 'center' }}
               >
-                <span aria-hidden="true">📍</span>
+                <Icon name="pin" size={18} />
                 <span>Ubicación</span>
               </a>
               )}
@@ -1764,7 +1790,7 @@ export default function App() {
                 onClick={(e) => { e.preventDefault(); setView('tracker'); }}
                 style={{ textDecoration: 'none', display: 'inline-flex', alignItems: 'center' }}
               >
-                <span aria-hidden="true">🔎</span>
+                <Icon name="search" size={18} />
                 <span>Rastrear</span>
               </a>
               
@@ -1850,6 +1876,8 @@ export default function App() {
         <React.Suspense fallback={<div className="glass route-loading" role="status" aria-live="polite"><span className="route-loading-spinner" aria-hidden="true" />Preparando tu experiencia...</div>}>
           {view === 'shop' && (
           <CustomerShop 
+            lastOrder={lastOrder}
+            onRepeatLastOrder={repeatLastOrder}
             flavors={flavors}
             toppings={toppings}
             bases={bases}
@@ -2143,7 +2171,7 @@ export default function App() {
             onClick={(e) => { e.preventDefault(); setView('shop'); }}
             style={{ textDecoration: 'none' }}
           >
-            <span className="tab-icon">🍦</span>
+            <span className="tab-icon"><Icon name="store" size={22} /></span>
             <span className="tab-label">Tienda</span>
           </a>
           <a 
@@ -2152,7 +2180,7 @@ export default function App() {
             onClick={(e) => { e.preventDefault(); setView('customizer'); }}
             style={{ textDecoration: 'none' }}
           >
-            <span className="tab-icon">✦</span>
+            <span className="tab-icon"><Icon name="sparkle" size={22} /></span>
             <span className="tab-label">Crear</span>
           </a>
           <a 
@@ -2162,7 +2190,7 @@ export default function App() {
             style={{ textDecoration: 'none' }}
           >
             <span className="tab-icon" style={{ position: 'relative' }}>
-              🛒
+              <Icon name="bag" size={22} />
               {totalCartItems > 0 && (
                 <span className="tab-badge">{totalCartItems}</span>
               )}
@@ -2176,7 +2204,7 @@ export default function App() {
             onClick={(e) => { e.preventDefault(); setView('locations'); }}
             style={{ textDecoration: 'none' }}
           >
-            <span className="tab-icon">📍</span>
+            <span className="tab-icon"><Icon name="pin" size={22} /></span>
             <span className="tab-label">Mapa</span>
           </a>
           )}
@@ -2186,7 +2214,7 @@ export default function App() {
             onClick={(e) => { e.preventDefault(); setView('tracker'); }}
             style={{ textDecoration: 'none' }}
           >
-            <span className="tab-icon">🔎</span>
+            <span className="tab-icon"><Icon name="search" size={22} /></span>
             <span className="tab-label">Rastrear</span>
           </a>
           {isLoggedIn && (
@@ -2196,7 +2224,7 @@ export default function App() {
               onClick={(e) => { e.preventDefault(); setView('admin'); }}
               style={{ textDecoration: 'none' }}
             >
-              <span className="tab-icon">🛠️</span>
+              <span className="tab-icon"><Icon name="tools" size={22} /></span>
               <span className="tab-label">Admin</span>
             </a>
           )}

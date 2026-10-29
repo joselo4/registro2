@@ -8,7 +8,8 @@ import PaymentMethodsSettings from './PaymentMethodsSettings';
 import PromotionEditor from './PromotionEditor';
 import { DEFAULT_PROMOTION, DEFAULT_POPUP_PROMOTION, DEFAULT_WEB_PROMOTION, normalizePromotion, validatePromotion } from '../../utils/promotion';
 import { sendDailySalesReportToTelegram } from '../../utils/telegramDailyReport';
-import { mergeOrders } from '../../utils/orderLifecycle';
+import { mergeOrders, orderStatusLabel } from '../../utils/orderLifecycle';
+import { STATUS_LIMIT_MINUTES, attentionLimits } from '../../utils/orderAttention';
 import { isGoogleMeasurementId } from '../../utils/commerceAnalytics';
 import SettingsOverview from './SettingsOverview';
 
@@ -260,6 +261,7 @@ export default function SettingsManager({
       onChangeShopConfig({
         ...localShopConfig,
         promotion,
+        attentionLimits: attentionLimits(localShopConfig.attentionLimits),
         smsTemplates: normalizeSmsTemplates(localShopConfig.smsTemplates)
       });
     }
@@ -1452,6 +1454,31 @@ export default function SettingsManager({
             <span className="slider"></span>
           </label>
         </div>
+
+        {/* Minutos antes de que un pedido se considere demorado en cada estado */}
+        <fieldset className="attention-limits-settings">
+          <legend>⏱️ Avisos de pedidos demorados</legend>
+          <p>Minutos que un pedido puede estar en cada estado antes de que el panel te avise.</p>
+          <div className="attention-limits-grid">
+            {Object.entries(STATUS_LIMIT_MINUTES).map(([status, fallback]) => (
+              <label key={status}>
+                <span>{orderStatusLabel(status)}</span>
+                <input
+                  type="number"
+                  min="1"
+                  max="240"
+                  inputMode="numeric"
+                  className="form-control"
+                  value={localShopConfig.attentionLimits?.[status] ?? fallback}
+                  onChange={(e) => {
+                    const value = e.target.value;
+                    setLocalShopConfig(prev => ({ ...prev, attentionLimits: { ...(prev.attentionLimits || {}), [status]: value === '' ? '' : Number(value) } }));
+                  }}
+                />
+              </label>
+            ))}
+          </div>
+        </fieldset>
 
         {/* Estado de Heladería Manual */}
         <div id="settings-operations" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderBottom: '1px solid var(--border-color)', paddingBottom: '12px' }}>

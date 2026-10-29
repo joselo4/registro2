@@ -535,7 +535,6 @@ export default function OrderTracker({ orderId, orders, setView, storePhone, onC
     <div className="tracker">
       <header className="tracker-head">
         <div>
-          <span className="tracker-eyebrow">SEGUIMIENTO</span>
           <h1>Pedido <span className="allow-select">{currentOrder.id}</span></h1>
           <button type="button" className="tracker-copy" onClick={() => copyText(currentOrder.id, 'code')}>{copiedField === 'code' ? '✓ Código copiado' : 'Copiar código'}</button>
           {currentOrder.customer?.tableNumber && <span className="tracker-chip">Mesa {currentOrder.customer.tableNumber}</span>}

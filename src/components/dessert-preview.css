@@ -4,6 +4,7 @@
 .cart-product-preview .dessert-preview.compact { width: 100%; height: 116px; max-height: none; }
 .cart-product-preview>img { width: 100%; height: 110px; object-fit: contain; }
 .cart-product-preview>span { font-size: 2rem; }
+.cart-product-preview-art svg { width: 100%; height: auto; max-height: 100%; }
 .cart-item-info { min-width: 0; flex: 1; gap: 16px; }
 .cart-item-details { min-width: 0; }
 .cart-item-details h4 { line-height: 1.45; }

@@ -1,5 +1,7 @@
-import { useState, useRef, useEffect } from 'react';
+import { useState, useRef, useEffect, lazy, Suspense } from 'react';
 import DessertPreview, { BasePhoto, ScoopPhoto, ToppingPhoto } from './DessertPreview';
+// The 3D engine downloads only when a customer asks for the 3D view.
+const Dessert3DViewer = lazy(() => import('./Dessert3DViewer'));
 import { available, cleanName, creationTotal, money, resolveRecommendation } from '../utils/dessert';
 import { syrupColor } from '../utils/toppingKinds';
 import './customizer.css';
@@ -43,6 +45,7 @@ export default function IceCreamCustomizer({bases = [], flavors = [], toppings =
   const [notice, setNotice] = useState('');
   const [adding, setAdding] = useState(false);
   const [pulse, setPulse] = useState(0);
+  const [view3d, setView3d] = useState(false);
   const addingRef = useRef(false);
   const panelRef = useRef(null);
   const advanceTimer = useRef(null);
@@ -112,8 +115,8 @@ export default function IceCreamCustomizer({bases = [], flavors = [], toppings =
     <header className="atelier-heading">
       <button type="button" className="atelier-back" onClick={() => (isEditing ? onCancelEdit?.() : setView('shop'))}>{isEditing ? '← Mi pedido' : '← Carta'}</button>
       <div>{isEditing
-        ? <><span className="atelier-eyebrow">EDITANDO TU HELADO</span><h1>Ajústalo a <em>tu gusto.</em></h1></>
-        : <><span className="atelier-eyebrow">CREA TU HELADO</span><h1>Un helado muy <em>tuyo.</em></h1></>}</div>
+        ? <><h1>Editando tu helado: <em>ajústalo a tu gusto.</em></h1></>
+        : <><h1>Un helado muy <em>tuyo.</em></h1></>}</div>
     </header>
 
     {isEditing && <p className="atelier-editing-note" role="status">Cambia lo que necesites y toca <strong>Guardar cambios</strong>. La cantidad en tu pedido se mantiene.</p>}
@@ -127,7 +130,19 @@ export default function IceCreamCustomizer({bases = [], flavors = [], toppings =
 
     <div className="atelier-layout">
       <aside className="atelier-stage" aria-label="Tu helado">
-        <div key={pulse} className={`atelier-stage-art ${pulse ? 'is-changing' : ''}`}><DessertPreview base={base} scoops={scoops} toppings={extras} syrup={syrup} /></div>
+        <div className="atelier-view-toggle" role="group" aria-label="Tipo de vista">
+          <button type="button" aria-pressed={!view3d} onClick={() => setView3d(false)}>Foto</button>
+          <button type="button" aria-pressed={view3d} onClick={() => setView3d(true)}>Ver en 3D</button>
+        </div>
+        {view3d ? (
+          <div className="atelier-stage-art atelier-stage-3d">
+            <Suspense fallback={<div className="dessert-3d-loading">Preparando tu helado en 3D…</div>}>
+              <Dessert3DViewer base={base} scoops={scoops} toppings={extras} syrup={syrup} />
+            </Suspense>
+          </div>
+        ) : (
+          <div key={pulse} className={`atelier-stage-art ${pulse ? 'is-changing' : ''}`}><DessertPreview base={base} scoops={scoops} toppings={extras} syrup={syrup} /></div>
+        )}
         <div className="atelier-stage-meta">
           <span className="atelier-stage-count">{scoops.length}/{MAX_SCOOPS} bolas</span>
           <strong>{base?.name || 'Elige tu envase'}</strong>

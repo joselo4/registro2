@@ -1,5 +1,6 @@
 import { createAdminClient, fail, json, sameOriginRequest, tooManyRequests } from './_security.js';
 import { isOrderTypeEnabled } from '../../src/utils/orderChannels.js';
+import { notifyStaff } from './_pushStore.js';
 
 // Same table format the order API accepts (1-999).
 const cleanTable = (value) => {
@@ -60,6 +61,9 @@ export async function onRequestPost({ request, env }, makeClient = createAdminCl
       );
 
     if (error) return fail(502, 'write', 'No se pudo guardar el llamado. Intenta nuevamente.');
+    if (!resolved) {
+      await notifyStaff(adminClient, env, { title: `🛎️ Mesa ${table} pide atención`, body: requestText.slice(0, 140), tag: `table-${table}`, url: '/#admin', requireInteraction: true });
+    }
     return json({ ok: true, call: callData });
   } catch (err) {
     console.error('table-call failed:', err);

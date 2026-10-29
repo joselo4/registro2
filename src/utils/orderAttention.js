@@ -18,11 +18,22 @@ const minutesSince = (timestamp, now) => {
  * Orders that need someone's attention now: those waiting for validation and
  * those that have spent longer than their limit in the current status.
  */
-export function orderAttention(orders, now = Date.now()) {
-  const open = (Array.isArray(orders) ? orders : []).filter(order => order && STATUS_LIMIT_MINUTES[order.status] !== undefined);
+// Shop-configured limits override the defaults; anything missing or out of range falls back.
+export function attentionLimits(custom) {
+  const limits = { ...STATUS_LIMIT_MINUTES };
+  for (const status of Object.keys(limits)) {
+    const value = Math.round(Number(custom?.[status]));
+    if (Number.isFinite(value) && value >= 1 && value <= 240) limits[status] = value;
+  }
+  return limits;
+}
+
+export function orderAttention(orders, now = Date.now(), customLimits = null) {
+  const limits = attentionLimits(customLimits);
+  const open = (Array.isArray(orders) ? orders : []).filter(order => order && limits[order.status] !== undefined);
   const timed = open.map(order => {
     const minutes = minutesSince(orderStatusTimestamp(order, order.status) || order.date, now);
-    const limit = STATUS_LIMIT_MINUTES[order.status];
+    const limit = limits[order.status];
     return { order, status: order.status, label: orderStatusLabel(order.status), minutes, limit, late: minutes >= limit };
   });
   const toValidate = timed.filter(entry => entry.status === 'Por Corroborar').sort((a, b) => b.minutes - a.minutes);

@@ -1,0 +1,10 @@
+.dessert-3d { width: 100%; height: 100%; min-height: 300px; touch-action: pan-y; cursor: grab; }
+.dessert-3d:active { cursor: grabbing; }
+.dessert-3d canvas { display: block; width: 100% !important; height: 100% !important; }
+.dessert-3d-fallback { margin: 0; padding: 24px 12px; text-align: center; font-size: .86rem; color: var(--text-light); }
+.atelier-view-toggle { display: inline-flex; gap: 4px; padding: 4px; margin: 0 auto 8px; border-radius: 99px; background: color-mix(in srgb, var(--bg-secondary) 80%, transparent); border: 1px solid var(--border-color); }
+.atelier-view-toggle button { min-height: 36px; padding: 6px 14px; border: 0; border-radius: 99px; background: transparent; color: var(--text-dark); font-weight: 700; font-size: .8rem; cursor: pointer; }
+.atelier-view-toggle button[aria-pressed="true"] { background: var(--primary-color); color: var(--bg-secondary); }
+.atelier-stage-3d { height: 360px; display: grid; }
+.dessert-3d-loading { display: grid; place-items: center; height: 100%; font-size: .86rem; color: var(--text-light); }
+@media (max-width: 600px) { .atelier-stage-3d { height: 300px; } }

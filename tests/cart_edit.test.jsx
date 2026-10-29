@@ -12,7 +12,7 @@ const toppings = [{ id: 'oreo', name: 'Galleta Oreo', price: .5, category: 'soli
 test('editing a helado from the cart opens the builder with that creation', () => {
   const item = { type: 'custom', name: 'Helado', base: bases[1], scoops: [flavors[1], flavors[2]], toppings: [toppings[0]], syrup: toppings[1], price: 6.5, quantity: 3 };
   const html = renderToStaticMarkup(<IceCreamCustomizer bases={bases} flavors={flavors} toppings={toppings} editingItem={item} onSaveEdit={() => true} onCancelEdit={() => {}} onAddToCart={() => {}} setView={() => {}} />);
-  assert.match(html, /EDITANDO TU HELADO/);
+  assert.match(html, /Editando tu helado/i);
   assert.match(html, /Guardar cambios/);
   assert.match(html, /Copa waffle/);
   for (const name of ['Coco', 'Menta', 'Galleta Oreo', 'Fudge']) assert.match(html, new RegExp(`Quitar[^"]*${name}`));
@@ -22,7 +22,7 @@ test('editing a helado from the cart opens the builder with that creation', () =
 test('editing a litre keeps its flavours and extras', () => {
   const item = { type: 'liter', name: 'Litro', scoops: [{ id: 'fresa' }, { id: 'coco' }], toppings: [{ id: 'oreo' }], syrup: { id: 'fudge' }, price: 17, quantity: 1 };
   const html = renderToStaticMarkup(<LiterCustomizer flavors={flavors} toppings={toppings} literConfig={{ price: 16, maxFlavors: 3 }} editingItem={item} onSaveEdit={() => true} onCancelEdit={() => {}} onAddToCart={() => {}} setView={() => {}} />);
-  assert.match(html, /EDITANDO TU LITRO/);
+  assert.match(html, /Editando tu litro/i);
   assert.match(html, /2\/3 sabores/);
   assert.match(html, /S\/ 17\.00/);
   assert.match(html, /Guardar cambios/);

@@ -16,9 +16,8 @@ const SECTIONS = [
 export default function SettingsOverview({ config = {}, onChangeChannel, onSave, onOpenAnalytics }) {
   const activeCount = CHANNELS.filter(channel => config[channel.key] !== false).length;
   return <>
-    <header className="settings-dashboard-hero">
+    <header className="settings-dashboard-hero" aria-label="Centro de configuración">
       <div>
-        <span className="settings-dashboard-eyebrow">CENTRO DE CONFIGURACIÓN</span>
         <h2>Tu tienda, a tu manera.</h2>
         <p>Elige dónde recibes pedidos y ajusta los detalles que ayudan a convertir visitas en ventas.</p>
       </div>

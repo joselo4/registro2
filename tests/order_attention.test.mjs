@@ -60,3 +60,14 @@ test('Telegram notice flags orders that wait for validation', async () => {
   assert.ok(queued.startsWith('Nuevo pedido PED-T1'));
   assert.ok(queued.includes('2x Paleta') && queued.includes('S/. 12.00'));
 });
+
+test('shop limits override defaults within a safe range', async () => {
+  const { attentionLimits } = await import('../src/utils/orderAttention.js');
+  const limits = attentionLimits({ Pendiente: 3, Preparando: 0, Listo: 999, 'En camino': '30' });
+  assert.equal(limits.Pendiente, 3);
+  assert.equal(limits.Preparando, STATUS_LIMIT_MINUTES.Preparando);
+  assert.equal(limits.Listo, STATUS_LIMIT_MINUTES.Listo);
+  assert.equal(limits['En camino'], 30);
+  const result = orderAttention([order('PED-Q', 'Pendiente', 4)], NOW, { Pendiente: 3 });
+  assert.equal(result.overdue.length, 1);
+});

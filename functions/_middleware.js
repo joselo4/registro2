@@ -38,7 +38,8 @@ export async function onRequest(context) {
       '/api/telegram',
       '/api/ga4-report',
       '/api/track',
-      '/api/store-report'
+      '/api/store-report',
+      '/api/push'
     ];
 
     if (!validApiRoutes.includes(path)) {

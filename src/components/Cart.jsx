@@ -535,7 +535,7 @@ export default function Cart({
         <button className="btn btn-secondary" style={{ padding: '6px 12px', fontSize: '0.85rem' }} onClick={() => setView('shop')}>
           ← Tienda
         </button>
-        <div><span className="section-kicker">YA CASI ES TUYO</span><h2>Tu pedido</h2><p>Revisa tus favoritos y elige cómo recibirlos.</p></div>
+        <div><h2>Tu pedido</h2><p>Revisa tus favoritos y elige cómo recibirlos.</p></div>
       </div>
 
       {/* 💰 BARRA DE PROGRESO DE ENVÍO GRATIS DINÁMICA */}
@@ -720,7 +720,7 @@ export default function Cart({
 
         {/* Formulario Exprés */}
         <div className="glass checkout-section" style={{ padding: '15px', borderRadius: 'var(--radius-md)' }}>
-          <div className="checkout-heading"><span className="section-kicker">UN PASO MÁS</span><h3>Finaliza tu pedido</h3><p>Completa tus datos para confirmar la compra.</p></div>
+          <div className="checkout-heading"><h3>Finaliza tu pedido</h3><p>Completa tus datos para confirmar la compra.</p></div>
           
           <button
             type="button"

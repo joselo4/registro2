@@ -52,3 +52,7 @@
   Content-Type: application/xml; charset=utf-8
   Cache-Control: public, max-age=86400
 
+
+/sw.js
+  Cache-Control: no-cache
+  Content-Type: application/javascript; charset=utf-8

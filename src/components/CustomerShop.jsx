@@ -45,6 +45,8 @@ export default function CustomerShop({
   tableCalls = [],
   occupiedTables = [],
   cart = [],
+  lastOrder = null,
+  onRepeatLastOrder,
   shopConfig = {},
   promotionReady = true,
   testimonials = [],
@@ -898,7 +900,7 @@ export default function CustomerShop({
       ) : (
         <>
           {/* Pop-up Banner Emergente de Bienvenida al ingresar */}
-          <WelcomePromotion promotion={popupPromotion} tableNumber={tableNumber} onAction={handlePromotionAction} ready={promotionReady && (typeof window === 'undefined' || window.location.pathname === '/')} />
+          <WelcomePromotion promotion={popupPromotion} tableNumber={tableNumber} onAction={handlePromotionAction} ready={promotionReady && cart.length === 0 && (typeof window === 'undefined' || window.location.pathname === '/')} />
           {/* Banner Fijo en la Tienda Web (Solo si está activado) */}
           {webPromotion.enabled && webPromotion.position === 'above-hero' && (
             <PromotionBanner promotion={webPromotion} tableNumber={tableNumber} onAction={handlePromotionAction} />
@@ -964,10 +966,6 @@ export default function CustomerShop({
               </button>
             </div>
           )}
-          <div className="hero-eyebrow">
-            <span className="hero-live-dot" aria-hidden="true"></span>
-            HELADOS, FRUTA Y MUCHA FELICIDAD
-          </div>
           <h1>
             Qué rico <span>caer en<br />la tentación.</span>
           </h1>
@@ -1131,7 +1129,7 @@ export default function CustomerShop({
         <div className="product-quick-dialog" role="dialog" aria-modal="true" aria-label={`Detalles de ${quickView.product.name}`} onClick={event => event.stopPropagation()}>
           <button type="button" className="product-quick-close" aria-label="Cerrar detalles" onClick={() => setQuickView(null)}>×</button>
           <div className="product-quick-art">{quickView.product.image ? <img src={quickView.product.image} alt={quickView.product.name} /> : <span aria-hidden="true">{quickView.kind === 'pack' ? '🎁' : quickView.kind === 'popsicle' ? '🍭' : quickView.kind === 'liter' ? '🏺' : '🍦'}</span>}</div>
-          <div className="product-quick-copy"><span className="product-quick-eyebrow">HECHO PARA TU ANTOJO</span><h2>{quickView.product.name}</h2><p>{quickView.product.description || (quickView.kind === 'liter' ? 'Combina tus sabores favoritos en un pote para compartir.' : 'Preparado con el sabor de nuestra carta artesanal.')}</p>{quickView.kind === 'pack' && quickView.product.items && <p><strong>Incluye:</strong> {quickView.product.items}</p>}<strong className="product-quick-price">S/. {(quickView.kind === 'classic' ? quickScoopItem(quickView.product, bases).price : Number(quickView.product.price || 0)).toFixed(2)}</strong><button type="button" className="btn btn-primary" onClick={() => {
+          <div className="product-quick-copy"><h2>{quickView.product.name}</h2><p>{quickView.product.description || (quickView.kind === 'liter' ? 'Combina tus sabores favoritos en un pote para compartir.' : 'Preparado con el sabor de nuestra carta artesanal.')}</p>{quickView.kind === 'pack' && quickView.product.items && <p><strong>Incluye:</strong> {quickView.product.items}</p>}<strong className="product-quick-price">S/. {(quickView.kind === 'classic' ? quickScoopItem(quickView.product, bases).price : Number(quickView.product.price || 0)).toFixed(2)}</strong><button type="button" className="btn btn-primary" onClick={() => {
             if (quickView.kind === 'liter') setView('liter-customizer');
             else if (quickView.kind === 'pack') handleAddPackToCart(quickView.product);
             else if (quickView.kind === 'popsicle') handleAddPopsicleToCart(quickView.product);
@@ -1141,11 +1139,25 @@ export default function CustomerShop({
         </div>
       </div>}
 
+      {lastOrder && !tableNumber && typeof onRepeatLastOrder === 'function' && (
+        <section className="repeat-order" aria-labelledby="repeat-order-title">
+          <div className="repeat-order-copy">
+            <h2 id="repeat-order-title">¿Lo de siempre?</h2>
+            <p>
+              {lastOrder.items.slice(0, 3).map(item => `${Number(item.quantity) || 1}× ${item.name}`).join(' · ')}
+              {lastOrder.items.length > 3 ? ` y ${lastOrder.items.length - 3} más` : ''}
+            </p>
+          </div>
+          <button type="button" className="btn btn-primary repeat-order-action" onClick={onRepeatLastOrder}>
+            Repetir mi último pedido <span aria-hidden="true">→</span>
+          </button>
+        </section>
+      )}
+
       {featuredProducts.length > 0 && (
         <section ref={featuredRef} className="featured-section" aria-labelledby="featured-title">
           <div className="featured-heading">
             <div>
-              <span className="section-kicker">ELIGE EN UN TOQUE</span>
               <h2 id="featured-title">¿Empezamos por aquí?</h2>
             </div>
             <a href="#catalog" onClick={(event) => { event.preventDefault(); document.getElementById('catalog')?.scrollIntoView({ behavior: 'smooth' }); }}>Ver toda la carta <span aria-hidden="true">→</span></a>
@@ -1218,7 +1230,6 @@ export default function CustomerShop({
       <section id="catalog" ref={catalogRef} className="catalog-section">
         <div className="catalog-heading">
           <div>
-            <span className="section-kicker">TU PRÓXIMO ANTOJO</span>
             <h2 className="section-title">La carta de {storeName || 'Friozo'}</h2>
             <p className="section-subtitle">Elige tus favoritos y arma tu pedido en minutos.</p>
           </div>
@@ -1291,7 +1302,6 @@ export default function CustomerShop({
 
       <section className="order-paths" aria-label="Formas de elegir tu helado">
         <article className="order-path-card order-path-card-primary">
-          <span className="order-path-kicker">CERO HELADOS ABURRIDOS</span>
           <h2>Tu antojo no viene de fábrica.</h2>
           <p>Elige base, bolas, toppings y salsas. Tú rompes las reglas; nosotros lo hacemos irresistible.</p>
           <button className="btn btn-primary" onClick={() => setView('customizer')}>
@@ -1307,7 +1317,6 @@ export default function CustomerShop({
         }}>
           <span className="order-path-icon" aria-hidden="true">✨</span>
           <div className="order-path-guide-copy">
-            <span className="order-path-kicker">DÉJATE TENTAR</span>
             <h3>Te encontramos la mezcla perfecta</h3>
             <p>Tres preguntas. Una recomendación peligrosamente rica.</p>
           </div>
@@ -1318,7 +1327,6 @@ export default function CustomerShop({
       {/* Opiniones configuradas por la tienda */}
       {!tableNumber && testimonials && testimonials.length > 0 && (
         <section className="testimonials-section">
-          <span className="section-kicker">AMOR A PRIMERA CUCHARADA</span>
           <h2 className="section-title">La gente vuelve por esto</h2>
           <p className="section-subtitle">Experiencias reales de quienes ya cayeron en la tentación.</p>
           

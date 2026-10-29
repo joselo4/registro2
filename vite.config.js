@@ -9,6 +9,7 @@ import { onRequestGet as handleTelegramGet, onRequestPost as handleTelegramPost 
 import { onRequestGet as handleGa4ReportGet } from './functions/api/ga4-report.js'
 import { onRequestPost as handleTrackPost } from './functions/api/track.js'
 import { onRequestGet as handleStoreReportGet } from './functions/api/store-report.js'
+import { onRequestGet as handlePushGet, onRequestPost as handlePushPost } from './functions/api/push.js'
 
 const apiRoutes = {
   '/api/admin-auth-user': { POST: handleAdminAuthUser },
@@ -20,6 +21,7 @@ const apiRoutes = {
   '/api/ga4-report': { GET: handleGa4ReportGet },
   '/api/track': { POST: handleTrackPost },
   '/api/store-report': { GET: handleStoreReportGet },
+  '/api/push': { GET: handlePushGet, POST: handlePushPost },
 }
 
 function localPagesApiPlugin(env) {
@@ -122,6 +124,10 @@ export default defineConfig(({ mode }) => {
               }
               if (id.includes('leaflet')) {
                 return 'leaflet';
+              }
+              // Only the optional 3D view uses it; it must not join the startup vendor chunk.
+              if (/[\\/]node_modules[\\/]three[\\/]/.test(id)) {
+                return 'three';
               }
               // Separate chunks download in parallel and stay cached across
               // releases that only update one of the libraries.
