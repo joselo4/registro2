@@ -47,6 +47,7 @@ export default function CustomerShop({
   occupiedTables = [],
   cart = [],
   lastOrder = null,
+  isActive = true,
   onRemoveOneFromCart,
   onRepeatLastOrder,
   shopConfig = {},
@@ -899,7 +900,7 @@ export default function CustomerShop({
       ) : (
         <>
           {/* Pop-up Banner Emergente de Bienvenida al ingresar */}
-          <WelcomePromotion promotion={popupPromotion} tableNumber={tableNumber} onAction={handlePromotionAction} ready={promotionReady && cart.length === 0 && (typeof window === 'undefined' || window.location.pathname === '/')} />
+          <WelcomePromotion promotion={popupPromotion} tableNumber={tableNumber} onAction={handlePromotionAction} ready={isActive && promotionReady && cart.length === 0 && (typeof window === 'undefined' || window.location.pathname === '/')} />
           {/* Banner Fijo en la Tienda Web (Solo si está activado) */}
           {webPromotion.enabled && webPromotion.position === 'above-hero' && (
             <PromotionBanner promotion={webPromotion} tableNumber={tableNumber} onAction={handlePromotionAction} />

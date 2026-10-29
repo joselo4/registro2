@@ -28,11 +28,17 @@ import { cleanTableParam, isKnownView, urlForView, viewFromHash } from './utils/
 
 import CustomerShop from './components/CustomerShop';
 import Icon from './components/Icon';
-const IceCreamCustomizer = React.lazy(() => import('./components/IceCreamCustomizer'));
-const LiterCustomizer = React.lazy(() => import('./components/LiterCustomizer'));
-const Cart = React.lazy(() => import('./components/Cart'));
+// Customer screens load in their own chunks; preloadCustomerScreens fetches them while the
+// page is idle so the first tap on Mi pedido or Crear does not wait for the network.
+const loadIceCreamCustomizer = () => import('./components/IceCreamCustomizer');
+const loadLiterCustomizer = () => import('./components/LiterCustomizer');
+const loadCart = () => import('./components/Cart');
+const loadOrderTracker = () => import('./components/OrderTracker');
+const IceCreamCustomizer = React.lazy(loadIceCreamCustomizer);
+const LiterCustomizer = React.lazy(loadLiterCustomizer);
+const Cart = React.lazy(loadCart);
 const LiveChatTelegramBridge = React.lazy(() => import('./components/LiveChatTelegramBridge'));
-const OrderTracker = React.lazy(() => import('./components/OrderTracker'));
+const OrderTracker = React.lazy(loadOrderTracker);
 const AdminPanel = React.lazy(() => import('./components/AdminPanel'));
 const CartLocationsView = React.lazy(() => import('./components/CartLocationsView'));
 
@@ -562,6 +568,18 @@ export default function App() {
     if (isVendorApp || (typeof window !== 'undefined' && new URLSearchParams(window.location.search).get('admin') === '1')) return 'admin';
     return (typeof window !== 'undefined' && viewFromHash(window.location.hash)) || 'shop';
   });
+  const [shopMounted, setShopMounted] = useState(view === 'shop');
+  useEffect(() => {
+    if (view === 'shop') setShopMounted(true);
+  }, [view]);
+  // Fetch the other customer screens once the page is idle.
+  useEffect(() => {
+    if (isVendorApp) return undefined;
+    const idle = window.requestIdleCallback || ((callback) => window.setTimeout(callback, 1500));
+    const cancel = window.cancelIdleCallback || window.clearTimeout;
+    const handle = idle(() => { [loadCart, loadIceCreamCustomizer, loadOrderTracker].forEach(load => load().catch(() => {})); });
+    return () => cancel(handle);
+  }, [isVendorApp]);
   const trackedPageViewRef = useRef('');
   const trackedMetaPageViewRef = useRef('');
   const isCustomerView = !isVendorApp && !isLoggedIn && ['shop', 'customizer', 'liter-customizer', 'cart', 'tracker', 'locations'].includes(view);
@@ -1893,9 +1911,13 @@ export default function App() {
 
         {view === 'shop' && isSyncLoaded && supabase && !isCloudSynced && <div className="glass" role="status" style={{ margin: '16px auto', padding: '14px 18px', maxWidth: '1200px' }}>La conexión está temporalmente interrumpida. Puedes explorar la carta; confirmaremos precio y disponibilidad antes de aceptar el pedido. También puedes pedir por WhatsApp.</div>}
         <React.Suspense fallback={<div className="glass route-loading" role="status" aria-live="polite"><span className="route-loading-spinner" aria-hidden="true" />Preparando tu experiencia...</div>}>
-          {view === 'shop' && (
+          {/* The shop stays mounted once seen, only hidden, so coming back is instant
+              instead of rebuilding every card and photo. */}
+          {(view === 'shop' || shopMounted) && (
+          <div hidden={view !== 'shop'}>
           <CustomerShop 
             lastOrder={lastOrder}
+            isActive={view === 'shop'}
             onRemoveOneFromCart={handleRemoveOneFromCart}
             onRepeatLastOrder={repeatLastOrder}
             flavors={flavors}
@@ -1930,6 +1952,7 @@ export default function App() {
             trackEvent={trackEvent}
             catalogReady={isSyncLoaded}
           />
+          </div>
         )}
 
         {view === 'customizer' && (
