@@ -28,7 +28,8 @@ export default function OrderManager({
   shopConfig,
   activeSubTab: activeSubTabProp,
   staffUsers = [],
-  onUpdateStaffUsers
+  onUpdateStaffUsers,
+  focus = null
 }) {
   const alert = (msg) => {
     if (showAlert) {
@@ -52,7 +53,11 @@ export default function OrderManager({
   }, [activeSubTabProp]);
 
   // --- Estados Locales de Filtro y Búsqueda ---
-  const [orderFilter, setOrderFilter] = useState('all');
+  const [orderFilter, setOrderFilter] = useState(focus?.filter || 'all');
+  // The panel's attention banner opens this list already filtered to the orders it named.
+  useEffect(() => {
+    if (focus?.filter) setOrderFilter(focus.filter);
+  }, [focus?.key, focus?.filter]);
   const [searchQuery, setSearchQuery] = useState(''); 
   const [dateFilterType, setDateFilterType] = useState('all'); // all, today, yesterday, 7days, custom
   const [dateStart, setDateStart] = useState('');

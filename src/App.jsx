@@ -1497,31 +1497,6 @@ export default function App() {
     if (cartEdit && view !== cartEdit.view) setCartEdit(null);
   }, [view, cartEdit]);
 
-  const sendTelegramNotification = async (order) => {
-    try {
-      const headers = { 'Content-Type': 'application/json' };
-      if (order.isOperator && supabase) {
-        const session = await currentSession(supabase).catch(() => null);
-        if (session?.access_token) headers.Authorization = `Bearer ${session.access_token}`;
-      }
-      const response = await fetch('/api/telegram', {
-        method: 'POST',
-        headers,
-        body: JSON.stringify({
-          orderId: order.id,
-          submissionKey: order.submissionKey,
-          kind: 'order'
-        })
-      });
-      if (!response.ok) {
-        throw new Error('No se pudo entregar la notificación centralizada.');
-      }
-      console.log("Notificación por Telegram enviada con éxito.");
-    } catch (err) {
-      console.error("Error al enviar notificación de Telegram:", err);
-    }
-  };
-
   const handlePlaceOrder = async (newOrder) => {
     let savedOrder = newOrder;
     if (newOrder.isOperator) {
@@ -1546,8 +1521,7 @@ export default function App() {
         safeStorage.removeItem('helados_active_order_table');
       }
     }
-    
-    await sendTelegramNotification(savedOrder);
+    // The order API sends the Telegram notice when it saves the order.
     return savedOrder;
   };
 

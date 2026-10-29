@@ -21,6 +21,14 @@ const readTelegramPayload = async (response) => {
   }
 };
 
+// Plain-text notice for a new order. Orders that wait for payment validation say so first,
+// because those are the ones that stall if nobody looks.
+export const newOrderTelegramText = (order) => {
+  const needsValidation = order?.status === 'Por Corroborar';
+  const heading = needsValidation ? `🔔 POR VALIDAR · Nuevo pedido ${order.id}` : `Nuevo pedido ${order?.id}`;
+  return `${heading}\nCliente: ${order?.customer?.name || 'Cliente'}\nTipo: ${order?.customer?.orderType || 'Delivery'}\nDirección: ${order?.customer?.address || ''}\nTeléfono: ${order?.customer?.phone || ''}\nPago: ${order?.customer?.paymentMethod || ''}\nProductos: ${(order?.items || []).map(item => `${item.quantity}x ${item.name}`).join(', ')}\nTotal: S/. ${Number(order?.grandTotal || 0).toFixed(2)}${needsValidation ? '\n\nRevisa el pago y valídalo en el panel.' : ''}`;
+};
+
 export const sendTelegramMessage = async ({ token, chatId, text, parseMode }) => {
   const body = { chat_id: chatId, text };
   if (parseMode) body.parse_mode = parseMode;
@@ -138,8 +146,7 @@ export async function onRequestPost({ request, env }, makeClient = createAdminCl
         authorized = Boolean(orderStaffRole(user));
       }
       if (!authorized) return json({ error: 'Enlace de pedido o sesión de operador requerido.' }, 403);
-      const order = data.value;
-      body.verifiedText = `Nuevo pedido ${order.id}\nCliente: ${order.customer?.name || 'Cliente'}\nTipo: ${order.customer?.orderType || 'Delivery'}\nDirección: ${order.customer?.address || ''}\nTeléfono: ${order.customer?.phone || ''}\nPago: ${order.customer?.paymentMethod || ''}\nProductos: ${(order.items || []).map(item => `${item.quantity}x ${item.name}`).join(', ')}\nTotal: S/. ${Number(order.grandTotal || 0).toFixed(2)}`;
+      body.verifiedText = newOrderTelegramText(data.value);
     } else if (kind === 'table_call') {
       const cleanTable = String(table ?? '').trim();
       if (!/^[1-9]\d{0,2}$/.test(cleanTable)) {

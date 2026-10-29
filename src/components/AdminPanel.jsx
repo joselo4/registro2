@@ -1,5 +1,5 @@
  
-import { useState, useEffect, useRef, useCallback, lazy, Suspense, useTransition } from 'react';
+import { useState, useEffect, useRef, useCallback, useMemo, lazy, Suspense, useTransition } from 'react';
 import { supabase } from '../utils/supabaseClient';
 import { updateSyncedData } from '../utils/supabaseSync';
 
@@ -51,6 +51,8 @@ const CartLocationsView = lazyModule('locations');
 import './admin/AdminGrowth.css';
 import { readRememberedOperator } from '../utils/rememberedOperator';
 import { sanitizeHTML } from '../utils/security';
+import { triggerDeviceVibration } from '../utils/appAudioNotifications';
+import { orderAttention, formatWait } from '../utils/orderAttention';
 
 // eslint-disable-next-line no-unused-vars
 const isValidEmail = (email) => {
@@ -289,7 +291,6 @@ export default function AdminPanel({
   };
 
    // --- Detector de Nuevos Pedidos (Alerta Sonora) ---
-  const prevOrdersCount = useRef(orders.length);
 
   const playNewOrderSound = useCallback(() => {
     if (!soundEnabled) return;
@@ -326,21 +327,36 @@ export default function AdminPanel({
     }
   }, [soundEnabled]);
 
+  // Orders are matched by id: a new order can arrive while another leaves the list,
+  // and customer orders arrive as "Por Corroborar", not "Pendiente".
+  const seenOrderIds = useRef(null);
   useEffect(() => {
-    if (orders.length > prevOrdersCount.current) {
-      const latestOrder = orders[0];
-      if (latestOrder && latestOrder.status === 'Pendiente') {
-        playNewOrderSound();
-        addLog(`Nuevo pedido recibido: ${latestOrder.id} por el cliente ${latestOrder.customer.name}.`);
-        if (canUseNotifications && window.Notification.permission === 'granted') {
-          new window.Notification(`🍦 ¡Nuevo Pedido en ${storeName}!`, {
-            body: `Cliente: ${latestOrder.customer.name} - Total: S/. ${latestOrder.grandTotal.toFixed(2)}`
-          });
-        }
+    const ids = new Set(orders.map(order => order?.id).filter(Boolean));
+    if (seenOrderIds.current === null) {
+      seenOrderIds.current = ids;
+      return;
+    }
+    const arrived = orders.filter(order => order?.id && !seenOrderIds.current.has(order.id) && ['Por Corroborar', 'Pendiente'].includes(order.status));
+    seenOrderIds.current = ids;
+    if (!arrived.length) return;
+    playNewOrderSound();
+    triggerDeviceVibration([250, 120, 250]);
+    arrived.forEach(order => addLog(`Nuevo pedido recibido: ${order.id} por el cliente ${order.customer?.name || 'Cliente'}.`));
+    if (canUseNotifications && window.Notification.permission === 'granted') {
+      const first = arrived[0];
+      const toValidate = arrived.filter(order => order.status === 'Por Corroborar').length;
+      try {
+        new window.Notification(toValidate ? `🔔 ${toValidate === 1 ? 'Pedido por validar' : `${toValidate} pedidos por validar`} en ${storeName}` : `🍦 ¡Nuevo pedido en ${storeName}!`, {
+          body: `${first.customer?.name || 'Cliente'} · S/. ${Number(first.grandTotal || 0).toFixed(2)}${arrived.length > 1 ? ` y ${arrived.length - 1} más` : ''}`,
+          tag: 'friozo-new-order',
+          renotify: true,
+          requireInteraction: toValidate > 0,
+        });
+      } catch {
+        // Some Android WebViews only allow notifications from a service worker.
       }
     }
-    prevOrdersCount.current = orders.length;
-  }, [orders, soundEnabled, canUseNotifications, storeName, playNewOrderSound]);
+  }, [orders, canUseNotifications, storeName, playNewOrderSound]);
 
   // --- Detector de Nuevos Llamados en Mesa (Alerta Sonora y Visual) ---
   const prevCallsCount = useRef(tableCalls.filter(c => !c.resolved).length);
@@ -394,6 +410,83 @@ export default function AdminPanel({
       window.Notification.requestPermission().catch(() => {});
     }
   }, [isLoggedIn, canUseNotifications]);
+
+  // --- Pedidos que requieren atención: por validar o demorados en su estado ---
+  const [attentionNow, setAttentionNow] = useState(() => Date.now());
+  useEffect(() => {
+    const timer = window.setInterval(() => setAttentionNow(Date.now()), 30000);
+    return () => window.clearInterval(timer);
+  }, []);
+  const attention = useMemo(() => orderAttention(orders, attentionNow), [orders, attentionNow]);
+  const toValidateCount = attention.toValidate.length;
+  const overdueCount = attention.overdue.length;
+
+  // While orders wait for validation, remind every two minutes: sound, vibration and a
+  // system notice that replaces the previous one instead of piling up.
+  useEffect(() => {
+    if (!isLoggedIn || toValidateCount === 0) return undefined;
+    const remind = () => {
+      playNewOrderSound();
+      triggerDeviceVibration([300, 150, 300]);
+      if (canUseNotifications && window.Notification.permission === 'granted') {
+        try {
+          new window.Notification(`🔔 ${toValidateCount === 1 ? 'Tienes 1 pedido por validar' : `Tienes ${toValidateCount} pedidos por validar`}`, {
+            body: 'Revisa el pago y confírmalo para que pase a cocina.',
+            tag: 'friozo-to-validate',
+            renotify: true,
+            requireInteraction: true,
+          });
+        } catch {
+          // Notifications may be unavailable in this WebView; the banner stays visible.
+        }
+      }
+    };
+    const timer = window.setInterval(remind, 2 * 60 * 1000);
+    return () => window.clearInterval(timer);
+  }, [isLoggedIn, toValidateCount, canUseNotifications, playNewOrderSound]);
+
+  // One notice the moment an order becomes late in its status (not on every refresh).
+  const announcedLate = useRef(new Set());
+  useEffect(() => {
+    const lateKeys = new Set(attention.overdue.map(entry => `${entry.order.id}:${entry.status}`));
+    const fresh = attention.overdue.filter(entry => !announcedLate.current.has(`${entry.order.id}:${entry.status}`));
+    announcedLate.current = lateKeys;
+    if (!isLoggedIn || !fresh.length) return;
+    triggerDeviceVibration([200, 100, 200]);
+    if (canUseNotifications && window.Notification.permission === 'granted') {
+      const first = fresh[0];
+      try {
+        new window.Notification(`⏱️ ${fresh.length === 1 ? `Pedido ${first.order.id} demorado` : `${fresh.length} pedidos demorados`}`, {
+          body: `${first.label} ${formatWait(first.minutes)} (límite ${first.limit} min).`,
+          tag: 'friozo-late',
+          renotify: true,
+        });
+      } catch {
+        // The banner in the panel still shows the late orders.
+      }
+    }
+  }, [attention.overdue, isLoggedIn, canUseNotifications]);
+
+  // The browser tab and the installed app icon show how many orders need attention.
+  useEffect(() => {
+    if (!isLoggedIn) return undefined;
+    const prefixPattern = /^\(\d+\) /;
+    const baseTitle = document.title.replace(prefixPattern, '');
+    document.title = attention.count > 0 ? `(${attention.count}) ${baseTitle}` : baseTitle;
+    try {
+      if (attention.count > 0) navigator.setAppBadge?.(attention.count)?.catch?.(() => {});
+      else navigator.clearAppBadge?.()?.catch?.(() => {});
+    } catch {
+      // App badges are optional.
+    }
+    return () => { document.title = document.title.replace(prefixPattern, ''); };
+  }, [attention.count, isLoggedIn]);
+
+  const [ordersFocus, setOrdersFocus] = useState(null);
+  const openOrdersFiltered = (filter) => {
+    setOrdersFocus({ filter, key: Date.now() });
+    switchTab('orders');
+  };
 
   // --- Control de Acceso por Ventanas/Módulos ---
   const isTabAllowed = useCallback((tabId) => {
@@ -814,7 +907,7 @@ export default function AdminPanel({
           {isTabAllowed('orders') && (
             <>
               <button aria-current={navTab === 'orders' ? 'page' : undefined} className={`sidebar-btn ${navTab === 'orders' ? 'active' : ''}`} onClick={() => switchTab('orders')}>
-                📦 Pedidos ({orders.filter(o => o.status === 'Pendiente').length})
+                📦 Pedidos ({orders.filter(o => o.status === 'Pendiente' || o.status === 'Por Corroborar').length}){toValidateCount > 0 && <span className="sidebar-alert" aria-label={`${toValidateCount} por validar`}>{toValidateCount}</span>}
               </button>
               {isTabAllowed('crm') && (
                 <button aria-current={navTab === 'crm' ? 'page' : undefined} className={`sidebar-btn ${navTab === 'crm' ? 'active' : ''}`} onClick={() => switchTab('crm')}>
@@ -883,6 +976,30 @@ export default function AdminPanel({
 
       {/* Contenido de pestaña activa */}
       <div className={`admin-content${isSwitchingTab ? ' is-switching' : ''}`} aria-busy={isSwitchingTab}>
+        {(toValidateCount > 0 || overdueCount > 0) && isTabAllowed('orders') && (
+          <section className="attention-bar" role="status" aria-live="polite" aria-label="Pedidos que requieren atención">
+            {toValidateCount > 0 && (
+              <div className="attention-item attention-validate">
+                <span className="attention-dot" aria-hidden="true" />
+                <span className="attention-copy">
+                  <strong>{toValidateCount === 1 ? '1 pedido por validar' : `${toValidateCount} pedidos por validar`}</strong>
+                  <small>El más antiguo llegó {formatWait(attention.oldestToValidateMinutes)}</small>
+                </span>
+                <button type="button" className="attention-action" onClick={() => openOrdersFiltered('Por Corroborar')}>Validar ahora</button>
+              </div>
+            )}
+            {overdueCount > 0 && (
+              <div className="attention-item attention-late">
+                <span className="attention-dot" aria-hidden="true" />
+                <span className="attention-copy">
+                  <strong>{overdueCount === 1 ? '1 pedido demorado' : `${overdueCount} pedidos demorados`}</strong>
+                  <small>{attention.overdue.slice(0, 2).map(entry => `${entry.order.id} · ${entry.label} ${formatWait(entry.minutes)}`).join(' — ')}</small>
+                </span>
+                <button type="button" className="attention-action" onClick={() => openOrdersFiltered(attention.overdue[0].status)}>Ver</button>
+              </div>
+            )}
+          </section>
+        )}
           <Suspense fallback={<div style={{ padding: '40px', textAlign: 'center', color: 'var(--text-light)' }}>Cargando módulo...</div>}>
           {activeTab === 'operations' && isAdminUser(currentUser) && <OperationsCenter orders={orders} salesGoal={salesGoal} shopOpen={shopOpen} onNavigate={switchTab} onUpdateOrderStatus={onUpdateOrderStatus} groups={[
           {key:'flavors',name:'Sabores',items:flavors,update:onUpdateFlavors},
@@ -934,6 +1051,7 @@ export default function AdminPanel({
 
         {(activeTab === 'orders' || activeTab === 'surveys') && (
           <OrderManager
+            focus={ordersFocus}
             orders={orders}
             onUpdateOrders={onUpdateOrders}
             onUpdateOrderStatus={onUpdateOrderStatus}
