@@ -9,7 +9,8 @@ export default function PromotionBanner({ promotion, tableNumber, onAction, prev
   const p = normalizePromotion(promotion);
   useEffect(() => {
     if (preview || (!p.startsAt && !p.endsAt)) return;
-    const timer = setInterval(() => setNow(Date.now()), 1000);
+    // Start and end times have minute precision; checking twice a minute is enough.
+    const timer = setInterval(() => setNow(Date.now()), 30000);
     return () => clearInterval(timer);
   }, [preview, p.startsAt, p.endsAt]);
   if (!preview && !isPromotionVisible(p, { tableNumber, now })) return null;

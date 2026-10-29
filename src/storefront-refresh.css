@@ -281,3 +281,20 @@ body { background: #fffaf7; }
 .qty-stepper button:hover { background: color-mix(in srgb, var(--success) 16%, transparent); }
 .qty-stepper button:focus-visible { outline: 3px solid var(--primary-color); outline-offset: -3px; }
 .qty-stepper output { text-align: center; font-weight: 800; font-variant-numeric: tabular-nums; color: var(--text-dark); }
+
+/* Paint budget. These effects made each view switch and scroll repaint slowly on
+   phones: backdrop blur re-blurs everything under sticky bars and badges every
+   frame, drop-shadow filters re-render every product photo, and wide soft shadows
+   multiply raster work. The surfaces were already nearly opaque and the shadows
+   faint, so solid colours and tighter shadows keep the same look. */
+.product-badge, .catalog-filters, .customer-shop .catalog-filters { backdrop-filter: none; -webkit-backdrop-filter: none; }
+.customer-shop .catalog-filters { background: rgba(255, 250, 247, .985); }
+[data-theme="dark"] .customer-shop .catalog-filters { background: rgba(31, 20, 29, .985); }
+.mobile-tab-bar { backdrop-filter: none !important; -webkit-backdrop-filter: none !important; background: color-mix(in srgb, var(--bg-secondary) 97%, transparent) !important; }
+.product-illustration img, .customer-shop .product-illustration img, .featured-card-art img, .featured-card-art svg { filter: none !important; }
+.customer-shop .product-card { box-shadow: 0 3px 10px rgba(83, 30, 48, .05); }
+.customer-shop .product-card:hover { box-shadow: 0 8px 18px rgba(83, 30, 48, .1); }
+.customer-shop .hero { box-shadow: 0 12px 28px rgba(122, 41, 66, .08); }
+.tracking-container { box-shadow: 0 8px 22px rgba(75, 24, 42, .06); }
+/* Cards far below the fold are not laid out or painted until they come near. */
+.customer-shop .product-card { content-visibility: auto; contain-intrinsic-size: auto 430px; }

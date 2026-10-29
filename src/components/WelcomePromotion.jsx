@@ -36,7 +36,8 @@ export default function WelcomePromotion({ promotion, tableNumber, onAction, rea
 
   useEffect(() => {
     if (!p.startsAt && !p.endsAt) return;
-    const timer = setInterval(() => setNow(Date.now()), 1000);
+    // Start and end times have minute precision; checking twice a minute is enough.
+    const timer = setInterval(() => setNow(Date.now()), 30000);
     return () => clearInterval(timer);
   }, [p.startsAt, p.endsAt]);
 
