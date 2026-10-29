@@ -47,7 +47,6 @@ export default function CustomerShop({
   occupiedTables = [],
   cart = [],
   lastOrder = null,
-  shopStatus = null,
   onRemoveOneFromCart,
   onRepeatLastOrder,
   shopConfig = {},
@@ -965,11 +964,6 @@ export default function CustomerShop({
                 (Cambiar a Llevar)
               </button>
             </div>
-          )}
-          {shopStatus && !tableNumber && (
-            <p className={`store-status ${shopStatus.open ? 'is-open' : 'is-closed'}`} role="status">
-              <span className="store-status-dot" aria-hidden="true" />{shopStatus.label}
-            </p>
           )}
           <h1>
             Qué rico <span>caer en<br />la tentación.</span>

@@ -1896,7 +1896,6 @@ export default function App() {
           {view === 'shop' && (
           <CustomerShop 
             lastOrder={lastOrder}
-            shopStatus={shopStatus}
             onRemoveOneFromCart={handleRemoveOneFromCart}
             onRepeatLastOrder={repeatLastOrder}
             flavors={flavors}
