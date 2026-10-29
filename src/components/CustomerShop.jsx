@@ -4,6 +4,7 @@ import DessertPreview from './DessertPreview';
 import PromotionBanner from './PromotionBanner';
 import WelcomePromotion from './WelcomePromotion';
 import PackIllustration from './PackIllustration';
+import { preferWebp } from '../utils/imageUrl';
 import { normalizePromotion, DEFAULT_POPUP_PROMOTION, DEFAULT_WEB_PROMOTION } from '../utils/promotion';
 import { updateSyncedData } from '../utils/supabaseSync';
 import { sanitizeHTML } from '../utils/security';
@@ -619,7 +620,7 @@ export default function CustomerShop({
                     <div className="product-illustration popsicle-illustration">
                       {popsicle.image ? (
                         <img
-                          src={popsicle.image}
+                          src={preferWebp(popsicle.image)}
                           alt={`Paleta artesanal ${popsicle.name}`}
                           width="160"
                           height="220"
@@ -662,7 +663,7 @@ export default function CustomerShop({
                     <div className="product-illustration" style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', minHeight: '120px' }}>
                       {literConfig?.image ? (
                         <img 
-                          src={literConfig.image} 
+                          src={preferWebp(literConfig.image)} 
                           alt="Helado de 1 Litro" 
                           width="200"
                           height="110"
@@ -728,7 +729,7 @@ export default function CustomerShop({
                       <div className="product-illustration" style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', minHeight: '120px' }}>
                         {flavor.image ? (
                           <img 
-                            src={flavor.image} 
+                            src={preferWebp(flavor.image)} 
                             alt={flavor.name} 
                             width="200"
                             height="110"
@@ -783,7 +784,7 @@ export default function CustomerShop({
                       <div className="product-illustration pack-illustration" style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', minHeight: '120px' }}>
                         {pack.image ? (
                           <img 
-                            src={pack.image} 
+                            src={preferWebp(pack.image)} 
                             alt={pack.name} 
                             width="200"
                             height="100"
@@ -1128,7 +1129,7 @@ export default function CustomerShop({
       {quickView && <div className="product-quick-backdrop" onClick={() => setQuickView(null)}>
         <div className="product-quick-dialog" role="dialog" aria-modal="true" aria-label={`Detalles de ${quickView.product.name}`} onClick={event => event.stopPropagation()}>
           <button type="button" className="product-quick-close" aria-label="Cerrar detalles" onClick={() => setQuickView(null)}>×</button>
-          <div className="product-quick-art">{quickView.product.image ? <img src={quickView.product.image} alt={quickView.product.name} /> : <span aria-hidden="true">{quickView.kind === 'pack' ? '🎁' : quickView.kind === 'popsicle' ? '🍭' : quickView.kind === 'liter' ? '🏺' : '🍦'}</span>}</div>
+          <div className="product-quick-art">{quickView.product.image ? <img src={preferWebp(quickView.product.image)} alt={quickView.product.name} /> : <span aria-hidden="true">{quickView.kind === 'pack' ? '🎁' : quickView.kind === 'popsicle' ? '🍭' : quickView.kind === 'liter' ? '🏺' : '🍦'}</span>}</div>
           <div className="product-quick-copy"><h2>{quickView.product.name}</h2><p>{quickView.product.description || (quickView.kind === 'liter' ? 'Combina tus sabores favoritos en un pote para compartir.' : 'Preparado con el sabor de nuestra carta artesanal.')}</p>{quickView.kind === 'pack' && quickView.product.items && <p><strong>Incluye:</strong> {quickView.product.items}</p>}<strong className="product-quick-price">S/. {(quickView.kind === 'classic' ? quickScoopItem(quickView.product, bases).price : Number(quickView.product.price || 0)).toFixed(2)}</strong><button type="button" className="btn btn-primary" onClick={() => {
             if (quickView.kind === 'liter') setView('liter-customizer');
             else if (quickView.kind === 'pack') handleAddPackToCart(quickView.product);
@@ -1181,7 +1182,7 @@ export default function CustomerShop({
                     }}>{kind === 'liter' ? 'Personalizar →' : addButtonLabel(kind, item.id)}</button>
                   </div>
                   <div className="featured-card-art" aria-hidden="true">
-                    {image ? <img src={image} alt="" loading="lazy" decoding="async" /> : kind === 'classic' ? <DessertPreview compact base={{ id: 'cono', name: 'Cono' }} scoops={[item]} /> : <PackIllustration pack={item} />}
+                    {image ? <img src={preferWebp(image)} alt="" loading="lazy" decoding="async" /> : kind === 'classic' ? <DessertPreview compact base={{ id: 'cono', name: 'Cono' }} scoops={[item]} /> : <PackIllustration pack={item} />}
                   </div>
                 </article>
               );

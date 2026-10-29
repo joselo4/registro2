@@ -5,8 +5,22 @@
 --    cuando haya miles de pedidos guardados.
 -- No cambia ni borra datos.
 
-
-DROP POLICY IF EXISTS "Permitir lectura publica de catalogo" ON public.helados_sync;
+-- Las políticas de lectura se suman: si queda cualquier política antigua que deje leer
+-- a visitantes anónimos, los cupones seguirían visibles. Se eliminan todas las de
+-- lectura para anon/public en esta tabla y se crea una sola con la lista correcta.
+DO $$
+DECLARE
+  existing_policy record;
+BEGIN
+  FOR existing_policy IN
+    SELECT policyname FROM pg_policies
+    WHERE schemaname = 'public' AND tablename = 'helados_sync'
+      AND cmd IN ('SELECT', 'ALL')
+      AND (roles && ARRAY['anon', 'public']::name[])
+  LOOP
+    EXECUTE format('DROP POLICY IF EXISTS %I ON public.helados_sync', existing_policy.policyname);
+  END LOOP;
+END $$;
 
 CREATE POLICY "Permitir lectura publica de catalogo"
 ON public.helados_sync
@@ -26,7 +40,6 @@ USING (
     )
 );
 
-
 -- Índices de pedidos. La tabla es pequeña: se crean en un instante.
 CREATE INDEX IF NOT EXISTS helados_sync_order_contact_idx
   ON public.helados_sync ((value->>'contactKey'), (value->>'createdAt'))
@@ -36,5 +49,8 @@ CREATE INDEX IF NOT EXISTS helados_sync_order_client_idx
   ON public.helados_sync ((value->>'clientKey'), (value->>'createdAt'))
   WHERE key LIKE 'order_PED-%';
 
--- Comprobación: debe devolver 0 filas con la clave pública (rol anon).
--- SET ROLE anon; SELECT key FROM public.helados_sync WHERE key = 'coupons'; RESET ROLE;
+-- Resultado: las políticas que quedan en la tabla. Para visitantes (anon) debe haber
+-- una sola de lectura: "Permitir lectura publica de catalogo".
+SELECT policyname, roles, cmd FROM pg_policies
+WHERE schemaname = 'public' AND tablename = 'helados_sync'
+ORDER BY cmd, policyname;

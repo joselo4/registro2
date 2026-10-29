@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react';
 import { isPromotionVisible, normalizePromotion } from '../utils/promotion';
+import { preferWebp } from '../utils/imageUrl';
 import './promotion.css';
 
 export default function PromotionBanner({ promotion, tableNumber, onAction, preview = false, eager = false }) {
@@ -36,7 +37,7 @@ export default function PromotionBanner({ promotion, tableNumber, onAction, prev
         </div>
         {p.terms && <small className="promotion-terms">{p.terms}</small>}
       </div>
-      {hasImage && <div className="promotion-image"><img src={p.image} alt={p.imageAlt} loading={eager ? 'eager' : 'lazy'} decoding="async" style={{ objectFit: p.imageFit }} onError={() => setFailedImage(p.image)} /></div>}
+      {hasImage && <div className="promotion-image"><img src={preferWebp(p.image)} alt={p.imageAlt} loading={eager ? 'eager' : 'lazy'} decoding="async" style={{ objectFit: p.imageFit }} onError={() => setFailedImage(p.image)} /></div>}
     </section>
   );
 }
