@@ -129,10 +129,6 @@ export default defineConfig(({ mode }) => {
               if (id.includes('leaflet')) {
                 return 'leaflet';
               }
-              // Only the optional 3D view uses it; it must not join the startup vendor chunk.
-              if (/[\\/]node_modules[\\/]three[\\/]/.test(id)) {
-                return 'three';
-              }
               // Separate chunks download in parallel and stay cached across
               // releases that only update one of the libraries.
               if (id.includes('@supabase')) {

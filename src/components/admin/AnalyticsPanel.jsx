@@ -111,11 +111,6 @@ export default function AnalyticsPanel({ googleAnalyticsId }) {
         <Funnel steps={STORE_STEPS} totals={totals} />
         <div className="analytics-extras" aria-label="Uso de funciones de venta">
           <article>
-            <small>Vista 3D del helado</small>
-            <strong>{Number(totals.view_3d) || 0}</strong>
-            <span>{Number(totals.visit) ? `${Math.round((Number(totals.view_3d) || 0) / Number(totals.visit) * 100)}% de las visitas la abrieron` : 'Aún sin visitas en el periodo'}</span>
-          </article>
-          <article>
             <small>«¿Lo de siempre?»</small>
             <strong>{Number(totals.repeat_order) || 0}</strong>
             <span>veces repitieron su último pedido</span>

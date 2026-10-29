@@ -89,7 +89,7 @@ test('the report adds shard and overflow rows, and keeps older single-row days',
     days: 7,
     now,
     funnelRows: [
-      { key: 'funnel_2026-09-25_3', value: { visit: 10, view_3d: 2 } },
+      { key: 'funnel_2026-09-25_3', value: { visit: 10 } },
       { key: 'funnel_2026-09-25_41', value: { visit: 5, repeat_order: 1 } },
       { key: 'funnel_2026-09-25_xab12cd34ef56', value: { visit: 1 } },
       { key: 'funnel_2026-09-24', value: { visit: 7 } },
@@ -97,6 +97,5 @@ test('the report adds shard and overflow rows, and keeps older single-row days',
     ],
   });
   assert.equal(report.totals.visit, 23);
-  assert.equal(report.totals.view_3d, 2);
   assert.equal(report.totals.repeat_order, 1);
 });

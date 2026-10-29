@@ -23,7 +23,7 @@ import { reconcileCart } from './utils/cartRepricing';
 import { recordFunnelEvent, recordVisit } from './utils/storeAnalytics';
 import { normalizeOrderCode } from './utils/orderId';
 import { safeStorage } from './utils/security';
-import { isShopOpenCurrently } from './utils/storeHours';
+import { isShopOpenCurrently, storeStatus } from './utils/storeHours';
 import { cleanTableParam, isKnownView, urlForView, viewFromHash } from './utils/viewHistory';
 
 import CustomerShop from './components/CustomerShop';
@@ -460,6 +460,7 @@ export default function App() {
     return () => window.clearInterval(timer);
   }, [shopConfig.useHours]);
   const effectiveShopOpen = isShopOpenCurrently(shopConfig, new Date(clockMinute * 60000));
+  const shopStatus = storeStatus(shopConfig, new Date(clockMinute * 60000));
   const locationFeatureVisible = shopConfig.locationTrackingEnabled !== false;
 
   // --- Configuración Dinámica y Gestión de Usuarios ---
@@ -1456,6 +1457,23 @@ export default function App() {
     setCart(current => current.filter((_, idx) => idx !== index));
   };
 
+  // Product cards can take one unit back out without opening the cart.
+  // kind/id match the catalog card: a popsicle, a pack, or a plain one-scoop helado.
+  const handleRemoveOneFromCart = (kind, id) => {
+    const matches = (item) => (kind === 'classic'
+      ? item.type === 'custom' && item.scoops?.length === 1 && !item.toppings?.length && String(item.scoops[0]?.id) === String(id)
+      : item.type === kind && String(item.id) === String(id));
+    setCart(current => {
+      let index = -1;
+      for (let position = current.length - 1; position >= 0; position--) {
+        if (matches(current[position])) { index = position; break; }
+      }
+      if (index < 0) return current;
+      const quantity = Number(current[index].quantity) || 1;
+      return quantity <= 1 ? current.filter((_, idx) => idx !== index) : current.map((entry, idx) => (idx === index ? { ...entry, quantity: quantity - 1 } : entry));
+    });
+  };
+
   // --- Editar un producto del carrito en su armador ---
   const [cartEdit, setCartEdit] = useState(null); // { key, index, item, view }
   const handleEditCartItem = (index) => {
@@ -1869,7 +1887,7 @@ export default function App() {
             fontWeight: '600',
             fontSize: '0.9rem'
           }}>
-            En este momento estamos fuera de horario de atención. Puedes explorar el menú o administrar la tienda, pero no se aceptan pedidos.
+            {shopStatus.label}. Puedes ver la carta y armar tu pedido; lo confirmas cuando abramos.
           </div>
         )}
 
@@ -1878,6 +1896,8 @@ export default function App() {
           {view === 'shop' && (
           <CustomerShop 
             lastOrder={lastOrder}
+            shopStatus={shopStatus}
+            onRemoveOneFromCart={handleRemoveOneFromCart}
             onRepeatLastOrder={repeatLastOrder}
             flavors={flavors}
             toppings={toppings}

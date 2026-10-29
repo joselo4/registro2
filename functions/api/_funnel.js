@@ -1,6 +1,6 @@
 // First-party sales funnel: anonymous daily counters kept in helados_sync,
 // so the admin panel has conversion data without GA4 server secrets.
-export const FUNNEL_EVENTS = ['visit', 'view_item', 'add_to_cart', 'begin_checkout', 'view_3d', 'repeat_order'];
+export const FUNNEL_EVENTS = ['visit', 'view_item', 'add_to_cart', 'begin_checkout', 'repeat_order'];
 export const MAX_PER_EVENT = 30; // per request, so one client cannot inflate the numbers much
 
 export const limaDay = (date = new Date()) =>

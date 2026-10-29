@@ -168,24 +168,3 @@
 .atelier-editing-note { margin: 0 0 14px; padding: 10px 14px; border-radius: 14px; background: #fff4d6; border: 1px solid #f3dc9a; color: #5a4210; font-size: .86rem; line-height: 1.45; }
 [data-theme="dark"] .atelier-editing-note { background: #3d331c; border-color: #6b5a2a; color: #f6e7bf; }
 
-/* Photo / 3D switch: one chip over the preview, loaded with the builder so it is always styled. */
-.atelier-stage-visual { position: relative; min-width: 0; }
-.atelier-view-switch { position: absolute; top: 6px; right: 6px; z-index: 2; display: inline-flex; align-items: center; gap: 6px; min-height: 36px; padding: 6px 12px 6px 9px; border: 1px solid rgba(75, 24, 42, .14); border-radius: 99px; background: rgba(255, 255, 255, .92); color: #4a2a22; font: 700 .78rem/1 var(--font-body); box-shadow: 0 4px 14px rgba(75, 24, 42, .12); cursor: pointer; backdrop-filter: blur(6px); transition: transform .2s cubic-bezier(0.16, 1, 0.3, 1), box-shadow .2s ease; }
-.atelier-view-switch:hover { transform: translateY(-1px); box-shadow: 0 6px 18px rgba(75, 24, 42, .16); }
-.atelier-view-switch:focus-visible { outline: 3px solid var(--primary-color); outline-offset: 2px; }
-.atelier-view-switch svg { width: 17px; height: 17px; fill: none; stroke: currentColor; stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round; }
-.atelier-stage-3d { height: 132px; }
-.dessert-3d-loading { display: grid; place-items: center; height: 100%; padding: 0 8px; text-align: center; font-size: .8rem; color: #6d4a40; }
-/* On phones the compact sticky strip grows and stops following the page while in 3D. */
-.atelier-stage.is-3d { position: relative; top: auto; grid-template-columns: 1fr; }
-.atelier-stage.is-3d .atelier-stage-3d { height: 280px; }
-@media (max-width: 759px) {
-  .atelier-view-switch { top: 2px; right: 2px; min-height: 32px; padding: 4px 9px 4px 7px; font-size: .7rem; }
-  .atelier-stage:not(.is-3d) .atelier-view-switch { position: static; margin: 4px auto 0; }
-}
-@media (min-width: 760px) {
-  .atelier-stage-3d, .atelier-stage.is-3d .atelier-stage-3d { height: 340px; }
-  .atelier-stage.is-3d { position: sticky; top: 96px; }
-  .atelier-view-switch { top: 0; right: 0; }
-}
-[data-theme="dark"] .atelier-view-switch { background: rgba(48, 32, 42, .92); color: #fff2e9; border-color: rgba(255, 255, 255, .16); }

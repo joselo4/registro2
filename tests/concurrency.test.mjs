@@ -114,16 +114,14 @@ test('a different customer cannot take over an existing order code', async () =>
 
 test(`${CROWD} simultaneous visitors are all counted in the sales funnel`, async () => {
   const db = racingDatabase();
-  const request = () => new Request('https://shop.test/api/track', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ events: { visit: 1, view_3d: 1 } }) });
+  const request = () => new Request('https://shop.test/api/track', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ events: { visit: 1 } }) });
   const responses = await Promise.all(Array.from({ length: CROWD }, () => track({ request: request(), env: {} }, async () => db)));
   const failed = responses.filter(response => response.status !== 200).length;
   const today = limaDay();
   const shards = [...db.rows.values()].filter(row => funnelDayFromKey(row.key) === today);
   const visits = shards.reduce((sum, row) => sum + (row.value.visit || 0), 0);
-  const views3d = shards.reduce((sum, row) => sum + (row.value.view_3d || 0), 0);
   assert.equal(failed, 0);
   assert.equal(visits, CROWD);
-  assert.equal(views3d, CROWD);
   assert.ok(shards.length > 1, 'counts are spread over several rows');
 });
 

@@ -47,6 +47,8 @@ export default function CustomerShop({
   occupiedTables = [],
   cart = [],
   lastOrder = null,
+  shopStatus = null,
+  onRemoveOneFromCart,
   onRepeatLastOrder,
   shopConfig = {},
   promotionReady = true,
@@ -567,7 +569,25 @@ export default function CustomerShop({
     const qty = cartQuantities[`${kind}:${id}`] || 0;
     return qty > 0 ? <>✓ {qty} en tu pedido <span className="add-btn-more">+1</span></> : idle;
   }, [cartQuantities]);
-  const inCartClass = useCallback((kind, id) => (cartQuantities[`${kind}:${id}`] ? ' in-cart' : ''), [cartQuantities]);
+  // Once a product is in the order its card shows − quantity +, so customers adjust
+  // it right there instead of opening the cart.
+  const renderAddControl = useCallback(({ kind, id, name, onAdd, idle = '+ Agregar', extraClass = '' }) => {
+    const qty = cartQuantities[`${kind}:${id}`] || 0;
+    if (qty > 0 && typeof onRemoveOneFromCart === 'function') {
+      return (
+        <div className="qty-stepper" role="group" aria-label={`${name} en tu pedido`}>
+          <button type="button" aria-label={`Quitar uno de ${name}`} onClick={() => onRemoveOneFromCart(kind, id)}>−</button>
+          <output aria-live="polite">{qty}</output>
+          <button type="button" aria-label={`Agregar otro: ${name}`} onClick={onAdd}>+</button>
+        </div>
+      );
+    }
+    return (
+      <button type="button" className={`add-btn${extraClass}`} aria-label={`Agregar ${name} al carrito`} onClick={onAdd}>
+        {idle}
+      </button>
+    );
+  }, [cartQuantities, onRemoveOneFromCart]);
 
   // Helper for dynamic premium toppings per flavor in the shop catalog
   // Un helado clásico rápido es un helado simple de 1 bola en Cono
@@ -638,14 +658,7 @@ export default function CustomerShop({
                       </div>
                       <div className="product-price-action">
                         <div className="price-tag">S/. {Number(popsicle.price || 0).toFixed(2)}<span> / unidad</span></div>
-                        <button
-                          type="button"
-                          className={`add-btn${inCartClass('popsicle', popsicle.id)}`}
-                          aria-label={`Agregar paleta ${popsicle.name} al carrito`}
-                          onClick={() => handleAddPopsicleToCart(popsicle)}
-                        >
-                          {addButtonLabel('popsicle', popsicle.id)}
-                        </button>
+                        {renderAddControl({ kind: 'popsicle', id: popsicle.id, name: `paleta ${popsicle.name}`, onAdd: () => handleAddPopsicleToCart(popsicle) })}
                       </div>
                     </div>
                   </article>
@@ -753,14 +766,7 @@ export default function CustomerShop({
                             S/. {quickScoopItem(flavor, bases).price.toFixed(2)}
                             <span> / bola</span>
                           </div>
-                          <button
-                            type="button"
-                            className={`add-btn${inCartClass('classic', flavor.id)}`}
-                            aria-label={`Agregar helado de ${flavor.name} al carrito`}
-                            onClick={() => handleAddClassicToCart(flavor)}
-                          >
-                            {addButtonLabel('classic', flavor.id)}
-                          </button>
+                          {renderAddControl({ kind: 'classic', id: flavor.id, name: `helado de ${flavor.name}`, onAdd: () => handleAddClassicToCart(flavor) })}
                         </div>
                       </div>
                     </div>
@@ -812,14 +818,7 @@ export default function CustomerShop({
                               {pack.discountText}
                             </div>
                           </div>
-                          <button
-                            type="button"
-                            className={`add-btn add-btn-pack${inCartClass('pack', pack.id)}`}
-                            aria-label={`Agregar ${pack.name} al carrito`}
-                            onClick={() => handleAddPackToCart(pack)}
-                          >
-                            {addButtonLabel('pack', pack.id, '+ Agregar pack')}
-                          </button>
+                          {renderAddControl({ kind: 'pack', id: pack.id, name: pack.name, onAdd: () => handleAddPackToCart(pack), idle: '+ Agregar pack', extraClass: ' add-btn-pack' })}
                         </div>
                       </div>
                     </div>
@@ -841,7 +840,7 @@ export default function CustomerShop({
         ))}
       </div>
     );
-  }, [tableNumber, catalogOrder, filter, literConfig, literMatches, catalogFlavors, catalogPacks, catalogPopsicles, setView, handleAddClassicToCart, handleAddPackToCart, handleAddPopsicleToCart, openQuickView, shopConfig, bases, addButtonLabel, inCartClass]);
+  }, [tableNumber, catalogOrder, filter, literConfig, literMatches, catalogFlavors, catalogPacks, catalogPopsicles, setView, handleAddClassicToCart, handleAddPackToCart, handleAddPopsicleToCart, openQuickView, shopConfig, bases, renderAddControl]);
 
   const resolvedHeroImage = storeHeroImage || '/hero-friozo-v2.webp';
 
@@ -966,6 +965,11 @@ export default function CustomerShop({
                 (Cambiar a Llevar)
               </button>
             </div>
+          )}
+          {shopStatus && !tableNumber && (
+            <p className={`store-status ${shopStatus.open ? 'is-open' : 'is-closed'}`} role="status">
+              <span className="store-status-dot" aria-hidden="true" />{shopStatus.label}
+            </p>
           )}
           <h1>
             Qué rico <span>caer en<br />la tentación.</span>

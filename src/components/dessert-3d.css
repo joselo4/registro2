@@ -1,4 +1,0 @@
-.dessert-3d { width: 100%; height: 100%; touch-action: pan-y; cursor: grab; }
-.dessert-3d:active { cursor: grabbing; }
-.dessert-3d canvas { display: block; width: 100% !important; height: 100% !important; }
-.dessert-3d-fallback { margin: 0; padding: 24px 12px; text-align: center; font-size: .86rem; color: var(--text-light); }

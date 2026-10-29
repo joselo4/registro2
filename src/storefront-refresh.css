@@ -274,3 +274,15 @@ body { background: #fffaf7; }
 .repeat-order p { margin: 0; font-size: .86rem; color: var(--text-light); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .repeat-order-action { flex: 0 0 auto; min-height: 44px; white-space: nowrap; }
 @media (max-width: 600px) { .repeat-order { flex-direction: column; align-items: stretch; } .repeat-order p { white-space: normal; } }
+
+/* Open or closed, and until or from when: answered before the customer builds an order. */
+.store-status { display: inline-flex; align-items: center; gap: 8px; margin: 0 0 12px; padding: 6px 12px; border-radius: 99px; font-size: .84rem; font-weight: 800; background: var(--bg-secondary); border: 1px solid var(--store-line, var(--border-color)); color: var(--text-dark); }
+.store-status-dot { width: 9px; height: 9px; border-radius: 50%; background: var(--success); box-shadow: 0 0 0 3px color-mix(in srgb, var(--success) 22%, transparent); }
+.store-status.is-closed .store-status-dot { background: var(--danger); box-shadow: 0 0 0 3px color-mix(in srgb, var(--danger) 20%, transparent); }
+
+/* − quantity + on a product card once it is in the order. */
+.qty-stepper { display: inline-grid; grid-template-columns: 44px minmax(32px, auto) 44px; align-items: center; height: 44px; border-radius: 99px; border: 1px solid var(--success); background: color-mix(in srgb, var(--success) 10%, var(--bg-secondary)); overflow: hidden; }
+.qty-stepper button { height: 100%; border: 0; background: transparent; color: var(--success); font-size: 1.25rem; font-weight: 800; cursor: pointer; }
+.qty-stepper button:hover { background: color-mix(in srgb, var(--success) 16%, transparent); }
+.qty-stepper button:focus-visible { outline: 3px solid var(--primary-color); outline-offset: -3px; }
+.qty-stepper output { text-align: center; font-weight: 800; font-variant-numeric: tabular-nums; color: var(--text-dark); }
