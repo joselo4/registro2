@@ -250,6 +250,12 @@ export default function CustomerShop({
   const [wizardAnswers, setWizardAnswers] = useState({ antojo: null, premium: null, topping: null });
   const [wizardResult, setWizardResult] = useState(null);
   const [isWizardLoading, setIsWizardLoading] = useState(false);
+  useEffect(() => {
+    if (!showWizard) return;
+    const closeOnEscape = event => { if (event.key === 'Escape') setShowWizard(false); };
+    window.addEventListener('keydown', closeOnEscape);
+    return () => window.removeEventListener('keydown', closeOnEscape);
+  }, [showWizard]);
 
   // --- Estados y Lógica para Atención en Mesa (Llamar al Mozo) ---
   const [showCallModal, setShowCallModal] = useState(false);
@@ -967,7 +973,7 @@ export default function CustomerShop({
             </div>
           )}
           <h1>
-            Qué rico <span>caer en<br />la tentación.</span>
+            Qué rico <span>caer en <br />la tentación.</span>
           </h1>
           <p className="hero-description">
             En <strong>{storeName || 'FRIOZO'}</strong> eliges el sabor y nosotros lo hacemos al momento. Pide tu favorito o crea una mezcla solo tuya.
@@ -1128,7 +1134,7 @@ export default function CustomerShop({
       {quickView && <div className="product-quick-backdrop" onClick={() => setQuickView(null)}>
         <div className="product-quick-dialog" role="dialog" aria-modal="true" aria-label={`Detalles de ${quickView.product.name}`} onClick={event => event.stopPropagation()}>
           <button type="button" className="product-quick-close" aria-label="Cerrar detalles" onClick={() => setQuickView(null)}>×</button>
-          <div className="product-quick-art">{quickView.product.image ? <img src={preferWebp(quickView.product.image)} alt={quickView.product.name} /> : <span aria-hidden="true">{quickView.kind === 'pack' ? '🎁' : quickView.kind === 'popsicle' ? '🍭' : quickView.kind === 'liter' ? '🏺' : '🍦'}</span>}</div>
+          <div className="product-quick-art">{quickView.product.image ? <img src={preferWebp(quickView.product.image)} alt={quickView.product.name} /> : quickView.kind === 'classic' ? <DessertPreview compact base={{ id: 'cono', name: 'Cono' }} scoops={[quickView.product]} /> : <span aria-hidden="true">{quickView.kind === 'pack' ? '🎁' : quickView.kind === 'popsicle' ? '🍭' : quickView.kind === 'liter' ? '🏺' : '🍦'}</span>}</div>
           <div className="product-quick-copy"><h2>{quickView.product.name}</h2><p>{quickView.product.description || (quickView.kind === 'liter' ? 'Combina tus sabores favoritos en un pote para compartir.' : 'Preparado con el sabor de nuestra carta artesanal.')}</p>{quickView.kind === 'pack' && quickView.product.items && <p><strong>Incluye:</strong> {quickView.product.items}</p>}<strong className="product-quick-price">S/. {(quickView.kind === 'classic' ? quickScoopItem(quickView.product, bases).price : Number(quickView.product.price || 0)).toFixed(2)}</strong><button type="button" className="btn btn-primary" onClick={() => {
             if (quickView.kind === 'liter') setView('liter-customizer');
             else if (quickView.kind === 'pack') handleAddPackToCart(quickView.product);
@@ -1356,9 +1362,9 @@ export default function CustomerShop({
       {/* Modal de guía de sabores */}
       {showWizard && (
         <div className="sabor-omatic-overlay">
-          <div className="glass sabor-omatic-modal">
+          <div className="glass sabor-omatic-modal" role="dialog" aria-modal="true" aria-labelledby="sabor-omatic-title">
             <div className="sabor-omatic-header">
-              <h3>🧠 Guía de sabores</h3>
+              <h3 id="sabor-omatic-title">🧠 Guía de sabores</h3>
               <button className="sabor-omatic-close" onClick={() => setShowWizard(false)} aria-label="Cerrar guía">&times;</button>
             </div>
             <div className="sabor-omatic-body">

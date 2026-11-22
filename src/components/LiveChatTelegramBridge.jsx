@@ -72,7 +72,8 @@ export default function LiveChatTelegramBridge({
           right: 20px;
           width: 56px;
           height: 56px;
-          background: linear-gradient(135deg, var(--primary-color) 0%, var(--secondary-color) 100%);
+          background: var(--primary-color);
+          border: 0;
           border-radius: 50%;
           display: flex;
           align-items: center;
@@ -80,13 +81,19 @@ export default function LiveChatTelegramBridge({
           color: white;
           font-size: 1.6rem;
           cursor: pointer;
-          box-shadow: 0 4px 15px rgba(255, 107, 129, 0.4);
+          box-shadow: 0 6px 16px rgba(83, 20, 42, 0.28);
           z-index: 9999;
           transition: bottom 0.3s cubic-bezier(0.16, 1, 0.3, 1), transform 0.3s cubic-bezier(0.16, 1, 0.3, 1), box-shadow 0.3s ease;
         }
-        .live-chat-bubble:hover {
-          transform: scale(1.1);
-          box-shadow: 0 6px 20px rgba(255, 107, 129, 0.5);
+        @media (hover: hover) {
+          .live-chat-bubble:hover {
+            transform: scale(1.06);
+            box-shadow: 0 8px 20px rgba(83, 20, 42, 0.34);
+          }
+        }
+        .live-chat-bubble:focus-visible {
+          outline: 3px solid var(--primary-color);
+          outline-offset: 3px;
         }
         .live-chat-window {
           position: fixed;
@@ -182,6 +189,26 @@ export default function LiveChatTelegramBridge({
         @keyframes scalePop {
           0% { transform: scale(0.5); }
           100% { transform: scale(1); }
+        }
+        /* Phones: a smaller bubble that sits above the tab bar and, when the cart
+           reminder is open, above it too, so it never covers "Ver mi pedido". */
+        @media (max-width: 600px) {
+          .live-chat-bubble {
+            right: 14px;
+            width: 48px;
+            height: 48px;
+            font-size: 1.3rem;
+            bottom: calc(${hasFloatingCart ? '182px' : '80px'} + env(safe-area-inset-bottom, 0px));
+          }
+          .live-chat-window {
+            right: 14px;
+            max-width: calc(100vw - 28px);
+            bottom: calc(${hasFloatingCart ? '242px' : '140px'} + env(safe-area-inset-bottom, 0px));
+            max-height: calc(100dvh - ${hasFloatingCart ? '318px' : '216px'} - env(safe-area-inset-bottom, 0px));
+          }
+        }
+        @media (prefers-reduced-motion: reduce) {
+          .live-chat-bubble, .live-chat-window { transition: none; animation: none; }
         }
       ` }} />
 

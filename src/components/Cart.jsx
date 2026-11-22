@@ -628,7 +628,7 @@ export default function Cart({
 
               <div className="cart-item-actions" style={{ flexDirection: 'column', alignItems: 'flex-end', gap: '4px' }}>
                 <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-                  <button className="qty-btn" disabled={!shopOpen} onClick={() => shopOpen && onUpdateQuantity(index, item.quantity - 1)} style={{ width: '24px', height: '24px', fontSize: '0.8rem', opacity: !shopOpen ? 0.5 : 1, cursor: !shopOpen ? 'not-allowed' : 'pointer' }} aria-label={`Quitar una unidad de ${item.name}`}>-</button>
+                  <button className="qty-btn" disabled={!shopOpen} onClick={() => shopOpen && onUpdateQuantity(index, item.quantity - 1)} style={{ width: '24px', height: '24px', fontSize: '0.8rem', opacity: !shopOpen ? 0.5 : 1, cursor: !shopOpen ? 'not-allowed' : 'pointer' }} aria-label={`Quitar una unidad de ${item.name}`}>−</button>
                   <span style={{ fontWeight: 700, minWidth: '15px', textAlign: 'center', fontSize: '0.85rem' }}>{item.quantity}</span>
                   <button className="qty-btn" aria-label={`Agregar una unidad de ${item.name}`} disabled={!shopOpen || item.quantity >= 99} onClick={() => shopOpen && onUpdateQuantity(index, item.quantity + 1)} style={{ width: '24px', height: '24px', fontSize: '0.8rem', opacity: (!shopOpen || item.quantity >= 99) ? 0.5 : 1, cursor: (!shopOpen || item.quantity >= 99) ? 'not-allowed' : 'pointer' }}>+</button>
                 </div>
@@ -775,7 +775,7 @@ export default function Cart({
                     </button>
                   </div>
                 ) : (
-                  <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
+                  <div className="service-options">
                     {channels.Mesa && tableOrdersEnabled && <button type="button" className={`payment-btn ${needsTable ? 'selected' : ''}`} aria-pressed={needsTable} onClick={() => setOrderType('Mesa')} disabled={!shopOpen}>🍽️ Mesa</button>}
                     {channels.Barra && <button type="button" className={`payment-btn ${orderType === 'Barra' ? 'selected' : ''}`} aria-pressed={orderType === 'Barra'} onClick={() => setOrderType('Barra')} disabled={!shopOpen}>🛍️ Recojo en barra</button>}
                     {channels.Delivery && <button type="button" className={`payment-btn ${orderType === 'Delivery' ? 'selected' : ''}`} aria-pressed={orderType === 'Delivery'} onClick={() => setOrderType('Delivery')} disabled={!shopOpen}>🛵 Delivery</button>}

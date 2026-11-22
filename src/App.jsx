@@ -1753,7 +1753,7 @@ export default function App() {
     <div className={view === 'admin' ? undefined : 'site-protected'} style={{ display: 'flex', flexDirection: 'column', minHeight: '100vh' }}>
       
       {/* Barra de Navegación (Cabecera Principal) */}
-      <nav className="navbar glass">
+      <nav className="navbar glass" aria-label="Principal">
         <div className="container nav-container">
           <a 
             href="#" 
@@ -2206,7 +2206,7 @@ export default function App() {
 
       {/* 📱 BARRA DE NAVEGACIÓN INFERIOR PARA MÓVIL (Bottom Tab Bar) */}
       {!isVendorApp && (
-        <nav className="mobile-tab-bar glass">
+        <nav className="mobile-tab-bar glass" aria-label="Accesos rápidos">
           <a 
             href="#tienda"
             className={`tab-item ${view === 'shop' ? 'active' : ''}`}

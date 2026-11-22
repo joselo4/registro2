@@ -298,3 +298,54 @@ body { background: #fffaf7; }
 .tracking-container { box-shadow: 0 8px 22px rgba(75, 24, 42, .06); }
 /* Cards far below the fold are not laid out or painted until they come near. */
 .customer-shop .product-card { content-visibility: auto; contain-intrinsic-size: auto 430px; }
+
+/* ── Pulido nov-2026 ─────────────────────────────────────────────────────────
+   Hero en móvil: el cono queda detrás de los botones en lugar de taparlos. */
+@media (max-width: 700px) {
+  .customer-shop .hero-image-container { z-index: 1; }
+  .customer-shop .hero .hero-cta .btn-secondary { background: rgba(255, 250, 247, .94); }
+  [data-theme="dark"] .customer-shop .hero .hero-cta .btn-secondary { background: #5b2b40; }
+}
+
+/* Helado de una bola dibujado (sin foto): el SVG se ajusta al alto del marco,
+   así la bola ya no queda cortada arriba. Igual en la vista rápida. */
+.customer-shop .product-illustration > .dessert-preview { width: auto; height: 100%; max-width: 100%; }
+.product-quick-art .dessert-preview { width: auto; height: 100%; max-height: 300px; padding: 22px; }
+@media (max-width: 600px) { .product-quick-art .dessert-preview { max-height: 200px; padding: 14px; } }
+
+/* Miniaturas del carrito: la foto (paletas, conos) no se sale de su recuadro. */
+.cart-product-preview { overflow: hidden; }
+.cart-product-preview > img { width: 100%; height: 100%; max-height: 100%; object-fit: contain; }
+.cart-product-preview .dessert-preview.compact { height: 100%; }
+
+/* En pantallas táctiles el :hover se queda "pegado" tras tocar Agregar:
+   la tarjeta no debe quedarse levantada. */
+@media (hover: none) {
+  .product-card:hover, .customer-shop .product-card:hover { transform: none; }
+  .product-card:not(.popsicle-card):hover .product-illustration img { transform: none; }
+  .order-path-card-guide:hover { transform: none; }
+}
+
+/* Checkout: opciones en rejilla pareja; "Transferencia" ya no se parte ni desborda. */
+.service-options { display: grid; grid-template-columns: repeat(auto-fit, minmax(96px, 1fr)); gap: 8px; }
+.service-options .payment-btn { min-width: 0; white-space: normal; line-height: 1.2; }
+.cart-container .payment-options.payment-options { grid-template-columns: repeat(auto-fit, minmax(124px, 1fr)) !important; }
+.cart-container .payment-btn.payment-btn { white-space: normal; line-height: 1.2; padding: 8px 10px !important; }
+
+/* Modo oscuro: la etiqueta flotante del hero tenía texto casi invisible
+   y la tarjeta amarilla de la guía brillaba demasiado sobre fondo oscuro. */
+[data-theme="dark"] .customer-shop .hero-sticker-bottom { background: #2b1822; border-color: #6a4456; }
+[data-theme="dark"] .customer-shop .hero-sticker-bottom strong { color: #fff4f2; }
+[data-theme="dark"] .customer-shop .hero-sticker-bottom span:not(.hero-sticker-icon) { color: #e9c6d2; }
+[data-theme="dark"] .order-path-card-guide { background: #e9c457; }
+
+/* Filas deslizables del catálogo en móvil: todas las tarjetas de una fila con
+   el mismo alto. `height: 100%` (pensado para la rejilla) impedía el estirado,
+   y content-visibility daba a las tarjetas fuera de pantalla un alto ficticio. */
+@media (max-width: 600px) {
+  .catalog-group .catalog-grid > .product-card { height: auto; content-visibility: visible; }
+}
+
+/* La guía de sabores es un diálogo: debe tapar el aviso del carrito y la
+   burbuja de chat, igual que la vista rápida del producto. */
+.sabor-omatic-overlay { z-index: 10020; }

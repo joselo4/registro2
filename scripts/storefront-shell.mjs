@@ -16,11 +16,11 @@ const safeLogo = value => typeof value === 'string' && (/^\/(?!\/)[\w./-]+$/.tes
 
 export function storefrontShellTop({ startingPrice = '1.50', priceText = '', heading = '', intro = '', whatsapp = 'https://wa.me/51989466466', storeName = 'FRIOZO', storeLogo = '' } = {}) {
   const name = escapeHtml(String(storeName || 'FRIOZO').trim() || 'FRIOZO');
-  const title = heading ? escapeHtml(heading) : 'Qué rico <span>caer en<br>la tentación.</span>';
+  const title = heading ? escapeHtml(heading) : 'Qué rico <span>caer en <br>la tentación.</span>';
   const description = intro ? escapeHtml(intro) : `En <strong>${name}</strong> eliges el sabor y nosotros lo hacemos al momento. Pide tu favorito o crea una mezcla solo tuya.`;
-  return `<nav class="navbar glass"><div class="container nav-container">`
+  return `<nav class="navbar glass" aria-label="Principal"><div class="container nav-container">`
     + `<a href="/" class="logo" style="cursor:pointer;display:flex;align-items:center;gap:8px"><img src="${escapeHtml(safeLogo(storeLogo))}" alt="Logo" width="38" height="38" style="width:38px;height:38px;object-fit:contain;border-radius:50%"><span>${name}</span></a>`
-    + `<div class="nav-links desktop-only">${navLink('#tienda', '🍦', 'Tienda', true)}${navLink('#personalizar', '✦', 'Crear el mío')}${navLink('#carrito', '🛒', 'Mi pedido')}${navLink('#ubicacion', '📍', 'Ubicacion')}${navLink('#rastrear', '🔎', 'Rastrear')}<span class="nav-btn" style="font-size:1.1rem;padding:6px">🌙 Noche</span></div>`
+    + `<div class="nav-links desktop-only">${navLink('#tienda', '🍦', 'Tienda', true)}${navLink('#personalizar', '✦', 'Crear el mío')}${navLink('#carrito', '🛒', 'Mi pedido')}${navLink('#ubicacion', '📍', 'Ubicación')}${navLink('#rastrear', '🔎', 'Rastrear')}<span class="nav-btn" style="font-size:1.1rem;padding:6px">🌙 Noche</span></div>`
     + `<div class="mobile-header-actions" style="align-items:center;gap:8px"><span class="nav-btn-icon" aria-hidden="true">🌙</span></div>`
     + `</div></nav>`
     + `<main class="container" style="padding-bottom:80px;flex:1"><div class="customer-shop"><section class="hero">`
@@ -38,5 +38,5 @@ export function storefrontShellTop({ startingPrice = '1.50', priceText = '', hea
 
 export function storefrontShellBottom() {
   return `</div></main>`
-    + `<nav class="mobile-tab-bar glass">${tabLink('#tienda', '🍦', 'Tienda', true)}${tabLink('#personalizar', '✦', 'Crear')}${tabLink('#carrito', '🛒', 'Pedido')}${tabLink('#ubicacion', '📍', 'Mapa')}${tabLink('#rastrear', '🔎', 'Rastrear')}</nav>`;
+    + `<nav class="mobile-tab-bar glass" aria-label="Accesos rápidos">${tabLink('#tienda', '🍦', 'Tienda', true)}${tabLink('#personalizar', '✦', 'Crear')}${tabLink('#carrito', '🛒', 'Pedido')}${tabLink('#ubicacion', '📍', 'Mapa')}${tabLink('#rastrear', '🔎', 'Rastrear')}</nav>`;
 }

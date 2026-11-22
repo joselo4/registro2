@@ -7,7 +7,7 @@ import Cart from '../src/components/Cart.jsx';
 const shop = { onAddToCart() {}, setView() {}, shopConfig: { popupPromotion: { enabled: false } } };
 test('storefront uses the requested pink hero, ice cream image and purchase actions', () => {
   const html = renderToStaticMarkup(<CustomerShop {...shop} />);
-  assert.ok(html.includes('Qué rico <span>caer en<br/>la tentación.</span>'));
+  assert.ok(html.includes('Qué rico <span>caer en <br/>la tentación.</span>'));
   assert.ok(html.includes('src="/hero-friozo-v2.webp"'));
   assert.ok(html.includes('Quiero mi helado'));
   assert.ok(html.includes('Explorar la carta'));
