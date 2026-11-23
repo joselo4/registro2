@@ -1,4 +1,5 @@
 import { useState, useEffect, useRef } from 'react';
+import Icon from './Icon';
 import { correctOrder, readOrder, requestOrder } from '../utils/apiClient';
 import { mergeOrders, isDeliveryOrder, orderStatusLabel, paymentDescription, requiresAdvancePayment, trackingExpired } from '../utils/orderLifecycle';
 import { sanitizeText, safeStorage } from '../utils/security';
@@ -323,7 +324,7 @@ export default function OrderTracker({ orderId, orders, setView, storePhone, onC
     return (
       <div className="glass" style={{ padding: '30px 20px', maxWidth: '500px', margin: '40px auto', borderRadius: 'var(--radius-lg)' }}>
         <div style={{ textAlign: 'center', marginBottom: '20px' }}>
-          <span style={{ fontSize: '3rem' }}>{expiredOrder ? '🛑' : '🔍'}</span>
+          <span className="view-hero-icon" aria-hidden="true"><Icon name={expiredOrder ? 'clock' : 'search'} size={32} /></span>
           <h2 style={{ marginTop: '10px', fontSize: '1.5rem', color: expiredOrder ? 'var(--danger)' : 'inherit' }}>
             {expiredOrder ? 'Seguimiento Expirado' : 'Rastrear mi Pedido'}
           </h2>
@@ -355,7 +356,7 @@ export default function OrderTracker({ orderId, orders, setView, storePhone, onC
               className="btn btn-primary"
               style={{ background: '#0E7A5C', borderColor: '#0E7A5C', color: 'white', textDecoration: 'none', display: 'inline-flex', alignItems: 'center', justifyContent: 'center', gap: '6px', padding: '8px 12px', fontSize: '0.8rem', borderRadius: '8px' }}
             >
-              💬 WhatsApp Soporte
+              WhatsApp soporte
             </a>
           </div>
         )}
@@ -391,7 +392,7 @@ export default function OrderTracker({ orderId, orders, setView, storePhone, onC
               textAlign: 'center',
               border: '1px solid rgba(231, 76, 60, 0.2)'
             }}>
-              ⚠️ {trackingError}
+              {trackingError}
             </div>
           )}
 
@@ -405,7 +406,7 @@ export default function OrderTracker({ orderId, orders, setView, storePhone, onC
           return matched && !isOrderExpired(matched);
         }).length > 0 && (
           <div style={{ marginTop: '25px', borderTop: '1px solid var(--border-color)', paddingTop: '15px' }}>
-            <h4 style={{ fontSize: '0.85rem', marginBottom: '10px', color: 'var(--text-dark)', fontWeight: 'bold' }}>🕰️ Mis Pedidos Recientes:</h4>
+            <h4 style={{ fontSize: '0.85rem', marginBottom: '10px', color: 'var(--text-dark)', fontWeight: 'bold' }}>Mis pedidos recientes</h4>
             <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
               {recentOrders.filter((id) => {
                 const matched = orders.find(o => o.id.toLowerCase() === id.toLowerCase());
@@ -436,7 +437,7 @@ export default function OrderTracker({ orderId, orders, setView, storePhone, onC
                     }}
                   >
                     <span><strong>{id}</strong> <span style={{ color: 'var(--text-light)', marginLeft: '5px' }}>{statusTag}</span></span>
-                    <span style={{ fontSize: '0.9rem' }}>👉</span>
+                    <Icon name="arrow" size={16} />
                   </button>
                 );
               })}
@@ -446,7 +447,7 @@ export default function OrderTracker({ orderId, orders, setView, storePhone, onC
 
         <div style={{ marginTop: '20px', borderTop: '1px solid var(--border-color)', paddingTop: '15px', display: 'flex', flexDirection: 'column', gap: '10px', textAlign: 'center' }}>
           <button className="btn btn-secondary" style={{ width: '100%' }} onClick={() => setView('shop')}>
-            🍨 Volver a la Tienda
+            <Icon name="store" size={18} /> Volver a la tienda
           </button>
           <button
             type="button"
@@ -512,16 +513,16 @@ export default function OrderTracker({ orderId, orders, setView, storePhone, onC
     catch { return ''; }
   };
   const hero = {
-    'Por Corroborar': { icon: '⏳', tone: 'waiting', title: 'Recibimos tu pedido', text: isTable ? 'El personal está confirmando tu comanda. En breve pasa a cocina.' : requiresAdvancePayment(currentOrder) ? 'Estamos validando tu pago. En cuanto se confirme, empezamos a prepararlo.' : 'La tienda está confirmando los detalles. En breve empezamos a prepararlo.' },
-    Pendiente: { icon: '📋', tone: 'active', title: '¡Pedido confirmado!', text: 'Está en cola de cocina. En unos minutos empezamos a prepararlo.' },
-    Preparando: { icon: '👨‍🍳', tone: 'active', title: 'Preparando tus helados', text: 'Estamos sirviendo tu combinación con la textura ideal.' },
-    Listo: { icon: '✅', tone: 'active', title: isTable ? '¡Listo! Va a tu mesa' : isPickup ? '¡Listo para recoger!' : '¡Listo y empacado!', text: isTable ? 'El personal lo lleva a tu mesa en instantes.' : isPickup ? 'Acércate a la barra para recogerlo.' : 'Esperando la salida del repartidor.' },
-    'En camino': { icon: '🛵', tone: 'active', title: 'Tu pedido va en camino', text: 'El repartidor se dirige a tu dirección. ¡Prepárate para recibirlo!' },
-    Entregado: { icon: '🎉', tone: 'done', title: isTable ? '¡Buen provecho!' : isPickup ? '¡Pedido retirado!' : '¡Pedido entregado!', text: 'Gracias por elegirnos. Esperamos que lo disfrutes.' },
-    Cancelado: { icon: '🛑', tone: 'cancelled', title: 'Pedido cancelado', text: 'Si tienes dudas, escríbenos por WhatsApp y te ayudamos.' },
-  }[status] || { icon: '📦', tone: 'active', title: orderStatusLabel(status), text: '' };
+    'Por Corroborar': { icon: 'clock', tone: 'waiting', title: 'Recibimos tu pedido', text: isTable ? 'El personal está confirmando tu comanda. En breve pasa a cocina.' : requiresAdvancePayment(currentOrder) ? 'Estamos validando tu pago. En cuanto se confirme, empezamos a prepararlo.' : 'La tienda está confirmando los detalles. En breve empezamos a prepararlo.' },
+    Pendiente: { icon: 'receipt', tone: 'active', title: '¡Pedido confirmado!', text: 'Está en cola de cocina. En unos minutos empezamos a prepararlo.' },
+    Preparando: { icon: 'chef', tone: 'active', title: 'Preparando tus helados', text: 'Estamos sirviendo tu combinación con la textura ideal.' },
+    Listo: { icon: 'check', tone: 'active', title: isTable ? '¡Listo! Va a tu mesa' : isPickup ? '¡Listo para recoger!' : '¡Listo y empacado!', text: isTable ? 'El personal lo lleva a tu mesa en instantes.' : isPickup ? 'Acércate a la barra para recogerlo.' : 'Esperando la salida del repartidor.' },
+    'En camino': { icon: 'scooter', tone: 'active', title: 'Tu pedido va en camino', text: 'El repartidor se dirige a tu dirección. ¡Prepárate para recibirlo!' },
+    Entregado: { icon: 'star', tone: 'done', title: isTable ? '¡Buen provecho!' : isPickup ? '¡Pedido retirado!' : '¡Pedido entregado!', text: 'Gracias por elegirnos. Esperamos que lo disfrutes.' },
+    Cancelado: { icon: 'clock', tone: 'cancelled', title: 'Pedido cancelado', text: 'Si tienes dudas, escríbenos por WhatsApp y te ayudamos.' },
+  }[status] || { icon: 'box', tone: 'active', title: orderStatusLabel(status), text: '' };
   const eta = isDelivery ? computeEstimatedArrival(currentOrder) : null;
-  const money = value => `S/. ${(Number(value) || 0).toFixed(2)}`;
+  const money = value => `S/ ${(Number(value) || 0).toFixed(2)}`;
   const resetSearch = () => {
     setActiveSearchId('');
     setFetchedOrder(null);
@@ -536,14 +537,14 @@ export default function OrderTracker({ orderId, orders, setView, storePhone, onC
       <header className="tracker-head">
         <div>
           <h1>Pedido <span className="allow-select">{currentOrder.id}</span></h1>
-          <button type="button" className="tracker-copy" onClick={() => copyText(currentOrder.id, 'code')}>{copiedField === 'code' ? '✓ Código copiado' : 'Copiar código'}</button>
+          <button type="button" className="tracker-copy" onClick={() => copyText(currentOrder.id, 'code')}>{copiedField === 'code' ? 'Código copiado' : 'Copiar código'}</button>
           {currentOrder.customer?.tableNumber && <span className="tracker-chip">Mesa {currentOrder.customer.tableNumber}</span>}
         </div>
         <button type="button" className="tracker-link" onClick={resetSearch}>Buscar otro</button>
       </header>
 
       <section className={`tracker-hero tone-${hero.tone} ${animateStatus ? 'is-updated' : ''}`} aria-live="polite">
-        <span className="tracker-hero-icon" aria-hidden="true">{hero.icon}</span>
+        <span className="tracker-hero-icon" aria-hidden="true"><Icon name={hero.icon} size={30} /></span>
         <div>
           <h2>{hero.title}</h2>
           {hero.text && <p>{hero.text}</p>}
@@ -560,7 +561,7 @@ export default function OrderTracker({ orderId, orders, setView, storePhone, onC
             const state = index < currentIndex ? 'done' : index === currentIndex ? 'current' : 'todo';
             return (
               <li key={stage} className={`is-${state}`} aria-current={state === 'current' ? 'step' : undefined}>
-                <span className="tracker-dot" aria-hidden="true">{state === 'done' ? '✓' : index + 1}</span>
+                <span className="tracker-dot" aria-hidden="true">{state === 'done' ? <Icon name="check" size={14} /> : index + 1}</span>
                 <strong>{stageLabels[stage]}</strong>
                 {reachedAt[stage] && state !== 'todo' && <small>{shortTime(reachedAt[stage])}</small>}
               </li>
@@ -587,7 +588,7 @@ export default function OrderTracker({ orderId, orders, setView, storePhone, onC
                 <p>Puedes corregir tu pedido mientras la tienda lo confirma.</p>
               </div>
               <button type="button" className="btn btn-secondary" disabled={correction.step === 'sending'} onClick={() => setCorrection({ step: 'confirm', error: '' })}>
-                {correction.step === 'sending' ? 'Corrigiendo…' : '✏️ Corregir mi pedido'}
+                {correction.step === 'sending' ? 'Corrigiendo…' : 'Corregir mi pedido'}
               </button>
             </>
           )}
@@ -597,7 +598,7 @@ export default function OrderTracker({ orderId, orders, setView, storePhone, onC
 
       {currentOrder.assignedDriver && (
         <section className="tracker-card tracker-driver">
-          <span className="tracker-driver-icon" aria-hidden="true">🛵</span>
+          <span className="tracker-driver-icon" aria-hidden="true"><Icon name="scooter" size={24} /></span>
           <div>
             <strong>{currentOrder.assignedDriver.name || 'Tu repartidor'}</strong>
             <small>Lleva tu pedido</small>
@@ -620,7 +621,7 @@ export default function OrderTracker({ orderId, orders, setView, storePhone, onC
                 {[1, 2, 3, 4, 5].map(index => (
                   <button key={index} type="button" role="radio" aria-checked={rating === index} aria-label={`${index} de 5`}
                     className={index <= (hoverRating || rating) ? 'is-on' : ''}
-                    onMouseEnter={() => setHoverRating(index)} onMouseLeave={() => setHoverRating(0)} onClick={() => setRating(index)}>🍦</button>
+                    onMouseEnter={() => setHoverRating(index)} onMouseLeave={() => setHoverRating(0)} onClick={() => setRating(index)}><Icon name="star" size={26} /></button>
                 ))}
               </div>
               <textarea className="form-control" rows="2" placeholder="Cuéntanos algo más (opcional)" value={comment} onChange={e => setComment(e.target.value)} />
@@ -674,13 +675,13 @@ export default function OrderTracker({ orderId, orders, setView, storePhone, onC
           rel="noopener noreferrer"
           className="btn tracker-whatsapp"
         >
-          💬 Consultar por WhatsApp
+          Consultar por WhatsApp
         </a>
         <button type="button" className="btn btn-secondary" onClick={handleShareTrackingLink}>
-          {copiedTrackingLink ? '✅ Enlace copiado' : '🔗 Compartir seguimiento'}
+          {copiedTrackingLink ? 'Enlace copiado' : 'Compartir seguimiento'}
         </button>
         <button type="button" className="btn btn-secondary" onClick={() => setView('shop')}>
-          🍨 Seguir comprando
+          <Icon name="store" size={18} /> Seguir comprando
         </button>
       </div>
     </div>

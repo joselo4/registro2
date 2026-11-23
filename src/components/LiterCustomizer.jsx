@@ -1,4 +1,5 @@
 import { useId, useRef, useState } from 'react';
+import Icon from './Icon';
 import { ScoopPhoto, ToppingPhoto } from './DessertPreview';
 import { flavorColor, money } from '../utils/dessert';
 import { syrupColor } from '../utils/toppingKinds';
@@ -171,7 +172,7 @@ export default function LiterCustomizer({ flavors, toppings = [], literConfig, o
               const done = index === 0 ? selectedFlavors.length > 0 : selectedToppings.length > 0 || Boolean(selectedSyrup);
               return (
                 <button type="button" key={label} role="tab" aria-selected={step === index} className={`${step === index ? 'selected' : ''} ${done && step !== index ? 'done' : ''}`} onClick={() => goToStep(index)}>
-                  <span aria-hidden="true">{done && step !== index ? '✓' : index + 1}</span>{label}
+                  <span aria-hidden="true">{done && step !== index ? <Icon name="check" size={14} /> : index + 1}</span>{label}
                 </button>
               );
             })}
@@ -206,7 +207,7 @@ export default function LiterCustomizer({ flavors, toppings = [], literConfig, o
               {solidToppings.length > 0 && <><h3 className="atelier-extras-heading">Toppings <span>{selectedToppings.length}/{MAX_TOPPINGS}</span></h3>
                 <div className="atelier-toppings">{solidToppings.map(topping => {
                   const selected = selectedToppings.some(t => t.id === topping.id);
-                  return <button type="button" key={topping.id} className={`atelier-topping ${selected ? 'selected' : ''}`} aria-pressed={selected} onClick={() => toggleTopping(topping)}><ToppingPhoto topping={topping} /><strong>{topping.name}</strong><span>+ {money(topping.price)}</span><b aria-hidden="true">{selected ? '✓' : '+'}</b></button>;
+                  return <button type="button" key={topping.id} className={`atelier-topping ${selected ? 'selected' : ''}`} aria-pressed={selected} onClick={() => toggleTopping(topping)}><ToppingPhoto topping={topping} /><strong>{topping.name}</strong><span>+ {money(topping.price)}</span><b aria-hidden="true">{selected ? <Icon name="check" size={13} /> : '+'}</b></button>;
                 })}</div></>}
               {syrups.length > 0 && <><h3 className="atelier-extras-heading">Salsa <span>elige una</span></h3>
                 <div className="atelier-syrups">

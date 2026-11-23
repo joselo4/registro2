@@ -1,4 +1,5 @@
 import { useState, useRef, useEffect } from 'react';
+import Icon from './Icon';
 import DessertPreview, { BasePhoto, ScoopPhoto, ToppingPhoto } from './DessertPreview';
 import { available, cleanName, creationTotal, money, resolveRecommendation } from '../utils/dessert';
 import { syrupColor } from '../utils/toppingKinds';
@@ -146,7 +147,7 @@ export default function IceCreamCustomizer({bases = [], flavors = [], toppings =
           return <button type="button" key={item.label} role="tab" id={`atelier-tab-${i}`} aria-selected={step === i} aria-controls="atelier-step-panel" tabIndex={step === i ? 0 : -1}
             onKeyDown={e => { if (['ArrowLeft','ArrowRight'].includes(e.key)) { e.preventDefault(); const next = (i + (e.key === 'ArrowRight' ? 1 : 2)) % 3; goToStep(next); document.getElementById(`atelier-tab-${next}`)?.focus(); } }}
             onClick={() => goToStep(i)} className={`${step === i ? 'selected' : ''} ${done && step !== i ? 'done' : ''}`}>
-            <span aria-hidden="true">{done && step !== i ? '✓' : i + 1}</span>{item.label}
+            <span aria-hidden="true">{done && step !== i ? <Icon name="check" size={14} /> : i + 1}</span>{item.label}
           </button>;
         })}</div>
 
@@ -154,7 +155,7 @@ export default function IceCreamCustomizer({bases = [], flavors = [], toppings =
           <div className="atelier-panel-heading"><h2>{steps[step].title}</h2><p>{steps[step].hint}</p></div>
 
           {step === 0 && <div className="atelier-bases">{activeBases.map(b => <button type="button" key={b.id} className={`atelier-base ${base?.id === b.id ? 'selected' : ''}`} aria-pressed={base?.id === b.id} onClick={() => chooseBase(b)}>
-            <span className="atelier-choice-check" aria-hidden="true">{base?.id === b.id ? '✓' : ''}</span>
+            <span className="atelier-choice-check" aria-hidden="true">{base?.id === b.id ? <Icon name="check" size={14} /> : ''}</span>
             <BasePhoto base={b} />
             <strong>{b.name}</strong>
             <span className="atelier-price-tag">{Number(b.price) > 0 ? `+ ${money(b.price)}` : 'Incluido'}</span>
@@ -187,7 +188,7 @@ export default function IceCreamCustomizer({bases = [], flavors = [], toppings =
 
           {step === 2 && <>
             {activeToppings.length > 0 && <><h3 className="atelier-extras-heading">Toppings <span>puedes combinar</span></h3>
-            <div className="atelier-toppings">{activeToppings.map(t => { const selected = toppingIds.includes(t.id); return <button type="button" key={t.id} className={`atelier-topping ${selected ? 'selected' : ''}`} aria-pressed={selected} onClick={() => toggleTopping(t)}><ToppingPhoto topping={t}/><strong>{t.name}</strong><span>+ {money(t.price)}</span><b aria-hidden="true">{selected ? '✓' : '+'}</b></button>; })}</div></>}
+            <div className="atelier-toppings">{activeToppings.map(t => { const selected = toppingIds.includes(t.id); return <button type="button" key={t.id} className={`atelier-topping ${selected ? 'selected' : ''}`} aria-pressed={selected} onClick={() => toggleTopping(t)}><ToppingPhoto topping={t}/><strong>{t.name}</strong><span>+ {money(t.price)}</span><b aria-hidden="true">{selected ? <Icon name="check" size={13} /> : '+'}</b></button>; })}</div></>}
             {activeSyrups.length > 0 && <><h3 className="atelier-extras-heading">Salsa <span>elige una</span></h3>
             <div className="atelier-syrups"><button type="button" className={!syrup ? 'selected' : ''} aria-pressed={!syrup} onClick={() => { setSyrupId(null); changed('Sin salsa.'); }}><i className="atelier-syrup-swatch is-none" aria-hidden="true" /><strong>Sin salsa</strong></button>{activeSyrups.map(t => <button type="button" key={t.id} className={syrup?.id === t.id ? 'selected' : ''} aria-pressed={syrup?.id === t.id} onClick={() => { setSyrupId(t.id); changed(`${t.name} añadida.`); }}><i className="atelier-syrup-swatch" style={{ '--syrup': syrupColor(t) }} aria-hidden="true" /><strong>{t.name}</strong><span>+ {money(t.price)}</span></button>)}</div></>}
             <p className="atelier-allergen-note">¿Tienes alguna alergia? Consulta los ingredientes con la tienda antes de pedir.</p>

@@ -30,3 +30,8 @@ scratch/
 android/.gradle
 android/app/build
 android/build
+
+# Impeccable: capturas y rondas locales
+.impeccable/review/
+.impeccable/questions/
+.impeccable/seeds/

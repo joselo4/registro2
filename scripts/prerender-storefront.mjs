@@ -50,7 +50,7 @@ export function staticContent({ heading, intro, sections, deliveryText, phone, p
   // The top mirrors the live storefront; the crawlable catalogue follows below.
   const top = storefrontShellTop({ startingPrice, priceText, whatsapp, storeName, storeLogo, ...(isHome ? {} : { heading, intro }) });
   const catalog = `<div class="static-catalog">${isHome ? `<h2 class="static-catalog-title">${escapeHtml(heading)}</h2><p>${escapeHtml(intro)}</p>` : ''}<p class="static-delivery">${escapeHtml(deliveryText)}</p><div class="static-actions"><a class="static-primary" href="/#catalog">Explorar la carta</a><a href="${escapeHtml(whatsapp)}" rel="noopener noreferrer">Pedir por WhatsApp</a></div>${sections.map((section, index) => `<section class="static-section"${index === 0 ? ' id="catalog"' : ''}><h2><a href="${escapeHtml(section.path)}">${escapeHtml(section.label)}</a></h2><p>${escapeHtml(section.intro)}</p><div class="static-grid">${section.items.map(item => productCard(item, section.kind)).join('')}</div></section>`).join('')}<footer class="static-footer"><p>Los precios y la disponibilidad se confirman al completar el pedido.</p>${status ? '<p id="startup-status" role="status">La compra interactiva se está activando. Puedes ver la carta y pedir por WhatsApp.</p><button id="startup-retry" type="button" hidden>Volver a cargar la tienda</button>' : ''}</footer></div>`;
-  return `<div class="friozo-shell">${top}${catalog}${storefrontShellBottom()}</div>`;
+  return `<div class="friozo-shell site-protected">${top}${catalog}${storefrontShellBottom()}</div>`;
 }
 
 function pageHtml(base, page) {

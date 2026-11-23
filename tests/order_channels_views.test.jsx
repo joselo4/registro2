@@ -14,11 +14,11 @@ test('checkout muestra solo el canal de venta habilitado', () => {
   try {
     const onlyBar = renderToStaticMarkup(<Cart cart={cart} shopConfig={{ ...baseConfig, barOrdersEnabled: true }} />);
     assert.match(onlyBar, /Recojo en barra/);
-    assert.doesNotMatch(onlyBar, /<button[^>]*>🛵 Delivery<\/button>/);
-    assert.doesNotMatch(onlyBar, /<button[^>]*>🍽️ Mesa<\/button>/);
+    assert.doesNotMatch(onlyBar, /<button[^>]*>(?:<svg[\s\S]*?<\/svg>)? Delivery<\/button>/);
+    assert.doesNotMatch(onlyBar, /<button[^>]*>(?:<svg[\s\S]*?<\/svg>)? Mesa<\/button>/);
     assert.doesNotMatch(onlyBar, /Dirección de Entrega/);
     const onlyDelivery = renderToStaticMarkup(<Cart cart={cart} shopConfig={{ ...baseConfig, deliveryOrdersEnabled: true }} />);
-    assert.match(onlyDelivery, /🛵 Delivery/);
+    assert.match(onlyDelivery, /<button[^>]*>(?:<svg[\s\S]*?<\/svg>)? Delivery<\/button>/);
     assert.match(onlyDelivery, /Dirección de Entrega/);
     assert.doesNotMatch(onlyDelivery, /Recojo en barra/);
   } finally { globalThis.localStorage = previousStorage; }

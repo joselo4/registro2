@@ -1,35 +1,35 @@
 /* First paint before JavaScript. The navbar and hero reuse the app's own
    classes (styled by the app CSS in <head>); these rules only cover the
    static catalogue below the hero and a fallback when the app CSS fails. */
-body { margin: 0; background: #fffaf7; color: #40271f; font-family: Manrope, system-ui, -apple-system, 'Segoe UI', sans-serif; }
+body { margin: 0; background: #fff; color: #2a1712; font-family: 'Figtree Variable', Figtree, system-ui, -apple-system, 'Segoe UI', sans-serif; }
 .friozo-shell { display: flex; flex-direction: column; min-height: 100vh; }
 .friozo-shell a { color: inherit; }
 
 .static-catalog { box-sizing: border-box; max-width: 1200px; margin: 32px auto 0; }
 .static-catalog *, .static-catalog *::before, .static-catalog *::after { box-sizing: border-box; }
-.static-delivery { display: inline-block; background: #f0fac8; padding: 10px 16px; border-radius: 14px; font-weight: 700; margin: 0 0 8px; }
+.static-delivery { display: inline-block; background: #e7f3ec; padding: 10px 16px; border-radius: 14px; font-weight: 700; margin: 0 0 8px; }
 .static-actions { display: flex; align-items: center; flex-wrap: wrap; gap: 12px; margin-top: 12px; }
-.static-actions a, .static-product-action, #startup-retry { display: inline-flex; align-items: center; justify-content: center; min-height: 44px; padding: 10px 17px; border-radius: 12px; border: 1px solid #ae1641; color: #ae1641; text-decoration: none; font: inherit; font-weight: 800; cursor: pointer; background: #fff; }
-.static-actions .static-primary, #startup-retry { background: #ae1641; color: #fff; }
+.static-actions a, .static-product-action, #startup-retry { display: inline-flex; align-items: center; justify-content: center; min-height: 44px; padding: 10px 17px; border-radius: 999px; border: 1.5px solid #b3123f; color: #b3123f; text-decoration: none; font: inherit; font-weight: 800; cursor: pointer; background: #fff; }
+.static-actions .static-primary, #startup-retry { background: #b3123f; color: #fff; }
 .static-section { padding: 20px 0 32px; }
-.static-section h2 { font-family: 'Bricolage Grotesque', system-ui, sans-serif; font-size: clamp(1.6rem, 3vw, 2.3rem); margin: 0 0 5px; }
+.static-section h2 { font-family: 'Young Serif', Georgia, serif; font-weight: 400; font-size: clamp(1.6rem, 3vw, 2.3rem); margin: 0 0 5px; }
 .static-section h2 a { text-decoration: none; }
-.static-section h2 a:hover { color: #ae1641; }
+.static-section h2 a:hover { color: #b3123f; }
 .static-section > p { margin: 0 0 18px; }
 .static-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); gap: 16px; }
-.static-product { padding: 16px; border: 1px solid #f0d4d2; border-radius: 22px; background: #fff; box-shadow: 0 4px 16px #4823190a; }
+.static-product { padding: 16px; border: 1px solid #ece4df; border-radius: 20px; background: #fff; }
 .static-product > a:first-child { text-decoration: none; }
-.static-product img, .static-product-icon { display: block; width: 100%; height: 145px; object-fit: contain; background: #fff1dc; border-radius: 14px; }
+.static-product img, .static-product-icon { display: block; width: 100%; height: 145px; object-fit: contain; background: #f7f3ef; border-radius: 14px; }
 .static-product-icon { text-align: center; line-height: 145px; font-size: 3.5rem; }
-.static-product h3 { margin: 12px 0 6px; font-size: 1.05rem; }
+.static-product h3 { margin: 12px 0 6px; font-family: 'Young Serif', Georgia, serif; font-weight: 400; font-size: 1.1rem; }
 .static-product p { min-height: 3.6em; line-height: 1.45; }
 .static-product strong { display: block; font-size: 1.05rem; }
 .static-product-action { margin-top: 12px; width: 100%; }
-.static-footer { padding: 20px 0; border-top: 1px solid #e8d8d2; line-height: 1.5; }
+.static-footer { padding: 20px 0; border-top: 1px solid #ece4df; line-height: 1.5; }
 
 /* Loading problems surface as a small notice instead of changing the page. */
 #startup-status { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
-.startup-failed #startup-status { position: fixed; left: 16px; right: 16px; bottom: 84px; z-index: 10000; width: auto; height: auto; clip: auto; white-space: normal; margin: 0 auto; max-width: 420px; padding: 14px 16px 64px; border-radius: 18px; background: #2b1418; color: #fff; box-shadow: 0 14px 34px rgba(43, 20, 24, .32); }
+.startup-failed #startup-status { position: fixed; left: 16px; right: 16px; bottom: 84px; z-index: 10000; width: auto; height: auto; clip: auto; white-space: normal; margin: 0 auto; max-width: 420px; padding: 14px 16px 64px; border-radius: 18px; background: #2a1712; color: #fff; box-shadow: 0 14px 34px rgba(43, 20, 24, .32); }
 .startup-failed #startup-retry { position: fixed; left: 50%; bottom: 96px; transform: translateX(-50%); z-index: 10001; }
 
 @media (max-width: 600px) {
@@ -39,4 +39,4 @@ body { margin: 0; background: #fffaf7; color: #40271f; font-family: Manrope, sys
   .static-product img, .static-product-icon { height: 100px; line-height: 100px; }
   .static-product p { font-size: .85rem; }
 }
-.static-catalog-title { font-family: 'Bricolage Grotesque', system-ui, sans-serif; font-size: clamp(1.7rem, 4vw, 2.4rem); letter-spacing: -.04em; line-height: 1.1; margin: 0 0 4px; }
+.static-catalog-title { font-family: 'Young Serif', Georgia, serif; font-weight: 400; font-size: clamp(1.7rem, 4vw, 2.4rem); letter-spacing: -.01em; line-height: 1.1; margin: 0 0 4px; }

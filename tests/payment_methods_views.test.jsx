@@ -39,7 +39,7 @@ test('digital checkout makes payment timing explicit and defaults to collection 
     const html = renderToStaticMarkup(<Cart cart={[{ id: 'pack', type: 'pack', name: 'Helado', price: 10, quantity: 1 }]} shopConfig={{}} />);
     assert.ok(html.includes('Pagar al llegar'));
     assert.ok(html.includes('Pagar ahora'));
-    assert.match(html, /aria-pressed="true"[^>]*>🛵 Pagar al llegar/);
+    assert.match(html, /aria-pressed="true"[^>]*>(?:<svg[\s\S]*?<\/svg>)? Pagar al llegar/);
     assert.ok(!html.includes('Paga con Yape a:'));
   } finally { globalThis.localStorage = previousStorage; }
 });

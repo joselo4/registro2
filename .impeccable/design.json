@@ -1,0 +1,554 @@
+{
+  "schemaVersion": 2,
+  "generatedAt": "2026-11-22T00:00:00Z",
+  "title": "Design System: Friozo · pideanda.com",
+  "extensions": {
+    "colorMeta": {
+      "raspberry": {
+        "role": "primary",
+        "displayName": "Friozo Raspberry",
+        "canonical": "oklch(49.4% 0.189 14)",
+        "tonalRamp": [
+          "#1c0205",
+          "#490a18",
+          "#7c182e",
+          "#b42846",
+          "#d8586b",
+          "#f08d96",
+          "#ffbbc0",
+          "#ffe1e4"
+        ],
+        "cssVar": "--fz-berry",
+        "darkValue": "#c8204f"
+      },
+      "raspberry-deep": {
+        "role": "primary",
+        "displayName": "Raspberry Deep",
+        "canonical": "oklch(41.7% 0.159 14)",
+        "tonalRamp": [
+          "#1a0306",
+          "#45121b",
+          "#752532",
+          "#a9394c",
+          "#cd6370",
+          "#e6939a",
+          "#fbbfc3",
+          "#ffe3e6"
+        ],
+        "cssVar": "--fz-berry-deep",
+        "darkValue": "#a9173f"
+      },
+      "raspberry-tint": {
+        "role": "primary",
+        "displayName": "Raspberry Tint",
+        "canonical": "oklch(95.5% 0.020 358)",
+        "tonalRamp": [
+          "#12080b",
+          "#2f2326",
+          "#4e4145",
+          "#706266",
+          "#948489",
+          "#b9a9ae",
+          "#dcccd1",
+          "#fae9ee"
+        ],
+        "cssVar": "--fz-berry-tint",
+        "darkValue": "#3a1820"
+      },
+      "raspberry-text": {
+        "role": "primary",
+        "displayName": "Raspberry Text",
+        "canonical": "oklch(49.4% 0.189 14)",
+        "tonalRamp": [
+          "#1c0205",
+          "#490a18",
+          "#7c182e",
+          "#b42846",
+          "#d8586b",
+          "#f08d96",
+          "#ffbbc0",
+          "#ffe1e4"
+        ],
+        "cssVar": "--fz-berry-text",
+        "darkValue": "#ff8aa8"
+      },
+      "seal-gold": {
+        "role": "secondary",
+        "displayName": "Seal Gold",
+        "canonical": "oklch(82.4% 0.163 85)",
+        "tonalRamp": [
+          "#140900",
+          "#382100",
+          "#613d00",
+          "#8d5b00",
+          "#b08000",
+          "#cca95d",
+          "#e7ce9c",
+          "#fdedcd"
+        ],
+        "cssVar": "--fz-gold"
+      },
+      "seal-gold-ink": {
+        "role": "secondary",
+        "displayName": "Seal Gold Ink",
+        "canonical": "oklch(30.0% 0.062 82)",
+        "tonalRamp": [
+          "#0f0a04",
+          "#2e2515",
+          "#514329",
+          "#77633f",
+          "#998665",
+          "#bbac92",
+          "#dad0be",
+          "#f4eee2"
+        ],
+        "cssVar": "--fz-gold-ink"
+      },
+      "gold-tint": {
+        "role": "secondary",
+        "displayName": "Gold Tint",
+        "canonical": "oklch(97.1% 0.038 91)",
+        "tonalRamp": [
+          "#0d0b07",
+          "#2a261c",
+          "#4a4535",
+          "#6e664f",
+          "#908973",
+          "#b4ae9d",
+          "#d5d1c5",
+          "#f1eee7"
+        ],
+        "cssVar": "--fz-gold-tint",
+        "darkValue": "#3b2817"
+      },
+      "pistachio-green": {
+        "role": "tertiary",
+        "displayName": "Pistachio Green",
+        "canonical": "oklch(49.4% 0.107 156)",
+        "tonalRamp": [
+          "#020f06",
+          "#0c2e1b",
+          "#1b5133",
+          "#2c774e",
+          "#589a72",
+          "#8bbb9c",
+          "#b9dbc4",
+          "#e0f5e6"
+        ],
+        "cssVar": "--fz-green",
+        "darkValue": "#7fd3a4"
+      },
+      "green-tint": {
+        "role": "tertiary",
+        "displayName": "Green Tint",
+        "canonical": "oklch(95.3% 0.016 161)",
+        "tonalRamp": [
+          "#060d09",
+          "#202924",
+          "#3e4842",
+          "#5f6963",
+          "#818c86",
+          "#a6b1ab",
+          "#c9d4cd",
+          "#e6f2eb"
+        ],
+        "cssVar": "--fz-green-tint",
+        "darkValue": "#17291f"
+      },
+      "sky-tint": {
+        "role": "tertiary",
+        "displayName": "Sky Tint",
+        "canonical": "oklch(95.3% 0.013 241)",
+        "tonalRamp": [
+          "#060c10",
+          "#21272d",
+          "#3f464c",
+          "#5f676d",
+          "#828a91",
+          "#a7afb6",
+          "#cad2d9",
+          "#e7f0f7"
+        ],
+        "cssVar": "--fz-sky-tint",
+        "darkValue": "#172431"
+      },
+      "milk-white": {
+        "role": "neutral",
+        "displayName": "Milk White",
+        "canonical": "oklch(100.0% 0.000 90)",
+        "tonalRamp": [
+          "#0b0b0b",
+          "#262626",
+          "#454545",
+          "#666666",
+          "#898989",
+          "#aeaeae",
+          "#d1d1d1",
+          "#eeeeee"
+        ],
+        "cssVar": "--fz-ground",
+        "darkValue": "#160f0d"
+      },
+      "warm-milk": {
+        "role": "neutral",
+        "displayName": "Warm Milk",
+        "canonical": "oklch(96.6% 0.007 68)",
+        "tonalRamp": [
+          "#0d0b08",
+          "#292623",
+          "#484441",
+          "#696562",
+          "#8c8885",
+          "#b1ada9",
+          "#d4d0cc",
+          "#f2eeea"
+        ],
+        "cssVar": "--fz-milk",
+        "darkValue": "#1f1613"
+      },
+      "chocolate-ink": {
+        "role": "neutral",
+        "displayName": "Chocolate Ink",
+        "canonical": "oklch(22.9% 0.033 35)",
+        "tonalRamp": [
+          "#0f0a09",
+          "#2e2421",
+          "#51413d",
+          "#76605a",
+          "#99847e",
+          "#bbaaa5",
+          "#dacecb",
+          "#f4ecea"
+        ],
+        "cssVar": "--fz-ink",
+        "darkValue": "#f8eee9"
+      },
+      "cocoa-soft": {
+        "role": "neutral",
+        "displayName": "Cocoa Soft",
+        "canonical": "oklch(47.8% 0.029 40)",
+        "tonalRamp": [
+          "#0e0a09",
+          "#2d2421",
+          "#4f423d",
+          "#74615b",
+          "#97857e",
+          "#b9aaa5",
+          "#d9cecb",
+          "#f3edea"
+        ],
+        "cssVar": "--fz-ink-soft",
+        "darkValue": "#ccb8b0"
+      },
+      "line": {
+        "role": "neutral",
+        "displayName": "Line",
+        "canonical": "oklch(92.4% 0.011 54)",
+        "tonalRamp": [
+          "#0f0a07",
+          "#2b2521",
+          "#4a4440",
+          "#6b6560",
+          "#8f8783",
+          "#b4aca7",
+          "#d7cfca",
+          "#f5ede8"
+        ],
+        "cssVar": "--fz-line",
+        "darkValue": "#3a2a25"
+      },
+      "line-strong": {
+        "role": "neutral",
+        "displayName": "Line Strong",
+        "canonical": "oklch(85.4% 0.017 50)",
+        "tonalRamp": [
+          "#110905",
+          "#2e241f",
+          "#4d433d",
+          "#6f635d",
+          "#928680",
+          "#b8aba4",
+          "#dbcec7",
+          "#f9ebe4"
+        ],
+        "cssVar": "--fz-line-strong",
+        "darkValue": "#574039"
+      }
+    },
+    "typographyMeta": {
+      "display": {
+        "displayName": "Display",
+        "purpose": "Hero line only; Young Serif 400, max 12ch, balanced."
+      },
+      "headline": {
+        "displayName": "Headline",
+        "purpose": "Section titles and the raspberry feature card."
+      },
+      "title": {
+        "displayName": "Title",
+        "purpose": "Product names, group titles, dialog headings, footer brand."
+      },
+      "body": {
+        "displayName": "Body",
+        "purpose": "Descriptions and running copy in Figtree."
+      },
+      "label": {
+        "displayName": "Label",
+        "purpose": "Buttons, chips, form labels, links; letter-spacing 0."
+      },
+      "price": {
+        "displayName": "Price",
+        "purpose": "Every price as 'S/ 1.00' with tabular figures."
+      }
+    },
+    "shadows": [
+      {
+        "name": "rest",
+        "value": "0 1px 2px rgba(42,23,18,.05), 0 2px 10px rgba(42,23,18,.05)",
+        "purpose": "Generic cards and product badges at rest.",
+        "darkValue": "0 1px 2px rgba(0,0,0,.3)"
+      },
+      {
+        "name": "lift",
+        "value": "0 4px 10px rgba(42,23,18,.06), 0 14px 32px rgba(42,23,18,.08)",
+        "purpose": "Product card hover, cart toast, dialogs, builder cart bar.",
+        "darkValue": "0 10px 30px rgba(0,0,0,.35)"
+      },
+      {
+        "name": "seal",
+        "value": "0 6px 16px rgba(61,42,0,.22)",
+        "purpose": "Gold price seal only."
+      },
+      {
+        "name": "photo-drop-hero",
+        "value": "drop-shadow(0 18px 24px rgba(42,23,18,.22))",
+        "purpose": "Filter on the hero cone cut-out."
+      },
+      {
+        "name": "photo-drop-card",
+        "value": "drop-shadow(0 10px 10px rgba(42,23,18,.14))",
+        "purpose": "Filter on product photos in cards."
+      },
+      {
+        "name": "tab-bar",
+        "value": "0 -4px 18px rgba(42,23,18,.06)",
+        "purpose": "Mobile bottom tab bar."
+      }
+    ],
+    "motion": [
+      {
+        "name": "color-state",
+        "value": "background-color .18s ease, border-color .18s ease, color .18s ease",
+        "purpose": "Buttons: colour-only transitions, no transform."
+      },
+      {
+        "name": "card-hover",
+        "value": "border-color .2s ease, box-shadow .2s ease",
+        "purpose": "Product card hover on pointer devices only."
+      },
+      {
+        "name": "reduced-motion",
+        "value": "prefers-reduced-motion: reduce disables smooth scroll",
+        "purpose": "Hero disc and cone animations are off in all modes."
+      }
+    ],
+    "breakpoints": [
+      {
+        "name": "mobile",
+        "value": "700px",
+        "purpose": "max-width; hero area grid, 2-up cards, full-width card actions."
+      },
+      {
+        "name": "value-strip-2col",
+        "value": "900px"
+      },
+      {
+        "name": "wide",
+        "value": "1024px",
+        "purpose": "Wide value strip under the hero."
+      },
+      {
+        "name": "container",
+        "value": "1240px"
+      }
+    ],
+    "flavourTones": {
+      "default-cycle": [
+        "#f2b8c6",
+        "#f6cf6a",
+        "#a8d5b5"
+      ],
+      "panelMix": {
+        "light": "color-mix(in srgb, var(--tone) 26%, var(--fz-surface))",
+        "dark": "color-mix(in srgb, var(--tone) 18%, var(--fz-surface))"
+      },
+      "override": "flavor.color hex from the admin panel"
+    },
+    "layering": {
+      "scope": ".site-protected",
+      "file": "src/storefront-classic.css",
+      "order": [
+        "src/index.css",
+        "src/artisan.css",
+        "src/sorbet.css",
+        "src/storefront-refresh.css",
+        "src/storefront-classic.css (must stay last)"
+      ]
+    },
+    "icons": {
+      "source": "src/components/Icon.jsx",
+      "grid": "24px",
+      "stroke": 1.8,
+      "caps": "round",
+      "color": "currentColor"
+    }
+  },
+  "components": [
+    {
+      "name": "Primary Button",
+      "kind": "button",
+      "refersTo": "button-primary",
+      "description": "The single raspberry commit action: Pedir ahora, Agregar, Confirmar.",
+      "html": "<button class=\"ds-btn-primary\">Pedir ahora <svg width=\"18\" height=\"18\" viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"1.8\" stroke-linecap=\"round\" stroke-linejoin=\"round\" aria-hidden=\"true\"><path d=\"M4.5 12h15M14 6.5l5.5 5.5-5.5 5.5\"/></svg></button>",
+      "css": ".ds-btn-primary{display:inline-flex;align-items:center;gap:8px;min-height:48px;padding:12px 22px;border-radius:999px;border:1.5px solid var(--fz-berry, #b3123f);background:var(--fz-berry, #b3123f);color:#fff;font:700 .95rem/1.2 'Figtree Variable','Figtree',system-ui,sans-serif;cursor:pointer;transition:background-color .18s ease,border-color .18s ease}.ds-btn-primary:hover{background:var(--fz-berry-deep, #8e0d31);border-color:var(--fz-berry-deep, #8e0d31)}.ds-btn-primary:focus-visible{outline:3px solid var(--fz-berry-text, #b3123f);outline-offset:3px;}.ds-btn-primary:disabled{opacity:.45;cursor:not-allowed}"
+    },
+    {
+      "name": "Secondary Button",
+      "kind": "button",
+      "refersTo": "button-secondary",
+      "description": "Outlined pill for the second path, e.g. Arma tu helado.",
+      "html": "<button class=\"ds-btn-secondary\">Arma tu helado</button>",
+      "css": ".ds-btn-secondary{display:inline-flex;align-items:center;gap:8px;min-height:48px;padding:12px 22px;border-radius:999px;border:1.5px solid var(--fz-line-strong, #d9ccc5);background:var(--fz-surface, #ffffff);color:var(--fz-ink, #2a1712);font:700 .95rem/1.2 'Figtree Variable','Figtree',system-ui,sans-serif;cursor:pointer;transition:border-color .18s ease}.ds-btn-secondary:hover{border-color:var(--fz-ink, #2a1712)}.ds-btn-secondary:focus-visible{outline:3px solid var(--fz-berry-text, #b3123f);outline-offset:3px;}"
+    },
+    {
+      "name": "Filter Chips",
+      "kind": "chip",
+      "refersTo": "chip-filter",
+      "description": "Sticky category chips; active is chocolate, not raspberry.",
+      "html": "<div class=\"ds-chips\"><button class=\"ds-chip is-active\">Todo</button><button class=\"ds-chip\"><svg width=\"16\" height=\"16\" viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"1.8\" stroke-linecap=\"round\" stroke-linejoin=\"round\" aria-hidden=\"true\"><path d=\"M8 10.5a4 4 0 0 1 8 0V16a1.5 1.5 0 0 1-1.5 1.5h-5A1.5 1.5 0 0 1 8 16z\"/><path d=\"M12 17.5V21.5\"/></svg> Paletas</button><button class=\"ds-chip\"><svg width=\"16\" height=\"16\" viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"1.8\" stroke-linecap=\"round\" stroke-linejoin=\"round\" aria-hidden=\"true\"><circle cx=\"12\" cy=\"8.5\" r=\"4.5\"/><path d=\"M7.8 11 12 21.5l4.2-10.5\"/><path d=\"M9.6 15h4.8\"/></svg> Helados</button></div>",
+      "css": ".ds-chips{display:flex;gap:8px;flex-wrap:wrap}.ds-chip{display:inline-flex;align-items:center;gap:7px;min-height:42px;padding:8px 16px;border-radius:999px;border:1.5px solid var(--fz-line, #ece4df);background:var(--fz-surface, #ffffff);color:var(--fz-ink, #2a1712);font:700 .9rem 'Figtree Variable','Figtree',system-ui,sans-serif;cursor:pointer;white-space:nowrap}.ds-chip:hover{border-color:var(--fz-ink, #2a1712)}.ds-chip:focus-visible{outline:3px solid var(--fz-berry-text, #b3123f);outline-offset:3px;}.ds-chip.is-active{background:var(--fz-ink, #2a1712);border-color:var(--fz-ink, #2a1712);color:var(--fz-ground, #ffffff)}"
+    },
+    {
+      "name": "Search Field",
+      "kind": "input",
+      "refersTo": "input-search",
+      "description": "Pill search with leading stroke icon and raspberry focus ring.",
+      "html": "<label class=\"ds-search\"><svg width=\"18\" height=\"18\" viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"1.8\" stroke-linecap=\"round\" stroke-linejoin=\"round\" aria-hidden=\"true\"><circle cx=\"11\" cy=\"11\" r=\"6.5\"/><path d=\"m16 16 4.5 4.5\"/></svg><input placeholder=\"Prueba con chocolate, fresa o un pack...\" aria-label=\"Busca tu sabor\"></label>",
+      "css": ".ds-search{display:flex;align-items:center;gap:8px;padding:0 16px;border:1.5px solid var(--fz-line-strong, #d9ccc5);border-radius:999px;background:var(--fz-surface, #ffffff);color:var(--fz-ink-soft, #6c5851);max-width:420px}.ds-search:focus-within{border-color:var(--fz-berry, #b3123f);box-shadow:0 0 0 3px color-mix(in srgb,var(--fz-berry, #b3123f) 16%,transparent)}.ds-search input{flex:1;height:48px;border:0;outline:0;background:transparent;color:var(--fz-ink, #2a1712);font:500 1rem 'Figtree Variable','Figtree',system-ui,sans-serif}"
+    },
+    {
+      "name": "Text Field",
+      "kind": "input",
+      "refersTo": "input-field",
+      "description": "Checkout and tracker fields.",
+      "html": "<div class=\"ds-field\"><label for=\"ds-n\">Tu nombre</label><input id=\"ds-n\" class=\"ds-input\" placeholder=\"Ej. Ana\"></div>",
+      "css": ".ds-field{display:grid;gap:6px;max-width:320px}.ds-field label{font:700 .85rem 'Figtree Variable','Figtree',system-ui,sans-serif;color:var(--fz-ink, #2a1712)}.ds-input{min-height:48px;padding:0 14px;border:1.5px solid var(--fz-line-strong, #d9ccc5);border-radius:12px;background:var(--fz-surface, #ffffff);color:var(--fz-ink, #2a1712);font:500 1rem 'Figtree Variable','Figtree',system-ui,sans-serif}.ds-input:focus{border-color:var(--fz-berry, #b3123f);outline:3px solid color-mix(in srgb,var(--fz-berry, #b3123f) 18%,transparent);outline-offset:0}"
+    },
+    {
+      "name": "Product Card",
+      "kind": "card",
+      "refersTo": "card-product",
+      "description": "Flavour-tinted photo panel, serif name, price and one raspberry action.",
+      "html": "<article class=\"ds-card\"><div class=\"ds-card-photo\" style=\"--tone:#f2b8c6\"><span class=\"ds-badge\">Más pedido</span><svg width=\"96\" height=\"96\" viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"1.8\" stroke-linecap=\"round\" stroke-linejoin=\"round\" aria-hidden=\"true\"><circle cx=\"12\" cy=\"8.5\" r=\"4.5\"/><path d=\"M7.8 11 12 21.5l4.2-10.5\"/><path d=\"M9.6 15h4.8\"/></svg></div><div class=\"ds-card-body\"><h3>Fresa Silvestre</h3><p>Helado cremoso elaborado con fresas de la zona.</p><div class=\"ds-card-row\"><strong>S/ 1.00</strong><button class=\"ds-add\">Agregar</button></div></div></article>",
+      "css": ".ds-card{width:240px;display:flex;flex-direction:column;overflow:hidden;background:var(--fz-surface, #ffffff);border:1px solid var(--fz-line, #ece4df);border-radius:20px;transition:border-color .2s ease,box-shadow .2s ease}.ds-card:hover{border-color:var(--fz-line-strong, #d9ccc5);box-shadow:0 4px 10px rgba(42,23,18,.06),0 14px 32px rgba(42,23,18,.08)}.ds-card-photo{position:relative;display:flex;align-items:center;justify-content:center;height:196px;color:var(--fz-berry, #b3123f);background:color-mix(in srgb,var(--tone) 26%,var(--fz-surface, #ffffff))}.ds-badge{position:absolute;top:12px;left:12px;padding:5px 10px;border-radius:999px;background:var(--fz-berry, #b3123f);color:#fff;font:700 .72rem 'Figtree Variable','Figtree',system-ui,sans-serif}.ds-card-body{padding:16px 18px 18px}.ds-card-body h3{margin:0 0 6px;font:400 1.22rem/1.18 'Young Serif',Georgia,serif;letter-spacing:-.01em;color:var(--fz-ink, #2a1712)}.ds-card-body p{margin:0;color:var(--fz-ink-soft, #6c5851);font:400 .88rem/1.45 'Figtree Variable','Figtree',system-ui,sans-serif}.ds-card-row{display:flex;align-items:center;justify-content:space-between;gap:10px;margin-top:12px;padding-top:14px;border-top:1px solid var(--fz-line, #ece4df)}.ds-card-row strong{font:800 1.2rem/1.1 'Figtree Variable','Figtree',system-ui,sans-serif;font-variant-numeric:tabular-nums;color:var(--fz-ink, #2a1712)}.ds-add{min-height:44px;padding:10px 18px;border:0;border-radius:999px;background:var(--fz-berry, #b3123f);color:#fff;font:700 .9rem 'Figtree Variable','Figtree',system-ui,sans-serif;cursor:pointer}.ds-add:hover{background:var(--fz-berry-deep, #8e0d31)}.ds-add:focus-visible{outline:3px solid var(--fz-berry-text, #b3123f);outline-offset:3px;}"
+    },
+    {
+      "name": "Hero with Price Seal",
+      "kind": "custom",
+      "refersTo": "hero-panel",
+      "description": "Warm-milk panel, serif line, cone on a raspberry disc, rotated gold Desde seal.",
+      "html": "<section class=\"ds-hero\"><div><h1>Qué rico caer en la <span>tentación.</span></h1><button class=\"ds-hero-cta\">Pedir ahora</button></div><div class=\"ds-hero-art\"><div class=\"ds-disc\"></div><svg width=\"120\" height=\"120\" viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"1.8\" stroke-linecap=\"round\" stroke-linejoin=\"round\" aria-hidden=\"true\"><circle cx=\"12\" cy=\"8.5\" r=\"4.5\"/><path d=\"M7.8 11 12 21.5l4.2-10.5\"/><path d=\"M9.6 15h4.8\"/></svg><div class=\"ds-seal\"><span>Desde</span><strong>S/ 1.00</strong></div></div></section>",
+      "css": ".ds-hero{display:grid;grid-template-columns:1.05fr .95fr;align-items:center;gap:24px;padding:40px;background:var(--fz-milk, #f7f3ef);border-radius:28px;max-width:720px}.ds-hero h1{margin:0;max-width:12ch;font:400 2.6rem/1.02 'Young Serif',Georgia,serif;letter-spacing:-.01em;color:var(--fz-ink, #2a1712)}.ds-hero h1 span{color:var(--fz-berry-text, #b3123f)}.ds-hero-cta{margin-top:22px;min-height:52px;padding:0 26px;border:0;border-radius:999px;background:var(--fz-berry, #b3123f);color:#fff;font:700 1rem 'Figtree Variable','Figtree',system-ui,sans-serif;cursor:pointer}.ds-hero-cta:hover{background:var(--fz-berry-deep, #8e0d31)}.ds-hero-cta:focus-visible{outline:3px solid var(--fz-berry-text, #b3123f);outline-offset:3px;}.ds-hero-art{position:relative;display:grid;place-items:center;color:#fff;min-height:220px}.ds-disc{position:absolute;width:84%;aspect-ratio:1;border-radius:50%;background:var(--fz-berry, #b3123f)}.ds-hero-art svg{position:relative}.ds-seal{position:absolute;top:4%;right:2%;display:grid;place-items:center;align-content:center;width:96px;aspect-ratio:1;border-radius:50%;background:var(--fz-gold, #f6bb1e);color:var(--fz-gold-ink, #3d2a00);text-align:center;box-shadow:0 6px 16px rgba(61,42,0,.22);transform:rotate(-8deg)}.ds-seal span{font:700 .72rem 'Figtree Variable','Figtree',system-ui,sans-serif;text-transform:uppercase;letter-spacing:.08em}.ds-seal strong{font:400 1.2rem/1.05 'Young Serif',Georgia,serif;font-variant-numeric:tabular-nums;white-space:nowrap}"
+    },
+    {
+      "name": "Header with Cart Pill",
+      "kind": "nav",
+      "refersTo": "nav-cart-pill",
+      "description": "White header, 4px raspberry strip, serif wordmark, raspberry Mi pedido pill with gold counter.",
+      "html": "<nav class=\"ds-nav\"><span class=\"ds-logo\">Friozo</span><div class=\"ds-nav-links\"><a class=\"ds-nav-btn is-active\" href=\"#\">Tienda</a><a class=\"ds-nav-btn\" href=\"#\">Mapa</a><a class=\"ds-cart\" href=\"#\"><svg width=\"18\" height=\"18\" viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"1.8\" stroke-linecap=\"round\" stroke-linejoin=\"round\" aria-hidden=\"true\"><path d=\"M5 8h14l-1.2 12.5H6.2z\"/><path d=\"M9 8V6.5a3 3 0 0 1 6 0V8\"/></svg> Mi pedido <b>2</b></a></div></nav>",
+      "css": ".ds-nav{position:relative;display:flex;align-items:center;justify-content:space-between;min-height:68px;padding:4px 20px 0;background:var(--fz-surface, #ffffff);border-bottom:1px solid var(--fz-line, #ece4df)}.ds-nav::before{content:'';position:absolute;inset:0 0 auto;height:4px;background:var(--fz-berry, #b3123f)}.ds-logo{font:400 1.55rem/1 'Young Serif',Georgia,serif;color:var(--fz-ink, #2a1712)}.ds-nav-links{display:flex;align-items:center;gap:2px}.ds-nav-btn{display:inline-flex;align-items:center;min-height:42px;padding:8px 14px;border-radius:999px;color:var(--fz-ink, #2a1712);font:600 .92rem 'Figtree Variable','Figtree',system-ui,sans-serif;text-decoration:none}.ds-nav-btn:hover{background:var(--fz-milk, #f7f3ef)}.ds-nav-btn.is-active{background:var(--fz-berry-tint, #fcebf0);color:var(--fz-berry-text, #b3123f)}.ds-nav-btn:focus-visible,.ds-cart:focus-visible{outline:3px solid var(--fz-berry-text, #b3123f);outline-offset:3px;}.ds-cart{display:inline-flex;align-items:center;gap:6px;min-height:42px;margin-left:6px;padding:8px 12px 8px 16px;border-radius:999px;background:var(--fz-berry, #b3123f);color:#fff;font:600 .92rem 'Figtree Variable','Figtree',system-ui,sans-serif;text-decoration:none}.ds-cart:hover{background:var(--fz-berry-deep, #8e0d31)}.ds-cart b{min-width:20px;padding:1px 6px;border-radius:999px;background:var(--fz-gold, #f6bb1e);color:var(--fz-gold-ink, #3d2a00);font:800 .75rem 'Figtree Variable','Figtree',system-ui,sans-serif;text-align:center}"
+    },
+    {
+      "name": "Add Button In Cart",
+      "kind": "button",
+      "refersTo": "button-add-in-cart",
+      "description": "State of the card action once the item is in the order.",
+      "html": "<button class=\"ds-in-cart\">1 en tu pedido <span>+1</span></button>",
+      "css": ".ds-in-cart{display:inline-flex;align-items:center;gap:8px;min-height:44px;padding:10px 18px;border-radius:999px;border:1.5px solid var(--fz-green, #1d7347);background:var(--fz-green-tint, #e7f3ec);color:var(--fz-green, #1d7347);font:700 .9rem 'Figtree Variable','Figtree',system-ui,sans-serif;cursor:pointer}.ds-in-cart:focus-visible{outline:3px solid var(--fz-berry-text, #b3123f);outline-offset:3px;}"
+    }
+  ],
+  "narrative": {
+    "northStar": "The Classic Parlour Counter",
+    "overview": "**Creative North Star: \"The Classic Parlour Counter\"**\n\nFriozo plays the category standard, the heladería clásica, and holds it to the finish of Häagen-Dazs, Baskin-Robbins, Amorino and D'Onofrio (the owner's chosen bar, Nov 2026). The ice cream is the image; the brand is a raspberry strip across the top of the page and a raspberry disc behind the hero cone; the price is never more than a thumb away. Ground is milk white, sections step onto a warm grey milk tone, text is chocolate. Gold from the logo appears only where a price or a reward needs to be found instantly: the \"Desde\" seal, the cart counter, premium badges, star ratings.\n\nDensity is that of a shop counter on a phone: one hand, a 390px screen, every product carrying its photo, name, price and one raspberry action. Headlines are a soft, rounded serif (Young Serif) that reads like a painted shop sign; everything you tap or read to decide is in Figtree. Surfaces are flat white cards with hairline cocoa-grey borders and short, warm shadows that appear on hover only. Product photos sit on panels tinted with the colour of their flavour, so the catalogue reads as a vitrine of sabores rather than a grid of white boxes.\n\nThis world replaces the previous sticker collage of emoji, pastel gradients and floating badges. Those are rejected, not paused.",
+    "keyCharacteristics": [
+      "Milk-white ground, warm-milk sections, chocolate ink; raspberry for actions and the brand strip; gold reserved for price and reward.",
+      "Young Serif 400 for headings only, Figtree for all interface text; no faux bold, no italics on the serif.",
+      "Flavour-tinted photo panels under every product image.",
+      "Pill buttons and chips, 18-28px rounded containers, hairline borders, flat at rest.",
+      "One stroke icon family (24 grid, 1.8 stroke) instead of emoji.",
+      "Mobile-first at 390px, 44px minimum targets, WCAG 2.2 AA in light and dark."
+    ],
+    "rules": [
+      {
+        "name": "The Raspberry Means Buy Rule",
+        "body": "Raspberry fill is reserved for committing actions toward an order. Navigation and selection state use chocolate ink (active filter chip, delivery banner action) or raspberry tint, never a second raspberry fill.",
+        "section": "colors"
+      },
+      {
+        "name": "The Gold Is Price Rule",
+        "body": "Gold marks price, count and reward (seal, cart counter, premium badge, stars). If it is not a number or a reward, it is not gold.",
+        "section": "colors"
+      },
+      {
+        "name": "The Dark Primary Rule",
+        "body": "In dark mode the legacy `--primary-color` maps to dark-raspberry-text, because it is used mostly as inline text colour (prices, highlights). Any background that needs raspberry must name `--fz-berry` explicitly with white text, not `--primary-color`.",
+        "section": "colors"
+      },
+      {
+        "name": "The No Faux Bold Rule",
+        "body": "Young Serif exists only in 400; `font-synthesis: none` is set. Never bold or italicise the serif; emphasis comes from colour (raspberry text) or size.",
+        "section": "typography"
+      },
+      {
+        "name": "The Serif Is a Sign Rule",
+        "body": "The serif names things (sections, products, the hero). Prices, buttons, cart line items and anything numeric stay in Figtree.",
+        "section": "typography"
+      },
+      {
+        "name": "The Sol Format Rule",
+        "body": "Prices render as \"S/ 1.00\": capital S, slash, one space, two decimals, tabular figures. Never \"S/.1\", never \"1 sol\".",
+        "section": "typography"
+      },
+      {
+        "name": "The Thumb-Reach Price Rule",
+        "body": "Every product card shows its price and its add action in the first view of the card; on mobile the action stretches full width under the price.",
+        "section": "layout"
+      },
+      {
+        "name": "The Flat Until Touched Rule",
+        "body": "Product cards and buttons carry no shadow and no transform at rest; hover changes border and adds Lift, never a translate or scale.",
+        "section": "elevation"
+      }
+    ],
+    "dos": [
+      "Do put new public styling in `src/storefront-classic.css`, scoped under `.site-protected`, and keep that file the last stylesheet imported in `src/main.jsx` (after index, artisan, sorbet and storefront-refresh, which still load underneath).",
+      "Do use the `--fz-*` tokens; remap a legacy token (`--primary-color`, `--radius-md`) only inside the `.site-protected` block.",
+      "Do give every product card exactly one raspberry primary action next to its price.",
+      "Do write prices as \"S/ 1.00\" in Figtree 800 with tabular figures.",
+      "Do sit every product photo on a flavour-tinted panel (`--tone` mixed 26% into surface, 18% in dark).",
+      "Do keep every tap target at least 44px and verify WCAG 2.2 AA contrast in both light and dark.",
+      "Do use the Icon component's stroke family for interface icons.",
+      "Do design at 390px first, then widen."
+    ],
+    "donts": [
+      "Don't add eyebrows or kickers above headings; the serif title stands alone.",
+      "Don't use emoji as interface icons, bullets or state marks.",
+      "Don't bold, italicise or loosen the tracking of the Young Serif (it runs at -0.01em).",
+      "Don't use gold for buttons or body text; it is for price, count and reward.",
+      "Don't fill a background with `--primary-color` in dark mode; name `--fz-berry` explicitly.",
+      "Don't bring back the sticker collage: floating stickers, pastel gradients, marquee strips or decorative blobs.",
+      "Don't add translate or scale on hover; use border and the Lift shadow.",
+      "Don't style the admin panel from this layer."
+    ]
+  }
+}

@@ -1,11 +1,12 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
+import Icon from './Icon';
 import L from 'leaflet';
 import 'leaflet/dist/leaflet.css';
 import { Geolocation } from '@capacitor/geolocation';
 
 const DEFAULT_CENTER = [-12.0464, -77.0428];
 const UPDATE_INTERVAL_MS = 10 * 60 * 1000;
-const DEFAULT_EMPTY_MESSAGE = 'Nuestros carritos saldran pronto a la calle. Mientras tanto, puedes pedir por delivery y recibir tus helados en casa.';
+const DEFAULT_EMPTY_MESSAGE = 'Nuestros carritos saldrán pronto a la calle. Mientras tanto, puedes pedir por delivery y recibir tus helados en casa.';
 const DEFAULT_EMPTY_BUTTON = 'Ver carta y pedir delivery';
 
 const normalizeText = (value) => (typeof value === 'string' ? value.trim().toLowerCase() : '');
@@ -56,15 +57,15 @@ const formatTime = (dateIso) => {
 };
 
 const createMarkerIcon = (cart, isMine = false) => {
-  const color = isMine ? '#2ecc71' : '#ff6b81';
+  const color = isMine ? '#1d7347' : '#b3123f';
   const label = (cart?.label || cart?.name || 'Carrito').slice(0, 1).toUpperCase();
 
   return L.divIcon({
     className: 'cart-location-marker',
     html: `
       <div style="
-        width: 28px;
-        height: 28px;
+        width: 34px;
+        height: 34px;
         border-radius: 50% 50% 50% 0;
         transform: rotate(-45deg);
         background: ${color};
@@ -74,12 +75,12 @@ const createMarkerIcon = (cart, isMine = false) => {
         align-items: center;
         justify-content: center;
       ">
-        <span style="transform: rotate(45deg); color: white; font-size: 0.7rem; font-weight: 700;">${label}</span>
+        <svg style="transform: rotate(45deg)" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#ffffff" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-label="${label}"><circle cx="12" cy="8.5" r="4.5" /><path d="M7.8 11 12 21.5l4.2-10.5" /></svg>
       </div>
     `,
-    iconSize: [28, 28],
-    iconAnchor: [14, 28],
-    popupAnchor: [0, -28]
+    iconSize: [34, 34],
+    iconAnchor: [17, 34],
+    popupAnchor: [0, -34]
   });
 };
 
@@ -332,24 +333,24 @@ export default function CartLocationsView({
         const popupHtml = `
           <div style="min-width: 190px; padding: 4px;">
             <strong style="font-size: 13px; color: #2d3436;">${cart.label || cart.name || 'Carrito'}</strong><br/>
-            <span style="font-size: 11px; color: #636e72;">🕒 ${formatTime(cart.updatedAt || cart.lastUpdated)}</span>
+            <span style="font-size: 11px; color: #6c5851;">Activo: ${formatTime(cart.updatedAt || cart.lastUpdated)}</span>
             <div style="display: flex; gap: 6px; margin-top: 8px;">
-              <a href="https://www.google.com/maps/search/?api=1&query=${lat},${lng}" target="_blank" rel="noopener noreferrer" style="flex: 1; background: #4285F4; color: #ffffff; text-align: center; padding: 4px 6px; border-radius: 4px; text-decoration: none; font-size: 11px; font-weight: bold;">
-                📍 Google Maps
+              <a href="https://www.google.com/maps/search/?api=1&query=${lat},${lng}" target="_blank" rel="noopener noreferrer" style="flex: 1; background: #b3123f; color: #ffffff; text-align: center; padding: 6px 8px; border-radius: 999px; text-decoration: none; font-size: 11px; font-weight: bold;">
+                Google Maps
               </a>
-              <a href="https://waze.com/ul?ll=${lat},${lng}&navigate=yes" target="_blank" rel="noopener noreferrer" style="flex: 1; background: #00b894; color: #ffffff; text-align: center; padding: 4px 6px; border-radius: 4px; text-decoration: none; font-size: 11px; font-weight: bold;">
-                🧭 Waze
+              <a href="https://waze.com/ul?ll=${lat},${lng}&navigate=yes" target="_blank" rel="noopener noreferrer" style="flex: 1; background: #2a1712; color: #ffffff; text-align: center; padding: 6px 8px; border-radius: 999px; text-decoration: none; font-size: 11px; font-weight: bold;">
+                Waze
               </a>
             </div>
           </div>
         `;
         L.marker([lat, lng], {
-          icon: createMarkerIcon(cart, normalizeText(cart.email) === normalizedEmail)
+          icon: createMarkerIcon(cart, Boolean(normalizedEmail) && normalizeText(cart.email) === normalizedEmail)
         }).bindPopup(popupHtml).addTo(layer);
       });
 
       if (bounds.length > 0) {
-        map.fitBounds(bounds, { padding: [30, 30] });
+        map.fitBounds(bounds, { padding: [56, 56], maxZoom: 16 });
       } else {
         map.setView(DEFAULT_CENTER, 12);
       }
@@ -388,7 +389,7 @@ export default function CartLocationsView({
       <div style={{ display: 'flex', justifyContent: 'space-between', gap: '12px', flexWrap: 'wrap', marginBottom: '12px' }}>
         <div>
           <h2 style={{ marginBottom: '4px' }}>
-            {mode === 'public' ? '🍨 Sabes dónde está tu helado más cercano' : '📍 Ubicación de carritos'}
+            {mode === 'public' ? '¿Sabes dónde está tu helado más cercano?' : 'Ubicación de carritos'}
           </h2>
           <p style={{ color: 'var(--text-light)', fontSize: '0.92rem' }}>
             {mode === 'public'
@@ -417,7 +418,7 @@ export default function CartLocationsView({
                 height: '32px'
               }}
             >
-              🔄 {isRefreshing ? 'Actualizando...' : 'Actualizar ahora'}
+              {isRefreshing ? 'Actualizando…' : 'Actualizar ahora'}
             </button>
           )}
         </div>
@@ -503,7 +504,7 @@ export default function CartLocationsView({
           alignItems: 'center',
           gap: '12px'
         }}>
-          <span style={{ fontSize: '3rem', animation: 'float 3s ease-in-out infinite' }}>🚚💨</span>
+          <span className="view-hero-icon" aria-hidden="true"><Icon name="scooter" size={34} /></span>
           <h3 style={{ fontFamily: 'var(--font-title)', color: 'var(--primary-color)', fontSize: '1.4rem', fontWeight: 'bold', margin: 0 }}>
             ¡Helados en camino a tu puerta!
           </h3>
@@ -563,7 +564,7 @@ export default function CartLocationsView({
 
           <div className="glass-card" style={{ padding: '18px', border: '1px solid var(--border-color)', boxShadow: 'var(--shadow-sm)' }}>
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '14px', flexWrap: 'wrap', gap: '8px' }}>
-              <strong style={{ fontSize: '1rem', color: 'var(--text-dark)' }}>🚚 Carritos Activos en la Calle</strong>
+              <strong style={{ fontSize: '1rem', color: 'var(--text-dark)' }}>Carritos activos en la calle</strong>
               <span style={{ color: 'var(--text-light)', fontSize: '0.78rem' }}>Los vendedores deciden cuándo compartir su posición.</span>
             </div>
             <div style={{ display: 'grid', gap: '12px', gridTemplateColumns: 'repeat(auto-fit, minmax(min(280px, 100%), 1fr))' }}>
@@ -593,26 +594,26 @@ export default function CartLocationsView({
                       width: '40px',
                       height: '40px',
                       borderRadius: '12px',
-                      background: 'rgba(255, 107, 129, 0.1)',
-                      color: 'var(--primary-color)',
+                      background: 'var(--fz-berry-tint, rgba(255, 107, 129, 0.1))',
+                      color: 'var(--fz-berry-text, var(--primary-color))',
                       display: 'flex',
                       alignItems: 'center',
                       justifyContent: 'center',
                       fontSize: '1.4rem'
-                    }}>
-                      🍦
+                    }} aria-hidden="true">
+                      <Icon name="icecream" size={22} />
                     </div>
                     <div style={{ flex: 1, minWidth: 0 }}>
                       <strong style={{ display: 'block', fontSize: '0.95rem', color: 'var(--text-dark)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
                         {cart.label || cart.name || 'Carrito Friozo'}
                       </strong>
                       <span style={{ fontSize: '0.78rem', color: 'var(--text-light)', display: 'block', marginTop: '2px' }}>
-                        🕒 Activo: {formatTime(cart.updatedAt || cart.lastUpdated)}
+                        Activo: {formatTime(cart.updatedAt || cart.lastUpdated)}
                       </span>
                     </div>
                   </div>
 
-                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderTop: '1px solid rgba(0,0,0,0.03)', paddingTop: '10px' }}>
+                  <div className="cart-location-actions">
                     <span style={{ 
                       fontSize: '0.72rem', 
                       background: 'rgba(46, 204, 113, 0.1)', 
@@ -622,7 +623,8 @@ export default function CartLocationsView({
                       fontWeight: 'bold',
                       display: 'inline-flex',
                       alignItems: 'center',
-                      gap: '4px'
+                      gap: '4px',
+                      whiteSpace: 'nowrap'
                     }}>
                       <span style={{
                         width: '5px',
@@ -632,53 +634,27 @@ export default function CartLocationsView({
                         animation: 'location-pulse-dot 1.5s infinite',
                         display: 'inline-block'
                       }} />
-                      En Línea
+                      En línea
                     </span>
 
-                    <div style={{ display: 'flex', gap: '6px', flexWrap: 'wrap' }}>
+                    <div className="cart-location-links">
                       <a
                         href={`https://www.google.com/maps/search/?api=1&query=${cart.lat},${cart.lng}`}
                         target="_blank"
                         rel="noreferrer"
-                        className="btn btn-secondary"
-                        style={{ 
-                          padding: '5px 10px', 
-                          fontSize: '0.75rem', 
-                          textDecoration: 'none',
-                          display: 'inline-flex',
-                          alignItems: 'center',
-                          gap: '4px',
-                          borderRadius: 'var(--radius-sm)',
-                          backgroundColor: 'var(--bg-primary)',
-                          borderColor: 'var(--border-color)',
-                          color: 'var(--info)',
-                          fontWeight: 600
-                        }}
+                        className="btn btn-secondary cart-location-link"
                         title="Abrir ubicación en Google Maps"
                       >
-                        📍 Google Maps
+                        <Icon name="pin" size={16} /> Google Maps
                       </a>
                       <a
                         href={`https://waze.com/ul?ll=${cart.lat},${cart.lng}&navigate=yes`}
                         target="_blank"
                         rel="noreferrer"
-                        className="btn btn-secondary"
-                        style={{ 
-                          padding: '5px 10px', 
-                          fontSize: '0.75rem', 
-                          textDecoration: 'none',
-                          display: 'inline-flex',
-                          alignItems: 'center',
-                          gap: '4px',
-                          borderRadius: 'var(--radius-sm)',
-                          backgroundColor: 'var(--bg-primary)',
-                          borderColor: 'var(--border-color)',
-                          color: 'var(--success)',
-                          fontWeight: 600
-                        }}
+                        className="btn btn-secondary cart-location-link"
                         title="Abrir ruta en Waze"
                       >
-                        🧭 Waze
+                        <Icon name="arrow" size={16} /> Waze
                       </a>
                     </div>
                   </div>

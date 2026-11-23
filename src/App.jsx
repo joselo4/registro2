@@ -1844,12 +1844,13 @@ export default function App() {
               )}
               
               <button 
+                type="button"
                 onClick={toggleTheme} 
-                className="nav-btn"
-                style={{ fontSize: '1.1rem', padding: '6px' }}
-                title="Cambiar Tema"
+                className="nav-btn theme-toggle"
+                aria-label={theme === 'light' ? 'Activar modo noche' : 'Activar modo día'}
               >
-                {theme === 'light' ? '🌙 Noche' : '☀️ Día'}
+                <Icon name={theme === 'light' ? 'moon' : 'sun'} size={18} />
+                <span>{theme === 'light' ? 'Noche' : 'Día'}</span>
               </button>
 
               {/* Indicador de conexión Realtime (Desktop) removido por discreción */}
@@ -1872,11 +1873,12 @@ export default function App() {
             {/* Indicador de conexión Realtime (Móvil) removido por discreción */}
 
             <button 
+              type="button"
               onClick={toggleTheme} 
-              className="nav-btn-icon"
-              title="Cambiar Tema"
+              className="nav-btn-icon theme-toggle"
+              aria-label={theme === 'light' ? 'Activar modo noche' : 'Activar modo día'}
             >
-              {theme === 'light' ? '🌙' : '☀️'}
+              <Icon name={theme === 'light' ? 'moon' : 'sun'} size={20} />
             </button>
             {isLoggedIn && (
               <button 
@@ -2170,16 +2172,14 @@ export default function App() {
 
       {/* Pie de página público */}
       {!isVendorApp && (
-      <footer className="site-footer" style={{
-        textAlign: 'center',
-        padding: '20px 15px',
-        fontSize: '0.8rem',
-        color: 'var(--text-light)',
-        borderTop: '1px solid var(--border-color)',
-        background: 'var(--bg-secondary)',
-        marginTop: 'auto',
-        marginBottom: '65px' // Espacio para evitar que tape la barra inferior en móvil
-      }}>
+      <footer className="site-footer">
+        <div className="site-footer-brand">
+          {renderLogo(storeLogo, '34px')}
+          <div>
+            <strong>{storeName}</strong>
+            <p>Helados artesanales hechos al momento.</p>
+          </div>
+        </div>
         {/* Redes Sociales del Local */}
         <nav className="footer-social" aria-label="Redes sociales">
           {isOwnSocialProfile(storeInstagram) && (
@@ -2199,8 +2199,7 @@ export default function App() {
             WhatsApp
           </a>
         </nav>
-        <div>&copy; {new Date().getFullYear()} {storeName} - Todos los derechos reservados.</div>
-        <div style={{ marginTop: '5px' }}>Hecho con mucho amor por heladeros artesanales</div>
+        <p className="site-footer-legal">&copy; {new Date().getFullYear()} {storeName}. Todos los derechos reservados. Hecho con mucho amor por heladeros artesanales.</p>
       </footer>
       )}
 
@@ -2293,7 +2292,7 @@ export default function App() {
           <div className="floating-cart-main">
             <span className="floating-cart-copy">
               <small>{totalCartItems} {totalCartItems === 1 ? 'producto' : 'productos'}</small>
-              <strong>S/. {cartSubtotal.toFixed(2)}</strong>
+              <strong>S/ {cartSubtotal.toFixed(2)}</strong>
             </span>
             <button type="button" className="btn btn-primary floating-cart-cta" onClick={() => setView('cart')}>
               Ver mi pedido <span aria-hidden="true">→</span>
@@ -2303,7 +2302,7 @@ export default function App() {
             <div className="floating-cart-goal" role="status">
               <span>
                 {missingForFreeDelivery > 0
-                  ? <>Te faltan <b>S/. {missingForFreeDelivery.toFixed(2)}</b> para el delivery gratis</>
+                  ? <>Te faltan <b>S/ {missingForFreeDelivery.toFixed(2)}</b> para el delivery gratis</>
                   : <><b>¡Delivery gratis!</b> Tu pedido ya califica</>}
               </span>
               <progress value={Math.min(cartSubtotal, freeDeliveryGoal)} max={freeDeliveryGoal} aria-label="Avance hacia el delivery gratis" />

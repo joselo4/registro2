@@ -3,13 +3,17 @@ import { checkoutStorage } from '../utils/checkout';
 import DessertPreview from './DessertPreview';
 import PromotionBanner from './PromotionBanner';
 import WelcomePromotion from './WelcomePromotion';
-import PackIllustration from './PackIllustration';
+import PackPhoto, { LiterPhoto } from './PackPhoto';
+import Icon from './Icon';
 import { preferWebp } from '../utils/imageUrl';
 import { normalizePromotion, DEFAULT_POPUP_PROMOTION, DEFAULT_WEB_PROMOTION } from '../utils/promotion';
 import { updateSyncedData } from '../utils/supabaseSync';
 import { sanitizeHTML } from '../utils/security';
 import { categoryForPath, productPath } from '../utils/catalogRoutes';
 import { quickScoopItem } from '../utils/dessert';
+
+// Price text typed in the panel follows the house format "S/ 1.00".
+const houseMoney = value => String(value ?? '').replace(/S\/\.\s?/g, 'S/ ');
 import './ProductQuickView.css';
 
 const isAvailableProduct = item => item && item.active !== false && Number.isFinite(Number(item.price)) && Number(item.price) >= 0;
@@ -139,8 +143,8 @@ export default function CustomerShop({
   const deliveryMessage = deliveryPrice === 0
     ? 'Delivery gratis'
     : freeDeliveryEnabled && Number(freeDeliveryThreshold) > 0
-      ? `Delivery S/. ${deliveryPrice.toFixed(2)} · Gratis desde S/. ${Number(freeDeliveryThreshold).toFixed(2)}`
-      : `Delivery S/. ${deliveryPrice.toFixed(2)}`;
+      ? `Delivery S/ ${deliveryPrice.toFixed(2)} · Gratis desde S/ ${Number(freeDeliveryThreshold).toFixed(2)}`
+      : `Delivery S/ ${deliveryPrice.toFixed(2)}`;
   const catalogRef = useRef(null);
   const catalogViewedRef = useRef(false);
   const catalogItems = useMemo(() => !trackEvent ? [] : visibleCategories
@@ -180,10 +184,10 @@ export default function CustomerShop({
     ? Math.min(...activePrices).toFixed(2)
     : '1.00';
   const featuredProducts = useMemo(() => [
-    visibleCategories.includes('packs') && activePacks[0] && { kind: 'pack', item: activePacks[0], label: 'Para compartir', icon: '🎁' },
-    visibleCategories.includes('classic') && activeFlavors.length > 0 && { kind: 'classic', item: activeFlavors.find(item => item.isPopular) || activeFlavors[0], label: 'Tu favorito al instante', icon: '🍦' },
-    visibleCategories.includes('popsicles') && activePopsicles[0] && { kind: 'popsicle', item: activePopsicles[0], label: 'Algo fresco', icon: '🍭' },
-    visibleCategories.includes('liter') && literConfig?.active !== false && { kind: 'liter', item: literConfig || {}, label: 'Para llevar a casa', icon: '🏺' }
+    visibleCategories.includes('packs') && activePacks[0] && { kind: 'pack', item: activePacks[0], label: 'Para compartir', icon: 'gift' },
+    visibleCategories.includes('classic') && activeFlavors.length > 0 && { kind: 'classic', item: activeFlavors.find(item => item.isPopular) || activeFlavors[0], label: 'El favorito', icon: 'icecream' },
+    visibleCategories.includes('popsicles') && activePopsicles[0] && { kind: 'popsicle', item: activePopsicles[0], label: 'Algo fresco', icon: 'popsicle' },
+    visibleCategories.includes('liter') && literConfig?.active !== false && { kind: 'liter', item: literConfig || {}, label: 'Para llevar a casa', icon: 'pot' }
   ].filter(Boolean).slice(0, 3), [visibleCategories, activePacks, activeFlavors, activePopsicles, literConfig]);
   const featuredRef = useRef(null);
   const featuredViewedRef = useRef(false);
@@ -304,11 +308,11 @@ export default function CustomerShop({
       }
 
       if (showAlert) {
-        showAlert('🛎️ Solicitud Enviada', `Se ha avisado al personal: "${type}". En breve te atenderemos.`, 'success');
+        showAlert('Solicitud enviada', `Se ha avisado al personal: "${type}". En breve te atenderemos.`, 'success');
       }
     } else {
       if (showAlert) {
-        showAlert('⚠️ Error', 'No se pudo enviar la solicitud de atención. Intenta de nuevo.', 'error');
+        showAlert('Error', 'No se pudo enviar la solicitud de atención. Intenta de nuevo.', 'error');
       }
     }
   };
@@ -456,17 +460,17 @@ export default function CustomerShop({
         const flavor2 = activeFlavors[Math.floor(Math.random() * activeFlavors.length)];
         const hasDouble = Math.random() > 0.4;
         
-        let desc = `Prueba: Helado de ${flavor1.name} 🍦`;
+        let desc = `Prueba: Helado de ${flavor1.name}`;
         let itemToTry = quickScoopItem(flavor1, bases);
 
         if (hasDouble && flavor1.id !== flavor2.id) {
-          desc = `Prueba: Helado Doble de ${flavor1.name} y ${flavor2.name} 🍦`;
+          desc = `Prueba: Helado Doble de ${flavor1.name} y ${flavor2.name}`;
           itemToTry = quickScoopItem([flavor1, flavor2], bases);
         }
 
         return {
           id: Date.now(),
-          icon: '🍦',
+          icon: 'icecream',
           title: 'Una idea para tu próximo antojo',
           desc,
           item: itemToTry
@@ -475,7 +479,7 @@ export default function CustomerShop({
         const pack = activePacks[Math.floor(Math.random() * activePacks.length)];
         return {
           id: Date.now(),
-          icon: '🎁',
+          icon: 'gift',
           title: 'Para disfrutar en compañía',
           desc: `${pack.name}: para compartir.`,
           item: {
@@ -492,9 +496,9 @@ export default function CustomerShop({
         const flavor = activeFlavors[Math.floor(Math.random() * activeFlavors.length)];
         return {
           id: Date.now(),
-          icon: '🏺',
+          icon: 'pot',
           title: 'Familiar 1 Litro',
-          desc: `Para llevar: 1 Litro de Helado sabor ${flavor.name} 🏺`,
+          desc: `Para llevar: 1 Litro de Helado sabor ${flavor.name}`,
           item: {
             type: 'liter',
             price: literConfig?.price || 15.0,
@@ -571,13 +575,13 @@ export default function CustomerShop({
     return counts;
   }, [cart]);
 
-  const addButtonLabel = useCallback((kind, id, idle = '+ Agregar') => {
+  const addButtonLabel = useCallback((kind, id, idle = 'Agregar') => {
     const qty = cartQuantities[`${kind}:${id}`] || 0;
-    return qty > 0 ? <>✓ {qty} en tu pedido <span className="add-btn-more">+1</span></> : idle;
+    return qty > 0 ? <><Icon name="check" size={16} /> {qty} en tu pedido <span className="add-btn-more">+1</span></> : idle;
   }, [cartQuantities]);
   // Once a product is in the order its card shows − quantity +, so customers adjust
   // it right there instead of opening the cart.
-  const renderAddControl = useCallback(({ kind, id, name, onAdd, idle = '+ Agregar', extraClass = '' }) => {
+  const renderAddControl = useCallback(({ kind, id, name, onAdd, idle = 'Agregar', extraClass = '' }) => {
     const qty = cartQuantities[`${kind}:${id}`] || 0;
     if (qty > 0 && typeof onRemoveOneFromCart === 'function') {
       return (
@@ -632,7 +636,8 @@ export default function CustomerShop({
     const activeOrder = [...new Set(configuredOrder)];
     // With "Todo" selected, a short title separates each category.
     const groupCounts = { popsicles: catalogPopsicles.length, classic: catalogFlavors.length, liter: literConfig?.active !== false && literMatches ? 1 : 0, packs: catalogPacks.length };
-    const groupTitles = { popsicles: '🍭 Paletas artesanales', classic: '🍦 Helados de una bola', liter: '🏺 Para llevar a casa', packs: '🎁 Packs para compartir' };
+    const groupTitles = { popsicles: 'Paletas artesanales', classic: 'Helados de una bola', liter: 'Para llevar a casa', packs: 'Packs para compartir' };
+    const groupIcons = { popsicles: 'popsicle', classic: 'icecream', liter: 'pot', packs: 'gift' };
     const grouped = filter === 'all' && activeOrder.filter(key => groupCounts[key] > 0).length > 1;
     const parts = activeOrder.map(section => ({ section, content: (() => {
           if (section === 'popsicles') {
@@ -641,7 +646,7 @@ export default function CustomerShop({
                 {(filter === 'all' || filter === 'popsicles') && catalogPopsicles.map(popsicle => (
                   <article key={popsicle.id} className="glass-card product-card popsicle-card">
                     <span className="product-badge popsicle-badge">
-                      {popsicle.badge || '🍭 100% Natural'}
+                      {popsicle.badge || '100% natural'}
                     </span>
                     <div className="product-illustration popsicle-illustration">
                       {popsicle.image ? (
@@ -653,17 +658,16 @@ export default function CustomerShop({
                           loading="lazy"
                           decoding="async"
                         />
-                      ) : <span className="popsicle-placeholder" aria-hidden="true">🍭</span>}
+                      ) : <span className="popsicle-placeholder" aria-hidden="true"><Icon name="popsicle" size={56} /></span>}
                     </div>
                     <div className="product-info">
                       <div>
-                        <span className="product-kind">PALETA ARTESANAL</span>
                         <h3>{popsicle.name}</h3>
-                        <p className="product-desc">{popsicle.description}</p>
+                        <p className="product-desc">{houseMoney(popsicle.description)}</p>
                         <button type="button" className="product-quick-link" onClick={() => openQuickView('popsicle', popsicle)}>Ver detalles →</button>
                       </div>
                       <div className="product-price-action">
-                        <div className="price-tag">S/. {Number(popsicle.price || 0).toFixed(2)}<span> / unidad</span></div>
+                        <div className="price-tag">S/ {Number(popsicle.price || 0).toFixed(2)}<span> / unidad</span></div>
                         {renderAddControl({ kind: 'popsicle', id: popsicle.id, name: `paleta ${popsicle.name}`, onAdd: () => handleAddPopsicleToCart(popsicle) })}
                       </div>
                     </div>
@@ -678,29 +682,18 @@ export default function CustomerShop({
                 {/* 🏺 Mostrar Helado de Litro */}
                 {(filter === 'all' || filter === 'liter') && literConfig?.active !== false && literMatches && (
                   <div className="glass-card product-card">
-                    <span className="product-badge badge-familiar">🏺 Familiar 1L</span>
+                    <span className="product-badge badge-familiar">Familiar 1 L</span>
                     <div className="product-illustration" style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', minHeight: '120px' }}>
                       {literConfig?.image ? (
                         <img 
                           src={preferWebp(literConfig.image)} 
-                          alt="Helado de 1 Litro" 
+                          alt="Pote de helado de 1 litro" 
                           width="200"
-                          height="110"
+                          height="160"
                           decoding="async"
-                          style={{ width: '100%', height: '110px', objectFit: 'contain', borderRadius: '8px' }} 
                           loading="lazy"
                         />
-                      ) : (
-                        <svg viewBox="0 0 100 100" width="90" height="90" style={{ display: 'block', margin: '0 auto' }}>
-                          <ellipse cx="50" cy="85" rx="35" ry="6" fill="rgba(0,0,0,0.06)" />
-                          <path d="M 22 28 L 30 78 C 30 78, 50 82, 70 78 L 78 28 Z" fill="#f5f6fa" stroke="var(--primary-color)" strokeWidth="2.5" />
-                          <ellipse cx="50" cy="28" rx="28" ry="6" fill="none" stroke="var(--primary-color)" strokeWidth="2" />
-                          {/* Helado saliendo */}
-                          <path d="M 24 28 C 24 15, 50 15, 50 15 C 50 15, 76 15, 76 28 Z" fill="#ff6b81" opacity="0.9" />
-                          <rect x="35" y="44" width="30" height="18" rx="2" fill="white" stroke="var(--primary-color)" strokeWidth="0.8" />
-                          <text x="50" y="52" fill="var(--primary-color)" fontSize="6" fontWeight="bold" textAnchor="middle">1 LITRO</text>
-                        </svg>
-                      )}
+                      ) : <LiterPhoto />}
                     </div>
                     <div className="product-info">
                       <div>
@@ -710,15 +703,11 @@ export default function CustomerShop({
                       </div>
                       <div className="product-price-action">
                         <div className="price-tag">
-                          S/. {Number(literConfig?.price ?? 15).toFixed(2)}
+                          S/ {Number(literConfig?.price ?? 15).toFixed(2)}
                           <span> / pote</span>
                         </div>
-                        <button 
-                          className="add-btn" 
-                          style={{ backgroundColor: 'var(--primary-color)', fontSize: '0.75rem', width: 'auto', padding: '8px 14px', borderRadius: '12px' }}
-                          onClick={() => setView('liter-customizer')}
-                        >
-                          🎨 Personalizar
+                        <button type="button" className="add-btn" onClick={() => setView('liter-customizer')}>
+                          Personalizar
                         </button>
                       </div>
                     </div>
@@ -736,16 +725,12 @@ export default function CustomerShop({
                   return (
                     <div key={flavor.id} className="glass-card product-card">
                       {isPopular ? (
-                        <span className="product-badge badge-popular">🔥 El Más Pedido</span>
+                        <span className="product-badge badge-popular">Más pedido</span>
                       ) : flavor.isPremium ? (
-                        <span className="product-badge badge-premium">✨ Premium</span>
-                      ) : (
-                        <span className="product-badge badge-artesanal">
-                          🍨 Artesanal
-                        </span>
-                      )}
+                        <span className="product-badge badge-premium">Premium</span>
+                      ) : null}
                       
-                      <div className="product-illustration" style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', minHeight: '120px' }}>
+                      <div className="product-illustration" style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', minHeight: '120px', ...(/^#[0-9a-f]{3,8}$/i.test(String(flavor.color || '')) ? { '--tone': flavor.color } : {}) }}>
                         {flavor.image ? (
                           <img 
                             src={preferWebp(flavor.image)} 
@@ -764,12 +749,12 @@ export default function CustomerShop({
                       <div className="product-info">
                         <div>
                           <h3>{flavor.name}</h3>
-                          <p className="product-desc">{flavor.description}</p>
+                          <p className="product-desc">{houseMoney(flavor.description)}</p>
                           <button type="button" className="product-quick-link" onClick={() => openQuickView('classic', flavor)}>Ver detalles →</button>
                         </div>
                         <div className="product-price-action">
                           <div className="price-tag">
-                            S/. {quickScoopItem(flavor, bases).price.toFixed(2)}
+                            S/ {quickScoopItem(flavor, bases).price.toFixed(2)}
                             <span> / bola</span>
                           </div>
                           {renderAddControl({ kind: 'classic', id: flavor.id, name: `helado de ${flavor.name}`, onAdd: () => handleAddClassicToCart(flavor) })}
@@ -790,7 +775,7 @@ export default function CustomerShop({
                   return (
                     <div key={pack.id} className="glass-card product-card">
                       <span className={`product-badge ${pack.badge ? badgeClass : 'badge-popular'}`}>
-                        {pack.badge || '🎉 Pack Ahorro'}
+                        {pack.badge || 'Pack ahorro'}
                       </span>
                       
                       <div className="product-illustration pack-illustration" style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', minHeight: '120px' }}>
@@ -805,26 +790,22 @@ export default function CustomerShop({
                             loading="lazy"
                           />
                         ) : (
-                          <PackIllustration pack={pack} />
+                          <PackPhoto pack={pack} />
                         )}
                       </div>
                       <div className="product-info">
                         <div>
                           <h3>{pack.name}</h3>
-                          <p className="product-desc">{pack.description}</p>
+                          <p className="product-desc">{houseMoney(pack.description)}</p>
                           <button type="button" className="product-quick-link" onClick={() => openQuickView('pack', pack)}>Ver detalles →</button>
-                          <p style={{ fontSize: '0.85rem', fontWeight: 600, color: 'var(--primary-color)', marginBottom: '15px' }}>
-                            📦 Incluye: {pack.items}
-                          </p>
+                          {pack.items && <p className="pack-includes"><strong>Incluye:</strong> {houseMoney(pack.items)}</p>}
                         </div>
                         <div className="product-price-action">
                           <div className="price-tag">
-                            S/. {Number(pack.price).toFixed(2)}
-                            <div style={{ fontSize: '0.75rem', color: 'var(--success)', fontWeight: 600 }}>
-                              {pack.discountText}
-                            </div>
+                            S/ {Number(pack.price).toFixed(2)}
+                            {pack.discountText && <div className="price-saving">{houseMoney(pack.discountText)}</div>}
                           </div>
-                          {renderAddControl({ kind: 'pack', id: pack.id, name: pack.name, onAdd: () => handleAddPackToCart(pack), idle: '+ Agregar pack', extraClass: ' add-btn-pack' })}
+                          {renderAddControl({ kind: 'pack', id: pack.id, name: pack.name, onAdd: () => handleAddPackToCart(pack), idle: 'Agregar', extraClass: ' add-btn-pack' })}
                         </div>
                       </div>
                     </div>
@@ -839,8 +820,11 @@ export default function CustomerShop({
     return (
       <div className="catalog-groups">
         {parts.filter(part => groupCounts[part.section] > 0).map(part => (
-          <section className="catalog-group" key={part.section} aria-label={groupTitles[part.section].replace(/^S+s/, '')}>
-            <h3 className="catalog-group-title">{groupTitles[part.section]} <span>{groupCounts[part.section]}</span></h3>
+          <section className="catalog-group" key={part.section} aria-labelledby={`catalog-group-${part.section}`}>
+            <div className="catalog-group-head">
+              <h3 className="catalog-group-title" id={`catalog-group-${part.section}`}><Icon name={groupIcons[part.section]} size={22} />{groupTitles[part.section]} <span>{groupCounts[part.section]}</span></h3>
+              {groupCounts[part.section] > 1 && <button type="button" className="catalog-group-more" onClick={() => setFilter(part.section)}>Ver {groupCounts[part.section]} <Icon name="arrow" size={16} /></button>}
+            </div>
             <div className="catalog-grid">{part.content}</div>
           </section>
         ))}
@@ -849,6 +833,15 @@ export default function CustomerShop({
   }, [tableNumber, catalogOrder, filter, literConfig, literMatches, catalogFlavors, catalogPacks, catalogPopsicles, setView, handleAddClassicToCart, handleAddPackToCart, handleAddPopsicleToCart, openQuickView, shopConfig, bases, renderAddControl]);
 
   const resolvedHeroImage = storeHeroImage || '/hero-friozo-v2.webp';
+  // The four guarantees: right under the hero on wide screens, after the favourites on phones.
+  const renderValueStrip = (variant) => (
+    <ul className={`value-strip ${variant}`} aria-label={`Por qué ${storeName || 'Friozo'}`}>
+      <li><Icon name="clock" size={24} /><div><strong>Hecho al momento</strong><span>Lo preparamos cuando lo pides</span></div></li>
+      <li><Icon name="sparkle" size={24} /><div><strong>Arma tu helado</strong><span>Base, bolas, toppings y salsas</span></div></li>
+      <li><Icon name="mountain" size={24} /><div><strong>Sabores peruanos</strong><span>Lúcuma, maracuyá y fruta de la zona</span></div></li>
+      <li><Icon name="scooter" size={24} /><div><strong>{shopConfig?.locationTrackingEnabled !== false ? 'Delivery o carrito' : 'Delivery'}</strong><span>{shopConfig?.locationTrackingEnabled !== false ? 'Te lo llevamos o búscanos cerca' : 'Te lo llevamos a tu puerta'}</span></div></li>
+    </ul>
+  );
 
   return (
     <div className="customer-shop">
@@ -863,7 +856,7 @@ export default function CustomerShop({
             border: '1px solid rgba(255, 64, 129, 0.25)',
             boxShadow: '0 15px 35px rgba(0,0,0,0.1)'
           }}>
-            <span style={{ fontSize: '3.5rem', display: 'block', marginBottom: '15px' }}>🍽️</span>
+            <span className="view-hero-icon" aria-hidden="true"><Icon name="table" size={32} /></span>
             <h2 style={{ fontSize: '1.5rem', color: 'var(--primary-color)', marginBottom: '10px' }}>Mesa Ocupada</h2>
             <p style={{ fontSize: '0.9rem', color: 'var(--text-light)', lineHeight: '1.5', marginBottom: '20px' }}>
               La <strong>Mesa {tableNumber}</strong> ya cuenta con un pedido activo en preparación o consumo.
@@ -886,7 +879,7 @@ export default function CustomerShop({
                   }
                 }}
               >
-                🔍 Rastrear mi pedido activo
+                <Icon name="search" size={18} /> Rastrear mi pedido activo
               </button>
               
               <button
@@ -898,7 +891,7 @@ export default function CustomerShop({
                   checkoutStorage.removeItem('helados_table_number');
                 }}
               >
-                🛍️ Ver carta para llevar / Recojo en barra
+                <Icon name="bag" size={18} /> Ver carta para llevar / Recojo en barra
               </button>
             </div>
           </div>
@@ -933,7 +926,7 @@ export default function CustomerShop({
                 if (activeId && setView) setView('tracker');
               }}
             >
-              🍦 Tienes un pedido activo para esta mesa. ¡Toca aquí para ver el seguimiento en tiempo real!
+              Tienes un pedido activo para esta mesa. ¡Toca aquí para ver el seguimiento en tiempo real!
             </div>
           )}
 
@@ -951,7 +944,7 @@ export default function CustomerShop({
               gap: '6px',
               marginBottom: '15px'
             }}>
-              🍽️ Pedido vinculado a la Mesa {tableNumber}
+              <Icon name="table" size={16} /> Pedido vinculado a la Mesa {tableNumber}
               <button 
                 type="button" 
                 onClick={() => {
@@ -976,25 +969,26 @@ export default function CustomerShop({
             Qué rico <span>caer en <br />la tentación.</span>
           </h1>
           <p className="hero-description">
-            En <strong>{storeName || 'FRIOZO'}</strong> eliges el sabor y nosotros lo hacemos al momento. Pide tu favorito o crea una mezcla solo tuya.
+            En <strong>{storeName || 'Friozo'}</strong> eliges el sabor y nosotros lo hacemos al momento. Pide tu favorito o crea una mezcla solo tuya.
           </p>
           <div className="hero-cta">
-            <button className="btn btn-primary hero-primary-cta" onClick={() => setView('customizer')}>
-              Quiero mi helado <span aria-hidden="true">→</span>
-            </button>
-            <a 
+            <a
               href="#catalog"
-              className="btn btn-secondary" 
+              className="btn btn-primary hero-primary-cta"
               onClick={(e) => {
                 e.preventDefault();
                 document.getElementById('catalog')?.scrollIntoView({ behavior: 'smooth' });
               }}
             >
-              Explorar la carta
+              Pedir ahora <Icon name="arrow" size={18} />
             </a>
+            <button type="button" className="btn btn-secondary" onClick={() => setView('customizer')}>
+              <Icon name="sparkle" size={18} /> Arma tu helado
+            </button>
           </div>
           <div className="hero-quick-links" aria-label="Acciones rápidas">
             <button 
+              type="button"
               className="hero-text-link whatsapp-link" 
               onClick={() => {
                 const waUrl = `https://wa.me/${String(storePhone || '51987654321').replace(/\D/g, '')}?text=${encodeURIComponent('¡Hola! Me gustaría hacer una consulta sobre los helados 🍦')}`;
@@ -1002,140 +996,45 @@ export default function CustomerShop({
                 if (waWindow) waWindow.opener = null;
               }}
             >
-              <svg viewBox="0 0 24 24" width="16" height="16" fill="currentColor" style={{ verticalAlign: 'middle' }}>
+              <svg viewBox="0 0 24 24" width="16" height="16" fill="currentColor" aria-hidden="true">
                 <path d="M.057 24l1.687-6.163c-1.041-1.804-1.588-3.849-1.587-5.946C.06 5.348 5.397.01 12.008.01c3.202.001 6.212 1.246 8.477 3.514 2.266 2.268 3.507 5.28 3.505 8.484-.004 6.657-5.34 11.997-11.953 11.997-2.005-.001-3.973-.502-5.724-1.455L0 24zm6.59-4.846c1.66.986 3.284 1.447 4.74 1.448 5.4 0 9.792-4.393 9.795-9.79.002-2.615-1.012-5.074-2.855-6.918C16.483 2.05 14.032.99 11.417.99c-5.402 0-9.794 4.393-9.797 9.79-.001 1.733.456 3.238 1.411 4.887L2.03 20.485l4.616-1.331zM16.518 14.1c-.266-.134-1.577-.777-1.821-.866-.245-.09-.423-.134-.6.134-.178.266-.689.866-.844 1.04-.155.178-.312.2-.578.066-.266-.134-1.124-.414-2.141-1.32-.79-.705-1.326-1.577-1.482-1.844-.155-.266-.017-.41.117-.543.12-.12.266-.312.4-.467.135-.156.18-.266.27-.444.09-.178.045-.334-.022-.467-.067-.134-.6-1.446-.823-1.979-.217-.523-.454-.452-.6-.452h-.51c-.178 0-.467.067-.71.334-.244.267-.933.912-.933 2.224 0 1.312.955 2.58 1.088 2.757.135.178 1.88 2.87 4.554 4.024.637.275 1.13.438 1.517.56.64.204 1.22.175 1.68.107.513-.075 1.577-.644 1.8-.1.223-.545.223-1.013.156-1.1zm-.058-.058v.058-.058z"/>
               </svg>
               <span>Preguntar por WhatsApp</span>
             </button>
             {shopConfig?.locationTrackingEnabled !== false && (
-              <button className="hero-text-link" onClick={() => setView('locations')}>
-                <span aria-hidden="true">📍</span> Ver carritos cercanos
+              <button type="button" className="hero-text-link" onClick={() => setView('locations')}>
+                <Icon name="pin" size={16} /> Ver carritos cercanos
               </button>
             )}
           </div>
-          <div className="hero-proof" aria-label="Beneficios de la tienda">
-            <div className="hero-proof-item">
-              <strong>{String(shopConfig.heroPriceText || '').trim() || `Desde S/. ${startingPrice}`}</strong>
-              <span>placer sin vueltas</span>
-            </div>
-            <div className="hero-proof-item">
-              <strong>Hecho para ti</strong>
-              <span>mezcla sin reglas</span>
-            </div>
-            <div className="hero-proof-item">
-              <strong>Pide desde aquí</strong>
-              <span>sigue tu pedido en vivo</span>
-            </div>
-          </div>
         </div>
         <div className="hero-image-container">
-          <div className="hero-circle-bg"></div>
-          <div className="hero-sticker hero-sticker-top" aria-hidden="true">
-            <strong>Artesanal</strong>
-            <span>A TU GUSTO</span>
-          </div>
+          <div className="hero-circle-bg" aria-hidden="true"></div>
           <div className="hero-graphic-premium">
-            {resolvedHeroImage ? (
-              <img 
-                src={resolvedHeroImage}
-                alt="Cono Friozo con tres bolas de helado artesanal, frutas y chocolate"
-                fetchPriority="high"
-                decoding="async"
-                style={{ 
-                  width: '100%', 
-                  height: 'auto', 
-                  maxHeight: '380px', 
-                  objectFit: 'contain',
-                  filter: 'drop-shadow(0 20px 35px rgba(255,107,129,0.25))' 
-                }} 
-              />
-            ) : (
-              <svg viewBox="0 0 200 240" width="100%" height="100%" style={{ display: 'block', maxHeight: '380px', filter: 'drop-shadow(0 20px 35px rgba(255,107,129,0.25))' }}>
-                <defs>
-                  <linearGradient id="coneGrad" x1="0" y1="0" x2="1" y2="1">
-                    <stop offset="0%" stopColor="#f3a683" />
-                    <stop offset="50%" stopColor="#e19e75" />
-                    <stop offset="100%" stopColor="#cf8a4f" />
-                  </linearGradient>
-                  <linearGradient id="chocolateGrad" x1="0" y1="0" x2="0" y2="1">
-                    <stop offset="0%" stopColor="#74451c" />
-                    <stop offset="100%" stopColor="#4e2c0e" />
-                  </linearGradient>
-                  <linearGradient id="strawberryGrad" x1="0" y1="0" x2="0" y2="1">
-                    <stop offset="0%" stopColor="#ff8a9a" />
-                    <stop offset="100%" stopColor="#ff4757" />
-                  </linearGradient>
-                  <linearGradient id="mangoGrad" x1="0" y1="0" x2="0" y2="1">
-                    <stop offset="0%" stopColor="#ffca28" />
-                    <stop offset="100%" stopColor="#ffa000" />
-                  </linearGradient>
-                  <linearGradient id="creamGrad" x1="0" y1="0" x2="0" y2="1">
-                    <stop offset="0%" stopColor="#ffffff" />
-                    <stop offset="100%" stopColor="#f1f2f6" />
-                  </linearGradient>
-                </defs>
-
-                <g opacity="0.6">
-                  <circle cx="20" cy="50" r="3" fill="#ff4757" />
-                  <circle cx="180" cy="90" r="4" fill="#ffa000" />
-                  <rect x="30" y="150" width="8" height="3" rx="1.5" fill="#2ecc71" transform="rotate(30 30 150)" />
-                  <rect x="170" y="40" width="10" height="4" rx="2" fill="#3498db" transform="rotate(-15 170 40)" />
-                </g>
-
-                {/* CONE */}
-                <path d="M 55 130 L 100 230 L 145 130 Z" fill="url(#coneGrad)" />
-                <path d="M 62 130 L 100 215 M 72 130 L 100 195 M 82 130 L 100 175 M 92 130 L 100 155" stroke="#7a4b1c" strokeWidth="1.2" opacity="0.25" strokeLinecap="round" />
-                <path d="M 138 130 L 100 215 M 128 130 L 100 195 M 118 130 L 100 175 M 108 130 L 100 155" stroke="#7a4b1c" strokeWidth="1.2" opacity="0.25" strokeLinecap="round" />
-                
-                {/* Chocolate Scoop */}
-                <circle cx="100" cy="125" r="38" fill="url(#chocolateGrad)" />
-                <path d="M 64 135 C 70 145, 80 145, 84 135 C 88 145, 96 148, 102 136 C 108 148, 116 148, 120 136 C 124 144, 134 142, 137 132" fill="url(#chocolateGrad)" />
-                
-                {/* Strawberry Scoop */}
-                <circle cx="85" cy="95" r="32" fill="url(#strawberryGrad)" />
-                <ellipse cx="78" cy="82" rx="8" ry="4" fill="#fff" opacity="0.35" transform="rotate(-20 78 82)" />
-                
-                {/* Mango Scoop */}
-                <circle cx="118" cy="92" r="30" fill="url(#mangoGrad)" />
-                <ellipse cx="112" cy="80" rx="7" ry="3" fill="#fff" opacity="0.35" transform="rotate(-15 112 80)" />
-
-                {/* Whipped Cream */}
-                <path d="M 75 75 Q 85 55 100 55 Q 115 55 125 75 Q 100 80 75 75 Z" fill="url(#creamGrad)" />
-                <path d="M 88 65 Q 100 40 100 40 Q 112 40 112 65 Z" fill="url(#creamGrad)" />
-                
-                {/* Syrup */}
-                <path d="M 85 55 Q 100 68 115 55" fill="none" stroke="#4e2c0e" strokeWidth="4" strokeLinecap="round" />
-                <path d="M 92 48 Q 100 58 108 48" fill="none" stroke="#4e2c0e" strokeWidth="4" strokeLinecap="round" />
-
-                {/* Cherry */}
-                <circle cx="100" cy="30" r="12" fill="#d63031" />
-                <circle cx="96" cy="26" r="3" fill="#fff" opacity="0.6" />
-                <path d="M 100 30 Q 112 15 125 10" fill="none" stroke="#2d3436" strokeWidth="2" strokeLinecap="round" />
-
-                {/* Sprinkles */}
-                <rect x="70" y="90" width="5" height="2" rx="1" fill="#fff" transform="rotate(45 70 90)" />
-                <rect x="85" y="105" width="5" height="2" rx="1" fill="#ffa000" transform="rotate(-30 85 105)" />
-                <rect x="75" y="102" width="5" height="2" rx="1" fill="#2ecc71" transform="rotate(15 75 102)" />
-                <rect x="120" y="92" width="5" height="2" rx="1" fill="#fff" transform="rotate(-15 120 92)" />
-                <rect x="110" y="100" width="5" height="2" rx="1" fill="#ff4757" transform="rotate(60 110 100)" />
-              </svg>
-            )}
+            <img 
+              src={resolvedHeroImage}
+              alt="Cono Friozo con tres bolas de helado artesanal, frutas y chocolate"
+              width="600"
+              height="600"
+              fetchPriority="high"
+              decoding="async"
+            />
           </div>
-          <div className="hero-sticker hero-sticker-bottom">
-            <span className="hero-sticker-icon" aria-hidden="true">✦</span>
-            <div>
-              <strong>Un poquito de felicidad.</strong>
-              <span>El toque final lo eliges tú</span>
-            </div>
+          <div className="hero-price-seal">
+            {String(shopConfig.heroPriceText || '').trim()
+              ? <strong>{String(shopConfig.heroPriceText).trim()}</strong>
+              : <><span>Desde</span><strong>S/ {startingPrice}</strong></>}
           </div>
         </div>
       </section>
 
+      {renderValueStrip('value-strip--wide')}
+
       {quickView && <div className="product-quick-backdrop" onClick={() => setQuickView(null)}>
         <div className="product-quick-dialog" role="dialog" aria-modal="true" aria-label={`Detalles de ${quickView.product.name}`} onClick={event => event.stopPropagation()}>
           <button type="button" className="product-quick-close" aria-label="Cerrar detalles" onClick={() => setQuickView(null)}>×</button>
-          <div className="product-quick-art">{quickView.product.image ? <img src={preferWebp(quickView.product.image)} alt={quickView.product.name} /> : quickView.kind === 'classic' ? <DessertPreview compact base={{ id: 'cono', name: 'Cono' }} scoops={[quickView.product]} /> : <span aria-hidden="true">{quickView.kind === 'pack' ? '🎁' : quickView.kind === 'popsicle' ? '🍭' : quickView.kind === 'liter' ? '🏺' : '🍦'}</span>}</div>
-          <div className="product-quick-copy"><h2>{quickView.product.name}</h2><p>{quickView.product.description || (quickView.kind === 'liter' ? 'Combina tus sabores favoritos en un pote para compartir.' : 'Preparado con el sabor de nuestra carta artesanal.')}</p>{quickView.kind === 'pack' && quickView.product.items && <p><strong>Incluye:</strong> {quickView.product.items}</p>}<strong className="product-quick-price">S/. {(quickView.kind === 'classic' ? quickScoopItem(quickView.product, bases).price : Number(quickView.product.price || 0)).toFixed(2)}</strong><button type="button" className="btn btn-primary" onClick={() => {
+          <div className="product-quick-art">{quickView.product.image ? <img src={preferWebp(quickView.product.image)} alt={quickView.product.name} /> : quickView.kind === 'classic' ? <DessertPreview compact base={{ id: 'cono', name: 'Cono' }} scoops={[quickView.product]} /> : quickView.kind === 'pack' ? <PackPhoto pack={quickView.product} /> : quickView.kind === 'liter' ? <LiterPhoto /> : <Icon name="popsicle" size={72} />}</div>
+          <div className="product-quick-copy"><h2>{quickView.product.name}</h2><p>{houseMoney(quickView.product.description) || (quickView.kind === 'liter' ? 'Combina tus sabores favoritos en un pote para compartir.' : 'Preparado con el sabor de nuestra carta artesanal.')}</p>{quickView.kind === 'pack' && quickView.product.items && <p><strong>Incluye:</strong> {houseMoney(quickView.product.items)}</p>}<strong className="product-quick-price">S/ {(quickView.kind === 'classic' ? quickScoopItem(quickView.product, bases).price : Number(quickView.product.price || 0)).toFixed(2)}</strong><button type="button" className="btn btn-primary" onClick={() => {
             if (quickView.kind === 'liter') setView('liter-customizer');
             else if (quickView.kind === 'pack') handleAddPackToCart(quickView.product);
             else if (quickView.kind === 'popsicle') handleAddPopsicleToCart(quickView.product);
@@ -1169,25 +1068,24 @@ export default function CustomerShop({
             <a href="#catalog" onClick={(event) => { event.preventDefault(); document.getElementById('catalog')?.scrollIntoView({ behavior: 'smooth' }); }}>Ver toda la carta <span aria-hidden="true">→</span></a>
           </div>
           <div className="featured-list">
-            {featuredProducts.map(({ kind, item, label, icon }) => {
+            {featuredProducts.map(({ kind, item }) => {
               const name = kind === 'liter' ? 'Helado familiar de 1 litro' : item.name;
               const price = kind === 'classic' ? quickScoopItem(item, bases).price : Number(item.price ?? (kind === 'liter' ? 15 : 0));
-              const image = item.image || (kind === 'liter' ? '/customizer/cup-eco.webp?v=2' : '');
+              const image = item.image || '';
               return (
                 <article className={`featured-card featured-card-${kind}`} key={`${kind}-${item.id || 'featured'}`}>
                   <div className="featured-card-copy">
-                    <span>{icon} {label}</span>
                     <h3>{name}</h3>
-                    <strong>S/. {price.toFixed(2)}</strong>
+                    <strong>S/ {price.toFixed(2)}</strong>
                     <button type="button" aria-label={kind === 'liter' ? 'Personalizar helado de 1 litro' : `Agregar ${name} al carrito`} onClick={() => {
                       if (kind === 'pack') handleAddPackToCart(item);
                       else if (kind === 'classic') handleAddClassicToCart(item);
                       else if (kind === 'popsicle') handleAddPopsicleToCart(item);
                       else setView('liter-customizer');
-                    }}>{kind === 'liter' ? 'Personalizar →' : addButtonLabel(kind, item.id)}</button>
+                    }}>{kind === 'liter' ? 'Personalizar' : addButtonLabel(kind, item.id)}</button>
                   </div>
                   <div className="featured-card-art" aria-hidden="true">
-                    {image ? <img src={preferWebp(image)} alt="" loading="lazy" decoding="async" /> : kind === 'classic' ? <DessertPreview compact base={{ id: 'cono', name: 'Cono' }} scoops={[item]} /> : <PackIllustration pack={item} />}
+                    {image ? <img src={preferWebp(image)} alt="" loading="lazy" decoding="async" /> : kind === 'classic' ? <DessertPreview compact base={{ id: 'cono', name: 'Cono' }} scoops={[item]} /> : kind === 'liter' ? <LiterPhoto /> : <PackPhoto pack={item} />}
                   </div>
                 </article>
               );
@@ -1196,19 +1094,12 @@ export default function CustomerShop({
         </section>
       )}
 
-      <div className="crave-marquee" aria-label="Beneficios de Friozo">
-        <div className="crave-marquee-track">
-          <span>HECHO AL MOMENTO</span><b>✦</b>
-          <span>MEZCLAS A TU GUSTO</span><b>✦</b>
-          <span>CHOCOLATE SIN TIMIDEZ</span><b>✦</b>
-          <span>UNA CUCHARADA MÁS</span><b>✦</b>
-        </div>
-      </div>
+      {renderValueStrip('value-strip--compact')}
 
       {/* BANNER DELIVERY GRATIS */}
       {!tableNumber && (
         <div className="delivery-banner">
-          <span className="delivery-banner-icon" aria-hidden="true">🚚</span>
+          <span className="delivery-banner-icon" aria-hidden="true"><Icon name="scooter" size={22} /></span>
           <div className="delivery-banner-copy">
             <strong>{deliveryMessage}</strong>
             {deliveryPrice > 0 && freeDeliveryEnabled && Number(freeDeliveryThreshold) > 0 && deliveryCampaignText && (
@@ -1260,7 +1151,7 @@ export default function CustomerShop({
                 onClick={() => setFilter('all')}
                 aria-pressed={filter === 'all'}
               >
-                🍨 Todo
+                <Icon name="store" size={17} /> Todo
               </button>
             )}
             {visibleCategories.includes('classic') && (
@@ -1269,7 +1160,7 @@ export default function CustomerShop({
                 onClick={() => setFilter('classic')}
                 aria-pressed={filter === 'classic'}
               >
-                🍦 Helados Simples
+                <Icon name="icecream" size={17} /> Helados
               </button>
             )}
             {visibleCategories.includes('popsicles') && (
@@ -1278,7 +1169,7 @@ export default function CustomerShop({
                 onClick={() => setFilter('popsicles')}
                 aria-pressed={filter === 'popsicles'}
               >
-                🍭 Paletas
+                <Icon name="popsicle" size={17} /> Paletas
               </button>
             )}
             {visibleCategories.includes('liter') && (
@@ -1287,7 +1178,7 @@ export default function CustomerShop({
                 onClick={() => setFilter('liter')}
                 aria-pressed={filter === 'liter'}
               >
-                🏺 Potes de Litro
+                <Icon name="pot" size={17} /> Litros
               </button>
             )}
             {visibleCategories.includes('packs') && (
@@ -1296,7 +1187,7 @@ export default function CustomerShop({
                 onClick={() => setFilter('packs')}
                 aria-pressed={filter === 'packs'}
               >
-                🎁 Packs Combos
+                <Icon name="gift" size={17} /> Packs
               </button>
             )}
           </div>
@@ -1321,7 +1212,7 @@ export default function CustomerShop({
           setWizardResult(null);
           setShowWizard(true);
         }}>
-          <span className="order-path-icon" aria-hidden="true">✨</span>
+          <span className="order-path-icon" aria-hidden="true"><Icon name="sparkle" size={26} /></span>
           <div className="order-path-guide-copy">
             <h3>Te encontramos la mezcla perfecta</h3>
             <p>Tres preguntas. Una recomendación peligrosamente rica.</p>
@@ -1338,18 +1229,18 @@ export default function CustomerShop({
           
           <div className="testimonials-grid">
             {testimonials.map((item, idx) => {
-              const stars = '⭐'.repeat(item.rating || 5);
+              const rating = Math.max(1, Math.min(5, Number(item.rating) || 5));
               const initials = item.initials || (item.name ? item.name.split(' ').map(n => n[0]).join('').substring(0, 2).toUpperCase() : 'U');
               const bgColor = item.color || 'var(--primary-color)';
               return (
                 <div key={item.id || idx} className="glass-card testimonial-card">
-                  <div className="testimonial-rating">{stars}</div>
+                  <div className="testimonial-rating" role="img" aria-label={`${rating} de 5 estrellas`}>{Array.from({ length: rating }, (_, i) => <Icon key={i} name="star" size={16} />)}</div>
                   <p className="testimonial-text">"{item.text}"</p>
                   <div className="testimonial-user">
                     <div className="testimonial-avatar" style={{ backgroundColor: bgColor }}>{initials}</div>
                     <div>
                       <h4 className="testimonial-name">{item.name}</h4>
-                      {item.verified === true && <span className="testimonial-badge">✓ Compra verificada</span>}
+                      {item.verified === true && <span className="testimonial-badge"><Icon name="check" size={14} /> Compra verificada</span>}
                     </div>
                   </div>
                 </div>
@@ -1364,7 +1255,7 @@ export default function CustomerShop({
         <div className="sabor-omatic-overlay">
           <div className="glass sabor-omatic-modal" role="dialog" aria-modal="true" aria-labelledby="sabor-omatic-title">
             <div className="sabor-omatic-header">
-              <h3 id="sabor-omatic-title">🧠 Guía de sabores</h3>
+              <h3 id="sabor-omatic-title">Guía de sabores</h3>
               <button className="sabor-omatic-close" onClick={() => setShowWizard(false)} aria-label="Cerrar guía">&times;</button>
             </div>
             <div className="sabor-omatic-body">
@@ -1388,7 +1279,7 @@ export default function CustomerShop({
                         setWizardStep(2);
                       }}
                     >
-                      <span className="sabor-omatic-option-emoji">🍫</span>
+                      <span className="sabor-omatic-option-emoji" aria-hidden="true"><Icon name="icecream" size={24} /></span>
                       <div className="sabor-omatic-option-text">
                         <div>Dulce y Cremoso</div>
                         <div style={{ fontSize: '0.75rem', fontWeight: 400, opacity: 0.8 }}>Chocolate, Vainilla, Lúcuma y más</div>
@@ -1401,7 +1292,7 @@ export default function CustomerShop({
                         setWizardStep(2);
                       }}
                     >
-                      <span className="sabor-omatic-option-emoji">🍓</span>
+                      <span className="sabor-omatic-option-emoji" aria-hidden="true"><Icon name="popsicle" size={24} /></span>
                       <div className="sabor-omatic-option-text">
                         <div>Fresco y Frutal</div>
                         <div style={{ fontSize: '0.75rem', fontWeight: 400, opacity: 0.8 }}>Fresa, Mango, Maracuyá, Limón...</div>
@@ -1423,7 +1314,7 @@ export default function CustomerShop({
                         setWizardStep(3);
                       }}
                     >
-                      <span className="sabor-omatic-option-emoji">🌟</span>
+                      <span className="sabor-omatic-option-emoji" aria-hidden="true"><Icon name="star" size={24} /></span>
                       <div className="sabor-omatic-option-text">
                         <div>¡Sí! Sorpréndeme con algo especial</div>
                         <div style={{ fontSize: '0.75rem', fontWeight: 400, opacity: 0.8 }}>Incluye nuestros sabores exclusivos</div>
@@ -1436,7 +1327,7 @@ export default function CustomerShop({
                         setWizardStep(3);
                       }}
                     >
-                      <span className="sabor-omatic-option-emoji">🍦</span>
+                      <span className="sabor-omatic-option-emoji" aria-hidden="true"><Icon name="icecream" size={24} /></span>
                       <div className="sabor-omatic-option-text">
                         <div>Solo clásicos de siempre</div>
                         <div style={{ fontSize: '0.75rem', fontWeight: 400, opacity: 0.8 }}>Los favoritos tradicionales</div>
@@ -1459,7 +1350,7 @@ export default function CustomerShop({
                         generateFlavorGuideCombination(answers);
                       }}
                     >
-                      <span className="sabor-omatic-option-emoji">🍪</span>
+                      <span className="sabor-omatic-option-emoji" aria-hidden="true"><Icon name="gift" size={24} /></span>
                       <div className="sabor-omatic-option-text">
                         <div>Galletas & Chocolates</div>
                         <div style={{ fontSize: '0.75rem', fontWeight: 400, opacity: 0.8 }}>Chispas, Oreos y trozos crocantes</div>
@@ -1473,7 +1364,7 @@ export default function CustomerShop({
                         generateFlavorGuideCombination(answers);
                       }}
                     >
-                      <span className="sabor-omatic-option-emoji">🍒</span>
+                      <span className="sabor-omatic-option-emoji" aria-hidden="true"><Icon name="sparkle" size={24} /></span>
                       <div className="sabor-omatic-option-text">
                         <div>Salsas & Frutos</div>
                         <div style={{ fontSize: '0.75rem', fontWeight: 400, opacity: 0.8 }}>Jarabes dulces y mermeladas</div>
@@ -1487,7 +1378,7 @@ export default function CustomerShop({
                         generateFlavorGuideCombination(answers);
                       }}
                     >
-                      <span className="sabor-omatic-option-emoji">🎉</span>
+                      <span className="sabor-omatic-option-emoji" aria-hidden="true"><Icon name="check" size={24} /></span>
                       <div className="sabor-omatic-option-text">
                         <div>¡Sorpréndeme con lo que sea!</div>
                         <div style={{ fontSize: '0.75rem', fontWeight: 400, opacity: 0.8 }}>Una combinación completamente aleatoria</div>
@@ -1502,7 +1393,7 @@ export default function CustomerShop({
                 <>
                   {isWizardLoading ? (
                     <div className="sabor-omatic-loading">
-                      <div className="som-spinner">🍦</div>
+                      <div className="som-spinner" aria-hidden="true"><Icon name="icecream" size={40} /></div>
                       <h4 style={{ fontFamily: 'var(--font-title)' }}>Cocinando tu helado ideal...</h4>
                       <p style={{ fontSize: '0.85rem', color: 'var(--text-light)', marginTop: '5px' }}>
                         Combinando bases, sabores y toppings seleccionados
@@ -1511,7 +1402,7 @@ export default function CustomerShop({
                   ) : wizardResult ? (
                       <div className="sabor-omatic-result">
                         <div className="sabor-omatic-result-card">
-                          <div className="sabor-omatic-result-title">✨ ¡Combinación Perfecta Lista! ✨</div>
+                          <div className="sabor-omatic-result-title">¡Combinación perfecta lista!</div>
                           <div className="sabor-omatic-result-details">
                             <p><strong>Base:</strong> {wizardResult.base.name}</p>
                             <p><strong>Sabores:</strong> {wizardResult.scoops.map(s => s.name).join(' y ')}</p>
@@ -1522,7 +1413,7 @@ export default function CustomerShop({
                             )}
                           </div>
                           <div className="sabor-omatic-result-price">
-                            Total: S/. {parseFloat(wizardResult.price).toFixed(2)}
+                            Total: S/ {parseFloat(wizardResult.price).toFixed(2)}
                           </div>
                         </div>
                         <div className="sabor-omatic-actions">
@@ -1542,7 +1433,7 @@ export default function CustomerShop({
                               if (handleAddToCartWrapped(customItem)) setShowWizard(false);
                             }}
                           >
-                            🛒 Comprar Helado
+                            <Icon name="bag" size={18} /> Comprar helado
                           </button>
                           <button 
                             className="btn btn-secondary" 
@@ -1552,7 +1443,7 @@ export default function CustomerShop({
                               setWizardResult(null);
                             }}
                           >
-                            🔁 Repetir
+                            Repetir
                           </button>
                         </div>
                       </div>
@@ -1573,7 +1464,7 @@ export default function CustomerShop({
       {/* TENDENCIAS EN VIVO TOAST (Prueba Social y FOMO sin geolocalización) */}
       {currentTrend && (
         <div className={`glass tendencias-toast ${isToastDismissing ? 'dismissing' : ''}`}>
-          <div className="tendencias-icon">{currentTrend.icon}</div>
+          <div className="tendencias-icon" aria-hidden="true"><Icon name={currentTrend.icon} size={26} /></div>
           <div className="tendencias-content">
             <div className="tendencias-title">{currentTrend.title}</div>
             <div className="tendencias-desc">{currentTrend.desc}</div>
@@ -1581,7 +1472,7 @@ export default function CustomerShop({
               className="tendencias-action-btn"
               onClick={() => handleTryTrend(currentTrend.item)}
             >
-              Probar este 🍦
+              Probar este
             </button>
           </div>
           <button className="tendencias-close" onClick={handleDismissToast}>&times;</button>
@@ -1596,7 +1487,7 @@ export default function CustomerShop({
             className={`waiter-call-btn ${myActiveCall ? 'active' : ''}`}
             title="Llamar al Mozo"
           >
-            {myActiveCall ? '🔔' : '🛎️'}
+            <Icon name="bell" size={26} />
           </button>
         </>
       )}
@@ -1628,7 +1519,7 @@ export default function CustomerShop({
             transform: 'scale(1)',
             transition: 'all 0.3s'
           }}>
-            <h3 style={{ margin: '0 0 8px 0', fontSize: '1.25rem', color: 'var(--primary-color)' }}>🛎️ Atención en Mesa {tableNumber}</h3>
+            <h3 style={{ margin: '0 0 8px 0', fontSize: '1.25rem', color: 'var(--primary-color)' }}>Atención en mesa {tableNumber}</h3>
             
             {myActiveCall ? (
               <div style={{ margin: '15px 0 0 0' }}>
@@ -1642,7 +1533,7 @@ export default function CustomerShop({
                   fontSize: '1.8rem',
                   margin: '0 auto 12px auto',
                   animation: 'pulse-glowing 1.5s infinite'
-                }}>🛎️</div>
+                }} aria-hidden="true"><Icon name="bell" size={28} /></div>
                 <p style={{ fontSize: '0.8rem', fontWeight: 'bold', margin: '0 0 4px 0', color: 'var(--text-light)' }}>Solicitud Activa:</p>
                 <p style={{ fontSize: '0.95rem', fontWeight: '600', margin: '0 0 12px 0', background: 'rgba(0,0,0,0.03)', padding: '8px', borderRadius: '8px' }}>
                   {myActiveCall.request}
@@ -1658,7 +1549,7 @@ export default function CustomerShop({
                     className="btn btn-secondary"
                     style={{ background: 'rgba(231, 76, 60, 0.08)', color: 'var(--danger)', border: '1px solid rgba(231, 76, 60, 0.15)', width: '100%', padding: '8px', fontSize: '0.8rem' }}
                   >
-                    {isCalling ? 'Cancelando...' : '❌ Cancelar Solicitud'}
+                    {isCalling ? 'Cancelando…' : 'Cancelar solicitud'}
                   </button>
                   <button
                     onClick={() => setShowCallModal(false)}
@@ -1677,30 +1568,30 @@ export default function CustomerShop({
 
                 <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
                   <button
-                    onClick={() => handleCallWaiter('🙋 Solicitar asistencia de mozo')}
+                    onClick={() => handleCallWaiter('Solicitar asistencia de mozo')}
                     disabled={isCalling}
                     className="btn btn-primary"
                     style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px', padding: '10px', fontSize: '0.85rem', width: '100%', background: 'linear-gradient(135deg, var(--primary-color), #ff6b8b)', border: 'none' }}
                   >
-                    <span>🙋</span> Solicitar Mozo
+                    <Icon name="users" size={20} /> Solicitar mozo
                   </button>
 
                   <button
-                    onClick={() => handleCallWaiter('🥄 Solicitar vasos / cubiertos / servilletas')}
+                    onClick={() => handleCallWaiter('Solicitar vasos / cubiertos / servilletas')}
                     disabled={isCalling}
                     className="btn btn-secondary"
                     style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px', padding: '10px', fontSize: '0.85rem', width: '100%' }}
                   >
-                    <span>🥄</span> Vasos y Cubiertos
+                    <Icon name="box" size={20} /> Vasos y cubiertos
                   </button>
 
                   <button
-                    onClick={() => handleCallWaiter('💵 Solicitar la cuenta')}
+                    onClick={() => handleCallWaiter('Solicitar la cuenta')}
                     disabled={isCalling}
                     className="btn btn-secondary"
                     style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px', padding: '10px', fontSize: '0.85rem', width: '100%' }}
                   >
-                    <span>💵</span> Pedir la Cuenta
+                    <Icon name="cash" size={20} /> Pedir la cuenta
                   </button>
 
                   <button

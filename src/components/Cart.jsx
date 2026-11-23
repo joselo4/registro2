@@ -1,4 +1,5 @@
 import { useState, useEffect, useRef } from 'react';
+import Icon from './Icon';
 import CartItemPreview from './CartItemPreview';
 import './checkout.css';
 import DessertPreview from './DessertPreview';
@@ -333,7 +334,7 @@ export default function Cart({
         return `${item.quantity}x ${item.name}${detailsText}`;
       }).join('\n');
 
-      const couponLine = appliedCoupon ? `\n*Cupón:* ${appliedCoupon.code} (-S/. ${discount.toFixed(2)})` : '';
+      const couponLine = appliedCoupon ? `\n*Cupón:* ${appliedCoupon.code} (-S/ ${discount.toFixed(2)})` : '';
       let destLine = `*Dirección:* ${finalAddress}`;
       if (orderType === 'Mesa') {
         destLine = `*Mesa:* ${activeMesaNumber} (Consumo Local)`;
@@ -346,7 +347,7 @@ export default function Cart({
       }
       const opCodeLine = sanitizedOpCode ? `\n*N° Operación (${paymentMethod}):* ${sanitizedOpCode}` : '';
       const trackerLink = `\n\n*Sigue tu pedido en vivo aquí:*\n${window.location.origin}${window.location.pathname}?track=${encodeURIComponent(orderId)}&token=${encodeURIComponent(newOrder.submissionKey)}`;
-      let whatsappMessage = `${whatsappGreeting}\n\n*Código:* ${orderId}\n*Cliente:* ${finalName}\n${destLine}\n*WhatsApp:* ${finalPhone}\n*Pago:* ${paymentMethod} · ${effectivePaymentTiming}${opCodeLine}\n\n*Pedido:*\n${itemsText}\n\n*Subtotal:* S/. ${cartSubtotal.toFixed(2)}${couponLine}\n*Delivery:* S/. ${activeDeliveryFee.toFixed(2)}\n*Total:* S/. ${total.toFixed(2)}${trackerLink}\n\n${whatsappFooter}`;
+      let whatsappMessage = `${whatsappGreeting}\n\n*Código:* ${orderId}\n*Cliente:* ${finalName}\n${destLine}\n*WhatsApp:* ${finalPhone}\n*Pago:* ${paymentMethod} · ${effectivePaymentTiming}${opCodeLine}\n\n*Pedido:*\n${itemsText}\n\n*Subtotal:* S/ ${cartSubtotal.toFixed(2)}${couponLine}\n*Delivery:* S/ ${activeDeliveryFee.toFixed(2)}\n*Total:* S/ ${total.toFixed(2)}${trackerLink}\n\n${whatsappFooter}`;
       
       let whatsappUrl = buildWhatsAppHref(storePhone, whatsappMessage);
 
@@ -482,14 +483,14 @@ export default function Cart({
       const scoopsText = (item.scoops || []).map(s => typeof s === 'string' ? s : s?.name).filter(Boolean).join(', ');
       return (
         <span style={{ fontSize: '0.8rem', color: 'var(--text-light)', display: 'block', marginTop: '4px' }}>
-          🏺 Pote de 1 Litro <br />
+          Pote de 1 litro <br />
           Sabores: {scoopsText}
         </span>
       );
     } else if (item.type === 'extra') {
       return (
         <span style={{ fontSize: '0.8rem', color: 'var(--text-light)', display: 'block', marginTop: '4px' }}>
-          Topping / Agregado especial 🍨
+          Topping o agregado especial
         </span>
       );
     }
@@ -506,7 +507,7 @@ export default function Cart({
           <h2 style={{ fontSize: '1.5rem' }}>Mi Carrito</h2>
         </div>
         <div className="cart-empty" style={{ textAlign: 'center', padding: '50px 20px', background: 'var(--bg-secondary)', borderRadius: '16px', border: '1px dashed var(--border-color)' }}>
-          <div style={{ fontSize: '3rem', marginBottom: '12px' }}>🛒</div>
+          <div className="view-hero-icon" aria-hidden="true"><Icon name="bag" size={32} /></div>
           <h3 style={{ fontSize: '1.25rem', marginBottom: '8px' }}>Tu carrito está vacío</h3>
           <p style={{ color: 'var(--text-light)', fontSize: '0.9rem', marginBottom: '20px' }}>
             Aún no has agregado ningún helado o producto a tu pedido.
@@ -540,34 +541,32 @@ export default function Cart({
           marginBottom: '16px',
           borderRadius: '14px',
           border: isFreeDelivery ? '2px solid var(--success)' : '1px solid var(--border-color)',
-          background: isFreeDelivery 
-            ? 'linear-gradient(135deg, rgba(46, 204, 113, 0.14) 0%, rgba(46, 204, 113, 0.04) 100%)' 
-            : 'linear-gradient(135deg, rgba(255, 107, 129, 0.08) 0%, rgba(255, 160, 0, 0.05) 100%)',
-          boxShadow: isFreeDelivery ? '0 4px 15px rgba(46, 204, 113, 0.15)' : 'none'
+          background: isFreeDelivery ? 'color-mix(in srgb, var(--success) 10%, var(--bg-secondary))' : 'var(--bg-secondary)',
+          boxShadow: 'none'
         }}>
           {isFreeDelivery ? (
             <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
-              <span style={{ fontSize: '2.2rem' }}>🎉</span>
+              <span className="view-hero-icon" style={{ margin: 0, width: '52px', height: '52px', flex: '0 0 auto' }} aria-hidden="true"><Icon name="check" size={26} /></span>
               <div>
                 <strong style={{ fontSize: '1rem', color: 'var(--success)', display: 'block' }}>
                   ¡Genial! Calificas para DELIVERY GRATIS
                 </strong>
                 <p style={{ fontSize: '0.8rem', color: 'var(--text-light)', marginTop: '2px', margin: 0 }}>
-                  Has superado los S/. {freeDeliveryThreshold.toFixed(2)}. ¡Tu envío corre por cuenta de la casa!
+                  Has superado los S/ {freeDeliveryThreshold.toFixed(2)}. ¡Tu envío corre por cuenta de la casa!
                 </p>
               </div>
             </div>
           ) : (
             <div>
               <div style={{ fontSize: '0.9rem', lineHeight: 1.4, color: 'var(--text-dark)' }}>
-                <span aria-hidden="true">🛵 </span>Te faltan <strong style={{ color: 'var(--primary-color)' }}>S/. {missingForFreeDelivery.toFixed(2)}</strong> para tu <strong>delivery gratis</strong>
-                <small style={{ display: 'block', color: 'var(--text-light)', fontSize: '0.75rem' }}>Gratis desde S/. {freeDeliveryThreshold.toFixed(2)}</small>
+                <Icon name="scooter" size={18} /> Te faltan <strong style={{ color: 'var(--primary-color)' }}>S/ {missingForFreeDelivery.toFixed(2)}</strong> para tu <strong>delivery gratis</strong>
+                <small style={{ display: 'block', color: 'var(--text-light)', fontSize: '0.75rem' }}>Gratis desde S/ {freeDeliveryThreshold.toFixed(2)}</small>
               </div>
 
               <div style={{
                 width: '100%',
                 height: '8px',
-                background: 'var(--border-color)',
+                background: 'color-mix(in srgb, var(--text-light) 18%, var(--bg-secondary))',
                 borderRadius: '6px',
                 marginTop: '8px',
                 overflow: 'hidden'
@@ -575,7 +574,7 @@ export default function Cart({
                 <div style={{
                   width: `${Math.min(100, (cartSubtotal / freeDeliveryThreshold) * 100)}%`,
                   height: '100%',
-                  background: 'linear-gradient(90deg, var(--primary-color), #ffa502)',
+                  background: 'var(--fz-berry, var(--primary-color))',
                   borderRadius: '6px',
                   transition: 'width 0.4s ease'
                 }}></div>
@@ -589,7 +588,7 @@ export default function Cart({
                     disabled={!shopOpen}
                     className="btn btn-primary free-delivery-closer"
                   >
-                    + {freeDeliveryCloser.label} · S/. {freeDeliveryCloser.item.price.toFixed(2)} <span>y tu delivery sale gratis</span>
+                    + {freeDeliveryCloser.label} · S/ {freeDeliveryCloser.item.price.toFixed(2)} <span>y tu delivery sale gratis</span>
                   </button>
                 ) : (
                   <button
@@ -598,7 +597,7 @@ export default function Cart({
                     className="btn btn-secondary"
                     style={{ padding: '6px 12px', fontSize: '0.75rem', flex: '1 1 120px' }}
                   >
-                    🎲 + Bola Sorpresa
+                    <Icon name="sparkle" size={18} /> Bola sorpresa
                   </button>
                 )}
               </div>
@@ -620,7 +619,7 @@ export default function Cart({
                   {renderItemDetails(item)}
                   {onEditItem && (item.type === 'custom' || item.type === 'liter') && (
                     <button type="button" className="cart-edit-btn" disabled={!shopOpen} onClick={() => onEditItem(index)} aria-label={`Editar ${item.name}`}>
-                      ✏️ Editar
+                      <Icon name="pencil" size={15} /> Editar
                     </button>
                   )}
                 </div>
@@ -633,8 +632,8 @@ export default function Cart({
                   <button className="qty-btn" aria-label={`Agregar una unidad de ${item.name}`} disabled={!shopOpen || item.quantity >= 99} onClick={() => shopOpen && onUpdateQuantity(index, item.quantity + 1)} style={{ width: '24px', height: '24px', fontSize: '0.8rem', opacity: (!shopOpen || item.quantity >= 99) ? 0.5 : 1, cursor: (!shopOpen || item.quantity >= 99) ? 'not-allowed' : 'pointer' }}>+</button>
                 </div>
                 <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                  <span style={{ fontWeight: 600, fontSize: '0.9rem' }}>S/. {(item.price * item.quantity).toFixed(2)}</span>
-                  <button className="remove-btn" aria-label={`Eliminar ${item.name}`} title={`Eliminar ${item.name}`} disabled={!shopOpen} onClick={() => shopOpen && onRemoveFromCart(index)} style={{ padding: '2px', fontSize: '0.9rem', opacity: !shopOpen ? 0.5 : 1, cursor: !shopOpen ? 'not-allowed' : 'pointer' }}>🗑️</button>
+                  <span style={{ fontWeight: 600, fontSize: '0.9rem' }}>S/ {(item.price * item.quantity).toFixed(2)}</span>
+                  <button className="remove-btn" aria-label={`Eliminar ${item.name}`} title={`Eliminar ${item.name}`} disabled={!shopOpen} onClick={() => shopOpen && onRemoveFromCart(index)} style={{ padding: '2px', fontSize: '0.9rem', opacity: !shopOpen ? 0.5 : 1, cursor: !shopOpen ? 'not-allowed' : 'pointer' }}><Icon name="trash" size={19} /></button>
                 </div>
               </div>
             </div>
@@ -642,17 +641,17 @@ export default function Cart({
 
           {/* Sugerencia de Venta Cruzada Dinámica */}
           {recommendedPack && (
-            <div className="glass-card" style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '10px 12px', background: 'linear-gradient(135deg, rgba(229, 142, 38, 0.04) 0%, rgba(255, 107, 129, 0.04) 100%)', border: '1px dashed var(--secondary-color)', borderRadius: 'var(--radius-md)' }}>
+            <div className="glass-card cart-pack-suggestion" style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '10px 12px', background: 'var(--bg-secondary)', border: '1px solid var(--border-color)', borderRadius: 'var(--radius-md)' }}>
               <div style={{ maxWidth: '75%' }}>
-                <strong style={{ fontSize: '0.8rem', display: 'block' }}>🎁 {recommendedPack.unlocksFreeDelivery ? 'Súmalo y tu delivery sale GRATIS' : 'Combo recomendado'}</strong>
+                <strong style={{ fontSize: '0.8rem', display: 'flex', alignItems: 'center', gap: '6px' }}><Icon name="gift" size={16} /> {recommendedPack.unlocksFreeDelivery ? 'Súmalo y tu delivery sale GRATIS' : 'Combo recomendado'}</strong>
                 <span style={{ fontSize: '0.7rem', color: 'var(--text-light)', display: 'block', marginTop: '2px' }}>
-                  {recommendedPack.name} por S/. {Number(recommendedPack.price).toFixed(2)}{recommendedPack.description ? ` (${recommendedPack.description})` : ''}.
+                  {recommendedPack.name} por S/ {Number(recommendedPack.price).toFixed(2)}{recommendedPack.description ? ` (${String(recommendedPack.description).replace(/S\/\.\s?/g, 'S/ ')})` : ''}.
                 </span>
               </div>
               <button 
                 onClick={handleAddSuggestedPack}
                 className="btn btn-secondary" 
-                style={{ padding: '4px 10px', fontSize: '0.7rem', color: 'var(--secondary-color)', borderColor: 'var(--secondary-color)' }}
+                style={{ minHeight: '40px', padding: '6px 16px', fontSize: '0.85rem', whiteSpace: 'nowrap' }}
               >
                 Sumar
               </button>
@@ -664,12 +663,12 @@ export default function Cart({
             padding: '12px',
             marginTop: '10px',
             borderRadius: 'var(--radius-md)',
-            background: 'linear-gradient(135deg, rgba(255, 107, 129, 0.05) 0%, rgba(255, 160, 0, 0.03) 100%)',
-            border: '1px solid rgba(255, 107, 129, 0.2)'
+            background: 'var(--bg-secondary)',
+            border: '1px solid var(--border-color)'
           }}>
             <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '8px' }}>
               <span style={{ fontSize: '0.82rem', fontWeight: 700, color: 'var(--text-dark)', display: 'flex', alignItems: 'center', gap: '5px' }}>
-                <span>🧁</span> Añade un toque especial a tu helado
+                <Icon name="sparkle" size={16} /> Añade un toque especial a tu helado
               </span>
               <span style={{ fontSize: '0.68rem', color: 'var(--text-light)' }}>1-toque</span>
             </div>
@@ -700,10 +699,9 @@ export default function Cart({
                     }}
                     title={`Agregar ${imp.name}`}
                   >
-                    <span>{imp.icon}</span>
                     <span>{imp.name}</span>
                     <strong style={{ color: 'var(--primary-color)', marginLeft: '2px' }}>
-                      +S/. {imp.price.toFixed(2)}
+                      +S/ {imp.price.toFixed(2)}
                     </strong>
                     {inCart && <span style={{ fontSize: '0.68rem', color: 'var(--success)', fontWeight: 700 }}>({inCart.quantity})</span>}
                   </button>
@@ -744,7 +742,7 @@ export default function Cart({
               textAlign: 'center',
               marginBottom: '10px'
             }}>
-              🔒 Lo sentimos, estamos fuera del horario de atención. El carrito se encuentra bloqueado y no se pueden enviar pedidos en este momento.
+              Lo sentimos, estamos fuera del horario de atención. El carrito se encuentra bloqueado y no se pueden enviar pedidos en este momento.
             </div>
           )}
           
@@ -762,7 +760,7 @@ export default function Cart({
                       style={{ flex: 1, padding: '8px', fontSize: '0.75rem', opacity: !shopOpen ? 0.5 : 1, cursor: !shopOpen ? 'not-allowed' : 'pointer' }}
                       disabled={!shopOpen}
                     >
-                      🍽️ Consumo en Mesa {tableNumber}
+                      <Icon name="table" size={16} /> Consumo en mesa {tableNumber}
                     </button>
                     <button
                       type="button"
@@ -771,14 +769,14 @@ export default function Cart({
                       style={{ flex: 1, padding: '8px', fontSize: '0.75rem', opacity: !shopOpen ? 0.5 : 1, cursor: !shopOpen ? 'not-allowed' : 'pointer' }}
                       disabled={!shopOpen}
                     >
-                      🛍️ Mesa {tableNumber}: Para Llevar
+                      <Icon name="bag" size={16} /> Mesa {tableNumber}: para llevar
                     </button>
                   </div>
                 ) : (
                   <div className="service-options">
-                    {channels.Mesa && tableOrdersEnabled && <button type="button" className={`payment-btn ${needsTable ? 'selected' : ''}`} aria-pressed={needsTable} onClick={() => setOrderType('Mesa')} disabled={!shopOpen}>🍽️ Mesa</button>}
-                    {channels.Barra && <button type="button" className={`payment-btn ${orderType === 'Barra' ? 'selected' : ''}`} aria-pressed={orderType === 'Barra'} onClick={() => setOrderType('Barra')} disabled={!shopOpen}>🛍️ Recojo en barra</button>}
-                    {channels.Delivery && <button type="button" className={`payment-btn ${orderType === 'Delivery' ? 'selected' : ''}`} aria-pressed={orderType === 'Delivery'} onClick={() => setOrderType('Delivery')} disabled={!shopOpen}>🛵 Delivery</button>}
+                    {channels.Mesa && tableOrdersEnabled && <button type="button" className={`payment-btn ${needsTable ? 'selected' : ''}`} aria-pressed={needsTable} onClick={() => setOrderType('Mesa')} disabled={!shopOpen}><Icon name="table" size={18} /> Mesa</button>}
+                    {channels.Barra && <button type="button" className={`payment-btn ${orderType === 'Barra' ? 'selected' : ''}`} aria-pressed={orderType === 'Barra'} onClick={() => setOrderType('Barra')} disabled={!shopOpen}><Icon name="bag" size={18} /> Recojo en barra</button>}
+                    {channels.Delivery && <button type="button" className={`payment-btn ${orderType === 'Delivery' ? 'selected' : ''}`} aria-pressed={orderType === 'Delivery'} onClick={() => setOrderType('Delivery')} disabled={!shopOpen}><Icon name="scooter" size={18} /> Delivery</button>}
                   </div>
                 )}
               </div>
@@ -849,7 +847,7 @@ export default function Cart({
                     textAlign: 'center',
                     marginTop: '4px'
                   }}>
-                    🍽️ Mesa {localTableNumber || tableNumber}
+                    <Icon name="table" size={16} /> Mesa {localTableNumber || tableNumber}
                   </div>
                 ) : (
                   <select
@@ -882,7 +880,7 @@ export default function Cart({
                 )}
                 {occupiedTables.includes(String(localTableNumber || tableNumber)) && (
                   <span style={{ color: 'var(--danger)', fontSize: '0.72rem', fontWeight: 'bold', display: 'block', marginTop: '4px' }}>
-                    ⚠️ Esta mesa tiene un pedido activo. Debe ser liberada por el mesero antes de volver a pedir.
+                    Esta mesa tiene un pedido activo. Debe ser liberada por el mesero antes de volver a pedir.
                   </span>
                 )}
               </div>
@@ -923,7 +921,7 @@ export default function Cart({
                 margin: '10px 0',
                 textAlign: 'left'
               }}>
-                📍 Recogerás tu pedido directamente en barra/caja una vez que esté listo.
+                <Icon name="pin" size={16} /> Recogerás tu pedido directamente en barra/caja una vez que esté listo.
               </div>
             )}
 
@@ -940,7 +938,7 @@ export default function Cart({
                     style={{ fontSize: '0.75rem', padding: '6px', opacity: !shopOpen ? 0.5 : 1, cursor: !shopOpen ? 'not-allowed' : 'pointer' }}
                     disabled={!shopOpen}
                   >
-                    {method === 'Yape' ? '📱 Yape' : method === 'Plin' ? '💸 Plin' : method === 'Efectivo' ? '💵 Efectivo' : method === 'Transferencia' ? '🏦 Transferencia' : '💳 Tarjeta'}
+                    <Icon name={method === 'Yape' || method === 'Plin' ? 'phone' : method === 'Efectivo' ? 'cash' : method === 'Transferencia' ? 'bank' : 'card'} size={18} /> {['Yape', 'Plin', 'Efectivo', 'Transferencia'].includes(method) ? method : 'Tarjeta'}
                   </button>
                 ))}
               </div>
@@ -949,10 +947,10 @@ export default function Cart({
               {isDigitalPayment && (
                 <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '6px', marginTop: '10px' }}>
                   <button type="button" className={`payment-btn ${paymentTiming === 'Al llegar' ? 'selected' : ''}`} aria-pressed={paymentTiming === 'Al llegar'} onClick={() => setPaymentTiming('Al llegar')}>
-                    🛵 Pagar al llegar
+                    <Icon name="scooter" size={18} /> Pagar al llegar
                   </button>
                   <button type="button" className={`payment-btn ${paymentTiming === 'Anticipado' ? 'selected' : ''}`} aria-pressed={paymentTiming === 'Anticipado'} onClick={() => setPaymentTiming('Anticipado')}>
-                    ✅ Pagar ahora
+                    <Icon name="check" size={18} /> Pagar ahora
                   </button>
                 </div>
               )}
@@ -971,7 +969,7 @@ export default function Cart({
               }}>
                 <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '8px' }}>
                   <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-                    <span style={{ fontSize: '1.2rem' }}>{paymentMethod === 'Yape' ? '📱' : '💸'}</span>
+                    <Icon name="phone" size={20} />
                     <strong style={{ fontSize: '0.85rem', color: paymentMethod === 'Yape' ? '#742284' : '#00a896' }}>
                       Paga con {paymentMethod} a:
                     </strong>
@@ -1017,14 +1015,14 @@ export default function Cart({
                       cursor: 'pointer'
                     }}
                   >
-                    {copiedPhone ? '✅ ¡Copiado!' : '📋 Copiar'}
+                    {copiedPhone ? '¡Copiado!' : 'Copiar'}
                   </button>
                 </div>
 
                 {showOpCodeField && (
                   <div>
                     <label style={{ fontSize: '0.78rem', fontWeight: 600, display: 'block', marginBottom: '4px' }}>
-                      🔢 N° de Operación {paymentMethod}{requireOpCode ? ' *' : ' (Opcional - Acelera tu pedido)'}:
+                      N° de operación {paymentMethod}{requireOpCode ? ' *' : ' (Opcional - Acelera tu pedido)'}:
                     </label>
                     <input
                       type="text"
@@ -1039,8 +1037,8 @@ export default function Cart({
                     />
                     <span style={{ fontSize: '0.68rem', color: 'var(--text-light)', display: 'block', marginTop: '3px' }}>
                       {requireOpCode
-                        ? '⚠️ Este campo es obligatorio para procesar tu pedido.'
-                        : '💡 Si aún no has pagado, puedes confirmarlo ahora y adjuntar la captura al WhatsApp.'}
+                        ? 'Este campo es obligatorio para procesar tu pedido.'
+                        : 'Si aún no has pagado, puedes confirmarlo ahora y adjuntar la captura al WhatsApp.'}
                     </span>
                   </div>
                 )}
@@ -1050,7 +1048,7 @@ export default function Cart({
             {/* Campo de Cupón de Descuento */}
             <div className="form-group coupon-disclosure">
               <button type="button" className="coupon-disclosure-toggle" aria-expanded={couponExpanded} aria-controls="coupon-disclosure-content" onClick={() => setCouponExpanded(value => !value)}>
-                🎟️ {appliedCoupon ? `Cupón ${appliedCoupon.code} aplicado` : '¿Tienes un cupón?'} <span aria-hidden="true">{couponExpanded ? '−' : '+'}</span>
+                <Icon name="ticket" size={17} /> {appliedCoupon ? `Cupón ${appliedCoupon.code} aplicado` : '¿Tienes un cupón?'} <span aria-hidden="true">{couponExpanded ? '−' : '+'}</span>
               </button>
               <div id="coupon-disclosure-content" className="coupon-disclosure-content" hidden={!couponExpanded}>
               {!appliedCoupon ? (
@@ -1079,7 +1077,7 @@ export default function Cart({
               ) : (
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', background: 'rgba(46, 204, 113, 0.1)', border: '1px solid rgba(46, 204, 113, 0.2)', padding: '6px 10px', borderRadius: '6px' }}>
                   <span style={{ fontSize: '0.75rem', fontWeight: 600, color: 'var(--success)' }}>
-                    🎟️ {appliedCoupon.code} ({appliedCoupon.description}) aplicado
+                    <Icon name="ticket" size={16} /> {appliedCoupon.code} ({appliedCoupon.description}) aplicado
                   </span>
                   <button
                     type="button"
@@ -1093,7 +1091,7 @@ export default function Cart({
               )}
               {couponError && (
                 <span style={{ color: 'var(--danger)', fontSize: '0.7rem', display: 'block', marginTop: '4px', fontWeight: 600 }}>
-                  ⚠️ {couponError}
+                  {couponError}
                 </span>
               )}
               </div>
@@ -1110,7 +1108,7 @@ export default function Cart({
                   className="whatsapp-toggle-checkbox"
                 />
                 <label htmlFor="whatsapp-redirect-checkbox" className="whatsapp-toggle-label">
-                  💬 Enviar y chatear por WhatsApp
+                  Enviar y chatear por WhatsApp
                 </label>
               </div>
             )}
@@ -1119,23 +1117,23 @@ export default function Cart({
             <div style={{ marginTop: '10px', fontSize: '0.8rem', borderTop: '1px solid var(--border-color)', paddingTop: '8px' }}>
               <div className="cart-summary-row" style={{ marginTop: '4px' }}>
                 <span>Subtotal:</span>
-                <span>S/. {cartSubtotal.toFixed(2)}</span>
+                <span>S/ {cartSubtotal.toFixed(2)}</span>
               </div>
               {discount > 0 && (
                 <div className="cart-summary-row" style={{ marginTop: '4px', color: 'var(--success)', fontWeight: 'bold' }}>
                   <span>Descuento ({appliedCoupon?.code}):</span>
-                  <span>- S/. {discount.toFixed(2)}</span>
+                  <span>- S/ {discount.toFixed(2)}</span>
                 </div>
               )}
               {!tableNumber && (
                 <div className="cart-summary-row" style={{ marginTop: '4px' }}>
                   <span>Envío:</span>
-                  <span>{isFreeDelivery ? <strong style={{ color: 'var(--success)' }}>GRATIS</strong> : `S/. ${activeDeliveryFee.toFixed(2)}`}</span>
+                  <span>{isFreeDelivery ? <strong style={{ color: 'var(--success)' }}>GRATIS</strong> : `S/ ${activeDeliveryFee.toFixed(2)}`}</span>
                 </div>
               )}
               <div className="cart-summary-total" style={{ fontSize: '1.05rem', marginTop: '6px', paddingTop: '6px' }}>
                 <span>Total:</span>
-                <span style={{ color: 'var(--primary-color)' }}>S/. {total.toFixed(2)}</span>
+                <span style={{ color: 'var(--primary-color)' }}>S/ {total.toFixed(2)}</span>
               </div>
             </div>
 
@@ -1158,7 +1156,7 @@ export default function Cart({
               disabled={isSubmitting || !shopOpen || !paymentMethod}
             >
               {!shopOpen ? (
-                '🔒 Tienda Cerrada (Fuera de Horario)'
+                'Tienda cerrada (fuera de horario)'
               ) : isSubmitting ? (
                 <>
                   <span aria-hidden="true">⏳</span>
@@ -1167,7 +1165,7 @@ export default function Cart({
               ) : !paymentMethod ? (
                 'Confirmar pedido'
               ) : (
-                `Confirmar pedido · S/. ${total.toFixed(2)}`
+                `Confirmar pedido · S/ ${total.toFixed(2)}`
               )}
             </button>
           </form>
@@ -1196,7 +1194,7 @@ export default function Cart({
             boxShadow: '0 30px 80px -10px rgba(0, 0, 0, 0.75)',
             border: '1.5px solid var(--border-color)'
           }}>
-            <div style={{ fontSize: '2.2rem', marginBottom: '8px' }}>🔍</div>
+            <div className="view-hero-icon" aria-hidden="true"><Icon name="search" size={30} /></div>
             <h3 style={{ fontSize: '1.4rem', color: 'var(--primary-color)', margin: '0 0 8px 0', fontFamily: 'var(--font-title)', fontWeight: 800 }}>
               Verifica tu diseño
             </h3>
@@ -1233,9 +1231,9 @@ export default function Cart({
                     borderRadius: '10px', 
                     border: '1px solid var(--border-color)' 
                   }}>
-                    <div><strong>🍨 Sabores:</strong> {item.scoops.map(s => typeof s === 'string' ? s : s.name).join(', ')}</div>
-                    {item.toppings.length > 0 && <div style={{ marginTop: '3px' }}><strong>✨ Toppings:</strong> {item.toppings.map(t => typeof t === 'string' ? t : t.name).join(', ')}</div>}
-                    {item.syrup && <div style={{ marginTop: '3px' }}><strong>🍫 Salsa:</strong> {item.syrup.name}</div>}
+                    <div><strong>Sabores:</strong> {item.scoops.map(s => typeof s === 'string' ? s : s.name).join(', ')}</div>
+                    {item.toppings.length > 0 && <div style={{ marginTop: '3px' }}><strong>Toppings:</strong> {item.toppings.map(t => typeof t === 'string' ? t : t.name).join(', ')}</div>}
+                    {item.syrup && <div style={{ marginTop: '3px' }}><strong>Salsa:</strong> {item.syrup.name}</div>}
                   </div>
                 </div>
               ))}
@@ -1262,8 +1260,8 @@ export default function Cart({
                 }}
                 disabled={isSubmitting}
               >
-                <span>✅ Sí, ¡es lo que quiero!</span>
-                <span style={{ opacity: 0.9 }}>• S/. {total.toFixed(2)}</span>
+                <span>Sí, ¡es lo que quiero!</span>
+                <span style={{ opacity: 0.9 }}>• S/ {total.toFixed(2)}</span>
               </button>
               <button 
                 type="button"
@@ -1278,7 +1276,7 @@ export default function Cart({
                   border: '1px solid var(--border-color)' 
                 }}
               >
-                ✏️ Corregir / Volver al carrito
+                <Icon name="pencil" size={16} /> Corregir / volver al carrito
               </button>
             </div>
           </div>

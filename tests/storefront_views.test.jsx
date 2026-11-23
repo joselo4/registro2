@@ -9,15 +9,15 @@ test('storefront uses the requested pink hero, ice cream image and purchase acti
   const html = renderToStaticMarkup(<CustomerShop {...shop} />);
   assert.ok(html.includes('Qué rico <span>caer en <br/>la tentación.</span>'));
   assert.ok(html.includes('src="/hero-friozo-v2.webp"'));
-  assert.ok(html.includes('Quiero mi helado'));
-  assert.ok(html.includes('Explorar la carta'));
-  assert.ok(html.includes('hero-proof'));
-  assert.ok(html.includes('crave-marquee'));
+  assert.ok(html.includes('Pedir ahora'));
+  assert.ok(html.includes('Arma tu helado'));
+  assert.ok(html.includes('hero-price-seal'));
+  assert.ok(html.includes('value-strip'));
 });
 test('storefront shows the delivery offer once and hides it for tables', () => {
   const deliveryShop = renderToStaticMarkup(<CustomerShop {...shop} deliveryFee={4} freeDeliveryThreshold={10} freeDeliveryEnabled />);
   assert.equal((deliveryShop.match(/class="delivery-banner"/g) || []).length, 1);
-  assert.equal((deliveryShop.match(/Delivery S\/. 4\.00 · Gratis desde S\/. 10\.00/g) || []).length, 1);
+  assert.equal((deliveryShop.match(/Delivery S\/ 4\.00 · Gratis desde S\/ 10\.00/g) || []).length, 1);
   assert.ok(!deliveryShop.includes('catalog-delivery-note'));
   const tableShop = renderToStaticMarkup(<CustomerShop {...shop} deliveryFee={4} tableNumber="2" />);
   assert.ok(!tableShop.includes('delivery-banner'));
@@ -42,5 +42,5 @@ test('old custom items tolerate missing optional details and quantities have acc
   const html = renderToStaticMarkup(<Cart cart={[{ type: 'custom', name: 'Helado', price: 3, quantity: 99 }]} />);
   assert.ok(html.includes('Eliminar Helado'));
   assert.match(html, /aria-label="Agregar una unidad de Helado"[^>]*disabled/);
-  assert.ok(html.includes('Confirmar pedido · S/. 297.00'));
+  assert.ok(html.includes('Confirmar pedido · S/ 297.00'));
 });
